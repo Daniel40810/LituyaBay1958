@@ -1,7 +1,8 @@
 /build/
 /db/info/
 /dist/
-/docs/
+/docs/*
+!/docs/claude/
 /templates/
 /lib/Renderer.jar
 <<<<<<< HEAD
