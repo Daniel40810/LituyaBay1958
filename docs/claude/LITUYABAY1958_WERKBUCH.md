@@ -2,7 +2,7 @@
 
 **Das Projekt der Riesenwelle und des Netzes.** Lituya Bay, Alaska, 9. Juli 1958, 22:16 Uhr Ortszeit.
 
-> **Stand: 01.11.2026. Fragen F1–F43 beantwortet: alle A (Entscheidung vom 01.11.2026, Abschnitt 16). Phase 0b (Recherche) ist der nächste Schritt; Phase 1 wartet auf die Freigabe.**
+> **Stand: 01.11.2026. Fragen F1–F43 beantwortet: alle A (Entscheidung vom 01.11.2026, Abschnitt 16). Phase 1 (Gerüst) erledigt; Phase 0b (Recherche) und Phase 2 (Aufbereitung) sind die nächsten Schritte.**
 > Erstellt aus `docs/claude/LITUYABAY1958_WERKBUCH_PROMPT.md`. Das Werkbuch wird über das ganze Projekt fortgeschrieben (Abschnitt 19). Jede Zahl ist **belegt** (Quelle in Abschnitt 2.9), **gemessen** (aus den Daten in `download/`), **gerechnet** (hier hergeleitet, Formel in Abschnitt 9) oder **gestaltet [G]**. Was noch keine Quelle hat, trägt **[zu prüfen]**.
 >
 > Vorlage: Sylt Werkbuch (Projekt der Brandung) und Timmendorf (Projekt des Segels). Geschwisterdateien: `Kartenmaterial.md` (48 Quellen), `download/INVENTAR.md` (zweiter Lauf: 1 227 Dateien, 13,5 GB), `geodaten/gebiete.geojson`, `geodaten/namen_szene.geojson`.
@@ -77,7 +77,7 @@ Drei Säulen, gleichrangig:
 | Zerstörter Wald | rund 10 km² zwischen Spurlinie und Hochwasserlinie; bei Fish Lake 1 100 m landeinwärts | belegt | FRITZ01 |
 | Gletscherfront | bis 400 m Eis abgeschert, Deltas fortgeschoben; danach senkrechte Wand quer zum Inlet | belegt | FRITZ01 |
 | Bucht | Stamm 12 km, 1,2–3,3 km breit, Eingang 300 m, Tiefe bis 220 m, Eingang 10 m; U-Trog | belegt | FRITZ01 |
-| Sonne zur Bebenzeit | 1° unter dem Horizont, ≈ 12 min nach Sonnenuntergang (22:04); bürgerliche Dämmerung, Himmel hell | gerechnet | Abschnitt 9.10 |
+| Sonne zur Bebenzeit | 1° unter dem Horizont, 2 min nach Sonnenuntergang (22:14; der Entwurf nannte 22:04, in Phase 1 nachgerechnet mit `scene.Sun`, Prüfung 2.1); bürgerliche Dämmerung, Himmel hell; tiefster Stand der Nacht −9° | gerechnet | Abschnitt 9.10 |
 | Tide zur Bebenzeit | [zu prüfen] aus `download/klima/gezeiten/gezeiten_lituya_juli1958.json` | gemessen (Vorausberechnung) | COOPS |
 | Wetter | [zu prüfen] aus ERA5 (`--gross`) und Zeugen; Zeugen berichten ruhige See [zu prüfen] | | ERA5, MILLER60 |
 
@@ -760,7 +760,7 @@ Sequence + Trigger, nie IDENTITY; SRID 26908, Sichten in 4326.
 |---|---|---|---|
 | 0 | L | **erledigt:** Gebiete, Kartenmaterial (48 Quellen), `tools/kartenmaterial`; Werkbuch-Prompt; dieses Werkbuch | `Kartenmaterial.md`, `INVENTAR.md` (zweiter Lauf 1 227 Dateien, 13,5 GB) |
 | 0b | L | Recherche 2.1–2.7 vervollständigen (Miller S. 51–86 lesen, Zeugen, Boote, Tide, Zeitzone), Texturquellen und Lizenzen, `docs/QUELLEN.md` anlegen | alle [zu prüfen] in Abschnitt 2 und 9 aufgelöst oder als [G] erklärt |
-| 1 | L | Grundgerüst: FFrame, GL-Engine aus Timmendorf, Kamera, HUD, `wiring`, Startbild mit DB-Anmeldung, `sdonm.jar`, `lib/lod/`, Git | leere Szene mit Horizont |
+| 1 | L | **erledigt:** Grundgerüst: FFrame, GL-Engine aus Timmendorf, Kamera, HUD, `wiring`, Startbild mit DB-Anmeldung, `sdonm.jar`, `lib/lod/`, Git | leere Szene mit Horizont |
 | 2 | L | Aufbereitung nach 3.4 | Prüfbilder; **Start mit umbenanntem `download/`** |
 | 3 | D | Schema, Rechte, **NDM-Funktionsprobe (2.8)**, Ladeskripte, `LB_NET_HERKUNFT` | Tabelle 2.8 gefüllt, `VALIDATE_NETWORK` grün |
 | 4 | R | `clipmap` | Demo Lidar bis zum Horizont, Nahtprüfung, Zeit je Bild |
@@ -941,7 +941,8 @@ Fragenblock II (Oberfläche, Datenbank) kommt in Phase 19 und wird hier als 16.3
 |---|---|---|---|---|
 | 01.11.2026 | 0 | Gebiete festgelegt; Kartenmaterial-Werkzeug mit 48 Quellen; erster Lauf 1 170 Dateien, zweiter Lauf 1 227 Dateien (13,5 GB); Fehler berichtigt (Fortsetzen, Verzeichnisse, ENC-Katalog, USGS-Publikationen); Werkbuch-Prompt; **dieses Werkbuch als Entwurf** | `images/Gebiete_Szene.jpg`, `images/Gebiete_Fern.jpg`, `images/Kern_BlueTopo.png` | — |
 | 01.11.2026 | — | **Fragen F1–F43 beantwortet: alle A** (Abschnitt 16.1) | | |
+| 01.11.2026 | 1 | **Gerüst** (Freigabe „Phase1, los“): `com.dan.lituya` mit `app`, `camera`, `gl`, `scene`, `wiring`, `ui`, `data`, `netz`, `tools`; GL-Engine aus Timmendorf entschlackt (Himmel, Wasser mit Erdkrümmung bis zur Kimm, Nachbearbeitung, HUD; Zeitmessung je Durchgang, Qualitätsstufen, Foto, Shader neu laden, Physik-Faden, Kino als Anschluss); Raum UTM 8 N mit Ursprung E 352 000, N 6 503 000 [G]; Gebiete und 25 Orte aus GNIS als Marken, der Sporn [G]; drei Uhren (Ortszeit `America/Juneau`: 1958 PST = UTC−8, Simulationszeit ab 06:16 UTC, Zeitstand vor/Welle/danach/heute); neun Ansichten; Startbild mit Anmeldung; Bedienfeld mit allen Blöcken aus 12; `lib/sdonm.jar`, `lib/lod/` mit Klassenlader `netz.Lod` und `ant lod`; `ant pruefung` (64 Prüfungen, alles in Ordnung), `ant statusbild`, `check-packages`. Befunde: Sonnenuntergang 22:14 statt 22:04 (2.1 berichtigt); Sichtstrahl und Schnitt mit der gekrümmten Wasserfläche in float neu gelöst (aus 1,9 km Höhe zitterten Raster und Marken); `db/db.properties` aus Git genommen | `docs/status/Vorschau_Phase1_Mesa.png` (Mesa, ohne HUD); `Status_Phase1.png` mit `ant statusbild` auf der Radeon | Stand 31.10.2026, 55,7 MB, unverändert |
 | | 0b | nächster Schritt: Recherche vervollständigen (Miller S. 51–86, Zeugen, Boote, Tide, Zeitzone), Texturquellen und Lizenzen, `docs/QUELLEN.md` | | |
-| | 1 | wartet auf die Freigabe | | |
+| | 2 | danach: Aufbereitung nach 3.4 | | |
 
-**Nächster Schritt:** Phase 0b (Recherche, ohne Code) und danach die Freigabe von Phase 1. Bis dahin kein Code.
+**Nächster Schritt:** Phase 0b (Recherche, ohne Code), dann Phase 2 (Aufbereitung). Offen aus Phase 1: Statusbild auf der Radeon (`ant statusbild`), Treiber 21 nach `lib/lod/` (`ant lod`), Schemaname (F40 A sagt `LITUYA`, angelegt ist der Benutzer `LituyaBay1958`; entscheidet Phase 3).
