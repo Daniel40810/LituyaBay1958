@@ -106,7 +106,7 @@ public final class NetzDb {
             }
             p.executeBatch();
         }
-        try (PreparedStatement p = c.prepareStatement("INSERT INTO " + NETZ + "_LINK$ (LINK_ID, START_NODE_ID, END_NODE_ID, LINK_NAME, ACTIVE, COST, ART) VALUES (?, ?, ?, ?, 'Y', 1, ?)")) {
+        try (PreparedStatement p = c.prepareStatement("INSERT INTO " + NETZ + "_LINK$ (LINK_ID, START_NODE_ID, END_NODE_ID, LINK_NAME, ACTIVE, COST, LINK_LEVEL, ART) VALUES (?, ?, ?, ?, 'Y', 1, 1, ?)")) {
             int n = 0;
             for (Herkunft.Kante x : h.kantenListe()) {
                 p.setInt(1, x.id());

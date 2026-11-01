@@ -18,8 +18,8 @@ BEGIN
     idx('CREATE INDEX LB_NET_HERKUNFT_NODE_A ON LB_NET_HERKUNFT_NODE$ (ART)');
 END;
 /
--- Partitionen. Befund Phase 3: SDO_NET.LOGICAL_PARTITION bricht auf 21c bei LB_NET_HERKUNFT mit ORA-06502 in
--- MDSYS.SDO_NET ab. Darum: erst mit 5000, dann mit 1000 Knoten je Partition versuchen; geht beides nicht, eine
+-- Partitionen. Befund Phase 3: SDO_NET.LOGICAL_PARTITION brach mit ORA-06502 in MDSYS.SDO_NET ab, solange
+-- LINK_LEVEL in LINK$ leer war (NetzDb setzt jetzt 1). Darum: erst mit 5000, dann mit 1000 Knoten je Partition versuchen; geht beides nicht, eine
 -- Partition von Hand (alle Knoten in Partition 1; bei unter 5000 Knoten wäre das auch das Ergebnis von
 -- LOGICAL_PARTITION). Was gelaufen ist, steht in LB_NDM_PROBE unter Nr 23.
 DECLARE
