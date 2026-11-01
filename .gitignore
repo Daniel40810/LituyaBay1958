@@ -5,13 +5,9 @@
 !/docs/claude/
 /templates/
 /lib/Renderer.jar
-<<<<<<< HEAD
-/db/db.properties
-=======
 /db/db.properties
 # Kartenmaterial (tools/kartenmaterial), nur das Inventar wird mitgefuehrt
 /download/*
 !/download/INVENTAR.md
 __pycache__/
 *.pyc
->>>>>>> 1f437c406de7b88b1deb7c4c62ffedcbd8e91829
