@@ -28,9 +28,10 @@ import java.util.zip.GZIPInputStream;
  * </ul>
  * Höhenbezug: Die Lotungen beziehen sich auf MLLW. Die Bezugshöhen der Station Elfin Cove
  * ({@code klima/gezeiten/bezugshoehen_elfin_cove.json}) geben MLLW 1,747 m unter MSL, nennen aber keinen Wert für NAVD88.
- * Darum gilt NAVD88 ≈ MSL [G], Höhe = −Tiefe − (MSL − MLLW); den Rest misst die Aufbereitung an BlueTopo (NAVD88) in den
- * tiefen Teilen der Bucht, wo sich der Grund 1959 bis heute wenig verändert haben sollte, und schreibt ihn ins Protokoll
- * und nach {@code grund/GRUND.txt}.
+ * Befund des Volllaufs (Phase 2): In den tiefen Teilen der Bucht ist BlueTopo genau die Vermessung von 1940 – 25 602 Zellen
+ * weichen alle um −0,59 m ab (5–95 % −0,6 bis −0,6 m). BlueTopo hat sie mit VDatum (GEOID17B) nach NAVD88 gebracht; damit
+ * liegt MLLW in der Bucht {@link #MLLW_UNTER_NAVD88} = 1,747 − 0,590 = 1,157 m unter NAVD88 (gemessen). Dieser Wert gilt
+ * jetzt für alle Vermessungen; Elfin Cove steht nur noch im Protokoll.
  */
 public final class Grund {
     private Grund() { }
@@ -39,6 +40,8 @@ public final class Grund {
     /** Längste Kante der Delaunay-Dreiecke, die noch gefüllt wird (m) [G]. */
     public static final double MAX_KANTE = 600;
     /** Die Vermessungen je Jahr. */
+    /** MLLW unter NAVD88 in der Bucht (m), gemessen an BlueTopo über den Lotungen von 1940 (VDatum, GEOID17B). */
+    public static final double MLLW_UNTER_NAVD88 = 1.157;
     public static final String[][] JAHRE = {{"1926", "H04608", "H04648"}, {"1940", "H06581", "H06582", "H06583"}, {"1959", "H08492"}};
 
     public static void rechnen(Rohdaten r) throws Exception {
@@ -63,9 +66,9 @@ public final class Grund {
         txt.append(gitterText("heute_4m", g)).append(String.format(Locale.ROOT, "heute_4m.wasser_km2=%.1f%n", nw * ZELLE_HEUTE * ZELLE_HEUTE / 1e6));
         r.log("  grund heute: %d×%d zu %.0f m, Wasser %.1f km² (Bucht und Meer im Kern)", g.w(), g.h(), ZELLE_HEUTE, nw * 16 / 1e6);
         // MLLW → NAVD88
-        double mllw = mllwUnterMsl(r);
-        txt.append(String.format(Locale.ROOT, "mllw_unter_navd88=%.3f  # aus Elfin Cove MSL - MLLW, NAVD88 = MSL [G]%n", mllw));
-        r.log("  grund: MLLW %.3f m unter MSL (Elfin Cove), NAVD88 ≈ MSL [G]", mllw);
+        double msl = mllwUnterMsl(r), mllw = MLLW_UNTER_NAVD88;
+        txt.append(String.format(Locale.ROOT, "mllw_unter_navd88=%.3f  # gemessen: BlueTopo (VDatum) ueber den Lotungen 1940; Elfin Cove MSL - MLLW = %.3f%n", mllw, msl));
+        r.log("  grund: MLLW %.3f m unter NAVD88 (gemessen an BlueTopo/VDatum über 1940); Elfin Cove: MLLW %.3f m unter MSL", mllw, msl);
         Gitter gl = Gitter.ueber(Site.KERN, ZELLE_LOT);
         for (String[] jahr : JAHRE) {
             List<double[]> p = new ArrayList<>();
