@@ -68,9 +68,12 @@ public final class Isochronenbild {
     }
 
     /** Grund 1940: heute, wo 1940 Lotungen hat deren Fläche. */
-    public static float[] mit1940(float[] heute, File daten) throws IOException {
-        float[] g = Stufe.lesen(new File(daten, "grund/1940_20m.r32"));
-        if (g == null) throw new IOException("daten/grund/1940_20m.r32 fehlt");
+    public static float[] mit1940(float[] heute, File daten) throws IOException { return mitLotung(heute, daten, "1940_20m.r32"); }
+
+    /** Grund heute, überschrieben mit der Fläche einer Vermessung (1926, 1940, 1959), wo sie Lotungen hat. */
+    public static float[] mitLotung(float[] heute, File daten, String datei) throws IOException {
+        float[] g = Stufe.lesen(new File(daten, "grund/" + datei));
+        if (g == null) throw new IOException("daten/grund/" + datei + " fehlt");
         float[] out = heute.clone();
         for (int k = 0; k < out.length; k++) if (Float.isFinite(g[k])) out[k] = g[k];
         return out;

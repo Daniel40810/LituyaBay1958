@@ -341,6 +341,43 @@ public final class Pruefung {
             }
         }
 
+        teil("Netze der Welle und des Ufers (Phase 7a): daten/netz/welle und daten/netz/ufer");
+        {
+            File wd = new File(daten, com.dan.lituya.scene.WellenNetz.ORDNER), ud = new File(daten, com.dan.lituya.scene.UferNetz.ORDNER);
+            if (!new File(wd, "kanten.tsv").isFile() || !new File(ud, "punkte.tsv").isFile()) hinweis("daten/netz/welle oder ufer fehlt: ant aufbereitung \"-Dschritte=welle,ufer\"");
+            else {
+                com.dan.lituya.scene.WellenNetz wn = com.dan.lituya.scene.WellenNetz.lesen(daten);
+                String summe = com.dan.lituya.scene.WellenNetz.pruefsumme(wd);
+                check(wn.n > 60_000 && wn.n < 95_000 && wn.quelle == wn.n + 1 && wn.text.contains("pruefsumme=" + summe),
+                        f("LB_NET_WELLE als Datei: %,d Knoten (F21: ≈ 75 000) und QUELLE, %,d Kanten, Prüfsumme in WELLE.txt passt", wn.n, wn.kanten));
+                // Dijkstra über die Kanten der Datei (T_HEUTE) gegen ankunft.tsv: Netz und Ankunft gehören zusammen
+                com.dan.lituya.tools.WelleDb.Kanten kt = com.dan.lituya.tools.WelleDb.Kanten.lesen(wd);
+                double[] t = dijkstra(wn.quelle, kt.von, kt.nach, kt.kosten[0], kt.id);
+                double gr = 0;
+                int fehlt = 0;
+                for (int i = 0; i < wn.n; i++) {
+                    double ta = wn.ankunft[0][i], tb = t[i + 1];
+                    if (Double.isNaN(ta) != Double.isInfinite(tb)) fehlt++; else if (!Double.isNaN(ta)) gr = Math.max(gr, Math.abs(ta - tb));
+                }
+                check(fehlt == 0 && gr <= 0.01, f("Ankunft heute linear aus den Kanten nachgerechnet: größte Abweichung %.4f s, %d ohne Gegenstück", gr, fehlt));
+                double ein = wn.ankunftBei(0, Site.CHAUSSEE.e(), Site.CHAUSSEE.n(), 400), ein40 = wn.ankunftBei(1, Site.CHAUSSEE.e(), Site.CHAUSSEE.n(), 400),
+                        einN = wn.ankunftBei(3, Site.CHAUSSEE.e(), Site.CHAUSSEE.n(), 400);
+                check(ein > 280 && ein < 420 && einN < ein && Math.abs(ein40 - ein) < 30,
+                        f("Front am Eingang: heute %.0f s, 1940 %.0f s, nichtlinear %.0f s (Handwert 350 / 300 s, 9.5)", ein, ein40, einN));
+                com.dan.lituya.scene.UferNetz u = com.dan.lituya.scene.UferNetz.lesen(daten);
+                com.dan.lituya.scene.UferNetz.Strang s1 = u.straenge.get(1);
+                double[] a0 = s1.en();
+                boolean start = Math.hypot(a0[0] - Site.CHAUSSEE.e(), a0[1] - Site.CHAUSSEE.n()) < 600;
+                double grL = 0;
+                for (com.dan.lituya.scene.UferNetz.Auflauf x : u.auflauf) {
+                    double[] p = u.punkt(x.strang(), x.m());
+                    grL = Math.max(grL, Math.hypot(p[0] - x.e(), p[1] - x.n()));
+                }
+                check(s1.laenge() > 25_000 && s1.laenge() < 60_000 && start && u.straenge.size() == 2 && u.straenge.get(2).ring() && grL < 0.05,
+                        f("LB_NET_UFER als Datei: %s; Ufer beginnt an La Chaussee Spit, Aufläufe aus ihrem Maß auf %.3f m", u, grL));
+            }
+        }
+
         teil("Netze (Phase 3): Skripte, Funktionsprobe im Speicher, Herkunft");
         File netzSql = new File("db/netz");
         if (!netzSql.isDirectory()) hinweis("db/netz nicht gefunden");
@@ -358,7 +395,7 @@ public final class Pruefung {
                     while (m.find()) if (!m.group(1).toUpperCase(Locale.ROOT).startsWith("LB_")) { fremd++; System.out.println("    ohne LB_: " + m.group(1) + " in " + x.getName()); }
                 }
             }
-            check(sk.length == 8 && anw > 20, f("db/netz: %d Skripte, %d Anweisungen, jede mit „/“ abgeschlossen", sk.length, anw));
+            check(sk.length == 9 && anw > 40, f("db/netz: %d Skripte, %d Anweisungen, jede mit „/“ abgeschlossen", sk.length, anw));
             check(fremd == 0, "alle Objekte mit Präfix LB_ (F40 B: Schema LITUYABAY1958)");
         }
         {
@@ -406,6 +443,39 @@ public final class Pruefung {
     }
 
     static String f(String fmt, Object... a) { return String.format(Locale.GERMAN, fmt, a); }
+
+    /** Dijkstra über ungerichtete Kanten (Nummern bis max) von einem Knoten; unerreichte +∞. */
+    static double[] dijkstra(int start, long[] von, long[] nach, double[] kosten, long[] id) {
+        int max = start;
+        for (long v : von) max = (int) Math.max(max, v);
+        for (long v : nach) max = (int) Math.max(max, v);
+        int[] grad = new int[max + 2];
+        for (int i = 0; i < von.length; i++) { grad[(int) von[i] + 1]++; grad[(int) nach[i] + 1]++; }
+        for (int i = 1; i < grad.length; i++) grad[i] += grad[i - 1];
+        int[] zu = new int[2 * von.length], pos = grad.clone();
+        double[] c = new double[2 * von.length];
+        for (int i = 0; i < von.length; i++) {
+            double w = kosten[(int) id[i]];
+            int a = (int) von[i], b = (int) nach[i];
+            c[pos[a]] = w; zu[pos[a]++] = b;
+            c[pos[b]] = w; zu[pos[b]++] = a;
+        }
+        double[] t = new double[max + 1];
+        java.util.Arrays.fill(t, Double.POSITIVE_INFINITY);
+        t[start] = 0;
+        java.util.PriorityQueue<double[]> q = new java.util.PriorityQueue<>((x, y) -> Double.compare(x[0], y[0]));
+        q.add(new double[]{0, start});
+        while (!q.isEmpty()) {
+            double[] e = q.poll();
+            int k = (int) e[1];
+            if (e[0] > t[k]) continue;
+            for (int j = grad[k]; j < grad[k + 1]; j++) {
+                double d = t[k] + c[j];
+                if (d < t[zu[j]]) { t[zu[j]] = d; q.add(new double[]{d, zu[j]}); }
+            }
+        }
+        return t;
+    }
 
     static void teil(String t) { System.out.println("\n— " + t); }
 

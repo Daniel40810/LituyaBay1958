@@ -76,7 +76,7 @@
         lib/Renderer.jar alles hat, was LituyaBay1958 braucht (jedes gebrauchte Package mit Klassen und README, Java 21,
         von den 14 neuen die, deren Phase erreicht ist); abschalten mit -Dohne.paketpruefung=true.
     -->
-    <property name="lituya.phase" value="7"/>
+    <property name="lituya.phase" value="7a"/>
     <target name="check-packages" description="Prüft lib/Renderer.jar: die gebrauchten Packages mit README, Java 21, die fälligen neuen." unless="ohne.paketpruefung">
         <property name="platform.java" value="java"/>
         <exec executable="${platform.java}" dir="${basedir}" failonerror="true">
@@ -146,20 +146,23 @@
             <jvmarg value="-Dlituya.cache.mb=4000"/>
             <arg value="${schritte}"/>
             <syspropertyset><propertyref name="faeden"/></syspropertyset>
-            <classpath><pathelement path="${run.classpath}"/></classpath>
+            <classpath><pathelement location="lib/Renderer.jar"/><pathelement path="${run.classpath}"/></classpath>
         </java>
     </target>
     <!-- Phase 3 (Werkbuch 2.8, 7.7, 7.9): Schema LITUYABAY1958 neu aufbauen (db/netz/99, 01, 02), LB_NET_HERKUNFT aus
          daten/netz/herkunft laden, NDM-Funktionsprobe (03_probe.sql und Java/LOD im eigenen Lader), Probenetze weg (98),
          Partitionen und Sichten (04, 05), VALIDATE_NETWORK, Gegenrechnung (CONNECT BY und traceIn gegen pruefwege.tsv),
-         LB_NETZ_STAND. Vorher einmal als SYS: db/netz/00_sys.sql. Protokoll docs/status/netzdb_Phase3.txt. -->
-    <target name="netzdb" depends="compile" description="Phase 3: Netze nach Oracle laden, NDM-Funktionsprobe, Gegenrechnung.">
+         LB_NETZ_STAND. Vorher einmal als SYS: db/netz/00_sys.sql. Seit Phase 7a dazu LB_NET_WELLE und LB_NET_UFER aus
+         daten/netz/welle und daten/netz/ufer (vorher ant aufbereitung "-Dschritte=welle,ufer"), die Partitionen der Welle
+         und die Zweitrechnung wie ant netzvergleich. Protokoll docs/status/netzdb_Phase7a.txt. -->
+    <target name="netzdb" depends="compile" description="Phase 3/7a: Netze nach Oracle laden (Herkunft, Welle, Ufer), NDM-Funktionsprobe, Gegenrechnung.">
         <property name="platform.java" value="java"/>
         <java classname="com.dan.lituya.tools.NetzDb" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="true">
             <jvmarg value="-Dstdout.encoding=UTF-8"/>
             <jvmarg value="-Djava.awt.headless=true"/>
+            <jvmarg value="-Xmx3g"/>
             <arg value="laden"/>
-            <classpath><pathelement path="${run.classpath}"/></classpath>
+            <classpath><pathelement location="lib/Renderer.jar"/><pathelement path="${run.classpath}"/></classpath>
         </java>
     </target>
     <!-- Phase 3: nur prüfen, ob Oracle und daten/netz zusammenpassen (Prüfsumme, Zahlen, VALIDATE_NETWORK, LB_NDM_PROBE). -->
@@ -170,6 +173,19 @@
             <jvmarg value="-Djava.awt.headless=true"/>
             <arg value="pruefen"/>
             <classpath><pathelement path="${run.classpath}"/></classpath>
+        </java>
+    </target>
+    <!-- Phase 7a (Werkbuch 7.9): nur die Zweitrechnung, ohne neu zu laden: LOD auf LB_NET_WELLE gegen route (Ankunft je
+         Knoten und Kostenart aus daten/netz/welle/ankunft.tsv; schreibt LB_ANKUNFT und LB_ISOCHRONE neu) und SDO_LRS auf
+         LB_NET_UFER gegen route.Measure. Protokoll docs/status/netzvergleich_Phase7a.txt. -->
+    <target name="netzvergleich" depends="compile" description="Phase 7a: LOD gegen route (Welle) und SDO_LRS gegen Measure (Ufer), ohne neu zu laden.">
+        <property name="platform.java" value="java"/>
+        <java classname="com.dan.lituya.tools.NetzDb" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="true">
+            <jvmarg value="-Dstdout.encoding=UTF-8"/>
+            <jvmarg value="-Djava.awt.headless=true"/>
+            <jvmarg value="-Xmx3g"/>
+            <arg value="vergleich"/>
+            <classpath><pathelement location="lib/Renderer.jar"/><pathelement path="${run.classpath}"/></classpath>
         </java>
     </target>
     <!-- Phase 4 (Werkbuch 5.11): das Package com.dan.clipmap aus lib/Renderer.jar über daten/gelaende (Ursprung E 352 000,

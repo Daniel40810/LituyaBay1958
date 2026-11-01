@@ -47,7 +47,7 @@ public final class ControlPanel extends JPanel implements javax.swing.Scrollable
     private final SceneClock clock;
     private final JLabel dateLbl = label(""), timeLbl = label(""), simLbl = label(""), sunLbl = small(""), camLbl = small(""), perfLbl = small(""),
             computeLbl = small(""), glLbl = small(""), physLbl = small(""), hudLbl = small(""), scaleLbl = label(""), qualLbl = small(""), pkgLbl = small(""),
-            dbLbl = small(""), lodLbl = small(""), datenLbl = small(""), standLbl = small("");
+            dbLbl = small(""), lodLbl = small(""), datenLbl = small(""), standLbl = small(""), netzLbl = small("");
     private final FSlider time = new FSlider(0, 24 * 60 - 1, (int) (SceneClock.START_HOUR * 60)), scaleSl = new FSlider(50, 100, 85), expSl = new FSlider(-30, 30, 0);
     private final FCheckBox free = new FCheckBox("Frei fliegen (F)"), orbit = new FCheckBox("Von selbst kreisen (R)"),
             marks = new FCheckBox("Marken (UTM-Raster, Kern, Szene, Fern, Orte)"), autoBox = new FCheckBox("Auflösung selbst regeln"),
@@ -154,9 +154,43 @@ public final class ControlPanel extends JPanel implements javax.swing.Scrollable
                 + "vorgerechnet abspielen (vorwärts, rückwärts, Zeitlupe) oder in Echtzeit mit Volumen, Ort, Tide und Grund 1940/heute (F10 A). "
                 + "Die Packages quake, landslide, impact und wave entstehen in den Phasen 8 bis 11.</body></html>"));
         block("NETZE", false);
-        put(small("<html><body style='width:215px'>Kommt mit Phase 7a: der Netzblick mit Isochronen der Welle (LB_NET_WELLE), Ufer mit "
-                + "Spurlinien (LB_NET_UFER); später See, Wasser, Wege, Sicht und Herkunft (Phasen 15a bis 17). Die Netze liegen in Oracle und "
-                + "als Abbild in daten/netz (F25 A).</body></html>"));
+        // Phase 7a: der Netzblick (Werkbuch 7.10)
+        com.dan.lituya.gl.Netzblick nb = r.netzblick;
+        FCheckBox pip = new FCheckBox("Netzblick als Bild im Bild (N)"), szene = new FCheckBox("Netze auf dem Wasser der Szene"),
+                ganz = new FCheckBox("Alle Isochronen (ohne Zeit)"), isoBox = new FCheckBox("Isochronen und Einschlaglinie"),
+                rayBox = new FCheckBox("Wellenstrahlen zu den Orten"), uferBox = new FCheckBox("Ufer (LRS) und Auflauf");
+        pip.setSelected(nb.bildImBild); szene.setSelected(nb.inSzene); ganz.setSelected(nb.ganz);
+        isoBox.setSelected(nb.isochronen); rayBox.setSelected(nb.strahlen); uferBox.setSelected(nb.ufer);
+        pip.addActionListener(e -> { nb.bildImBild = pip.isSelected(); view.requestFocusInWindow(); });
+        szene.addActionListener(e -> { nb.inSzene = szene.isSelected(); view.requestFocusInWindow(); });
+        ganz.addActionListener(e -> { nb.ganz = ganz.isSelected(); view.requestFocusInWindow(); });
+        isoBox.addActionListener(e -> { nb.isochronen = isoBox.isSelected(); view.requestFocusInWindow(); });
+        rayBox.addActionListener(e -> { nb.strahlen = rayBox.isSelected(); view.requestFocusInWindow(); });
+        uferBox.addActionListener(e -> { nb.ufer = uferBox.isSelected(); view.requestFocusInWindow(); });
+        view.setKeyAction(java.awt.event.KeyEvent.VK_N, () -> javax.swing.SwingUtilities.invokeLater(() -> { pip.setSelected(!pip.isSelected()); nb.bildImBild = pip.isSelected(); }));
+        put(pip);
+        put(szene);
+        put(label("Laufzeit über dem Grund"));
+        FComboBox kost = new FComboBox(com.dan.lituya.scene.WellenNetz.KOSTEN_NAME);
+        kost.setSelectedIndex(nb.kosten);
+        kost.addActionListener(e -> { nb.kosten = Math.max(0, kost.getSelectedIndex()); view.requestFocusInWindow(); });
+        put(kost);
+        put(ganz);
+        put(isoBox);
+        put(rayBox);
+        put(uferBox);
+        JPanel nz = grid(2);
+        FButton welleStart = new FButton("Welle: Einschlag"), welleEnde = new FButton("+ 6 min");
+        welleStart.setToolTipText("Uhr auf den Einschlag im Gilbert Inlet: 22:16 Uhr + " + Math.round(com.dan.lituya.scene.WellenNetz.START_S) + " s [G]");
+        welleStart.addActionListener(e -> { clock.setEpochMillis(SceneClock.BEBEN.toEpochMilli() + Math.round(com.dan.lituya.scene.WellenNetz.START_S * 1000));
+            clock.zeitstand = SceneClock.Zeitstand.WELLE; syncFromScene(); view.requestFocusInWindow(); });
+        welleEnde.addActionListener(e -> { clock.setEpochMillis(clock.epochMillis() + 360_000L); syncFromScene(); view.requestFocusInWindow(); });
+        nz.add(welleStart); nz.add(welleEnde);
+        put(nz);
+        put(netzLbl);
+        put(small("<html><body style='width:215px'>Die Netze kommen aus daten/netz (F25 A; ant aufbereitung \"-Dschritte=welle,ufer\"), in Oracle als "
+                + "LB_NET_WELLE und LB_NET_UFER (ant netzdb, ant netzvergleich). Isochronen alle 10 s, jede Minute kräftig; sie laufen mit der Uhr "
+                + "(Zeitraffer im Block ZEIT). Später See, Wasser, Wege, Sicht und Herkunft (Phasen 15a bis 17).</body></html>"));
         block("WETTER", false);
         put(small("<html><body style='width:215px'>Kommt mit Phase 5a und 18: Sommerabend 1958 nach ERA5 und Zeugen, für „heute“ Regen, "
                 + "Nebel, Herbststurm, Winter; Polarlicht nur „heute“ (F35 A).</body></html>"));
@@ -266,7 +300,7 @@ public final class ControlPanel extends JPanel implements javax.swing.Scrollable
                 + "<b>Szene</b><br>Links ziehen: drehen · rechts ziehen: verschieben · Rad, Bild↑/↓, +/−: zoomen<br>"
                 + "Pfeile: drehen · W A S D: gleiten · Q/E: ab und auf (frei) · Umschalt: schneller<br>"
                 + "F: frei fliegen · R: von selbst kreisen · Pos1: Grundansicht · H: HUD kurz, voll, aus<br>"
-                + "Leertaste: Uhr anhalten und weiter · F12: Foto nach docs/status · F5: Shader neu laden<br>"
+                + "Leertaste: Uhr anhalten und weiter · N: Netzblick an und aus · F12: Foto nach docs/status · F5: Shader neu laden<br>"
                 + "Ansichten: " + an + "<br><br>"
                 + "<b>Fenster</b><br>F1: diese Übersicht · F11: nur die Szene (Bedienfeld und Statuszeile weg und wieder da)</body></html>",
                 "LituyaBay1958 · Tasten", com.dan.foptionpane.FOptionPane.INFORMATION_MESSAGE);
@@ -311,6 +345,7 @@ public final class ControlPanel extends JPanel implements javax.swing.Scrollable
         txt(dbLbl, "<html><body style='width:215px'>Datenbank: " + esc(Verbindung.stand()) + "</body></html>");
         txt(lodLbl, "<html><body style='width:215px'>Netze (LOD): " + esc(Lod.stand()) + "<br>" + esc(lodProbe) + "</body></html>");
         txt(datenLbl, "<html><body style='width:215px'>" + esc(Startbild.datenZeile()) + "</body></html>");
+        txt(netzLbl, "<html><body style='width:215px'>" + esc(r.netzblick.stand()) + "</body></html>");
         StringBuilder h = new StringBuilder("<html><body style='width:215px'>");
         for (String l : r.hudLines()) h.append(esc(l.startsWith("!") ? l.substring(1) : l)).append("<br>");
         txt(hudLbl, h.append("</body></html>").toString());

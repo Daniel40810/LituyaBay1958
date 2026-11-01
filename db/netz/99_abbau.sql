@@ -1,6 +1,7 @@
 -- ============================================================================
 -- LituyaBay1958 · Schema LITUYABAY1958 · 99: Abbau (als Schema)
--- Löscht Netze, Sichten, Tabellen und Probenetze von db/netz. ant netzdb ruft
+-- Löscht Netze, Sichten, Tabellen und Probenetze von db/netz (seit Phase 7a
+-- auch Ankunft, Isochronen und Ufer). ant netzdb ruft
 -- es vor dem Neuaufbau auf; Fehler für Dinge, die es noch nicht gibt, werden
 -- übergangen.
 -- ============================================================================
@@ -16,6 +17,14 @@ BEGIN
     FOR v IN (SELECT VIEW_NAME FROM USER_VIEWS WHERE VIEW_NAME LIKE 'LB\_V\_%' ESCAPE '\') LOOP
         still('DROP VIEW ' || v.VIEW_NAME);
     END LOOP;
+    -- Phase 7a: Ergebnisse und Ufer
+    FOR t IN (SELECT COLUMN_VALUE AS N FROM TABLE(SYS.ODCIVARCHAR2LIST('LB_SPURLINIE_STUETZ', 'LB_SPURLINIE_LRS', 'LB_AUFLAUF', 'LB_UFER_PUNKT', 'LB_UFER_GEOM',
+                                                                  'LB_ISOCHRONE', 'LB_ANKUNFT'))) LOOP
+        still('DROP TABLE ' || t.N || ' CASCADE CONSTRAINTS PURGE');
+    END LOOP;
+    still('DROP SEQUENCE LB_ISOCHRONE_SEQ');
+    still('DROP SEQUENCE LB_AUFLAUF_SEQ');
+    still('DROP SEQUENCE LB_SPURLINIE_LRS_SEQ');
     still('DROP PROCEDURE LB_PROBE_SETZEN');
     still('DROP TABLE LB_NDM_PROBE PURGE');
     still('DROP TABLE LB_NETZ_STAND PURGE');

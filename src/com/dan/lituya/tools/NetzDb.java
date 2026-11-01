@@ -33,7 +33,12 @@ import java.util.Properties;
  * <p>
  * Reihenfolge: 99_abbau, 01_tabellen, 02_netze, Laden, 03_probe, Java-Probe, 98_probe_abbau, 04_nach_dem_laden,
  * 05_sichten, VALIDATE_NETWORK, Gegenrechnung, LB_NETZ_STAND. Die Rechte (00_sys.sql) gibt SYS einmal in SQL Developer.
- * Protokoll nach {@code docs/status/netzdb_Phase3.txt}.
+ * Protokoll nach {@code docs/status/netzdb_Phase7a.txt}.
+ * <p>
+ * Seit Phase 7a dazu {@code LB_NET_WELLE} und {@code LB_NET_UFER} aus {@code daten/netz/welle} und {@code daten/netz/ufer}
+ * ({@link WelleDb}): laden nach dem Herkunftsnetz, Partitionen in 04, danach VALIDATE, die Zweitrechnung LOD gegen
+ * {@code route} ({@code LB_ANKUNFT}, {@code LB_ISOCHRONE}) und {@code SDO_LRS} gegen {@code Measure}; {@code ant netzvergleich}
+ * macht nur die Zweitrechnung.
  */
 public final class NetzDb {
     private NetzDb() { }
@@ -48,12 +53,13 @@ public final class NetzDb {
     }
 
     public static void main(String[] a) throws Exception {
-        boolean nurPruefen = a.length > 0 && a[0].equalsIgnoreCase("pruefen");
+        boolean nurPruefen = a.length > 0 && a[0].equalsIgnoreCase("pruefen"), vergleich = a.length > 0 && a[0].equalsIgnoreCase("vergleich");
         File daten = new File(System.getProperty("lituya.daten", "daten"));
         File dir = new File(daten, Herkunft.ORDNER);
         File sql = new File(System.getProperty("lituya.sql", "db/netz"));
         boolean ok;
-        log("=== %s LituyaBay1958 (Phase 3), %s", nurPruefen ? "dbpruefung" : "netzdb", java.time.LocalDateTime.now().withNano(0));
+        String was = vergleich ? "netzvergleich" : nurPruefen ? "dbpruefung" : "netzdb";
+        log("=== %s LituyaBay1958 (Phase 7a), %s", was, java.time.LocalDateTime.now().withNano(0));
         if (!new File(dir, "knoten.tsv").isFile())
             throw new IOException("Herkunftsnetz fehlt: " + dir + " (ant aufbereitung -Dschritte=herkunft,inhalt)");
         Herkunft h = Herkunft.lesen(dir);
@@ -69,7 +75,7 @@ public final class NetzDb {
         try (Connection c = Db.oeffnen(k)) {
             log("verbunden: %s als %s, %s", k.url, Db.einWert(c, "SELECT USER FROM DUAL"), c.getMetaData().getDatabaseProductVersion().split("\\R")[0]);
             try {
-                ok = nurPruefen ? pruefen(c, h, summe) : laden(c, k, h, dir, sql, summe);
+                ok = vergleich ? vergleich(c, k, daten) : nurPruefen ? pruefen(c, h, summe, daten) : laden(c, k, h, dir, sql, summe, daten);
             } catch (Exception e) {
                 ok = false;
                 log("FEHLER: %s", ursache(e));
@@ -81,11 +87,11 @@ public final class NetzDb {
         log("=== %s", ok ? "ok" : "FEHLER (siehe oben)");
         File st = new File("docs/status");
         if (st.isDirectory())
-            Files.write(new File(st, (nurPruefen ? "dbpruefung" : "netzdb") + "_Phase3.txt").toPath(), PROTOKOLL, StandardCharsets.UTF_8);
+            Files.write(new File(st, was + "_Phase7a.txt").toPath(), PROTOKOLL, StandardCharsets.UTF_8);
         System.exit(ok ? 0 : 1);
     }
 
-    static boolean laden(Connection c, Db.Konfig k, Herkunft h, File dir, File sql, String summe) throws Exception {
+    static boolean laden(Connection c, Db.Konfig k, Herkunft h, File dir, File sql, String summe, File daten) throws Exception {
         c.setAutoCommit(false);
         skript(c, new File(sql, "99_abbau.sql"), false);
         skript(c, new File(sql, "01_tabellen.sql"), true);
@@ -121,6 +127,10 @@ public final class NetzDb {
         }
         c.commit();
         log("geladen: %s in %.1f s", NETZ, (System.nanoTime() - t0) / 1e9);
+        // Phase 7a: Welle und Ufer
+        boolean welle = new File(daten, com.dan.lituya.scene.WellenNetz.ORDNER + "/kanten.tsv").isFile(), ufer = new File(daten, com.dan.lituya.scene.UferNetz.ORDNER + "/punkte.tsv").isFile();
+        if (welle) WelleDb.ladeWelle(c, daten, NetzDb::log); else log("FEHLER: daten/netz/welle fehlt (ant aufbereitung \"-Dschritte=welle,ufer\")");
+        if (ufer) WelleDb.ladeUfer(c, daten, sql, NetzDb::log); else log("FEHLER: daten/netz/ufer fehlt (ant aufbereitung \"-Dschritte=welle,ufer\")");
         // NDM-Funktionsprobe
         skript(c, new File(sql, "03_probe.sql"), true);
         boolean javaOk = javaProbe(c, k);
@@ -134,6 +144,7 @@ public final class NetzDb {
         gut &= zahlen(c, h);
         gut &= connectBy(c, dir);
         gut &= lodGegenrechnung(k, h, dir);
+        gut &= welle && ufer && neueNetze(c, k, daten);
         // Stand
         try (PreparedStatement p = c.prepareStatement("""
                 MERGE INTO LB_NETZ_STAND t USING (SELECT ? NETZ FROM DUAL) s ON (t.NETZ = s.NETZ)
@@ -152,7 +163,37 @@ public final class NetzDb {
         return gut;
     }
 
-    static boolean pruefen(Connection c, Herkunft h, String summe) throws SQLException {
+    /**
+     * Phase 7a: VALIDATE_NETWORK für WELLE und UFER, Zweitrechnung LOD gegen route (LB_ANKUNFT, LB_ISOCHRONE), SDO_LRS gegen
+     * Measure, Einträge in LB_NETZ_STAND.
+     */
+    static boolean neueNetze(Connection c, Db.Konfig k, File daten) throws Exception {
+        boolean gut = true;
+        String vw = WelleDb.validate(c, WelleDb.WELLE), vu = WelleDb.validate(c, WelleDb.UFER);
+        log("VALIDATE_NETWORK(%s) = %s, VALIDATE_NETWORK(%s) = %s", WelleDb.WELLE, vw, WelleDb.UFER, vu);
+        gut &= "TRUE".equalsIgnoreCase(vw) && "TRUE".equalsIgnoreCase(vu);
+        boolean v = vergleich(c, k, daten);
+        gut &= v;
+        com.dan.lituya.scene.WellenNetz w = com.dan.lituya.scene.WellenNetz.lesen(daten);
+        com.dan.lituya.scene.UferNetz u = com.dan.lituya.scene.UferNetz.lesen(daten);
+        File wd = new File(daten, com.dan.lituya.scene.WellenNetz.ORDNER);
+        WelleDb.stand(c, WelleDb.WELLE, "Welle (Werkbuch 7.1): 20 m, 16 Nachbarn, Bucht und 1 km See; vier Kosten", w.n + 1, w.kanten + Integer.parseInt(Db.einWert(c,
+                "SELECT COUNT(*) FROM LB_NET_WELLE_LINK$ WHERE START_NODE_ID = " + w.quelle)), com.dan.lituya.scene.WellenNetz.pruefsumme(wd), "daten/" + com.dan.lituya.scene.WellenNetz.ORDNER,
+                "VALIDATE " + vw + "; LOD = route " + (v ? "ok" : "FEHLER"));
+        WelleDb.stand(c, WelleDb.UFER, "Ufer (Werkbuch 7.2): LRS, Ufer heute und Cenotaph Island; Auflauf", u.knoten, u.kanten, WelleDb.summeUfer(daten), "daten/" + com.dan.lituya.scene.UferNetz.ORDNER,
+                "VALIDATE " + vu);
+        return gut;
+    }
+
+    /** {@code ant netzvergleich}: LOD gegen route (Welle) und SDO_LRS gegen Measure (Ufer), ohne neu zu laden. */
+    static boolean vergleich(Connection c, Db.Konfig k, File daten) throws Exception {
+        WelleDb.Vergleich v = WelleDb.lodGegenRoute(c, k, passwort(k), daten, NetzDb::log);
+        boolean l = WelleDb.lrsPruefen(c, daten, NetzDb::log);
+        log("Zweitrechnung: Welle %s, Ufer %s", v.ok() ? "LOD = route" : "LOD ≠ route", l ? "SDO_LRS = Measure" : "SDO_LRS ≠ Measure");
+        return v.ok() && l;
+    }
+
+    static boolean pruefen(Connection c, Herkunft h, String summe, File daten) throws Exception {
         boolean gut = true;
         try (Statement s = c.createStatement(); ResultSet r = s.executeQuery("SELECT PRUEFSUMME, KNOTEN, KANTEN, TO_CHAR(GELADEN, 'YYYY-MM-DD HH24:MI'), GUELTIG FROM LB_NETZ_STAND WHERE NETZ = '" + NETZ + "'")) {
             if (!r.next()) { log("FEHLER: kein Eintrag in LB_NETZ_STAND (ant netzdb)"); return false; }
@@ -164,6 +205,18 @@ public final class NetzDb {
         log("VALIDATE_NETWORK(%s) = %s", NETZ, v);
         gut &= "TRUE".equalsIgnoreCase(v);
         gut &= zahlen(c, h);
+        // Phase 7a: Prüfsummen und VALIDATE der neuen Netze
+        File wd = new File(daten, com.dan.lituya.scene.WellenNetz.ORDNER);
+        if (new File(wd, "kanten.tsv").isFile()) {
+            String[][] netze = {{WelleDb.WELLE, com.dan.lituya.scene.WellenNetz.pruefsumme(wd)}, {WelleDb.UFER, WelleDb.summeUfer(daten)}};
+            for (String[] n : netze) {
+                String sDb = Db.einWert(c, "SELECT PRUEFSUMME FROM LB_NETZ_STAND WHERE NETZ = '" + n[0] + "'");
+                String vn = WelleDb.validate(c, n[0]);
+                boolean g = n[1].equals(sDb) && "TRUE".equalsIgnoreCase(vn);
+                log("%s: Prüfsumme %s den Dateien, VALIDATE_NETWORK = %s", n[0], n[1].equals(sDb) ? "gleich" : "UNGLEICH", vn);
+                gut &= g;
+            }
+        }
         probeTabelle(c);
         return gut;
     }

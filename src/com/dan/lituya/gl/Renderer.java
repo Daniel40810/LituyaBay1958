@@ -49,7 +49,7 @@ import java.util.function.Consumer;
  */
 public final class Renderer implements GLEventListener {
     public static final int MIN_MAJOR = 4, MIN_MINOR = 3;
-    public static final String VERSION = "Phase 7";
+    public static final String VERSION = "Phase 7a";
     /** Phase des Stands (für Ansichten und Bedienfeld). */
     public static final int PHASE = 7;
     public static final String[] PASSES = {"Himmel", "Gelände", "Wasser", "Nachbearbeitung", "HUD"};
@@ -70,6 +70,8 @@ public final class Renderer implements GLEventListener {
     /** Phase 4: das Gelände aus daten/gelaende über com.dan.clipmap (vor dem Konstruktor angelegt, setQuality braucht es). */
     public final com.dan.lituya.scene.Land land = new com.dan.lituya.scene.Land();
     private final com.dan.clipmap.gl.ClipmapGl clipGl = new com.dan.clipmap.gl.ClipmapGl();
+    /** Phase 7a: der Netzblick (Bild im Bild und in der Szene) mit com.dan.netview über daten/netz/welle und daten/netz/ufer. */
+    public final Netzblick netzblick = new Netzblick();
     /** Das Gelände zeigen (G … im Bedienfeld TECHNIK). */
     public volatile boolean showGelaende = true;
     /** Texturstelle der Höhen der Clipmap. */
@@ -233,6 +235,12 @@ public final class Renderer implements GLEventListener {
         emptyVao = v[0];
         for (int[] s : stamp) gl.glGenQueries(MARKS, s, 0);
         compute = ComputeProbe.run(gl);
+        try {
+            netzblick.init(gl);
+            netzblick.laden(new java.io.File(System.getProperty("lituya.daten", "daten")));
+        } catch (RuntimeException e) {
+            System.err.println("LituyaBay1958: Netzblick: " + e.getMessage());
+        }
         System.out.println("LituyaBay1958: " + compute.line());
         physik.start();
         lastNanos = System.nanoTime();
@@ -260,6 +268,7 @@ public final class Renderer implements GLEventListener {
         camera.waterLevel = wiring.pegel;
         camera.targetGround = Math.max(groundHeight(camera.tx, camera.tz), wiring.pegel);
         camera.step(dt);
+        netzblick.schritt(clock.simSeconds(), wiring.pegel);
     }
 
     @Override
@@ -361,6 +370,9 @@ public final class Renderer implements GLEventListener {
             gl.glDepthMask(true);
             gl.glDisable(GL.GL_DEPTH_TEST);
         }
+        // 3b Netze auf dem Wasser (Phase 7a, Netzblick „in der Szene“): Linien in Bildpunkten, Tiefe gegen das Gelände
+        netzblick.szene(gl, vp, camera.eye, w, h, reversedZ, exposure());
+        gl.glBindVertexArray(emptyVao);
         mark(gl, 3);
 
         // 4 Nachbearbeitung ins Fenster
@@ -375,6 +387,10 @@ public final class Renderer implements GLEventListener {
         gl.glBindVertexArray(emptyVao);
         gl.glDrawArrays(GL.GL_TRIANGLES, 0, 3);
         mark(gl, 4);
+
+        // 4b Netzblick als Bild im Bild unten rechts (Phase 7a)
+        if (!kino.laeuft()) netzblick.bildImBild(gl, overlay, emptyVao, surfW, surfH, netzZeit());
+        gl.glBindVertexArray(emptyVao);
 
         // 5 HUD (vorher abschicken: die Grafikkarte arbeitet, während das HUD im selben Faden gemalt wird; aus Brocken)
         gl.glFlush();
@@ -598,6 +614,7 @@ public final class Renderer implements GLEventListener {
                 wiring.zeile(),
                 physik.describe(),
                 land.zeile(),
+                netzblick.info(),
                 clipGl.info(),
                 cameraLine(),
                 String.format(Locale.GERMAN, "UTM 8 N  E %.0f  N %.0f · %s · Kimm %.1f km", utm[0], utm[1], Site.dms(ll[0], ll[1]), kimm / 1000),
@@ -605,6 +622,15 @@ public final class Renderer implements GLEventListener {
                 "Neu für LituyaBay1958: " + Bibliothek.neuStand(),
                 String.format(Locale.GERMAN, "%s · %d×%d · %s", quality.label, hdrW, hdrH, reversedZ ? "umgekehrte Tiefe" : "klassische Tiefe"),
                 glInfo};
+    }
+
+    /** Die Zeile mit der Zeit der Welle für das Bild im Bild. */
+    String netzZeit() {
+        double t = netzblick.zeit(clock.simSeconds());
+        if (netzblick.ganz) return "alle Isochronen (ohne Zeit) · jede Minute kräftig";
+        if (t < 0) return String.format(Locale.GERMAN, "vor dem Einschlag (%.0f s); Welle %.0f s nach dem ersten Stoß [G]", t, com.dan.lituya.scene.WellenNetz.START_S);
+        if (t > 3600) return String.format(Locale.GERMAN, "Welle vor %.0f min · alle Isochronen", t / 60);
+        return String.format(Locale.GERMAN, "Welle t = %.0f s nach dem Einschlag", t);
     }
 
     // ------------------------------------------------------------------ Bilder
@@ -671,6 +697,7 @@ public final class Renderer implements GLEventListener {
         com.dan.clipmap.Clipmap cm = land.clipmap();
         if (cm != null) cm.stop();
         hud.dispose(gl);
+        netzblick.dispose(gl);
         Gpu.deleteFbos(gl, hdrFbo, hdrColorFbo);
         Gpu.deleteTextures(gl, hdrTex, depthTex);
         if (emptyVao != 0) gl.glDeleteVertexArrays(1, new int[]{emptyVao}, 0);
