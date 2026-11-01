@@ -63,6 +63,9 @@ public final class NetzDb {
         log("Dateien: %d Knoten, %d Kanten, Prüfsumme %s…", h.knotenListe().size(), h.kantenListe().size(), summe.substring(0, 16));
         Db.Konfig k = Verbindung.konfig();
         if (!k.hatPasswort()) throw new IOException("kein Passwort in db/db.properties und keine Umgebungsvariable " + Verbindung.ENV);
+        // Befund Phase 3: Db wartet sonst 30 s auf eine Antwort (oracle.jdbc.ReadTimeout); LOGICAL_PARTITION und
+        // GENERATE_PARTITION_BLOBS brauchen länger. 0 = ohne Grenze.
+        Db.antwortS = 0;
         try (Connection c = Db.oeffnen(k)) {
             log("verbunden: %s als %s, %s", k.url, Db.einWert(c, "SELECT USER FROM DUAL"), c.getMetaData().getDatabaseProductVersion().split("\\R")[0]);
             try {
