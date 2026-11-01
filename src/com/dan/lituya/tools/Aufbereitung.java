@@ -22,14 +22,15 @@ import java.util.Set;
  * <p>
  * Schritte in Phase 2: {@code gelaende} (Fern, Szene, Kern), {@code grund} (heute, 1926, 1940, 1959), {@code namen},
  * {@code bilder} (Prüfbilder nach {@code docs/status/}), {@code inhalt} ({@code daten/INHALT.txt} mit SHA-256 je Datei).
- * Phase 3: {@code herkunft} (das Herkunftsnetz nach {@code daten/netz/herkunft/}, {@link Herkunft}).
+ * Phase 3: {@code herkunft} (das Herkunftsnetz nach {@code daten/netz/herkunft/}, {@link Herkunft}). Phase 5: {@code texturen}
+ * (die CC0-Sätze aus {@code download/texturen} gebacken nach {@code daten/texturen/}, {@link Texturen}).
  * Später: {@code rueckbau1958}, {@code spurlinie} (brauchen die von Hand eingepassten Karten 1951/C-5 und die
  * Miller-Karte), {@code klassen}, {@code wald}, {@code gletscher}, die räumlichen Netze (Phase 7a), {@code ereignis} (Phase 13).
  */
 public final class Aufbereitung {
     private Aufbereitung() { }
 
-    public static final String[] SCHRITTE = {"gelaende", "grund", "namen", "herkunft", "bilder", "inhalt"};
+    public static final String[] SCHRITTE = {"gelaende", "grund", "namen", "texturen", "herkunft", "bilder", "inhalt"};
 
     public static void main(String[] a) throws Exception {
         File daten = new File(System.getProperty("lituya.daten", "daten"));
@@ -42,9 +43,9 @@ public final class Aufbereitung {
         if (faeden <= 0) faeden = Math.max(1, Runtime.getRuntime().availableProcessors() - 1);
         Rohdaten r = new Rohdaten(daten);
         long t0 = System.nanoTime();
-        r.log("=== Aufbereitung LituyaBay1958 (Phase 3): %s · Rohdaten %s · Ziel %s · %d Fäden · Java %s, %d MB Speicher", String.join(", ", s),
+        r.log("=== Aufbereitung LituyaBay1958 (Phase 5): %s · Rohdaten %s · Ziel %s · %d Fäden · Java %s, %d MB Speicher", String.join(", ", s),
                 r.roh.getAbsolutePath(), daten.getAbsolutePath(), faeden, System.getProperty("java.version"), Runtime.getRuntime().maxMemory() >> 20);
-        boolean braucheRoh = s.contains("gelaende") || s.contains("grund") || s.contains("herkunft");
+        boolean braucheRoh = s.contains("gelaende") || s.contains("grund") || s.contains("herkunft") || s.contains("texturen");
         if (braucheRoh && !r.roh.isDirectory()) throw new java.io.IOException("Kartenmaterial nicht gefunden: " + r.roh.getAbsolutePath()
                 + " (Pfad in daten/rohdaten.properties oder -Drohdaten=…)");
         try {
@@ -55,6 +56,7 @@ public final class Aufbereitung {
                 }
             if (s.contains("grund")) { r.log("--- grund"); Grund.rechnen(r); }
             if (s.contains("namen")) { r.log("--- namen"); Namen.rechnen(r, new File("geodaten/namen_szene.geojson")); }
+            if (s.contains("texturen")) { r.log("--- texturen"); Texturen.rechnen(r, neu); }
             if (s.contains("herkunft")) { r.log("--- herkunft"); Herkunft.rechnen(r); }
             if (s.contains("bilder")) { r.log("--- bilder"); Pruefbilder.alle(daten, new File("docs/status"), r); }
             if (s.contains("inhalt")) { r.log("--- inhalt"); inhalt(r); }
@@ -74,7 +76,9 @@ public final class Aufbereitung {
         try (var st = Files.walk(base)) {
             st.filter(Files::isRegularFile).filter(p -> {
                 String n = base.relativize(p).toString().replace('\\', '/');
-                return !n.equals("INHALT.txt") && !n.equals("aufbereitung.log") && !n.equals("rohdaten.properties") && !n.equals("fehler.txt") && !n.endsWith(".tmp");
+                // gpu_*.bin: gepackte Texturen, die die Grafikkarte des Rechners schreibt (nicht Teil der Aufbereitung)
+                return !n.equals("INHALT.txt") && !n.equals("aufbereitung.log") && !n.equals("rohdaten.properties") && !n.equals("fehler.txt") && !n.endsWith(".tmp")
+                        && !(n.startsWith("texturen/") && n.contains("/gpu_"));
             }).sorted().forEach(files::add);
         }
         List<String> z = new ArrayList<>();

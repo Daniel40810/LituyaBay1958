@@ -623,3 +623,4 @@ def _p(ctx):
 
 # Feste Adressen (ausserhalb von AWS) stehen in quellen_web.py.
 import quellen_web  # noqa: E402,F401  (registriert die Web-Quellen)
+import quellen_texturen  # noqa: E402,F401  (registriert die Texturen, Phase 5)

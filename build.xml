@@ -76,7 +76,7 @@
         lib/Renderer.jar alles hat, was LituyaBay1958 braucht (jedes gebrauchte Package mit Klassen und README, Java 21,
         von den 14 neuen die, deren Phase erreicht ist); abschalten mit -Dohne.paketpruefung=true.
     -->
-    <property name="lituya.phase" value="4"/>
+    <property name="lituya.phase" value="5"/>
     <target name="check-packages" description="Prüft lib/Renderer.jar: die gebrauchten Packages mit README, Java 21, die fälligen neuen." unless="ohne.paketpruefung">
         <property name="platform.java" value="java"/>
         <exec executable="${platform.java}" dir="${basedir}" failonerror="true">
@@ -128,8 +128,8 @@
         </java>
     </target>
     <!-- Phase 2 (Werkbuch 3.3, 3.4): die Aufbereitung liest das Kartenmaterial (Pfad in daten/rohdaten.properties, Vorgabe
-         download/) einmal und schreibt nach daten/. ant aufbereitung rechnet alle Schritte (gelaende, grund, namen, herkunft,
-         bilder, inhalt); -Dschritte=gelaende,grund nur diese; -Dneu=true rechnet fertige Kacheln neu; -Dausschnitt=OstMin,NordMin,OstMax,NordMax
+         download/) einmal und schreibt nach daten/. ant aufbereitung rechnet alle Schritte (gelaende, grund, namen, texturen,
+         herkunft, bilder, inhalt); -Dschritte=gelaende,grund nur diese; -Dneu=true rechnet fertige Kacheln neu; -Dausschnitt=OstMin,NordMin,OstMax,NordMax
          nur die Kacheln dort; -Dfaeden=n. Prüfbilder nach docs/status/, Protokoll daten/aufbereitung.log. -->
     <target name="aufbereitung" depends="compile" description="Phase 2: Kartenmaterial einmal nach daten/ aufbereiten (Gelände, Grund, Namen, Prüfbilder, INHALT.txt).">
         <property name="platform.java" value="java"/>
@@ -206,6 +206,44 @@
             <jvmarg value="--enable-native-access=ALL-UNNAMED"/>
             <jvmarg value="-Xmx4g"/>
             <arg line="--daten daten/gelaende 352000 6503000 --auge 2300 -1900 60 30 --bild docs/status/Phase4_Clipmap.png"/>
+            <classpath><pathelement path="${run.classpath}"/></classpath>
+        </java>
+    </target>
+    <!-- Phase 5 (Werkbuch 5.10, 8): das Package com.dan.surface aus lib/Renderer.jar. Ablauf: python tools/kartenmaterial/
+         kartenmaterial.py laden, Gruppe texturen (13 CC0-Sätze von ambientCG nach download/texturen), dann
+         ant aufbereitung "-Dschritte=texturen,herkunft,inhalt" (gebacken nach daten/texturen). surfacecheck: SurfaceCheck mit
+         dem echten Strandkies (1 km ohne Wiederholung); texturbild: Kontaktbogen docs/status/Texturen.png (beim ersten Mal
+         packt der Treiber die Karten, das dauert); surfacedemo: die Vorschau mit Reglern. -->
+    <target name="surfacecheck" depends="compile" description="Phase 5: SurfaceCheck mit daten/texturen.">
+        <property name="platform.java" value="java"/>
+        <java classname="com.dan.surface.demo.SurfaceCheck" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="true" output="docs/status/surfacecheck_Phase5.txt" logError="true">
+            <jvmarg value="-Dstdout.encoding=UTF-8"/>
+            <jvmarg value="-Xmx4g"/>
+            <arg line="--texturen daten/texturen"/>
+            <classpath><pathelement path="${run.classpath}"/></classpath>
+        </java>
+        <loadfile property="surfacecheck.text" srcFile="docs/status/surfacecheck_Phase5.txt" encoding="UTF-8"/>
+        <echo message="${surfacecheck.text}"/>
+    </target>
+    <target name="texturbild" depends="compile" description="Phase 5: Kontaktbogen der Materialien nach docs/status/Texturen.png.">
+        <property name="platform.java" value="java"/>
+        <property name="kante" value="1024"/>
+        <java classname="com.dan.surface.demo.SurfaceDemo" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="true">
+            <jvmarg value="-Dstdout.encoding=UTF-8"/>
+            <jvmarg value="--enable-native-access=ALL-UNNAMED"/>
+            <jvmarg value="-Xmx6g"/>
+            <arg line="--texturen daten/texturen --kante ${kante} --bild docs/status/Texturen.png"/>
+            <classpath><pathelement path="${run.classpath}"/></classpath>
+        </java>
+    </target>
+    <target name="surfacedemo" depends="compile" description="Phase 5: die Vorschau von com.dan.surface über daten/texturen.">
+        <property name="platform.java" value="java"/>
+        <java classname="com.dan.surface.demo.SurfaceDemo" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="true">
+            <jvmarg value="-Dstdout.encoding=UTF-8"/>
+            <jvmarg value="--enable-native-access=ALL-UNNAMED"/>
+            <jvmarg line="--add-opens java.desktop/sun.awt=ALL-UNNAMED --add-opens java.desktop/sun.awt.windows=ALL-UNNAMED --add-opens java.desktop/sun.java2d=ALL-UNNAMED"/>
+            <jvmarg value="-Xmx6g"/>
+            <arg line="--texturen daten/texturen"/>
             <classpath><pathelement path="${run.classpath}"/></classpath>
         </java>
     </target>

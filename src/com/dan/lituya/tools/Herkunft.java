@@ -212,6 +212,27 @@ public final class Herkunft {
             h.kante(namenRoh, namen, "LIEFERT");
             h.kante(namen, oNamen, "ZEIGT");
         }
+        // Texturen (Phase 5): je Material die Karten aus dem Zip seiner Quelle; abgeleitete aus den Karten des Ausgangs
+        boolean tex = false;
+        for (Knoten k : List.copyOf(h.knoten)) {
+            if (!k.art().equals("AUSGABE") || !k.name().startsWith("texturen/")) continue;
+            if (!tex) { h.knoten("SCHRITT", "texturen", "com.dan.lituya.tools.Aufbereitung texturen", 0, null, null); tex = true; }
+            int st = h.id("SCHRITT", "texturen");
+            int obj = h.knoten("OBJEKT", "Materialien (surface)", null, 0, null, null);
+            h.kante(st, k.id(), "ERZEUGT");
+            String[] p = k.name().split("/");
+            if (p.length < 3) continue;
+            h.kante(k.id(), obj, "ZEIGT");
+            com.dan.surface.Material m = com.dan.surface.Katalog.find(com.dan.surface.Katalog.fjord(), p[1]);
+            if (m != null && m.derivedFrom != null) {
+                Integer von = h.id("AUSGABE", "texturen/" + m.derivedFrom + "/a.png");
+                if (von != null && !p[2].equals("material.txt")) h.kante(von, k.id(), "ABGELEITET");
+                continue;
+            }
+            for (Knoten q : h.knoten)
+                if (q.art().equals("ROHDATEI") && q.name().startsWith("texturen/tex_" + p[1] + "/")) h.kante(q.id(), k.id(), "LIEFERT");
+        }
+
         // Prüfungen: kreisfrei, jede Ausgabe hat einen Schritt, jede Datenausgabe eine Rohdatei davor
         int n = h.knoten.size();
         List<int[]> rein = h.rein();
@@ -331,7 +352,7 @@ public final class Herkunft {
             st.filter(Files::isRegularFile).filter(p -> {
                 String n = base.relativize(p).toString().replace('\\', '/');
                 return !n.startsWith("netz/") && !n.equals("INHALT.txt") && !n.equals("aufbereitung.log") && !n.equals("rohdaten.properties")
-                        && !n.equals("fehler.txt") && !n.endsWith(".tmp");
+                        && !n.equals("fehler.txt") && !n.endsWith(".tmp") && !(n.startsWith("texturen/") && n.contains("/gpu_"));
             }).sorted().forEach(l::add);
         }
         return l;

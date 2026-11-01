@@ -257,6 +257,21 @@ public final class Pruefung {
             }
         }
 
+        teil("Materialien (Phase 5): surface über daten/texturen");
+        {
+            java.util.List<com.dan.surface.Material> kat = com.dan.surface.Katalog.fjord();
+            check(kat.size() == 14, "Katalog fjord(): 14 Materialien (13 CC0-Sätze von ambientCG, Seetang abgeleitet)");
+            File tx = new File(daten, "texturen");
+            com.dan.surface.MaterialSet ms = new com.dan.surface.MaterialSet(tx, kat);
+            if (ms.layers().isEmpty()) hinweis("keine gebackenen Texturen: python tools/kartenmaterial/kartenmaterial.py laden --gruppe texturen, dann ant aufbereitung \"-Dschritte=texturen,herkunft,inhalt\"");
+            else {
+                check(ms.missing().isEmpty(), ms.describe());
+                check(new File(tx, "LIZENZEN.txt").isFile(), "daten/texturen/LIZENZEN.txt (Paketvertrag 15)");
+                long mb = ms.vram(ms.layers().get(0).size(), true) / 1_000_000;
+                check(mb <= 600, f("Texturbudget gepackt bei %d²: %d MB ≤ 600 MB (F19)", ms.layers().get(0).size(), mb));
+            }
+        }
+
         teil("Netze (Phase 3): Skripte, Funktionsprobe im Speicher, Herkunft");
         File netzSql = new File("db/netz");
         if (!netzSql.isDirectory()) hinweis("db/netz nicht gefunden");
