@@ -82,21 +82,29 @@ VERMESSUNGEN = {
 }
 
 
-def _verzeichnis(url, tiefe=2):
-    """Dateien eines Apache-Verzeichnisindex (rekursiv)."""
+def _verzeichnis(url, tiefe=2, _gesehen=None):
+    """Dateien eines Apache-Verzeichnisindex (rekursiv), nur unterhalb von url.
+
+    Apache verlinkt jede Datei zweimal (Symbol und Name), die Fusszeile enthaelt mailto-
+    und Seitenlinks: alles ausserhalb des Unterbaums und alles Doppelte faellt weg.
+    """
+    gesehen = set() if _gesehen is None else _gesehen
     out = []
     try:
         seite = netz.hole_text(url)
     except Exception:
         return out
-    for href in re.findall(r'href="([^"?#]+)"', seite):
-        href = html.unescape(href)
-        if href.startswith(("/", "http", "..")) or href in ("./",):
+    for href in re.findall(r'href="([^"]+)"', seite):
+        href = html.unescape(href).split("#", 1)[0].split("?", 1)[0]
+        if not href or href in ("./", "../"):
             continue
         ziel = urllib.parse.urljoin(url, href)
-        if href.endswith("/"):
+        if not ziel.startswith(url) or ziel == url or ziel in gesehen:
+            continue
+        gesehen.add(ziel)
+        if ziel.endswith("/"):
             if tiefe > 0:
-                out += _verzeichnis(ziel, tiefe - 1)
+                out += _verzeichnis(ziel, tiefe - 1, gesehen)
         else:
             out.append(ziel)
     return out
@@ -126,21 +134,66 @@ def _p(ctx):
 # ===========================================================================
 # KARTEN
 # ===========================================================================
-statisch("noaa_enc", "karten", "NOAA Seekarten ENC (S-57), Lituya Bay und Anfahrt", "NOAA Office of Coast Survey",
-         "gemeinfrei", "Hafen (US5) und Anfahrt (US4); Karte 16762 1:20 000", "laufend", "kern", "standard",
-         """Elektronische Seekarten: Küstenlinie, Tiefenlinien, Lotungen, Untiefen, Wracks, Namen. Zellen
-         US5AK1NB, US5AK1OB, US5AK1OC (Bucht, aus Karte 16762) und US4AK5SE (Anfahrt). Ungeprüft.""",
-         "https://charts.noaa.gov/ENCs/ENCs.shtml",
-         [(f"https://www.charts.noaa.gov/ENCs/{z}.zip", f"{z}.zip")
-          for z in ("US5AK1NB", "US5AK1OB", "US5AK1OC", "US4AK5SE")])
+ENC_BEKANNT = ("US5AK1NB", "US5AK1OB", "US5AK1OC", "US4AK5SE")  # aus der Quellentabelle von BlueTopo
+ENC_KATALOGE = ("https://www.charts.noaa.gov/ENCs/ENCProdCat.xml",
+                "https://www.charts.noaa.gov/ENCs/ENCProdCat_19115.xml")
 
-statisch("noaa_karte_16760", "karten", "NOAA Seekarte 16760 Cross Sound to Yakutat Bay (PDF)", "NOAA",
-         "gemeinfrei", "1:300 000", "letzte Ausgabe", "fern", "standard",
-         """Übersichtskarte der Küste. Hinweis: Die Rasterkarte 16762 „Lituya Bay“ (1:20 000) wurde 2023
-         eingestellt und ist nur noch als ENC oder NOAA Custom Chart zu haben. Ungeprüft.""",
-         "https://charts.noaa.gov/InteractiveCatalog/nrnc.shtml",
-         [("https://www.charts.noaa.gov/PDFs/16760.pdf", "16760.pdf"),
-          ("https://www.charts.noaa.gov/PDFs/16762.pdf", "16762.pdf", "eingestellt, vermutlich 404")])
+
+def _enc_katalog():
+    """{Zelle: (West, Sued, Ost, Nord)} aus dem ENC-Produktkatalog der NOAA, leer wenn nicht lesbar.
+
+    Tolerant gegen beide Formen des Katalogs: je Zelle der Name (US + Band + Kennung) und
+    alle Koordinaten im Block (<lat>/<long> oder Bounding-Box-Felder nach ISO 19115).
+    """
+    for url in ENC_KATALOGE:
+        try:
+            x = netz.hole_text(url, timeout=300)
+        except Exception:
+            continue
+        zellen = {}
+        for block in re.split(r"<(?:cell|gmd:MD_Metadata|MD_Metadata)\b", x)[1:]:
+            m = re.search(r"\b(US[1-6][A-Z0-9]{4,6})\b", block)
+            if not m:
+                continue
+            lat = [float(v) for v in re.findall(r"<(?:lat|[\w:]*(?:south|north)BoundLatitude)>\s*(?:<[^>]+>)?\s*"
+                                                 r"(-?\d+(?:\.\d+)?)", block)]
+            lon = [float(v) for v in re.findall(r"<(?:long|lon|[\w:]*(?:west|east)BoundLongitude)>\s*(?:<[^>]+>)?\s*"
+                                                 r"(-?\d+(?:\.\d+)?)", block)]
+            if lat and lon:
+                zellen[m.group(1)] = (min(lon), min(lat), max(lon), max(lat))
+        if zellen:
+            return zellen
+    return {}
+
+
+@quelle("noaa_enc", "karten", "NOAA Seekarten ENC (S-57) um Lituya Bay", "NOAA Office of Coast Survey",
+        "gemeinfrei", "Übersicht (US1–US3) bis Hafen (US5); Bucht wie Karte 16762 1:20 000", "laufend", "szene",
+        "standard",
+        """Elektronische Seekarten: Küstenlinie, Tiefenlinien, Lotungen, Untiefen, Wracks, Namen. Die Zellen kommen
+        aus dem ENC-Produktkatalog der NOAA: alle Zellen in der Szene, dazu die Übersichtszellen (Band 1–3) im
+        Fernfeld; sie ersetzen die eingestellten Papier- und PDF-Karten 16760 und 16762. Ist der Katalog nicht
+        lesbar, die Zellen der Bucht US5AK1NB, US5AK1OB, US5AK1OC und US4AK5SE. Katalog ungeprüft, Zellen geprüft
+        (Lauf vom 01.11.2026).""",
+        "https://charts.noaa.gov/ENCs/ENCs.shtml")
+def _p(ctx):
+    katalog = _enc_katalog()
+    zellen = set()
+    for name, (w, s_, o, n) in katalog.items():
+        if ctx.gebiet.schneidet(w, s_, o, n) or (name[2] in "123" and geo.FERN.schneidet(w, s_, o, n)):
+            zellen.add(name)
+    if not zellen:
+        zellen = set(ENC_BEKANNT)
+    return [Datei(f"https://www.charts.noaa.gov/ENCs/{z}.zip", f"{z}.zip",
+                  notiz="aus dem Katalog" if katalog else "feste Liste") for z in sorted(zellen)]
+
+
+statisch("noaa_karte_16760", "karten", "NOAA Seekarten 16760 und 16762 als Bild (NOAA Custom Chart)", "NOAA",
+         "gemeinfrei", "1:300 000 / 1:20 000", "laufend", "fern", "manuell",
+         """Die PDF-Rasterkarten 16760 („Cross Sound to Yakutat Bay“) und 16762 („Lituya Bay“) gibt es nicht mehr
+         (404 im Lauf vom 01.11.2026, NOAA hat die Rasterkarten eingestellt). Ein Kartenbild im alten Stil
+         erzeugt die App NOAA Custom Chart aus den ENC als GeoPDF (Ausschnitt, Maßstab und Papiergröße wählen;
+         zu finden über nauticalcharts.noaa.gov). Der Inhalt steckt vollständig in den ENC-Zellen (`noaa_enc`).""",
+         "https://nauticalcharts.noaa.gov/", [])
 
 statisch("noaa_karten_historisch", "karten", "Historische Seekarten C&GS 8505 „Lituya Bay“ (1910–1942)",
          "NOAA Historical Map & Chart Collection", "gemeinfrei", "1:20 000", "1910, 1914, 1929, 1942",
@@ -195,11 +248,11 @@ statisch("dokumente", "dokumente", "Berichte und Aufsätze zur Welle von 1958", 
          "USGS gemeinfrei; NHESS CC BY 4.0; sonst wie angegeben", "–", "1938–2020", "kern", "standard",
          """Miller 1960 (USGS Professional Paper 354-C, mit Karte 1:50 000 der Zerstörungszone und Spurlinie);
          Mertie 1931 (USGS Bulletin 836-B, Geologie um Lituya Bay); Fritz, Hager & Minor 2001 (Science of
-         Tsunami Hazards 19/1, Heft); Franco et al. 2020 (Bathymetrie vor 1958); González-Vida et al. 2019
-         (Modell der Welle). Teilweise ungeprüft.""",
+         Tsunami Hazards 19/1, Heft; Spiegel, sonst Archiv der Tsunami Society unter epubs.lanl.gov/tsunami/
+         oder ETH Research Collection); Franco et al. 2020 (Bathymetrie vor 1958); González-Vida et al. 2019
+         (Modell der Welle). Tafeln und Karten der USGS-Berichte holt `usgs_publikationen`.""",
          "https://pubs.usgs.gov/publication/pp354C",
          [("https://pubs.usgs.gov/pp/0354c/report.pdf", "Miller_1960_PP354C.pdf"),
-          ("https://pubs.usgs.gov/pp/0354c/plate-1.pdf", "Miller_1960_PP354C_Tafel1.pdf", "Name der Tafel geschätzt"),
           ("https://pubs.usgs.gov/bul/0836b/report.pdf", "Mertie_1931_B836B.pdf"),
           ("https://corpora.tika.apache.org/base/docs/govdocs1/423/423993.pdf", "Fritz_Hager_Minor_2001_STH19-1.pdf"),
           ("https://nhess.copernicus.org/articles/20/2255/2020/nhess-20-2255-2020.pdf", "Franco_2020_NHESS.pdf"),
@@ -209,31 +262,59 @@ statisch("dokumente", "dokumente", "Berichte und Aufsätze zur Welle von 1958", 
           ("https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/metadata/AK_GlacierBay_2019_B19/"
            "AK_GlacierBay_2019_B19_WP_Report.pdf", "USGS_Lidar_GlacierBay_2019_Bericht.pdf")])
 
+# USGS-Publikationen: alle PDFs und ZIPs, die die Seite im Publications Warehouse verlinkt (Text, Tafeln, Karten)
+USGS_PUBLIKATIONEN = {
+    "pp354C": "Miller 1960, Giant waves in Lituya Bay, Alaska (PP 354-C, mit Karte 1:50 000)",
+    "b836B": "Mertie 1931, Notes on the geography and geology of Lituya Bay (Bulletin 836-B)",
+    "ofr61100": "Miller 1961, Geology of the Lituya district (OFR 61-100, 1:96 000)",
+    "ofr53193": "Miller 1953, Tertiary rocks of the southeastern Lituya district (OFR 53-193)",
+    "ofr78494": "Brew et al. 1978, Glacier Bay National Monument (OFR 78-494, Tafeln 1:125 000)",
+    "b1121K": "Rossman 1963, Geology of the eastern part of the Mount Fairweather quadrangle (Bulletin 1121-K)",
+    "pp632": "MacKevett et al. 1971, Mineral resources of Glacier Bay National Monument (PP 632)",
+}
+
+
+@quelle("usgs_publikationen", "dokumente", "USGS-Berichte mit Tafeln und Karten (Lituya-Distrikt)", "USGS",
+        "gemeinfrei", "Karten 1:50 000 bis 1:125 000", "1931–1978", "kern", "standard",
+        """Je Bericht alle PDF- und ZIP-Dateien, die seine Seite im USGS Publications Warehouse verlinkt – so
+        kommen die Tafeln mit, ohne ihre Dateinamen zu kennen: Miller 1960 (Welle, Spurlinie), Mertie 1931,
+        Miller 1953 und 1961 (Geologie des Lituya-Distrikts), Brew et al. 1978, Rossman 1963, MacKevett et al.
+        1971. Ungeprüft.""",
+        "https://pubs.usgs.gov/")
+def _p(ctx):
+    out = []
+    for kennung, titel in USGS_PUBLIKATIONEN.items():
+        seite = f"https://pubs.usgs.gov/publication/{kennung}"
+        out.append(Datei(seite, f"{kennung}/seite.html", notiz=titel))
+        try:
+            text = netz.hole_text(seite)
+        except Exception:
+            continue
+        gesehen = set()
+        for href in re.findall(r'href="([^"]+\.(?:pdf|zip|PDF|ZIP))"', text):
+            ziel = urllib.parse.urljoin(seite, html.unescape(href))
+            host = urllib.parse.urlsplit(ziel).hostname or ""
+            if ziel in gesehen or not host.endswith("usgs.gov"):
+                continue
+            gesehen.add(ziel)
+            out.append(Datei(ziel, f"{kennung}/{_name(ziel)}", notiz=titel))
+    return out
+
+
 # Fotos von D. J. Miller (USGS Denver Library), ScienceBase-Eintraege
 MILLER_FOTOS = ["51dd90b9e4b0f72b4471cc6f", "51dd90fbe4b0f72b4471cc9d", "51dd9142e4b0f72b4471cccf",
                 "51dd90e2e4b0f72b4471cc8b", "51dd90cae4b0f72b4471cc7b", "51dd90b2e4b0f72b4471cc69"]
 
 
-@quelle("fotos_miller", "fotos", "Fotos von D. J. Miller 1958 (USGS Photographic Library)", "USGS",
-        "gemeinfrei", "Fotos", "August 1958", "kern", "standard",
-        """Luft- und Bodenaufnahmen von Spurlinie, Waldschneise und Gilbert Inlet wenige Wochen nach der
-        Welle, über ScienceBase (JSON und Bilddateien). Ungeprüft.""",
-        "https://www.sciencebase.gov/catalog/")
-def _p(ctx):
-    out = []
-    for i in MILLER_FOTOS:
-        j = f"https://www.sciencebase.gov/catalog/item/{i}?format=json"
-        out.append(Datei(j, f"{i}/eintrag.json"))
-        try:
-            item = netz.hole_json(j)
-        except Exception:
-            continue
-        for f in item.get("files", []):
-            if f.get("url"):
-                out.append(Datei(f["url"], f"{i}/{f.get('name') or _name(f['url'])}", f.get("size")))
-    return out
-
 MILLER_FOTOS.append("51dd9147e4b0f72b4471ccd5")  # Kopf der Bucht
+
+statisch("fotos_miller", "fotos", "Fotos von D. J. Miller 1958 (USGS Photographic Library)", "USGS",
+         "gemeinfrei", "Fotos", "August 1958", "kern", "manuell",
+         """Luft- und Bodenaufnahmen von Spurlinie, Waldschneise und Gilbert Inlet wenige Wochen nach der Welle.
+         ScienceBase weist Abrufe aus Programmen ab (403 im Lauf vom 01.11.2026), deshalb im Browser laden:
+         https://www.sciencebase.gov/catalog/item/ mit """ + ", ".join(MILLER_FOTOS) + """. Ablage nach
+         download/fotos/fotos_miller/<Eintrag>/.""",
+         "https://www.sciencebase.gov/catalog/item/51dd9142e4b0f72b4471cccf", [])
 
 # ===========================================================================
 # NAMEN UND GRENZEN
@@ -375,7 +456,8 @@ statisch("geologie_lituya", "geologie", "Geologische Arbeiten zum Lituya-Distrik
          """Miller 1961, OFR 61-100 „Geology of the Lituya district“ (1:96 000); Miller 1953, OFR 53-193;
          Brew et al. 1978, OFR 78-494 (Glacier Bay, Tafeln 1:125 000); Rossman 1963, Bulletin 1121-K;
          MacKevett et al. 1971, PP 632; Hudson, Plafker & Rubin, DGGS RI 2022-4 (Meeresterrassen und
-         Fairweather-Störung bei Lituya Bay). Abruf über die Seiten; DGGS-Liste für das Blatt Mount Fairweather.""",
+         Fairweather-Störung bei Lituya Bay). Die USGS-Berichte lädt `usgs_publikationen`; von Hand bleibt
+         DGGS RI 2022-4 und die DGGS-Liste für das Blatt Mount Fairweather.""",
          "https://dggs.alaska.gov/pubs/quad/mount-fairweather", [])
 
 # ===========================================================================

@@ -2,7 +2,7 @@
 
 Sammlung der Karten, Höhenmodelle, Vermessungen, Bilder und Berichte für die Szene der Welle vom 9. Juli 1958. Geladen wird mit dem Werkzeug `tools/kartenmaterial/` (Python 3 ohne Fremdpakete) in den Ordner `download/`. Die Daten selbst stehen nicht im Repository. Mitgeführt werden das Inventar `download/INVENTAR.md`, die Gebiete und die Ortsnamen in `geodaten/`.
 
-Stand: 01.11.2026 · 47 Quellen in 13 Gruppen · 35 Standard, 7 groß (nur mit `--gross`), 5 mit Anmeldung oder von Hand
+Stand: 01.11.2026 · 48 Quellen in 13 Gruppen · 34 Standard, 7 groß (nur mit `--gross`), 7 mit Anmeldung oder von Hand · erster Lauf auf dem eigenen Rechner: 1 170 Dateien, 12,6 GB
 
 ## 1. Gebiete (BBox)
 
@@ -86,15 +86,21 @@ Keine festen Kachellisten: Das Werkzeug liest die Verzeichnisse der Anbieter und
 
 ## 5. Offen und von Hand
 
-- **Ungeprüfte Adressen:** Aus der Arbeitsumgebung waren nur AWS S3 und GitHub erreichbar. Geprüft sind alle S3-Quellen (Höhe, BlueTopo, USACE, Karten, Sentinel-2, WorldCover, ITS_LIVE, Natural Earth, GNIS, GEBCO, ERA5). Die Adressen bei NOAA (NCEI, Charts, CO-OPS), USGS (pubs, ComCat), NPS, GLIMS, UNESCO, Overpass und Planetary Computer folgen den dokumentierten Mustern. Jede ist im Katalog als „Ungeprüft“ vermerkt. Was beim ersten Lauf fehlschlägt, steht im Inventar und wird in `quellen_web.py` berichtigt.
-- **Seekarte 16762 „Lituya Bay“** (1:20 000) gibt es seit 2023 nicht mehr als PDF/Raster. Ihr Inhalt steckt in den ENC-Zellen US5AK1NB, US5AK1OB und US5AK1OC.
-- **Von Hand** (Stufe *manuell*, nur im Katalog): historische Seekarten C&GS 8505 (historicalcharts.noaa.gov), Luftbilder 1948/1954 und CORONA in USGS EarthExplorer (kostenloses Konto), Washburn-Fotos (Museum of Science Boston), Eisdicke (Millan 2022, Farinotti 2019), geologische Spezialkarten (Miller 1961, Brew 1978, DGGS RI 2022-4), NPS-Karten.
+- **Erster Lauf auf dem eigenen Rechner (01.11.2026):** 1 170 Dateien, 12,6 GB; alle S3-Quellen und die meisten Web-Quellen vollständig (NCEI-Tsunami, ComCat, Störungen, Geologie, RGI 7, GLIMS, OSM, NPS, Gezeiten, ENC, Landsat-Liste). Berichtigt nach dem Lauf:
+  - Elfin Cove und ETOPO 2022: NOAA bricht große Dateien ab; das Werkzeug setzt jetzt fort (auch wenn Python den Abbruch nicht meldet) und prüft vorhandene Dateien ohne bekannte Größe beim Server nach.
+  - NOS-Vermessungen: Der Verzeichnis-Crawler folgte `mailto`-Links und zählte Dateien doppelt; er bleibt jetzt im Verzeichnis der Vermessung.
+  - Seekarten-PDFs 16760/16762: von NOAA eingestellt (404). Die ENC-Zellen kommen jetzt aus dem Produktkatalog der NOAA (Szene, dazu Übersichtszellen im Fernfeld), ein Kartenbild erzeugt NOAA Custom Chart (von Hand).
+  - Tafel zu Miller 1960: Den Dateinamen hatte ich geraten (404). Die neue Quelle `usgs_publikationen` lädt alles, was die Seite eines USGS-Berichts verlinkt, dazu die geologischen Arbeiten zum Lituya-Distrikt.
+  - Fritz, Hager & Minor 2001: Spiegel bei manchen Netzen nicht erreichbar; Alternativen im Katalog (Archiv der Tsunami Society, ETH Research Collection).
+  - Fotos von Miller: ScienceBase weist Abrufe aus Programmen ab (403) → von Hand im Browser.
+- **Von Hand** (Stufe *manuell*, nur im Katalog): historische Seekarten C&GS 8505 (historicalcharts.noaa.gov), Luftbilder 1948/1954 und CORONA in USGS EarthExplorer (kostenloses Konto), Washburn-Fotos (Museum of Science Boston), Eisdicke (Millan 2022, Farinotti 2019), DGGS RI 2022-4, NPS-Karten, Fotos von Miller (ScienceBase), Kartenbild aus NOAA Custom Chart.
 - **Spurlinie und Waldschaden als GIS:** nicht veröffentlicht. Die Quellen sind die Karte in Miller 1960, die Lidar-Kanten und die IfSAR-DSM-Waldkante. Digitalisieren wäre ein eigener Schritt der Aufbereitung.
 - **RGI 7 bei NSIDC** braucht ein Earthdata-Konto, deshalb wird über den Spiegel der UNESCO geladen.
 
 ## 6. Quellenkatalog
 
 Erzeugt mit `python tools/kartenmaterial/kartenmaterial.py katalog`. Lizenzvermerke: USGS-, NOAA- und NPS-Daten sind gemeinfrei. Copernicus DEM © DLR e.V./Airbus. ArcticDEM CC BY 4.0, PGC/Maxar. Sentinel-2: enthält veränderte Copernicus-Sentinel-Daten. GEBCO Compilation Group (2025). OpenStreetMap ODbL. RGI CC BY 4.0.
+
 
 ### Höhe
 
@@ -204,15 +210,15 @@ USGS · 1:25 000 · Stand 2010er · Lizenz: gemeinfrei
 Aktuelle Karten mit Höhenlinien, Gewässern, Namen und Luftbild als Ebenen (GeoPDF).  
 <https://www.usgs.gov/programs/national-geospatial-program/us-topo-maps-america>
 
-**NOAA Seekarten ENC (S-57), Lituya Bay und Anfahrt** (`noaa_enc`, Stufe standard, Gebiet kern)  
-NOAA Office of Coast Survey · Hafen (US5) und Anfahrt (US4); Karte 16762 1:20 000 · Stand laufend · Lizenz: gemeinfrei  
-Elektronische Seekarten: Küstenlinie, Tiefenlinien, Lotungen, Untiefen, Wracks, Namen. Zellen US5AK1NB, US5AK1OB, US5AK1OC (Bucht, aus Karte 16762) und US4AK5SE (Anfahrt). Ungeprüft.  
+**NOAA Seekarten ENC (S-57) um Lituya Bay** (`noaa_enc`, Stufe standard, Gebiet szene)  
+NOAA Office of Coast Survey · Übersicht (US1–US3) bis Hafen (US5); Bucht wie Karte 16762 1:20 000 · Stand laufend · Lizenz: gemeinfrei  
+Elektronische Seekarten: Küstenlinie, Tiefenlinien, Lotungen, Untiefen, Wracks, Namen. Die Zellen kommen aus dem ENC-Produktkatalog der NOAA: alle Zellen in der Szene, dazu die Übersichtszellen (Band 1–3) im Fernfeld; sie ersetzen die eingestellten Papier- und PDF-Karten 16760 und 16762. Ist der Katalog nicht lesbar, die Zellen der Bucht US5AK1NB, US5AK1OB, US5AK1OC und US4AK5SE. Katalog ungeprüft, Zellen geprüft (Lauf vom 01.11.2026).  
 <https://charts.noaa.gov/ENCs/ENCs.shtml>
 
-**NOAA Seekarte 16760 Cross Sound to Yakutat Bay (PDF)** (`noaa_karte_16760`, Stufe standard, Gebiet fern)  
-NOAA · 1:300 000 · Stand letzte Ausgabe · Lizenz: gemeinfrei  
-Übersichtskarte der Küste. Hinweis: Die Rasterkarte 16762 „Lituya Bay“ (1:20 000) wurde 2023 eingestellt und ist nur noch als ENC oder NOAA Custom Chart zu haben. Ungeprüft.  
-<https://charts.noaa.gov/InteractiveCatalog/nrnc.shtml>
+**NOAA Seekarten 16760 und 16762 als Bild (NOAA Custom Chart)** (`noaa_karte_16760`, Stufe manuell, Gebiet fern)  
+NOAA · 1:300 000 / 1:20 000 · Stand laufend · Lizenz: gemeinfrei  
+Die PDF-Rasterkarten 16760 („Cross Sound to Yakutat Bay“) und 16762 („Lituya Bay“) gibt es nicht mehr (404 im Lauf vom 01.11.2026, NOAA hat die Rasterkarten eingestellt). Ein Kartenbild im alten Stil erzeugt die App NOAA Custom Chart aus den ENC als GeoPDF (Ausschnitt, Maßstab und Papiergröße wählen; zu finden über nauticalcharts.noaa.gov). Der Inhalt steckt vollständig in den ENC-Zellen (`noaa_enc`).  
+<https://nauticalcharts.noaa.gov/>
 
 **Historische Seekarten C&GS 8505 „Lituya Bay“ (1910–1942)** (`noaa_karten_historisch`, Stufe manuell, Gebiet kern)  
 NOAA Historical Map & Chart Collection · 1:20 000 · Stand 1910, 1914, 1929, 1942 · Lizenz: gemeinfrei  
@@ -293,7 +299,7 @@ Wilson et al. 2015: Shapefiles und Einheitentabellen. NPS GRI Glacier Bay: Oberf
 
 **Geologische Arbeiten zum Lituya-Distrikt** (`geologie_lituya`, Stufe manuell, Gebiet szene)  
 USGS, Alaska DGGS · 1:96 000 / 1:125 000 · Stand 1953–2022 · Lizenz: gemeinfrei  
-Miller 1961, OFR 61-100 „Geology of the Lituya district“ (1:96 000); Miller 1953, OFR 53-193; Brew et al. 1978, OFR 78-494 (Glacier Bay, Tafeln 1:125 000); Rossman 1963, Bulletin 1121-K; MacKevett et al. 1971, PP 632; Hudson, Plafker & Rubin, DGGS RI 2022-4 (Meeresterrassen und Fairweather-Störung bei Lituya Bay). Abruf über die Seiten; DGGS-Liste für das Blatt Mount Fairweather.  
+Miller 1961, OFR 61-100 „Geology of the Lituya district“ (1:96 000); Miller 1953, OFR 53-193; Brew et al. 1978, OFR 78-494 (Glacier Bay, Tafeln 1:125 000); Rossman 1963, Bulletin 1121-K; MacKevett et al. 1971, PP 632; Hudson, Plafker & Rubin, DGGS RI 2022-4 (Meeresterrassen und Fairweather-Störung bei Lituya Bay). Die USGS-Berichte lädt `usgs_publikationen`; von Hand bleibt DGGS RI 2022-4 und die DGGS-Liste für das Blatt Mount Fairweather.  
 <https://dggs.alaska.gov/pubs/quad/mount-fairweather>
 
 
@@ -345,16 +351,21 @@ Das Fairweather-Beben (iscgem884702) als GeoJSON; alle Beben ab M 4 im Gebiet se
 
 **Berichte und Aufsätze zur Welle von 1958** (`dokumente`, Stufe standard, Gebiet kern)  
 USGS, NHESS u. a. · – · Stand 1938–2020 · Lizenz: USGS gemeinfrei; NHESS CC BY 4.0; sonst wie angegeben  
-Miller 1960 (USGS Professional Paper 354-C, mit Karte 1:50 000 der Zerstörungszone und Spurlinie); Mertie 1931 (USGS Bulletin 836-B, Geologie um Lituya Bay); Fritz, Hager & Minor 2001 (Science of Tsunami Hazards 19/1, Heft); Franco et al. 2020 (Bathymetrie vor 1958); González-Vida et al. 2019 (Modell der Welle). Teilweise ungeprüft.  
+Miller 1960 (USGS Professional Paper 354-C, mit Karte 1:50 000 der Zerstörungszone und Spurlinie); Mertie 1931 (USGS Bulletin 836-B, Geologie um Lituya Bay); Fritz, Hager & Minor 2001 (Science of Tsunami Hazards 19/1, Heft; Spiegel, sonst Archiv der Tsunami Society unter epubs.lanl.gov/tsunami/ oder ETH Research Collection); Franco et al. 2020 (Bathymetrie vor 1958); González-Vida et al. 2019 (Modell der Welle). Tafeln und Karten der USGS-Berichte holt `usgs_publikationen`.  
 <https://pubs.usgs.gov/publication/pp354C>
+
+**USGS-Berichte mit Tafeln und Karten (Lituya-Distrikt)** (`usgs_publikationen`, Stufe standard, Gebiet kern)  
+USGS · Karten 1:50 000 bis 1:125 000 · Stand 1931–1978 · Lizenz: gemeinfrei  
+Je Bericht alle PDF- und ZIP-Dateien, die seine Seite im USGS Publications Warehouse verlinkt – so kommen die Tafeln mit, ohne ihre Dateinamen zu kennen: Miller 1960 (Welle, Spurlinie), Mertie 1931, Miller 1953 und 1961 (Geologie des Lituya-Distrikts), Brew et al. 1978, Rossman 1963, MacKevett et al. 1971. Ungeprüft.  
+<https://pubs.usgs.gov/>
 
 
 ### Fotos
 
-**Fotos von D. J. Miller 1958 (USGS Photographic Library)** (`fotos_miller`, Stufe standard, Gebiet kern)  
+**Fotos von D. J. Miller 1958 (USGS Photographic Library)** (`fotos_miller`, Stufe manuell, Gebiet kern)  
 USGS · Fotos · Stand August 1958 · Lizenz: gemeinfrei  
-Luft- und Bodenaufnahmen von Spurlinie, Waldschneise und Gilbert Inlet wenige Wochen nach der Welle, über ScienceBase (JSON und Bilddateien). Ungeprüft.  
-<https://www.sciencebase.gov/catalog/>
+Luft- und Bodenaufnahmen von Spurlinie, Waldschneise und Gilbert Inlet wenige Wochen nach der Welle. ScienceBase weist Abrufe aus Programmen ab (403 im Lauf vom 01.11.2026), deshalb im Browser laden: https://www.sciencebase.gov/catalog/item/ mit 51dd90b9e4b0f72b4471cc6f, 51dd90fbe4b0f72b4471cc9d, 51dd9142e4b0f72b4471cccf, 51dd90e2e4b0f72b4471cc8b, 51dd90cae4b0f72b4471cc7b, 51dd90b2e4b0f72b4471cc69, 51dd9147e4b0f72b4471ccd5. Ablage nach download/fotos/fotos_miller/<Eintrag>/.  
+<https://www.sciencebase.gov/catalog/item/51dd9142e4b0f72b4471cccf>
 
 
 ### Gezeiten und Klima
