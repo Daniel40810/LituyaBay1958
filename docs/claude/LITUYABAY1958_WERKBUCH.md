@@ -2,7 +2,7 @@
 
 **Das Projekt der Riesenwelle und des Netzes.** Lituya Bay, Alaska, 9. Juli 1958, 22:16 Uhr Ortszeit.
 
-> **Stand: Entwurf vom 01.11.2026, Fragen offen, Phase 1 nicht freigegeben.**
+> **Stand: 01.11.2026. Fragen F1–F43 beantwortet: alle A (Entscheidung vom 01.11.2026, Abschnitt 16). Phase 0b (Recherche) ist der nächste Schritt; Phase 1 wartet auf die Freigabe.**
 > Erstellt aus `docs/claude/LITUYABAY1958_WERKBUCH_PROMPT.md`. Das Werkbuch wird über das ganze Projekt fortgeschrieben (Abschnitt 19). Jede Zahl ist **belegt** (Quelle in Abschnitt 2.9), **gemessen** (aus den Daten in `download/`), **gerechnet** (hier hergeleitet, Formel in Abschnitt 9) oder **gestaltet [G]**. Was noch keine Quelle hat, trägt **[zu prüfen]**.
 >
 > Vorlage: Sylt Werkbuch (Projekt der Brandung) und Timmendorf (Projekt des Segels). Geschwisterdateien: `Kartenmaterial.md` (48 Quellen), `download/INVENTAR.md` (zweiter Lauf: 1 227 Dateien, 13,5 GB), `geodaten/gebiete.geojson`, `geodaten/namen_szene.geojson`.
@@ -834,11 +834,26 @@ Speicher der Vorrechnung: Höhenfelder grob als 16-Bit je 0,5 s → 1,7 M × 2 B
 
 ---
 
-## 16. Offene Fragen
+## 16. Fragen und Entscheidungen
 
-A ist die Empfehlung. Antwort je Nummer, „alle A“ reicht.
+**Entscheidung vom 01.11.2026: alle A.** Die Spalte A ist damit nicht mehr Empfehlung, sondern Beschluss; B und C bleiben als Rückfall stehen, falls eine Phase A nicht einlöst (dann wird die Frage neu gestellt und hier vermerkt).
 
-| Nr. | Frage | A (Empfehlung) | B | C | Begründung für A |
+### 16.1 Was aus „alle A“ folgt (verbindlich)
+
+- **Raum und Zeit:** Gebiete wie 3.1, echte Lage in UTM 8N, Höhen NAVD88 (NOS-Lotungen über Elfin Cove umgerechnet); vier Zeitstände umschaltbar; Grund 1958 aus der Vermessung 1940, abgeglichen mit FRANCO20 und 1959.
+- **Daten:** Kartenmaterial nur in Phase 2, Auslagerung in Phase 20 geprüft; Datei-Abbild der Netze in `daten/netz/`, die App läuft ohne Datenbank.
+- **Renderer:** GL-Engine aus Timmendorf mit `clipmap` und `surface`; alle 14 neuen Packages (Zugaben `aurora` und `bear` zuletzt); alle Optimierungen aus Abschnitt 6 mit Messung und Rückfall; LOD mit eigenem Klassenlader und Treiber 21.
+- **Ereignis:** vorgerechnet in hoher Auflösung und Echtzeit in geringer; `quake` mit Newmark; `landslide` nach Savage-Hutter mit Voellmy; `impact` mit Partikeln und Übergabe an `wave` (Volumen-Impuls-Quelle als Rückfall); `wave` auf der GPU mit Flachwasser und Stoßerfassung, Dispersion nur als Prüfung; Gletschermilch aus Schwebstoff; Fronten 1958 aus Karte 1951/C-5.
+- **Wald:** Millionen Bäume mit Impostors und Zuständen; Spurlinie belegt und gerechnet nebeneinander; Texturen aus CC0, eigenen Assets und Daten mit Lizenz, Budget 600 MB.
+- **Netze:** alle sieben; `LB_NET_WELLE` auf 20 m mit 16 Nachbarn und vier Kosten in einem Netz; Isochronen über Network Buffer, sonst Konturen; Netzblick mit allen Ebenen als Bild im Bild; Property Graph nur bei 23ai; Schema `LITUYA`, Präfix `LB_`, SRID 26908.
+- **Szene und Regie:** drei Boote nach Miller mit [G], Menschen an Bord ohne Gesicht, La Pérouse 1786 als Szenario, Tiere mit Bär, Washburn 1934 falls belegt; Zeitlupe bis 1:20, Unterwasserblick, Polarlicht nur „heute“ und belegt; Ton erzeugt mit tiefen Frequenzen.
+- **Ziel:** Hoch ≥ 30 fps, Mittel 60 fps, Ereignis abgespielt ≥ 30 fps; Rückfluss als Wunschliste; Programmsymbol mit Goldkante und Spurlinie.
+
+### 16.2 Die Fragen
+
+A ist gewählt (Entscheidung vom 01.11.2026).
+
+| Nr. | Frage | A (gewählt) | B | C | Begründung für A |
 |---|---|---|---|---|---|
 | F1 | Gebiete | Kern/Szene/Fern wie 3.1 | Kern enger | größer | Kern deckt Bucht und Spurlinie, Fern reicht bis zur Kimm des Fairweather (264 km) |
 | F2 | Maßstab und Lage | echt, UTM 8N, NAVD88 | Lage frei | — | Netze und Belege sitzen auf echten Koordinaten |
@@ -884,7 +899,7 @@ A ist die Empfehlung. Antwort je Nummer, „alle A“ reicht.
 | F42 | Rückfluss | Wünsche als Liste | Phase | keiner | Abschnitt 18 |
 | F43 | Programmsymbol | Goldkante, Spurlinie über der Bucht | Welle | — | wie `heidelberg.ico` |
 
-Fragenblock II (Oberfläche, Datenbank) kommt in Phase 19.
+Fragenblock II (Oberfläche, Datenbank) kommt in Phase 19 und wird hier als 16.3 angefügt.
 
 ---
 
@@ -925,7 +940,8 @@ Fragenblock II (Oberfläche, Datenbank) kommt in Phase 19.
 | Datum | Phase | Stand | Statusbild | `Renderer.jar` |
 |---|---|---|---|---|
 | 01.11.2026 | 0 | Gebiete festgelegt; Kartenmaterial-Werkzeug mit 48 Quellen; erster Lauf 1 170 Dateien, zweiter Lauf 1 227 Dateien (13,5 GB); Fehler berichtigt (Fortsetzen, Verzeichnisse, ENC-Katalog, USGS-Publikationen); Werkbuch-Prompt; **dieses Werkbuch als Entwurf** | `images/Gebiete_Szene.jpg`, `images/Gebiete_Fern.jpg`, `images/Kern_BlueTopo.png` | — |
-| | 0b | offen: Recherche vervollständigen, `docs/QUELLEN.md` | | |
-| | 1 | **nicht freigegeben** | | |
+| 01.11.2026 | — | **Fragen F1–F43 beantwortet: alle A** (Abschnitt 16.1) | | |
+| | 0b | nächster Schritt: Recherche vervollständigen (Miller S. 51–86, Zeugen, Boote, Tide, Zeitzone), Texturquellen und Lizenzen, `docs/QUELLEN.md` | | |
+| | 1 | wartet auf die Freigabe | | |
 
-**Nächster Schritt:** Fragen F1–F43 beantworten, Phase 0b (Recherche) und Phase 1 freigeben. Bis dahin kein Code.
+**Nächster Schritt:** Phase 0b (Recherche, ohne Code) und danach die Freigabe von Phase 1. Bis dahin kein Code.
