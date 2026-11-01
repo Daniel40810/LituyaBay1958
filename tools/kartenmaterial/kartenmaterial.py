@@ -201,6 +201,8 @@ def cmd_inventar(args):
             o = ordner(ziel, q)
             st_pfad = os.path.join(ziel, "_status", q.id + ".json")
             st = json.load(open(st_pfad, encoding="utf-8")) if os.path.exists(st_pfad) else None
+            if q.stufe == "manuell":
+                st = None  # alter Stand aus der Zeit, als die Quelle noch geladen wurde
             vorhanden, summe = 0, 0
             for wurzel, _, dateien in os.walk(o):
                 for f in dateien:
@@ -216,6 +218,10 @@ def cmd_inventar(args):
             plan_summe = sum(d["groesse"] or 0 for d in st["dateien"]) if st else 0
             plan_offen = sum(1 for d in st["dateien"] if d["groesse"] is None) if st else 0
             fehler = st["fehler"] if st else []
+            # Fehler, deren Datei inzwischen da ist (nachgeladen oder von Hand abgelegt), gelten nicht mehr
+            pfade = {d["url"]: d["pfad"] for d in st["dateien"]} if st else {}
+            fehler = [f for f in fehler if not (f[0] in pfade
+                                                and os.path.exists(os.path.join(o, *pfade[f[0]].split("/"))))]
             fehler_alle += [(q.id, *f) for f in fehler]
             if q.stufe == "manuell":
                 zustand = "manuell"

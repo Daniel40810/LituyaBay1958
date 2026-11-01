@@ -2,7 +2,7 @@
 
 Sammlung der Karten, Höhenmodelle, Vermessungen, Bilder und Berichte für die Szene der Welle vom 9. Juli 1958. Geladen wird mit dem Werkzeug `tools/kartenmaterial/` (Python 3 ohne Fremdpakete) in den Ordner `download/`. Die Daten selbst stehen nicht im Repository. Mitgeführt werden das Inventar `download/INVENTAR.md`, die Gebiete und die Ortsnamen in `geodaten/`.
 
-Stand: 01.11.2026 · 48 Quellen in 13 Gruppen · 34 Standard, 7 groß (nur mit `--gross`), 7 mit Anmeldung oder von Hand · erster Lauf auf dem eigenen Rechner: 1 170 Dateien, 12,6 GB
+Stand: 01.11.2026 · 48 Quellen in 13 Gruppen · 34 Standard, 7 groß (nur mit `--gross`), 7 mit Anmeldung oder von Hand · zweiter Lauf auf dem eigenen Rechner: 1 227 Dateien, 13,5 GB
 
 ## 1. Gebiete (BBox)
 
@@ -86,13 +86,14 @@ Keine festen Kachellisten: Das Werkzeug liest die Verzeichnisse der Anbieter und
 
 ## 5. Offen und von Hand
 
-- **Erster Lauf auf dem eigenen Rechner (01.11.2026):** 1 170 Dateien, 12,6 GB; alle S3-Quellen und die meisten Web-Quellen vollständig (NCEI-Tsunami, ComCat, Störungen, Geologie, RGI 7, GLIMS, OSM, NPS, Gezeiten, ENC, Landsat-Liste). Berichtigt nach dem Lauf:
-  - Elfin Cove und ETOPO 2022: NOAA bricht große Dateien ab; das Werkzeug setzt jetzt fort (auch wenn Python den Abbruch nicht meldet) und prüft vorhandene Dateien ohne bekannte Größe beim Server nach.
-  - NOS-Vermessungen: Der Verzeichnis-Crawler folgte `mailto`-Links und zählte Dateien doppelt; er bleibt jetzt im Verzeichnis der Vermessung.
-  - Seekarten-PDFs 16760/16762: von NOAA eingestellt (404). Die ENC-Zellen kommen jetzt aus dem Produktkatalog der NOAA (Szene, dazu Übersichtszellen im Fernfeld), ein Kartenbild erzeugt NOAA Custom Chart (von Hand).
-  - Tafel zu Miller 1960: Den Dateinamen hatte ich geraten (404). Die neue Quelle `usgs_publikationen` lädt alles, was die Seite eines USGS-Berichts verlinkt, dazu die geologischen Arbeiten zum Lituya-Distrikt.
-  - Fritz, Hager & Minor 2001: Spiegel bei manchen Netzen nicht erreichbar; Alternativen im Katalog (Archiv der Tsunami Society, ETH Research Collection).
+- **Läufe auf dem eigenen Rechner (01.11.2026):** Der zweite Lauf hat 1 227 Dateien mit 13,5 GB, alle Quellen der Stufe *standard* vollständig bis auf Fritz et al. 2001. Was nach dem ersten Lauf berichtigt wurde:
+  - Elfin Cove (692 MB) und ETOPO 2022: NOAA bricht große Dateien ab; das Werkzeug setzt fort, auch wenn Python den Abbruch nicht meldet, und prüft vorhandene Dateien ohne bekannte Größe beim Server nach.
+  - NOS-Vermessungen (57 Dateien, 846 MB): Der Verzeichnis-Crawler bleibt im Verzeichnis der Vermessung, ohne `mailto` und ohne Doppelte.
+  - Seekarten: Die PDF-Karten 16760/16762 hat NOAA eingestellt (404). Die ENC-Zellen kommen aus dem Produktkatalog der NOAA (23 Zellen im zweiten Lauf), ein Kartenbild erzeugt NOAA Custom Chart (von Hand).
+  - USGS-Berichte: `usgs_publikationen` lädt alles, was die Seite eines Berichts verlinkt (36 Dateien mit Tafeln, 147 MB).
+  - Fritz, Hager & Minor 2001: Der einzige Spiegel ist in manchen Netzen nicht erreichbar. Im Browser laden von [ResearchGate](https://www.researchgate.net/profile/Hermann-Fritz/publication/251230405_Lituya_Bay_case_Rockslide_impact_and_wave_run-up/links/0deec51eeb9cc12c5f000000/Lituya-Bay-case-Rockslide-impact-and-wave-run-up.pdf) (lässt keine Programme zu) und **von Hand ablegen** als `download/dokumente/dokumente/Fritz_LituyaBay_STHVol19N1Y2001.pdf`; das Werkzeug erkennt die Datei dann als vorhanden.
   - Fotos von Miller: ScienceBase weist Abrufe aus Programmen ab (403) → von Hand im Browser.
+  - Das Inventar zählt Fehler nicht mehr, deren Datei inzwischen da ist, und keine alten Fehler von Quellen, die jetzt von Hand sind.
 - **Von Hand** (Stufe *manuell*, nur im Katalog): historische Seekarten C&GS 8505 (historicalcharts.noaa.gov), Luftbilder 1948/1954 und CORONA in USGS EarthExplorer (kostenloses Konto), Washburn-Fotos (Museum of Science Boston), Eisdicke (Millan 2022, Farinotti 2019), DGGS RI 2022-4, NPS-Karten, Fotos von Miller (ScienceBase), Kartenbild aus NOAA Custom Chart.
 - **Spurlinie und Waldschaden als GIS:** nicht veröffentlicht. Die Quellen sind die Karte in Miller 1960, die Lidar-Kanten und die IfSAR-DSM-Waldkante. Digitalisieren wäre ein eigener Schritt der Aufbereitung.
 - **RGI 7 bei NSIDC** braucht ein Earthdata-Konto, deshalb wird über den Spiegel der UNESCO geladen.
@@ -100,6 +101,8 @@ Keine festen Kachellisten: Das Werkzeug liest die Verzeichnisse der Anbieter und
 ## 6. Quellenkatalog
 
 Erzeugt mit `python tools/kartenmaterial/kartenmaterial.py katalog`. Lizenzvermerke: USGS-, NOAA- und NPS-Daten sind gemeinfrei. Copernicus DEM © DLR e.V./Airbus. ArcticDEM CC BY 4.0, PGC/Maxar. Sentinel-2: enthält veränderte Copernicus-Sentinel-Daten. GEBCO Compilation Group (2025). OpenStreetMap ODbL. RGI CC BY 4.0.
+
+
 
 
 ### Höhe
@@ -351,7 +354,7 @@ Das Fairweather-Beben (iscgem884702) als GeoJSON; alle Beben ab M 4 im Gebiet se
 
 **Berichte und Aufsätze zur Welle von 1958** (`dokumente`, Stufe standard, Gebiet kern)  
 USGS, NHESS u. a. · – · Stand 1938–2020 · Lizenz: USGS gemeinfrei; NHESS CC BY 4.0; sonst wie angegeben  
-Miller 1960 (USGS Professional Paper 354-C, mit Karte 1:50 000 der Zerstörungszone und Spurlinie); Mertie 1931 (USGS Bulletin 836-B, Geologie um Lituya Bay); Fritz, Hager & Minor 2001 (Science of Tsunami Hazards 19/1, Heft; Spiegel, sonst Archiv der Tsunami Society unter epubs.lanl.gov/tsunami/ oder ETH Research Collection); Franco et al. 2020 (Bathymetrie vor 1958); González-Vida et al. 2019 (Modell der Welle). Tafeln und Karten der USGS-Berichte holt `usgs_publikationen`.  
+Miller 1960 (USGS Professional Paper 354-C, mit Karte 1:50 000 der Zerstörungszone und Spurlinie); Mertie 1931 (USGS Bulletin 836-B, Geologie um Lituya Bay); Fritz, Hager & Minor 2001 (Science of Tsunami Hazards 19/1, Heft; Spiegel, sonst von Hand im Browser von ResearchGate (Seite von H. M. Fritz, Publikation 251230405) und unter download/dokumente/dokumente/Fritz_LituyaBay_STHVol19N1Y2001.pdf ablegen); Franco et al. 2020 (Bathymetrie vor 1958); González-Vida et al. 2019 (Modell der Welle). Tafeln und Karten der USGS-Berichte holt `usgs_publikationen`.  
 <https://pubs.usgs.gov/publication/pp354C>
 
 **USGS-Berichte mit Tafeln und Karten (Lituya-Distrikt)** (`usgs_publikationen`, Stufe standard, Gebiet kern)  

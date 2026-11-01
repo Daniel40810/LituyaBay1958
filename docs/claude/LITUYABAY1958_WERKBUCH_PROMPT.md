@@ -472,7 +472,7 @@ Sylt Abschnitt 7 gilt vollständig (Werkbuch zuerst, Fragen mit A als Empfehlung
 
 | Phase | Ort | Inhalt | Abnahme |
 |---|---|---|---|
-| 0 | L | **erledigt:** Gebiete, Kartenmaterial (48 Quellen; erster Lauf 1 170 Dateien, 12,6 GB), Werkzeug `tools/kartenmaterial` | `Kartenmaterial.md`, `download/INVENTAR.md` |
+| 0 | L | **erledigt:** Gebiete, Kartenmaterial (48 Quellen; zweiter Lauf 1 227 Dateien, 13,5 GB), Werkzeug `tools/kartenmaterial` | `Kartenmaterial.md`, `download/INVENTAR.md` |
 | 0b | L | Kartenmaterial auf dem eigenen Rechner laden, Fehlgeschlagenes berichtigen; Texturquellen sichten und Lizenzen prüfen | `INVENTAR.md` ohne Fehler, Texturliste |
 | 1 | L | Grundgerüst: FFrame, GL-Engine aus Timmendorf, Kamera, HUD mit FPS, `wiring`, Startbild mit DB-Anmeldung; `sdonm.jar` und `lib/lod/` wie Timmendorf | leere Szene mit Horizont |
 | 2 | L | Aufbereitung (`tools`): Gelände in Kacheln für `clipmap`, Grund 1940/1959/heute, Karten 1951/1961 georeferenziert, Klassen, Namen → `daten/` mit `INHALT.txt` | **Start mit umbenanntem `download/`** gelingt |
