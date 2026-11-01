@@ -152,28 +152,31 @@ Vor dem ersten Netz wird gegen die installierte Datenbank geprüft, je mit einem
 
 | Nr | Fähigkeit | Prüfung | Weg | Ergebnis |
 |---|---|---|---|---|
-| 1 | Version | `select banner_full from v$version` | SQL | *ausstehend (`ant netzdb`)* |
-| 2 | räumliches Netz mit Höhe | `SDO_NET.CREATE_SDO_NETWORK` + `VALIDATE_NETWORK` auf 3001/3002, SRID 26908 | SQL | |
-| 3 | logisches Netz | `CREATE_LOGICAL_NETWORK`, gerichtet | SQL | |
-| 4 | LRS-Netz | `CREATE_LRS_NETWORK`; `SDO_LRS.LOCATE_PT` (750 m auf 1000 m) | SQL | |
-| 5 | hierarchisch | `no_of_hierarchy_levels = 2`, `PARENT_NODE_ID`, `LINK_LEVEL` | SQL | |
-| 6 | Feature-Layer | `SDO_NET.ADD_FEATURE_LAYER` (`FEAT_TYPE_MPOINT`) | SQL | |
-| 7 | Partitionen | `SPATIAL_PARTITION` (3D), `LOGICAL_PARTITION`, `GENERATE_PARTITION_BLOBS` | SQL | |
-| 8 | Zusammenhangskomponenten | `FIND_CONNECTED_COMPONENTS` (erwartet 2) | SQL | |
-| 9 | Property Graph, SQL/PGQ | nur ab 23ai: `CREATE PROPERTY GRAPH`, `GRAPH_TABLE` | SQL | |
-| 10 | LOD-Zugang | `LODNetworkManager.getCachedNetworkIO` aus den Partition-BLOBs, Treiber 21 | Java | |
-| 11 | Dijkstra | `shortestPathDijkstra` 1 → 3 (1414,2) | Java | |
-| 12 | `NetworkConstraint` | eigene Klasse sperrt Kante 5 (2000) | Java | |
-| 13 | `LinkCostCalculator` | eigene Klasse, doppelte Kosten (2828,4) | Java | |
-| 14 | `withinCost` | von 1 bis 1100 (2 und 4) | Java | |
-| 15 | `nearestNeighbors` | von 1, drei (2, 4, dann 3) | Java | |
-| 16 | *k* kürzeste Wege | `kShortestPaths` 1 → 3, k = 3 | Java | |
-| 17 | TSP | `tsp` über 1–4, geschlossen (4000) | Java | |
-| 18 | MCST | `mcst` (Spannbaum einer Komponente; LOD 21 spannt keinen Wald) | Java | |
-| 19 | `traceOut` | von 1 bis 1500 (2, 3, 4) | Java | |
-| 20 | `traceIn` | nach 3 bis 1100 (2, 4) | Java | |
-| 21 | Network Buffer | `networkBuffer` um 1, 1100 | Java | |
-| 22 | Zusammenhangskomponenten | `findConnectedComponents` | Java | |
+| 1 | Version | `select banner_full from v$version` | SQL | **ja**: 21c Enterprise Edition 21.3.0.0.0 |
+| 2 | räumliches Netz mit Höhe | `SDO_NET.CREATE_SDO_NETWORK` + `VALIDATE_NETWORK` auf 3001/3002, SRID 26908 | SQL | **ja**: 6 Knoten, 6 Kanten, `VALIDATE_NETWORK` = TRUE |
+| 3 | logisches Netz | `CREATE_LOGICAL_NETWORK`, gerichtet | SQL | **ja**: TRUE |
+| 4 | LRS-Netz | `CREATE_LRS_NETWORK`; `SDO_LRS.LOCATE_PT` (750 m auf 1000 m) | SQL | **ja**: TRUE; `LOCATE_PT(750)` = 350 750 / 6 500 000. Braucht Raum-Metadaten auch für `_PATH$` |
+| 5 | hierarchisch | `no_of_hierarchy_levels = 2`, `PARENT_NODE_ID`, `LINK_LEVEL` | SQL | **ja**: TRUE |
+| 6 | Feature-Layer | `SDO_NET.ADD_FEATURE_LAYER` (`FEAT_TYPE_MPOINT`) | SQL | **ja**: Layer angelegt |
+| 7 | Partitionen | `SPATIAL_PARTITION` (3D), `LOGICAL_PARTITION`, `GENERATE_PARTITION_BLOBS` | SQL | **ja**: räumlich (3D) und logisch, BLOBs erzeugt. Nur mit `LINK_LEVEL` = 1 in `LINK$`, sonst ORA-06502 in MDSYS.SDO_NET |
+| 8 | Zusammenhangskomponenten | `FIND_CONNECTED_COMPONENTS` (erwartet 2) | SQL | **ja**: 2 Komponenten (ohne `LINK_LEVEL` hält SDO_NET das Netz für mehrstufig) |
+| 9 | Property Graph, SQL/PGQ | nur ab 23ai: `CREATE PROPERTY GRAPH`, `GRAPH_TABLE` | SQL | **nein**: 21c; Wunsch für 23ai (F39) |
+| 10 | LOD-Zugang | `LODNetworkManager.getCachedNetworkIO` aus den Partition-BLOBs, Treiber 21 | Java | **ja**: aus den Partition-BLOBs, Treiber 21 im eigenen Lader |
+| 11 | Dijkstra | `shortestPathDijkstra` 1 → 3 (1414,2) | Java | **ja**: 1414,2 über [1, 3] |
+| 12 | `NetworkConstraint` | eigene Klasse sperrt Kante 5 (2000) | Java | **ja**: 2000 über Kanten [1, 2] |
+| 13 | `LinkCostCalculator` | eigene Klasse, doppelte Kosten (2828,4) | Java | **ja**: 2828,4 |
+| 14 | `withinCost` | von 1 bis 1100 (2 und 4) | Java | **ja**: [2, 4] |
+| 15 | `nearestNeighbors` | von 1, drei (2, 4, dann 3) | Java | **ja**: 2 und 4 zu 1000, 3 zu 1414,2 |
+| 16 | *k* kürzeste Wege | `kShortestPaths` 1 → 3, k = 3 | Java | **ja**: 1414,2 / 2000 / 2000 |
+| 17 | TSP | `tsp` über 1–4, geschlossen (4000) | Java | **ja**: 4000 |
+| 18 | MCST | `mcst` (Spannbaum einer Komponente; LOD 21 spannt keinen Wald) | Java | **ja**, mit Befund: Kanten [1, 4, 2]; `mcst` spannt nur eine Komponente, keinen Wald |
+| 19 | `traceOut` | von 1 bis 1500 (2, 3, 4) | Java | **ja**: [2, 3, 4] |
+| 20 | `traceIn` | nach 3 bis 1100 (2, 4) | Java | **ja**: [2, 4] |
+| 21 | Network Buffer | `networkBuffer` um 1, 1100 | Java | **ja**: 3 Knoten, 5 Kanten |
+| 22 | Zusammenhangskomponenten | `findConnectedComponents` | Java | **ja**: [1, 2, 3, 4] und [6, 7] |
+| 23 | Partition `LB_NET_HERKUNFT` | `LOGICAL_PARTITION`, `GENERATE_PARTITION_BLOBS` | SQL | **ja**: 1 Partition, BLOBs erzeugt |
+
+Geprüft am 01.11.2026 mit `ant netzdb` (`docs/status/netzdb_Phase3.txt`): 22 von 23 ja; es fehlt nur Property Graph (21c). Befunde: `LINK_LEVEL` muss auch in einstufigen Netzen gefüllt sein. `Db` aus `Renderer.jar` wartet sonst 30 s auf eine Antwort; `NetzDb` hebt die Grenze auf. `mcst` spannt keinen Wald.
 
 Was fehlt, wird nicht geplant, sondern als Wunsch notiert (F39).
 
@@ -962,6 +965,7 @@ Fragenblock II (Oberfläche, Datenbank) kommt in Phase 19 und wird hier als 16.3
 | 01.11.2026 | 2 | **Aufbereitung, Werkzeuge** (Freigabe „Phase2, los“): `com.dan.lituya.tools` mit `GeoTiff` (TIFF und BigTIFF, LZW, Deflate, Prädiktor 2 und 3, Kacheln, GeoKeys mit Albers), `Abbildung` (UTM 8 N, geographisch, Alaska Albers), `Quelle`, `Gitter`, `Gelaende` (Fern 30 m, Szene 5 m, Kern 0,5 m, Kacheln 2000² als `.r32`, Format in `scene.Stufe`), `Grund` (heute 4 m mit Wassermaske; 1926, 1940, 1959 zu 20 m aus den Lotungen über `Delaunay`), `Namen`, `Pruefbilder`, `Aufbereitung` (`ant aufbereitung`, `daten/INHALT.txt` mit SHA-256). Probelauf hier an 21 Dateien des Kartenmaterials (Lidar um den Gilbert Inlet und am Eingang, BlueTopo, USACE, 3DEP 1″, Copernicus, GEBCO, IfSAR GB-336, NOS): alle Formate gelesen, 0,6 s je Kern-Kachel; Befunde Höhenbezug und Mischung in 3.4. `ant pruefung` 77 Prüfungen. Offen aus 3.4: `rueckbau1958` und `spurlinie` (brauchen die von Hand eingepassten Karten 1951/C-5 und Millers Karte), `klassen` (Sentinel-2, WorldCover), `wald` (DSM 2012 nicht geladen, Stufe „gross“), `gletscher` (RGI, GLIMS; Fronten 1958 aus der Karte); `netz` mit Phase 7a, `ereignis` mit Phase 13 | Prüfbilder des Probelaufs; die echten schreibt `ant aufbereitung` nach `docs/status/Phase2_*.png` | unverändert |
 | 01.11.2026 | 2 | **Volllauf und Abnahme:** `ant aufbereitung` in 3,7 min (Kern 432 Kacheln in 124 s: Lidar 55,9 %, IfSAR 16,1 %, USACE 0,3 %, BlueTopo 27,8 %, ohne Wert 0 %; Naht Kern–Szene Median 0,01 m, 95 % 16,5 m; Szene–Fern Median 0,21 m, 95 % 59 m an steilen Hängen), 504 Dateien, 8,05 GB; Wasser im Kern 121,4 km². `ant pruefung` 78 Prüfungen, alles in Ordnung; App und Prüfung mit umbenanntem `download/` gelaufen. **Befund:** In der tiefen Bucht ist BlueTopo die Vermessung von 1940 (25 602 Zellen alle −0,59 m); daraus MLLW 1,157 m unter NAVD88 (gemessen, VDatum), gilt jetzt in `grund` statt Elfin Cove | `docs/status/Phase2_*.png`, `aufbereitung_Phase2.txt`, `pruefung_Phase2.txt` | unverändert |
 | 01.11.2026 | 3 | **Schema, Rechte, Funktionsprobe, Herkunft** (Freigabe „Phase3, los?“; Entscheidungen: Schema `LITUYABAY1958` (F40 B), Probenetze im Schema und danach weg, Herkunft je Rohdatei, `00_sys.sql` als SYS in SQL Developer): `db/netz/00`–`05`, `98`, `99`; `LB_NETZ_STAND`, `LB_NDM_PROBE` mit `LB_PROBE_SETZEN`; Schritt `herkunft` (`tools.Herkunft`), `tools.NetzDb` mit `ant netzdb` und `ant dbpruefung`; `netz.NdmProbeKern` (LOD im eigenen Lader: Dijkstra, eigene Netzbedingung und Kostenfunktion, `withinCost`, `nearestNeighbors`, *k* kürzeste Wege, TSP, MCST, `traceIn`/`traceOut`, Network Buffer, Komponenten). Hier geprüft: LOD im Speicher alle zwölf wie erwartet (Befund: `mcst` spannt nur eine Komponente, keinen Wald); Herkunft an einem Ausschnitt (15 Rohdateien) 1 781 Knoten, 3 035 Kanten, kreisfrei; `ant pruefung` 84 Prüfungen. **Ausstehend auf dem Rechner:** `00_sys.sql`, `ant aufbereitung "-Dschritte=grund,herkunft,bilder,inhalt"`, `ant netzdb`; dann Tabelle 2.8 füllen | `docs/status/netzdb_Phase3.txt` | unverändert |
+| 01.11.2026 | 3 | **Abnahme:** `ant netzdb` grün: `VALIDATE_NETWORK(LB_NET_HERKUNFT)` = TRUE. Das Netz hat 1 781 Knoten und 8 062 Kanten, davon 5 294 von einer Rohdatei zu einer Kachel; 554 Rohdateien werden genutzt. Gegenrechnung: CONNECT BY 504 Ausgaben ohne Abweichung, `traceIn` mit LOD 32 Ausgaben ohne Abweichung. Funktionsprobe 22 von 23 ja (Tabelle 2.8). Befunde: `LINK_LEVEL` = 1 nötig (sonst ORA-06502 beim Partitionieren und „inconsistent link_level“ bei `VALIDATE`); Antwortgrenze von 30 s in `Db`; unter Windows `"-Dschritte=…"` in Anführungszeichen | `docs/status/netzdb_Phase3.txt` | unverändert |
 | | 0b | parallel: Recherche vervollständigen (Miller S. 51–86, Zeugen, Boote, Tide, Zeitzone), Texturquellen und Lizenzen, `docs/QUELLEN.md` | | |
 
-**Nächster Schritt:** Phase 3 auf dem Rechner abschließen: `db/netz/00_sys.sql` als SYS, `ant aufbereitung "-Dschritte=grund,herkunft,bilder,inhalt"` (grund wegen MLLW 1,157 m), `ant netzdb`; Abnahme: Tabelle 2.8 gefüllt, `VALIDATE_NETWORK` = TRUE, Gegenrechnung ohne Abweichung. Danach Phase 4 (Clipmap, das Gelände in der App). Offen aus Phase 1: Statusbild auf der Radeon (`ant statusbild`). Offen aus 3.4: Karten einpassen (`rueckbau1958`, `spurlinie`), `klassen`, `wald`, `gletscher`.
+**Nächster Schritt:** Phase 4 (Clipmap, das Gelände in der App). Offen aus Phase 1: Statusbild auf der Radeon (`ant statusbild`). Offen aus 3.4: Karten einpassen (`rueckbau1958`, `spurlinie`), `klassen`, `wald`, `gletscher`.
