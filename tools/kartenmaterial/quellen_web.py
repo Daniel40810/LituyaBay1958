@@ -248,13 +248,15 @@ statisch("dokumente", "dokumente", "Berichte und Aufsätze zur Welle von 1958", 
          "USGS gemeinfrei; NHESS CC BY 4.0; sonst wie angegeben", "–", "1938–2020", "kern", "standard",
          """Miller 1960 (USGS Professional Paper 354-C, mit Karte 1:50 000 der Zerstörungszone und Spurlinie);
          Mertie 1931 (USGS Bulletin 836-B, Geologie um Lituya Bay); Fritz, Hager & Minor 2001 (Science of
-         Tsunami Hazards 19/1, Heft; Spiegel, sonst Archiv der Tsunami Society unter epubs.lanl.gov/tsunami/
-         oder ETH Research Collection); Franco et al. 2020 (Bathymetrie vor 1958); González-Vida et al. 2019
+         Tsunami Hazards 19/1, Heft; Spiegel, sonst von Hand im Browser von ResearchGate (Seite von H. M. Fritz,
+         Publikation 251230405) und unter download/dokumente/dokumente/Fritz_LituyaBay_STHVol19N1Y2001.pdf
+         ablegen); Franco et al. 2020 (Bathymetrie vor 1958); González-Vida et al. 2019
          (Modell der Welle). Tafeln und Karten der USGS-Berichte holt `usgs_publikationen`.""",
          "https://pubs.usgs.gov/publication/pp354C",
          [("https://pubs.usgs.gov/pp/0354c/report.pdf", "Miller_1960_PP354C.pdf"),
           ("https://pubs.usgs.gov/bul/0836b/report.pdf", "Mertie_1931_B836B.pdf"),
-          ("https://corpora.tika.apache.org/base/docs/govdocs1/423/423993.pdf", "Fritz_Hager_Minor_2001_STH19-1.pdf"),
+          ("https://corpora.tika.apache.org/base/docs/govdocs1/423/423993.pdf", "Fritz_LituyaBay_STHVol19N1Y2001.pdf",
+           "Spiegel; nicht erreichbar: von Hand unter diesem Namen ablegen"),
           ("https://nhess.copernicus.org/articles/20/2255/2020/nhess-20-2255-2020.pdf", "Franco_2020_NHESS.pdf"),
           ("https://nhess.copernicus.org/articles/19/369/2019/nhess-19-369-2019.pdf", "Gonzalez-Vida_2019_NHESS.pdf"),
           ("https://dggs.alaska.gov/webpubs/usgs/p/text/p0354c.pdf", "Miller_1960_PP354C_DGGS.pdf", "Spiegel"),

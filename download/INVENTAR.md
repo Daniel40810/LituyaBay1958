@@ -1,8 +1,8 @@
 # Kartenmaterial Lituya Bay – Inventar
 
-Stand 01.11.2026 07:03, Ordner `download/`. Erzeugt von `tools/kartenmaterial/kartenmaterial.py inventar`.
+Stand 01.11.2026 08:03, Ordner `download/`. Erzeugt von `tools/kartenmaterial/kartenmaterial.py inventar`.
 
-**1170 Dateien, 12.58 GB.** Jede Datei mit Größe in `inventar.csv`, Adressen und Fehler je Quelle in `_status/<quelle>.json`.
+**1227 Dateien, 13.45 GB.** Jede Datei mit Größe in `inventar.csv`, Adressen und Fehler je Quelle in `_status/<quelle>.json`.
 
 ## Gebiete
 
@@ -38,9 +38,9 @@ Stand 01.11.2026 07:03, Ordner `download/`. Erzeugt von `tools/kartenmaterial/ka
 | `usace_topobathy_2019` | USACE NCMP Topobathy-Lidar 2019, Block Lituya (1 m) | standard | szene | 169/169 | 539.1 MB | 539.1 MB | vollständig |
 | `gebco_2025` | GEBCO 2025, Ausschnitt Fernfeld | standard | fern | 2/2 | 1.2 MB | 2 ohne Angabe | vollständig |
 | `ncei_dem_suedost_alaska` | NCEI Küsten-DEM Southeast Alaska 8/3" (MHHW, 2010) | gross | fern | 0/0 | 0 kB | – | nicht geplant |
-| `ncei_dem_elfin_cove` | NCEI Tsunami-DEM Elfin Cove 1/3" (MHW, 2011) | standard | fern | 0/1 | 0 kB | 1 ohne Angabe | fehlgeschlagen |
-| `etopo_2022` | ETOPO 2022 15" (Kachel N60W150) | standard | fern | 0/1 | 0 kB | 1 ohne Angabe | fehlgeschlagen |
-| `nos_vermessungen` | NOS-Vermessungen Lituya Bay 1926, 1940, 1959, 2025 | standard | kern | 57/90 | 845.5 MB | 90 ohne Angabe | teilweise |
+| `ncei_dem_elfin_cove` | NCEI Tsunami-DEM Elfin Cove 1/3" (MHW, 2011) | standard | fern | 1/1 | 691.8 MB | 1 ohne Angabe | vollständig |
+| `etopo_2022` | ETOPO 2022 15" (Kachel N60W150) | standard | fern | 1/1 | 18.2 MB | 1 ohne Angabe | vollständig |
+| `nos_vermessungen` | NOS-Vermessungen Lituya Bay 1926, 1940, 1959, 2025 | standard | kern | 57/57 | 845.5 MB | 57 ohne Angabe | vollständig |
 
 ### Karten
 
@@ -48,8 +48,8 @@ Stand 01.11.2026 07:03, Ordner `download/`. Erzeugt von `tools/kartenmaterial/ka
 |---|---|---|---|---|---|---|---|
 | `usgs_topo_historisch` | USGS historische topographische Karten (HTMC) | standard | fern | 129/129 | 668.2 MB | 668.2 MB | vollständig |
 | `usgs_ustopo` | USGS US Topo (aktuell, GeoPDF) | standard | szene | 32/32 | 550.5 MB | 550.5 MB | vollständig |
-| `noaa_enc` | NOAA Seekarten ENC (S-57), Lituya Bay und Anfahrt | standard | kern | 4/4 | 280 kB | 4 ohne Angabe | vollständig |
-| `noaa_karte_16760` | NOAA Seekarte 16760 Cross Sound to Yakutat Bay (PDF) | standard | fern | 0/2 | 0 kB | 2 ohne Angabe | fehlgeschlagen |
+| `noaa_enc` | NOAA Seekarten ENC (S-57) um Lituya Bay | standard | szene | 23/23 | 5.8 MB | 23 ohne Angabe | vollständig |
+| `noaa_karte_16760` | NOAA Seekarten 16760 und 16762 als Bild (NOAA Custom Chart) | manuell | fern | 0/2 | 0 kB | 2 ohne Angabe | manuell |
 | `noaa_karten_historisch` | Historische Seekarten C&GS 8505 „Lituya Bay“ (1910–1942) | manuell | kern | 0/0 | 0 kB | – | manuell |
 | `nps_karten` | NPS-Karten Glacier Bay (Faltblatt, Seekarte 1:80 000) | manuell | fern | 0/0 | 0 kB | – | manuell |
 
@@ -111,32 +111,28 @@ Stand 01.11.2026 07:03, Ordner `download/`. Erzeugt von `tools/kartenmaterial/ka
 
 | Quelle | Titel | Stufe | Gebiet | Dateien | geladen | geplant | Zustand |
 |---|---|---|---|---|---|---|---|
-| `dokumente` | Berichte und Aufsätze zur Welle von 1958 | standard | kern | 7/9 | 49.8 MB | 9 ohne Angabe | teilweise |
+| `dokumente` | Berichte und Aufsätze zur Welle von 1958 | standard | kern | 7/8 | 49.8 MB | 8 ohne Angabe | teilweise |
+| `usgs_publikationen` | USGS-Berichte mit Tafeln und Karten (Lituya-Distrikt) | standard | kern | 36/36 | 147.3 MB | 36 ohne Angabe | vollständig |
 
 ### Fotos
 
 | Quelle | Titel | Stufe | Gebiet | Dateien | geladen | geplant | Zustand |
 |---|---|---|---|---|---|---|---|
-| `fotos_miller` | Fotos von D. J. Miller 1958 (USGS Photographic Library) | standard | kern | 0/7 | 0 kB | 7 ohne Angabe | fehlgeschlagen |
+| `fotos_miller` | Fotos von D. J. Miller 1958 (USGS Photographic Library) | manuell | kern | 0/7 | 0 kB | 7 ohne Angabe | manuell |
 
 ### Gezeiten und Klima
 
 | Quelle | Titel | Stufe | Gebiet | Dateien | geladen | geplant | Zustand |
 |---|---|---|---|---|---|---|---|
-| `gezeiten` | Gezeiten Lituya Bay (9452928) und Elfin Cove (9452634), Boje Fairweather Ground | standard | kern | 4/4 | 611 kB | 4 ohne Angabe | vollständig |
+| `gezeiten` | Gezeiten Lituya Bay (9452928) und Elfin Cove (9452634), Boje Fairweather Ground | standard | kern | 4/4 | 612 kB | 4 ohne Angabe | vollständig |
 | `era5_juli1958` | ERA5 Reanalyse Juli 1958 (Wind, Luftdruck, Temperatur) | gross | fern | 0/0 | 0 kB | – | nicht geplant |
 
 ## Fehlgeschlagen
 
 | Quelle | Adresse | Fehler |
 |---|---|---|
-| `ncei_dem_elfin_cove` | https://www.ngdc.noaa.gov/thredds/fileServer/regional/elfin_cove_13_mhw_2011.nc | IncompleteRead: IncompleteRead(926592 bytes read) |
-| `etopo_2022` | https://www.ngdc.noaa.gov/thredds/fileServer/global/ETOPO2022/15s/15s_surface_elev_netcdf/ETOPO_2022_v1_15s_N60W150_surface.nc | IncompleteRead: IncompleteRead(1024016 bytes read) |
-| `nos_vermessungen` | mailto:ncei.info@noaa.gov | URLError: <urlopen error unknown url type: mailto> |
-| `nos_vermessungen` | mailto:ncei.info@noaa.gov | URLError: <urlopen error unknown url type: mailto> |
 | `noaa_karte_16760` | https://www.charts.noaa.gov/PDFs/16762.pdf | HTTPError: HTTP Error 404: Not Found |
 | `noaa_karte_16760` | https://www.charts.noaa.gov/PDFs/16760.pdf | HTTPError: HTTP Error 404: Not Found |
-| `dokumente` | https://pubs.usgs.gov/pp/0354c/plate-1.pdf | HTTPError: HTTP Error 404: Not Found |
 | `dokumente` | https://corpora.tika.apache.org/base/docs/govdocs1/423/423993.pdf | URLError: <urlopen error [Errno 11001] getaddrinfo failed> |
 | `fotos_miller` | https://www.sciencebase.gov/catalog/item/51dd9142e4b0f72b4471cccf?format=json | HTTPError: HTTP Error 403: Forbidden |
 | `fotos_miller` | https://www.sciencebase.gov/catalog/item/51dd90fbe4b0f72b4471cc9d?format=json | HTTPError: HTTP Error 403: Forbidden |
