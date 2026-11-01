@@ -4,4 +4,9 @@
 /docs/
 /templates/
 /lib/Renderer.jar
-/db/db.propertiesdownload/geojson/ALKIS_SH_Massendownload.geojson
+/db/db.properties
+# Kartenmaterial (tools/kartenmaterial), nur das Inventar wird mitgefuehrt
+/download/*
+!/download/INVENTAR.md
+__pycache__/
+*.pyc
