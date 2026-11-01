@@ -148,22 +148,32 @@ Alle belegt über FRITZ01. Sie sind die Grenzfälle für `impact` und `wave` (Ab
 
 ### 2.8 NDM-Funktionsprobe (Phase 3)
 
-Vor dem ersten Netz wird gegen die installierte Datenbank geprüft, je mit einer Zeile SQL oder Java, Ergebnis in diese Tabelle:
+Vor dem ersten Netz wird gegen die installierte Datenbank geprüft, je mit einem Block SQL (`db/netz/03_probe.sql`) oder Java (`netz.NdmProbeKern` mit LOD im eigenen Klassenlader), Ergebnis in die Tabelle `LB_NDM_PROBE` (Sicht `LB_V_NDM_PROBE`) und hierher. `ant netzdb` legt dafür Probenetze `LB_PROBE_*` an und räumt sie danach weg (`98_probe_abbau.sql`). Probenetz `LB_PROBE_RAUM` (UTM 8 N, mit Höhe): Quadrat 1–2–3–4 mit Kanten zu 1000 m, Diagonale 1–3 (Kante 5) zu 1414,2 m, getrennt davon 6–7 zu 500 m, alle in beide Richtungen. Die Erwartungswerte prüft `ant pruefung` vorab an demselben Netz im Speicher (LOD ohne Datenbank: alle zwölf Analysen wie erwartet).
 
-| Fähigkeit | Prüfung | Ergebnis |
-|---|---|---|
-| Version | `select banner from v$version` | |
-| räumliches Netz mit Höhe | `SDO_NET.CREATE_SDO_NETWORK` + `VALIDATE_NETWORK` auf 3001/3002 | |
-| logisches Netz | `CREATE_LOGICAL_NETWORK` | |
-| LRS-Netz | `CREATE_LRS_NETWORK`, `SDO_LRS.LOCATE_PT` | |
-| hierarchisch | `no_of_hierarchy_levels = 2`, Elternknoten | |
-| Feature-Layer | `SDO_NET.ADD_FEATURE_LAYER` | |
-| Partitionen, LOD | `SPATIAL_PARTITION`, `GENERATE_PARTITION_BLOBS`, `LODNetworkManager` | |
-| `withinCost`, `nearestNeighbors`, `kShortestPaths`, `tsp`, `mcst`, `traceIn`/`traceOut` | `NetworkAnalyst` | |
-| `LinkCostCalculator`, `NetworkConstraint` | eigene Klasse | |
-| Network Buffer | `networkBuffer` | |
-| Zusammenhangskomponenten | `FIND_CONNECTED_COMPONENTS` | |
-| Property Graph, SQL/PGQ | nur 23ai: `CREATE PROPERTY GRAPH`, `GRAPH_TABLE` | |
+| Nr | Fähigkeit | Prüfung | Weg | Ergebnis |
+|---|---|---|---|---|
+| 1 | Version | `select banner_full from v$version` | SQL | *ausstehend (`ant netzdb`)* |
+| 2 | räumliches Netz mit Höhe | `SDO_NET.CREATE_SDO_NETWORK` + `VALIDATE_NETWORK` auf 3001/3002, SRID 26908 | SQL | |
+| 3 | logisches Netz | `CREATE_LOGICAL_NETWORK`, gerichtet | SQL | |
+| 4 | LRS-Netz | `CREATE_LRS_NETWORK`; `SDO_LRS.LOCATE_PT` (750 m auf 1000 m) | SQL | |
+| 5 | hierarchisch | `no_of_hierarchy_levels = 2`, `PARENT_NODE_ID`, `LINK_LEVEL` | SQL | |
+| 6 | Feature-Layer | `SDO_NET.ADD_FEATURE_LAYER` (`FEAT_TYPE_MPOINT`) | SQL | |
+| 7 | Partitionen | `SPATIAL_PARTITION` (3D), `LOGICAL_PARTITION`, `GENERATE_PARTITION_BLOBS` | SQL | |
+| 8 | Zusammenhangskomponenten | `FIND_CONNECTED_COMPONENTS` (erwartet 2) | SQL | |
+| 9 | Property Graph, SQL/PGQ | nur ab 23ai: `CREATE PROPERTY GRAPH`, `GRAPH_TABLE` | SQL | |
+| 10 | LOD-Zugang | `LODNetworkManager.getCachedNetworkIO` aus den Partition-BLOBs, Treiber 21 | Java | |
+| 11 | Dijkstra | `shortestPathDijkstra` 1 → 3 (1414,2) | Java | |
+| 12 | `NetworkConstraint` | eigene Klasse sperrt Kante 5 (2000) | Java | |
+| 13 | `LinkCostCalculator` | eigene Klasse, doppelte Kosten (2828,4) | Java | |
+| 14 | `withinCost` | von 1 bis 1100 (2 und 4) | Java | |
+| 15 | `nearestNeighbors` | von 1, drei (2, 4, dann 3) | Java | |
+| 16 | *k* kürzeste Wege | `kShortestPaths` 1 → 3, k = 3 | Java | |
+| 17 | TSP | `tsp` über 1–4, geschlossen (4000) | Java | |
+| 18 | MCST | `mcst` (Spannbaum einer Komponente; LOD 21 spannt keinen Wald) | Java | |
+| 19 | `traceOut` | von 1 bis 1500 (2, 3, 4) | Java | |
+| 20 | `traceIn` | nach 3 bis 1100 (2, 4) | Java | |
+| 21 | Network Buffer | `networkBuffer` um 1, 1100 | Java | |
+| 22 | Zusammenhangskomponenten | `findConnectedComponents` | Java | |
 
 Was fehlt, wird nicht geplant, sondern als Wunsch notiert (F39).
 
@@ -416,7 +426,7 @@ Nach Paketvertrag 14: messen, vergleichen, alle Szenen gleich, alter Weg als Rü
 
 ## 7. Die Netze (Oracle Network Data Model)
 
-Schema `LITUYA` (F40), Präfix `LB_`, Netze `LB_NET_*`, SRID 26908 mit Höhe (3001/3002), Toleranz 5 mm, Index `SPATIAL_INDEX_V2`, Raum-Metadaten auch für `_PATH$` (Lehre aus Timmendorf). Jedes Netz hat ein Datei-Abbild in `daten/netz/<netz>/` (`knoten.tsv`, `kanten.tsv`, `pruefwege.tsv`), ein Ladeskript `db/netz/NN_<netz>.sql`, Prüfwege, eine Zweitrechnung in `route`, eine Prüfsumme in `LB_NETZ_STAND`, und mindestens eine Frage, die es für die Szene beantwortet.
+Schema `LITUYABAY1958` (F40 B, Entscheidung Phase 3: der vorhandene Benutzer aus `db/info/USER.sql`), Präfix `LB_`, Netze `LB_NET_*`, SRID 26908 mit Höhe (3001/3002), Toleranz 5 mm, Index `SPATIAL_INDEX_V2`, Raum-Metadaten auch für `_PATH$` (Lehre aus Timmendorf). Jedes Netz hat ein Datei-Abbild in `daten/netz/<netz>/` (`knoten.tsv`, `kanten.tsv`, `pruefwege.tsv`), ein Ladeskript `db/netz/NN_<netz>.sql`, Prüfwege, eine Zweitrechnung in `route`, eine Prüfsumme in `LB_NETZ_STAND`, und mindestens eine Frage, die es für die Szene beantwortet.
 
 ### 7.1 `LB_NET_WELLE` — Laufzeit der Welle *(Herzstück)*
 
@@ -500,6 +510,8 @@ Abweichungen zwischen Eikonal und `wave` sind kein Fehler, sondern das Ergebnis:
 
 Quelle → Rohdatei → Aufbereitung → Befund → Szenenobjekt, gerichtet, ohne Geometrie. `traceIn(Szenenobjekt)` zeigt die Quellen; Befunde ohne Weg zu einer Quelle sind [G]; nach Abschluss der Nachweis, welche Datei auf der Wechselfestplatte wofür gebraucht wurde. Erstes Netz in Phase 3, weil klein.
 
+Umsetzung Phase 3: Schritt `herkunft` der Aufbereitung (`tools.Herkunft`) schreibt `daten/netz/herkunft/` (`knoten.tsv`, `kanten.tsv`, `pruefwege.tsv`, `HERKUNFT.txt`). Knoten: je Quelle des Kartenmaterials (34), je Rohdatei aus `download/inventar.csv` (Entscheidung Phase 3: je Datei, nicht je Quelle), je Schritt, je Ausgabe in `daten/` (mit SHA-256), je Szenenobjekt, je Befund. Kanten: Quelle enthält Rohdatei; Rohdatei liefert Ausgabe (welche Datei unter welcher Kachel lag, mit denselben Quellen und derselben Überdeckung wie die Aufbereitung, ohne den Vorrang); Schritt erzeugt Ausgabe; gröbere Stufe → feinere (`GROB`), Wassermaske → Lotungsraster (`MASKE`); Rohdatei belegt Befund, Befund gilt für Ausgabe; Ausgabe zeigt Szenenobjekt. Kosten 1 je Kante. `ant netzdb` lädt, partitioniert logisch, prüft mit `VALIDATE_NETWORK`, CONNECT BY (alle Ausgaben) und `traceIn` mit LOD (Auswahl) gegen `pruefwege.tsv` und trägt die Prüfsumme in `LB_NETZ_STAND` ein.
+
 ### 7.8 Abnahme-Matrix
 
 | Fähigkeit | Netz |
@@ -522,7 +534,7 @@ Quelle → Rohdatei → Aufbereitung → Befund → Szenenobjekt, gerichtet, ohn
 
 ### 7.9 Ladeablauf (wie Timmendorf)
 
-`db/netz/00_sys.sql` (Rechte direkt, `DATA_PUMP_DIR`), `01_tabellen.sql`, `02_netze.sql` (`CREATE_*_NETWORK`, Zusatzspalten, Raum-Metadaten inkl. `_PATH$`), Laden aus `daten/netz/` über `tools.NetzDb` (JDBC, Batches), `04_nach_dem_laden.sql` (Indizes, Partitionen, BLOBs), `05_sichten.sql` (QGIS), `99_abbau.sql`. `ant netzdb`, `ant netzvergleich` (Prüfwege LOD gegen `route`), `ant dbpruefung`.
+`db/netz/00_sys.sql` (Rechte direkt, `DATA_PUMP_DIR`; einmal als SYS in SQL Developer), `01_tabellen.sql`, `02_netze.sql` (`CREATE_*_NETWORK`, Zusatzspalten, Raum-Metadaten inkl. `_PATH$`), Laden aus `daten/netz/` über `tools.NetzDb` (JDBC, Batches), `04_nach_dem_laden.sql` (Indizes, Partitionen, BLOBs), `05_sichten.sql` (QGIS), `99_abbau.sql`; dazu `03_probe.sql` und `98_probe_abbau.sql` für die Funktionsprobe (2.8). Jede Anweisung endet mit einer Zeile `/` (SQL Developer, SQL*Plus und `NetzDb` lesen dasselbe). `ant netzdb` (Phase 3: 99, 01, 02, Laden, 03, Java-Probe, 98, 04, 05, Prüfungen, `LB_NETZ_STAND`), `ant netzvergleich` (Prüfwege LOD gegen `route`, mit Phase 7a), `ant dbpruefung`.
 
 ### 7.10 Netzblick
 
@@ -898,7 +910,7 @@ A ist gewählt (Entscheidung vom 01.11.2026).
 | F37 | Leistungsziel | Hoch ≥ 30, Mittel 60, Ereignis ≥ 30 | nur 30 | frei | 15.1 |
 | F38 | Netzblick | alle Ebenen, Bild im Bild | nur Isochronen | keiner | Säule 2 muss sichtbar sein |
 | F39 | Property Graph | nur bei 23ai | nicht | Upgrade | 2.8 |
-| F40 | Schema | `LITUYA`, `LB_` | `LITUYABAY1958` | DEMO | kurz, wie `SY_`, `TD_` |
+| F40 | Schema | `LITUYA`, `LB_` | **`LITUYABAY1958`** | DEMO | kurz, wie `SY_`, `TD_`; **Phase 3: B**, der vorhandene Benutzer, Präfix `LB_` bleibt |
 | F41 | SRID | 26908, Sichten 4326 | 32608 | — | NAD83 wie die Daten |
 | F42 | Rückfluss | Wünsche als Liste | Phase | keiner | Abschnitt 18 |
 | F43 | Programmsymbol | Goldkante, Spurlinie über der Bucht | Welle | — | wie `heidelberg.ico` |
@@ -949,6 +961,7 @@ Fragenblock II (Oberfläche, Datenbank) kommt in Phase 19 und wird hier als 16.3
 | 01.11.2026 | 1 | Nachtrag: `ant lod` sucht ORACLE_HOME auch in der Registry, im PATH und unter `C:\app` | | |
 | 01.11.2026 | 2 | **Aufbereitung, Werkzeuge** (Freigabe „Phase2, los“): `com.dan.lituya.tools` mit `GeoTiff` (TIFF und BigTIFF, LZW, Deflate, Prädiktor 2 und 3, Kacheln, GeoKeys mit Albers), `Abbildung` (UTM 8 N, geographisch, Alaska Albers), `Quelle`, `Gitter`, `Gelaende` (Fern 30 m, Szene 5 m, Kern 0,5 m, Kacheln 2000² als `.r32`, Format in `scene.Stufe`), `Grund` (heute 4 m mit Wassermaske; 1926, 1940, 1959 zu 20 m aus den Lotungen über `Delaunay`), `Namen`, `Pruefbilder`, `Aufbereitung` (`ant aufbereitung`, `daten/INHALT.txt` mit SHA-256). Probelauf hier an 21 Dateien des Kartenmaterials (Lidar um den Gilbert Inlet und am Eingang, BlueTopo, USACE, 3DEP 1″, Copernicus, GEBCO, IfSAR GB-336, NOS): alle Formate gelesen, 0,6 s je Kern-Kachel; Befunde Höhenbezug und Mischung in 3.4. `ant pruefung` 77 Prüfungen. Offen aus 3.4: `rueckbau1958` und `spurlinie` (brauchen die von Hand eingepassten Karten 1951/C-5 und Millers Karte), `klassen` (Sentinel-2, WorldCover), `wald` (DSM 2012 nicht geladen, Stufe „gross“), `gletscher` (RGI, GLIMS; Fronten 1958 aus der Karte); `netz` mit Phase 7a, `ereignis` mit Phase 13 | Prüfbilder des Probelaufs; die echten schreibt `ant aufbereitung` nach `docs/status/Phase2_*.png` | unverändert |
 | 01.11.2026 | 2 | **Volllauf und Abnahme:** `ant aufbereitung` in 3,7 min (Kern 432 Kacheln in 124 s: Lidar 55,9 %, IfSAR 16,1 %, USACE 0,3 %, BlueTopo 27,8 %, ohne Wert 0 %; Naht Kern–Szene Median 0,01 m, 95 % 16,5 m; Szene–Fern Median 0,21 m, 95 % 59 m an steilen Hängen), 504 Dateien, 8,05 GB; Wasser im Kern 121,4 km². `ant pruefung` 78 Prüfungen, alles in Ordnung; App und Prüfung mit umbenanntem `download/` gelaufen. **Befund:** In der tiefen Bucht ist BlueTopo die Vermessung von 1940 (25 602 Zellen alle −0,59 m); daraus MLLW 1,157 m unter NAVD88 (gemessen, VDatum), gilt jetzt in `grund` statt Elfin Cove | `docs/status/Phase2_*.png`, `aufbereitung_Phase2.txt`, `pruefung_Phase2.txt` | unverändert |
+| 01.11.2026 | 3 | **Schema, Rechte, Funktionsprobe, Herkunft** (Freigabe „Phase3, los?“; Entscheidungen: Schema `LITUYABAY1958` (F40 B), Probenetze im Schema und danach weg, Herkunft je Rohdatei, `00_sys.sql` als SYS in SQL Developer): `db/netz/00`–`05`, `98`, `99`; `LB_NETZ_STAND`, `LB_NDM_PROBE` mit `LB_PROBE_SETZEN`; Schritt `herkunft` (`tools.Herkunft`), `tools.NetzDb` mit `ant netzdb` und `ant dbpruefung`; `netz.NdmProbeKern` (LOD im eigenen Lader: Dijkstra, eigene Netzbedingung und Kostenfunktion, `withinCost`, `nearestNeighbors`, *k* kürzeste Wege, TSP, MCST, `traceIn`/`traceOut`, Network Buffer, Komponenten). Hier geprüft: LOD im Speicher alle zwölf wie erwartet (Befund: `mcst` spannt nur eine Komponente, keinen Wald); Herkunft an einem Ausschnitt (15 Rohdateien) 1 781 Knoten, 3 035 Kanten, kreisfrei; `ant pruefung` 84 Prüfungen. **Ausstehend auf dem Rechner:** `00_sys.sql`, `ant aufbereitung -Dschritte=grund,herkunft,bilder,inhalt`, `ant netzdb`; dann Tabelle 2.8 füllen | `docs/status/netzdb_Phase3.txt` | unverändert |
 | | 0b | parallel: Recherche vervollständigen (Miller S. 51–86, Zeugen, Boote, Tide, Zeitzone), Texturquellen und Lizenzen, `docs/QUELLEN.md` | | |
 
-**Nächster Schritt:** Volllauf der Aufbereitung (`ant aufbereitung`) und Abnahme von Phase 2 mit umbenanntem `download/`; danach die offenen Schritte aus 3.4 (Karten einpassen) und Phase 3. Offen aus Phase 1: Statusbild auf der Radeon (`ant statusbild`), Treiber 21 nach `lib/lod/` (`ant lod`), Schemaname (F40 A sagt `LITUYA`, angelegt ist der Benutzer `LituyaBay1958`; entscheidet Phase 3).
+**Nächster Schritt:** Phase 3 auf dem Rechner abschließen: `db/netz/00_sys.sql` als SYS, `ant aufbereitung -Dschritte=grund,herkunft,bilder,inhalt` (grund wegen MLLW 1,157 m), `ant netzdb`; Abnahme: Tabelle 2.8 gefüllt, `VALIDATE_NETWORK` = TRUE, Gegenrechnung ohne Abweichung. Danach Phase 4 (Clipmap, das Gelände in der App). Offen aus Phase 1: Statusbild auf der Radeon (`ant statusbild`). Offen aus 3.4: Karten einpassen (`rueckbau1958`, `spurlinie`), `klassen`, `wald`, `gletscher`.

@@ -42,23 +42,38 @@ public final class Quelle {
     /** Füllt in ziel (w·h Werte, Zeilen von Nord nach Süd) die NaN-Zellen aus dieser Quelle; gibt die Zahl gefüllter Zellen zurück. */
     public int proben(Gitter g, float[] ziel) throws IOException {
         int gefuellt = 0;
-        double[] o = new double[2];
         for (int f = 0; f < dateien.size(); f++) {
             GeoTiff t = dateien.get(f);
-            Abbildung a = abbildungen.get(f);
-            // Umriss des Gitters in der Abbildung der Quelle
-            double xmin = Double.MAX_VALUE, xmax = -Double.MAX_VALUE, ymin = Double.MAX_VALUE, ymax = -Double.MAX_VALUE;
-            for (int s = 0; s <= 8; s++)
-                for (int[] r : new int[][]{{s, 0}, {s, 8}, {0, s}, {8, s}}) {
-                    a.vonUtm(g.e0() + g.breite() * r[0] / 8.0, g.n0() - g.hoehe() * r[1] / 8.0, o);
-                    xmin = Math.min(xmin, o[0]); xmax = Math.max(xmax, o[0]);
-                    ymin = Math.min(ymin, o[1]); ymax = Math.max(ymax, o[1]);
-                }
-            double tx0 = Math.min(t.x0, t.x1()), tx1 = Math.max(t.x0, t.x1()), ty0 = Math.min(t.y0, t.y1()), ty1 = Math.max(t.y0, t.y1());
-            if (xmax < tx0 || xmin > tx1 || ymax < ty0 || ymin > ty1) continue;
-            gefuellt += proben(g, ziel, t, a);
+            if (!trifft(f, g.e0(), g.n0() - g.hoehe(), g.e0() + g.breite(), g.n0())) continue;
+            gefuellt += proben(g, ziel, t, abbildungen.get(f));
         }
         return gefuellt;
+    }
+
+    /** Die Dateien der Quelle. */
+    public List<File> dateien() {
+        List<File> l = new ArrayList<>();
+        for (GeoTiff t : dateien) l.add(t.file);
+        return l;
+    }
+
+    /**
+     * Ob Datei f das Rechteck in UTM 8 N überdeckt (Umriss des Rechtecks in der Abbildung der Quelle gegen die Ausdehnung
+     * der Datei); so wählt {@link #proben} die Dateien, und so bestimmt die Herkunft, welche Rohdatei in welche Kachel geht.
+     */
+    public boolean trifft(int f, double eMin, double nMin, double eMax, double nMax) {
+        GeoTiff t = dateien.get(f);
+        Abbildung a = abbildungen.get(f);
+        double[] o = new double[2];
+        double xmin = Double.MAX_VALUE, xmax = -Double.MAX_VALUE, ymin = Double.MAX_VALUE, ymax = -Double.MAX_VALUE;
+        for (int s = 0; s <= 8; s++)
+            for (int[] r : new int[][]{{s, 0}, {s, 8}, {0, s}, {8, s}}) {
+                a.vonUtm(eMin + (eMax - eMin) * r[0] / 8.0, nMax - (nMax - nMin) * r[1] / 8.0, o);
+                xmin = Math.min(xmin, o[0]); xmax = Math.max(xmax, o[0]);
+                ymin = Math.min(ymin, o[1]); ymax = Math.max(ymax, o[1]);
+            }
+        double tx0 = Math.min(t.x0, t.x1()), tx1 = Math.max(t.x0, t.x1()), ty0 = Math.min(t.y0, t.y1()), ty1 = Math.max(t.y0, t.y1());
+        return !(xmax < tx0 || xmin > tx1 || ymax < ty0 || ymin > ty1);
     }
 
     private int proben(Gitter g, float[] ziel, GeoTiff t, Abbildung a) throws IOException {

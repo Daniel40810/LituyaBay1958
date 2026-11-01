@@ -28,7 +28,8 @@ import java.util.stream.Stream;
  * Orte aus GNIS, die Uhren (Ortszeit 1958 und heute, Simulationszeit, Sonne zur Bebenzeit gegen Werkbuch 2.1),
  * Ansichten und Kamera, Kimm, Qualitätsstufen und Regelung, Renderer.jar, die Shader-Dateien, der Weg zum Network Data
  * Model ({@code sdonm.jar}, Treiber 21 in {@code lib/lod/}, F26 A), Regel 3.3 (kein Laufzeitcode liest {@code download/})
- * und Paketvertrag 13 (Oracle nur in {@code data}, {@code netz} und {@code tools}). Endet mit „ERGEBNIS: alles in
+ * und Paketvertrag 13 (Oracle nur in {@code data}, {@code netz} und {@code tools}); ab Phase 2 {@code daten/}, ab Phase 3
+ * die Skripte in {@code db/netz}, die LOD-Analysen auf dem Probenetz im Speicher und das Herkunftsnetz. Endet mit „ERGEBNIS: alles in
  * Ordnung“ oder der Zahl der Fehler (Rückgabewert 1).
  */
 public final class Pruefung {
@@ -199,6 +200,46 @@ public final class Pruefung {
             for (String g : new String[]{"heute_4m.r32", "wasser_4m.u8", "1940_20m.r32", "1959_20m.r32", "GRUND.txt"})
                 check(new File(daten, "grund/" + g).isFile(), "grund/" + g);
             check(new File(daten, "namen.tsv").isFile(), "namen.tsv");
+        }
+
+        teil("Netze (Phase 3): Skripte, Funktionsprobe im Speicher, Herkunft");
+        File netzSql = new File("db/netz");
+        if (!netzSql.isDirectory()) hinweis("db/netz nicht gefunden");
+        else {
+            File[] sk = netzSql.listFiles((dd, nm) -> nm.endsWith(".sql"));
+            java.util.Arrays.sort(sk);
+            int anw = 0, fremd = 0;
+            java.util.regex.Pattern obj = java.util.regex.Pattern.compile("(?i)CREATE\\s+(?:OR\\s+REPLACE\\s+)?(?:TABLE|SEQUENCE|VIEW|INDEX|TRIGGER|PROCEDURE)\\s+(\\w+)");
+            for (File x : sk) {
+                String t = Files.readString(x.toPath(), StandardCharsets.UTF_8);
+                List<String> a = com.dan.lituya.tools.NetzDb.anweisungen(t);
+                anw += a.size();
+                for (String s : a) {
+                    var m = obj.matcher(s);
+                    while (m.find()) if (!m.group(1).toUpperCase(Locale.ROOT).startsWith("LB_")) { fremd++; System.out.println("    ohne LB_: " + m.group(1) + " in " + x.getName()); }
+                }
+            }
+            check(sk.length == 8 && anw > 20, f("db/netz: %d Skripte, %d Anweisungen, jede mit „/“ abgeschlossen", sk.length, anw));
+            check(fremd == 0, "alle Objekte mit Präfix LB_ (F40 B: Schema LITUYABAY1958)");
+        }
+        {
+            List<String[]> pr = com.dan.lituya.netz.NdmProbeKern.analysen(com.dan.lituya.netz.NdmProbeKern.imSpeicher());
+            int nein = 0;
+            for (String[] zp : pr) if (!zp[4].equals("J")) { nein++; System.out.println("    " + String.join(" | ", zp)); }
+            check(nein == 0 && pr.size() == 12, f("LOD im Speicher (Probenetz wie LB_PROBE_RAUM): %d Analysen, eigene Kostenfunktion und Netzbedingung, alle wie erwartet", pr.size()));
+        }
+        File hk = new File(daten, com.dan.lituya.tools.Herkunft.ORDNER);
+        if (!new File(hk, "knoten.tsv").isFile()) hinweis("Herkunftsnetz fehlt (daten/netz/herkunft): ant aufbereitung -Dschritte=herkunft,inhalt");
+        else {
+            com.dan.lituya.tools.Herkunft hn = com.dan.lituya.tools.Herkunft.lesen(hk);
+            String fe = hn.fehler();
+            check(fe == null, f("Herkunft: %d Knoten, %d Kanten, fortlaufend und kreisfrei%s", hn.knotenListe().size(), hn.kantenListe().size(), fe == null ? "" : " – " + fe));
+            check(hn.rohVorfahren().equals(com.dan.lituya.tools.Herkunft.pruefwege(hk)), "pruefwege.tsv nachgerechnet (Rohdateien je Ausgabe)");
+            String txt = Files.readString(new File(hk, "HERKUNFT.txt").toPath(), StandardCharsets.UTF_8);
+            check(txt.contains("pruefsumme=" + com.dan.lituya.tools.Herkunft.pruefsumme(hk)), "Prüfsumme in HERKUNFT.txt passt zu knoten.tsv und kanten.tsv");
+            long aus = hn.knotenListe().stream().filter(x -> x.art().equals("AUSGABE")).count();
+            long roh = hn.knotenListe().stream().filter(x -> x.art().equals("ROHDATEI")).count();
+            check(roh > 1000 && aus > 400, f("je Rohdatei ein Knoten (%d), je Ausgabe einer (%d)", roh, aus));
         }
 
         teil("Regel 3.3 und Paketvertrag 13");

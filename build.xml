@@ -128,8 +128,8 @@
         </java>
     </target>
     <!-- Phase 2 (Werkbuch 3.3, 3.4): die Aufbereitung liest das Kartenmaterial (Pfad in daten/rohdaten.properties, Vorgabe
-         download/) einmal und schreibt nach daten/. ant aufbereitung rechnet alle Schritte (gelaende, grund, namen, bilder,
-         inhalt); -Dschritte=gelaende,grund nur diese; -Dneu=true rechnet fertige Kacheln neu; -Dausschnitt=OstMin,NordMin,OstMax,NordMax
+         download/) einmal und schreibt nach daten/. ant aufbereitung rechnet alle Schritte (gelaende, grund, namen, herkunft,
+         bilder, inhalt); -Dschritte=gelaende,grund nur diese; -Dneu=true rechnet fertige Kacheln neu; -Dausschnitt=OstMin,NordMin,OstMax,NordMax
          nur die Kacheln dort; -Dfaeden=n. Prüfbilder nach docs/status/, Protokoll daten/aufbereitung.log. -->
     <target name="aufbereitung" depends="compile" description="Phase 2: Kartenmaterial einmal nach daten/ aufbereiten (Gelände, Grund, Namen, Prüfbilder, INHALT.txt).">
         <property name="platform.java" value="java"/>
@@ -146,6 +146,29 @@
             <jvmarg value="-Dlituya.cache.mb=4000"/>
             <arg value="${schritte}"/>
             <syspropertyset><propertyref name="faeden"/></syspropertyset>
+            <classpath><pathelement path="${run.classpath}"/></classpath>
+        </java>
+    </target>
+    <!-- Phase 3 (Werkbuch 2.8, 7.7, 7.9): Schema LITUYABAY1958 neu aufbauen (db/netz/99, 01, 02), LB_NET_HERKUNFT aus
+         daten/netz/herkunft laden, NDM-Funktionsprobe (03_probe.sql und Java/LOD im eigenen Lader), Probenetze weg (98),
+         Partitionen und Sichten (04, 05), VALIDATE_NETWORK, Gegenrechnung (CONNECT BY und traceIn gegen pruefwege.tsv),
+         LB_NETZ_STAND. Vorher einmal als SYS: db/netz/00_sys.sql. Protokoll docs/status/netzdb_Phase3.txt. -->
+    <target name="netzdb" depends="compile" description="Phase 3: Netze nach Oracle laden, NDM-Funktionsprobe, Gegenrechnung.">
+        <property name="platform.java" value="java"/>
+        <java classname="com.dan.lituya.tools.NetzDb" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="true">
+            <jvmarg value="-Dstdout.encoding=UTF-8"/>
+            <jvmarg value="-Djava.awt.headless=true"/>
+            <arg value="laden"/>
+            <classpath><pathelement path="${run.classpath}"/></classpath>
+        </java>
+    </target>
+    <!-- Phase 3: nur prüfen, ob Oracle und daten/netz zusammenpassen (Prüfsumme, Zahlen, VALIDATE_NETWORK, LB_NDM_PROBE). -->
+    <target name="dbpruefung" depends="compile" description="Phase 3: prüfen, ob die Netze in Oracle zu daten/netz passen.">
+        <property name="platform.java" value="java"/>
+        <java classname="com.dan.lituya.tools.NetzDb" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="true">
+            <jvmarg value="-Dstdout.encoding=UTF-8"/>
+            <jvmarg value="-Djava.awt.headless=true"/>
+            <arg value="pruefen"/>
             <classpath><pathelement path="${run.classpath}"/></classpath>
         </java>
     </target>

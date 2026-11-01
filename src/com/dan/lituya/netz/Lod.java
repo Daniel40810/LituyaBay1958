@@ -18,9 +18,9 @@ import java.util.jar.JarFile;
  * in einem Klassenlader, der nur ihn und die {@code sdo*.jar} kennt.
  * <p>
  * Phase 1 legt den Weg an: {@link #stand()} sagt, was da ist, {@link #probe()} lädt die Klassen von LOD und den Treiber
- * im eigenen Lader (ohne Datenbank), {@link #main} ({@code ant lod}) holt den Treiber aus {@code ORACLE_HOME}. Die Netze
- * ({@code LB_NET_…}) und die Funktionsprobe 2.8 kommen mit Phase 3. Nur dieses Package und die Werkzeuge kennen Oracle
- * (Paketvertrag 13).
+ * im eigenen Lader (ohne Datenbank), {@link #main} ({@code ant lod}) holt den Treiber aus {@code ORACLE_HOME}. Phase 3
+ * lädt dazu die Klassen des Projekts ({@link NdmProbeKern}: Funktionsprobe 2.8, Gegenrechnung der Herkunft). Nur dieses
+ * Package und die Werkzeuge kennen Oracle (Paketvertrag 13).
  */
 public final class Lod {
     private Lod() { }
@@ -69,7 +69,7 @@ public final class Lod {
     }
 
     /** Ein eigener Klassenlader mit dem Treiber aus lib/lod und den sdo*.jar, über dem Plattform-Lader (nicht der App). */
-    public static URLClassLoader lader() throws IOException {
+    public static URLClassLoader lader(URL... dazu) throws IOException {
         File t = treiber();
         if (t == null) throw new IOException("kein Treiber in " + lodDir().getPath() + " (ant lod holt ihn aus ORACLE_HOME\\jdbc\\lib)");
         List<URL> u = new ArrayList<>();
@@ -79,6 +79,7 @@ public final class Lod {
             if (!f.isFile()) throw new IOException(f.getPath() + " fehlt");
             u.add(f.toURI().toURL());
         }
+        u.addAll(java.util.Arrays.asList(dazu));
         return new URLClassLoader(u.toArray(new URL[0]), ClassLoader.getPlatformClassLoader());
     }
 
