@@ -65,7 +65,15 @@ public final class NetzDb {
         if (!k.hatPasswort()) throw new IOException("kein Passwort in db/db.properties und keine Umgebungsvariable " + Verbindung.ENV);
         try (Connection c = Db.oeffnen(k)) {
             log("verbunden: %s als %s, %s", k.url, Db.einWert(c, "SELECT USER FROM DUAL"), c.getMetaData().getDatabaseProductVersion().split("\\R")[0]);
-            ok = nurPruefen ? pruefen(c, h, summe) : laden(c, k, h, dir, sql, summe);
+            try {
+                ok = nurPruefen ? pruefen(c, h, summe) : laden(c, k, h, dir, sql, summe);
+            } catch (Exception e) {
+                ok = false;
+                log("FEHLER: %s", ursache(e));
+                if (e instanceof SQLException q) for (String z : String.valueOf(q.getMessage()).split("\\R")) if (z.startsWith("ORA-")) log("  %s", z);
+                try { c.rollback(); } catch (SQLException x) { /* egal */ }
+                probeTabelle(c);
+            }
         }
         log("=== %s", ok ? "ok" : "FEHLER (siehe oben)");
         File st = new File("docs/status");
