@@ -131,7 +131,7 @@ public final class Pruefung {
         teil("Renderer.jar und Shader");
         List<String> pk = Bibliothek.pakete();
         check(Bibliothek.fehlend().isEmpty(), "Renderer.jar: " + Bibliothek.kurz());
-        check(Bibliothek.neuFaellig(Renderer.PHASE).isEmpty(), "neu (kommen in ihren Phasen): " + Bibliothek.neuStand());
+        check(Bibliothek.neuFaellig(String.valueOf(Renderer.PHASE)).isEmpty(), "neu (kommen in ihren Phasen): " + Bibliothek.neuStand());
         check(pk.contains("kino") && pk.contains("store") && pk.contains("route"), "kino, store und route da");
         for (String[] prog : rd.shaderFiles())
             for (String file : prog)
@@ -270,6 +270,36 @@ public final class Pruefung {
                 long mb = ms.vram(ms.layers().get(0).size(), true) / 1_000_000;
                 check(mb <= 600, f("Texturbudget gepackt bei %d²: %d MB ≤ 600 MB (F19)", ms.layers().get(0).size(), mb));
             }
+        }
+
+        teil("Wald und Unterwuchs (Phase 6): forest (ForestGpu) und understory");
+        {
+            com.dan.forest.Species sitka = com.dan.forest.Species.byName("Picea sitchensis"), hem = com.dan.forest.Species.byName("Tsuga heterophylla"),
+                    erle = com.dan.forest.Species.byName("Alnus rubra");
+            check(sitka != null && hem != null && erle != null, "Arten der Bucht in com.dan.forest: Sitka-Fichte, Westliche Hemlocktanne, Roterle (2.6)");
+            if (sitka != null) {
+                com.dan.forest.TreeModel lebend = com.dan.forest.TreeGenerator.grow(sitka, 7, 1),
+                        weg = com.dan.forest.TreeGenerator.grow(com.dan.forest.Species.damaged(sitka, com.dan.forest.Species.Damage.FELLED), 7, 1);
+                check(lebend.height >= 28 && lebend.height <= 50 && weg.leaves.isEmpty() && weg.length > 20,
+                        f("Sitka-Fichte %.1f m; umgelegt %.1f m lang, entrindet, ohne Nadeln (FRITZ01: gebrochen, entrindet, geschleudert)", lebend.height, weg.length));
+            }
+            com.dan.forest.ForestCulture cu = new com.dan.forest.ForestCulture(3, 3, 6, 1958);
+            cu.density = com.dan.forest.ForestCulture.Grid.density((px, pz, s) -> s == 0 ? 0.5 : s == 1 ? 0.3 : 0.05, 3, -3000, -3000, 6000, 64);
+            com.dan.forest.TreeStates st = com.dan.forest.TreeStates.covering(-500, -500, 0, 0, 6);
+            for (int j = st.j0; j < st.j0 + st.h; j++) for (int i = st.i0; i < st.i0 + st.w; i++) st.set(i, j, (i + j) % 5 == 0 ? com.dan.forest.TreeStates.GONE : com.dan.forest.TreeStates.FELLED, 180);
+            cu.states = st;
+            long[] n = cu.count(-1000, -1000, 1000, 1000);
+            long alle = 0, stehend = 0;
+            for (int t = 0; t < n.length; t++) { alle += n[t]; if (t < 9) stehend += n[t]; }
+            double erwartet = 2000.0 * 2000 / 36 * 0.85;
+            check(Math.abs(alle - erwartet * (1 - 0.0625 * 0.2)) < erwartet * 0.02,
+                    f("Kultur 2 × 2 km, Dichte 0,85, Abstand 6 m: %,d Bäume (%,d stehend, %,d im Band umgelegt); hochgerechnet auf den Kern (24 × 18 km) %,d", alle, stehend, alle - stehend,
+                            Math.round(alle / 4.0 * 432)));
+            java.util.List<com.dan.understory.Kind> ks = java.util.List.of(com.dan.understory.Kind.values());
+            double hell = com.dan.understory.Kind.light(0.8, com.dan.understory.Kind.K_CONIFER), dunkel = com.dan.understory.Kind.light(7.5, com.dan.understory.Kind.K_CONIFER);
+            check(ks.size() == 7 && com.dan.understory.Kind.BERRY.suitability(hell, 0.6) > com.dan.understory.Kind.BERRY.suitability(dunkel, 0.6)
+                            && com.dan.understory.Kind.MOSS.suitability(dunkel, 0.85) > com.dan.understory.Kind.MOSS.suitability(dunkel, 0.3),
+                    f("Unterwuchs: 7 Arten (5.7); Licht am Boden unter Blattflächenindex 7,5: %.1f %%, in einer Lichtung (0,8): %.0f %%; Beeren in der Lichtung, Moos am Bach", dunkel * 100, hell * 100));
         }
 
         teil("Netze (Phase 3): Skripte, Funktionsprobe im Speicher, Herkunft");

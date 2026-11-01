@@ -21,11 +21,14 @@ public final class JarPruefung {
     /** Die neuen Packages mit ihrer Phase und der Prüfklasse (wie {@code app.Bibliothek.NEU}). */
     static final String[] NEU = {"clipmap", "surface", "understory", "scree", "netview", "quake", "landslide", "impact", "dustcloud", "debris",
             "succession", "vessel", "aurora", "bear"};
-    static final int[] NEU_PHASE = {4, 5, 6, 6, 7, 8, 9, 10, 12, 12, 14, 15, 18, 18};
+    static final String[] NEU_PHASE = {"4", "5", "6", "6a", "7", "8", "9", "10", "12", "12", "14", "15", "18", "18"};
+
+    /** „6“ = 6, „6a“ = 6,5. */
+    static double rang(String p) { p = p.trim().toLowerCase(); return p.endsWith("a") ? Double.parseDouble(p.substring(0, p.length() - 1)) + 0.5 : Double.parseDouble(p); }
 
     public static void main(String[] a) throws Exception {
         File jar = new File(a.length > 0 ? a[0] : "lib/Renderer.jar");
-        int phase = a.length > 1 ? Integer.parseInt(a[1]) : 1;
+        String phase = a.length > 1 ? a[1] : "1";
         if (!jar.isFile()) { System.err.println("check-packages: " + jar + " fehlt"); System.exit(1); }
         Map<String, int[]> p = new TreeMap<>();   // Klassen, README, höchste Version
         try (ZipFile z = new ZipFile(jar)) {
@@ -55,7 +58,7 @@ public final class JarPruefung {
             }
             int neu = 0;
             for (int i = 0; i < NEU.length; i++) {
-                if (NEU_PHASE[i] > phase) continue;
+                if (rang(NEU_PHASE[i]) > rang(phase)) continue;
                 neu++;
                 String n = NEU[i], k = Character.toUpperCase(n.charAt(0)) + n.substring(1);
                 for (String e : new String[]{"README.md", "demo/" + k + "Check.class"})

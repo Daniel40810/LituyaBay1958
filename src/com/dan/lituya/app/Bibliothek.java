@@ -27,11 +27,18 @@ public final class Bibliothek {
 
     /**
      * Packages, die für LituyaBay1958 im Projekt Renderer neu entstehen (Werkbuch 5), mit der Phase, in der sie kommen
-     * (Abschnitt 14); Zugaben ({@code aurora}, {@code bear}) zuletzt (F8 A).
+     * (Abschnitt 14); Zugaben ({@code aurora}, {@code bear}) zuletzt (F8 A). Seit Phase 6 als Text, weil {@code scree} in
+     * Phase 6a kommt (Renderer, Tabelle 14), nach {@code understory} in Phase 6.
      */
     public static final String[] NEU = {"clipmap", "surface", "understory", "scree", "netview", "quake", "landslide", "impact", "dustcloud", "debris",
             "succession", "vessel", "aurora", "bear"};
-    public static final int[] NEU_PHASE = {4, 5, 6, 6, 7, 8, 9, 10, 12, 12, 14, 15, 18, 18};
+    public static final String[] NEU_PHASE = {"4", "5", "6", "6a", "7", "8", "9", "10", "12", "12", "14", "15", "18", "18"};
+
+    /** Reihenfolge einer Phase: „6“ = 6, „6a“ = 6,5. */
+    public static double rang(String phase) {
+        String p = phase.trim().toLowerCase(Locale.ROOT);
+        return p.endsWith("a") ? Double.parseDouble(p.substring(0, p.length() - 1)) + 0.5 : Double.parseDouble(p);
+    }
 
     private static volatile List<String> cache;
     private static volatile String jar = "";
@@ -73,9 +80,9 @@ public final class Bibliothek {
     }
 
     /** Die neuen Packages, deren Phase schon erreicht ist, die aber im Jar fehlen. */
-    public static List<String> neuFaellig(int phase) {
+    public static List<String> neuFaellig(String phase) {
         List<String> p = pakete(), f = new ArrayList<>();
-        for (int i = 0; i < NEU.length; i++) if (NEU_PHASE[i] <= phase && !p.contains(NEU[i])) f.add(NEU[i]);
+        for (int i = 0; i < NEU.length; i++) if (rang(NEU_PHASE[i]) <= rang(phase) && !p.contains(NEU[i])) f.add(NEU[i]);
         return f;
     }
 

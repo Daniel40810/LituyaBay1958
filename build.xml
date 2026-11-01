@@ -76,7 +76,7 @@
         lib/Renderer.jar alles hat, was LituyaBay1958 braucht (jedes gebrauchte Package mit Klassen und README, Java 21,
         von den 14 neuen die, deren Phase erreicht ist); abschalten mit -Dohne.paketpruefung=true.
     -->
-    <property name="lituya.phase" value="5"/>
+    <property name="lituya.phase" value="6"/>
     <target name="check-packages" description="Prüft lib/Renderer.jar: die gebrauchten Packages mit README, Java 21, die fälligen neuen." unless="ohne.paketpruefung">
         <property name="platform.java" value="java"/>
         <exec executable="${platform.java}" dir="${basedir}" failonerror="true">
@@ -216,13 +216,13 @@
          packt der Treiber die Karten, das dauert); surfacedemo: die Vorschau mit Reglern. -->
     <target name="surfacecheck" depends="compile" description="Phase 5: SurfaceCheck mit daten/texturen.">
         <property name="platform.java" value="java"/>
-        <java classname="com.dan.surface.demo.SurfaceCheck" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="true" output="docs/status/surfacecheck_Phase5.txt" logError="true">
+        <java classname="com.dan.surface.demo.SurfaceCheck" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="true" output="docs/status/surfacecheck_Phase${lituya.phase}.txt" logError="true">
             <jvmarg value="-Dstdout.encoding=UTF-8"/>
             <jvmarg value="-Xmx4g"/>
             <arg line="--texturen daten/texturen"/>
             <classpath><pathelement path="${run.classpath}"/></classpath>
         </java>
-        <loadfile property="surfacecheck.text" srcFile="docs/status/surfacecheck_Phase5.txt" encoding="UTF-8"/>
+        <loadfile property="surfacecheck.text" srcFile="docs/status/surfacecheck_Phase${lituya.phase}.txt" encoding="UTF-8"/>
         <echo message="${surfacecheck.text}"/>
     </target>
     <target name="texturbild" depends="compile" description="Phase 5: Kontaktbogen der Materialien nach docs/status/Texturen.png.">
@@ -246,5 +246,93 @@
             <arg line="--texturen daten/texturen"/>
             <classpath><pathelement path="${run.classpath}"/></classpath>
         </java>
+    </target>
+    <!-- Phase 6 (Werkbuch 6.4, 5.7): com.dan.forest mit ForestGpu (Kultur auf der Grafikkarte, Oktaeder-Impostors, Zustand je
+         Baum, Sitka-Fichte und Hemlocktanne) und das neue Package com.dan.understory, beide aus lib/Renderer.jar.
+         waldcheck: ForestCheck (ohne Grafikkarte) und ForestGpuCheck (Grafikkarte = Prozessor) nach docs/status/waldcheck_Phase6.txt;
+         waldbild: vier Ansichten der gerechneten Bucht nach docs/status/Wald.png (-Dqualitaet=HIGH); waldzeiten: die fps-Tabelle je
+         Qualität und Ansicht nach docs/status/waldzeiten_Phase6.txt; walddemo: Fenster. waldvergleich: Paketvertrag 14, die Wälder
+         der anderen Szenen unverändert (vorher das alte Jar als lib/Renderer_phase5.jar sichern). unterwuchscheck,
+         unterwuchsbild (docs/status/Unterwuchs.png), unterwuchsdemo. -->
+    <macrodef name="renderer-java">
+        <attribute name="klasse"/>
+        <attribute name="args" default=""/>
+        <attribute name="ausgabe"/>
+        <attribute name="speicher" default="-Xmx6g"/>
+        <sequential>
+            <property name="platform.java" value="java"/>
+            <java classname="@{klasse}" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="true" output="@{ausgabe}" logError="true">
+                <jvmarg value="-Dstdout.encoding=UTF-8"/>
+                <jvmarg value="--enable-native-access=ALL-UNNAMED"/>
+                <jvmarg line="--add-opens java.desktop/sun.awt=ALL-UNNAMED --add-opens java.desktop/sun.awt.windows=ALL-UNNAMED --add-opens java.desktop/sun.java2d=ALL-UNNAMED"/>
+                <jvmarg value="@{speicher}"/>
+                <arg line="@{args}"/>
+                <classpath><pathelement path="${run.classpath}"/></classpath>
+            </java>
+        </sequential>
+    </macrodef>
+    <macrodef name="renderer-fenster">
+        <attribute name="klasse"/>
+        <attribute name="speicher" default="-Xmx6g"/>
+        <sequential>
+            <property name="platform.java" value="java"/>
+            <java classname="@{klasse}" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="true">
+                <jvmarg value="-Dstdout.encoding=UTF-8"/>
+                <jvmarg value="--enable-native-access=ALL-UNNAMED"/>
+                <jvmarg line="--add-opens java.desktop/sun.awt=ALL-UNNAMED --add-opens java.desktop/sun.awt.windows=ALL-UNNAMED --add-opens java.desktop/sun.java2d=ALL-UNNAMED"/>
+                <jvmarg value="@{speicher}"/>
+                <classpath><pathelement path="${run.classpath}"/></classpath>
+            </java>
+        </sequential>
+    </macrodef>
+    <target name="waldcheck" depends="compile" description="Phase 6: ForestCheck und ForestGpuCheck nach docs/status/waldcheck_Phase6.txt.">
+        <renderer-java klasse="com.dan.forest.demo.ForestCheck" ausgabe="docs/status/waldcheck_Phase${lituya.phase}.txt"/>
+        <renderer-java klasse="com.dan.forest.demo.ForestGpuCheck" ausgabe="docs/status/waldcheck_gpu_Phase${lituya.phase}.txt"/>
+        <concat destfile="docs/status/waldcheck_Phase${lituya.phase}.txt" append="true" encoding="UTF-8" outputencoding="UTF-8">
+            <header>&#10;--- ForestGpuCheck (Grafikkarte)&#10;</header>
+            <fileset file="docs/status/waldcheck_gpu_Phase${lituya.phase}.txt"/>
+        </concat>
+        <delete file="docs/status/waldcheck_gpu_Phase${lituya.phase}.txt"/>
+        <loadfile property="waldcheck.text" srcFile="docs/status/waldcheck_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${waldcheck.text}"/>
+    </target>
+    <target name="waldbild" depends="compile" description="Phase 6: vier Ansichten der gerechneten Bucht nach docs/status/Wald.png.">
+        <property name="qualitaet" value="HIGH"/>
+        <renderer-java klasse="com.dan.forest.demo.ForestGpuDemo" args="--bild docs/status/Wald.png ${qualitaet}" ausgabe="docs/status/waldbild_Phase${lituya.phase}.txt"/>
+        <loadfile property="waldbild.text" srcFile="docs/status/waldbild_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${waldbild.text}"/>
+    </target>
+    <target name="waldzeiten" depends="compile" description="Phase 6: fps-Tabelle des Walds nach docs/status/waldzeiten_Phase6.txt.">
+        <renderer-java klasse="com.dan.forest.demo.ForestGpuDemo" args="--zeiten" ausgabe="docs/status/waldzeiten_Phase${lituya.phase}.txt"/>
+        <loadfile property="waldzeiten.text" srcFile="docs/status/waldzeiten_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${waldzeiten.text}"/>
+    </target>
+    <target name="walddemo" depends="compile" description="Phase 6: ForestGpuDemo im Fenster.">
+        <renderer-fenster klasse="com.dan.forest.demo.ForestGpuDemo"/>
+    </target>
+    <target name="waldvergleich" description="Phase 6: die Wälder der anderen Szenen unverändert (lib/Renderer_phase5.jar gegen lib/Renderer.jar).">
+        <property name="platform.java" value="java"/>
+        <property name="alt" value="lib/Renderer_phase5.jar"/>
+        <exec executable="${platform.java}" dir="${basedir}" failonerror="true" output="docs/status/waldvergleich_Phase${lituya.phase}.txt">
+            <arg value="-Dstdout.encoding=UTF-8"/>
+            <arg value="tools/WaldVergleich.java"/>
+            <arg value="${alt}"/>
+            <arg value="lib/Renderer.jar"/>
+        </exec>
+        <loadfile property="waldvergleich.text" srcFile="docs/status/waldvergleich_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${waldvergleich.text}"/>
+    </target>
+    <target name="unterwuchscheck" depends="compile" description="Phase 6: UnderstoryCheck nach docs/status/unterwuchscheck_Phase6.txt.">
+        <renderer-java klasse="com.dan.understory.demo.UnderstoryCheck" ausgabe="docs/status/unterwuchscheck_Phase${lituya.phase}.txt" speicher="-Xmx2g"/>
+        <loadfile property="unterwuchscheck.text" srcFile="docs/status/unterwuchscheck_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${unterwuchscheck.text}"/>
+    </target>
+    <target name="unterwuchsbild" depends="compile" description="Phase 6: die sieben Arten und der Waldboden nach docs/status/Unterwuchs.png.">
+        <renderer-java klasse="com.dan.understory.demo.UnderstoryDemo" args="--bild docs/status/Unterwuchs.png" ausgabe="docs/status/unterwuchsbild_Phase${lituya.phase}.txt" speicher="-Xmx2g"/>
+        <loadfile property="unterwuchsbild.text" srcFile="docs/status/unterwuchsbild_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${unterwuchsbild.text}"/>
+    </target>
+    <target name="unterwuchsdemo" depends="compile" description="Phase 6: UnderstoryDemo im Fenster.">
+        <renderer-fenster klasse="com.dan.understory.demo.UnderstoryDemo" speicher="-Xmx2g"/>
     </target>
 </project>
