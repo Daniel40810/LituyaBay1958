@@ -177,11 +177,11 @@ Vor dem ersten Netz wird gegen die installierte Datenbank geprüft, je mit einem
 | 23 | Partition `LB_NET_HERKUNFT` | `LOGICAL_PARTITION`, `GENERATE_PARTITION_BLOBS` | SQL | **ja**: 1 Partition, BLOBs erzeugt |
 | 24 | Partition `LB_NET_WELLE` (Phase 7a) | `SPATIAL_PARTITION` (5 000), `GENERATE_PARTITION_BLOBS` mit Benutzerdaten | SQL | **ja**: 16 Partitionen, BLOBs mit Benutzerdaten |
 | 25 | Partition `LB_NET_UFER` (Phase 7a) | `LOGICAL_PARTITION` eines LRS-Netzes, BLOBs | SQL | **ja** |
-| 26 | `LinkCostCalculator` mit Benutzerdaten (Phase 7a) | vier Kosten `T_*` aus den Benutzerdaten der Kanten, `withinCost` von `QUELLE` | Java | [ausstehend] |
-| 27 | `withinCost` gegen `route` (Phase 7a) | Ankunft aller 75 695 Knoten je Kostenart gegen `ankunft.tsv` (≤ 0,01 s) | Java | erster Lauf: 74 483 Knoten, größte Abweichung 0,0031 s (Kosten aus der Tabelle, siehe 26) |
-| 28 | `fastWithinCostPolygon` (Phase 7a, F23) | Isochronen-Flächen nach 60 … 360 s | Java | [ausstehend] |
-| 29 | `kShortestPaths` auf `LB_NET_WELLE` (Phase 7a) | Wellenstrahlen `QUELLE` → Orte, k = 3 | Java | [ausstehend] |
-| 30 | Dynamische Segmentierung (Phase 7a) | `LOCATE_PT`, `PROJECT_PT`, `CLIP_GEOM_SEGMENT` auf `LB_NET_UFER` gegen `route.Measure` (≤ 5 cm) | SQL | [ausstehend] |
+| 26 | `LinkCostCalculator` mit Benutzerdaten (Phase 7a) | vier Kosten `T_*` aus den Benutzerdaten der Kanten, `withinCost` von `QUELLE` | Java | **nein**: LOD liefert die Benutzerdaten nicht (`getUserData(0)` leer, beim Laden 3,8 Mio. `NullPointerException` in LOD, auch mit `CATEGORY_ID` 0); der Kostenrechner nimmt die Kosten aus der Datei, Ergebnis gleich [zu prüfen in Phase 19] |
+| 27 | `withinCost` gegen `route` (Phase 7a) | Ankunft aller Knoten je Kostenart gegen `ankunft.tsv` (≤ 0,01 s) | Java | **ja**: 74 483 Knoten, größte Abweichung 0,0016 bis 0,0031 s je Kostenart |
+| 28 | `fastWithinCostPolygon` (Phase 7a, F23) | Isochronen-Flächen nach 60 … 360 s | Java | **nein**: `LODNetworkException: Invalid number of nodes`; Isochronen als Konturen (256 in `LB_ISOCHRONE`, F23 „sonst Konturen“) |
+| 29 | `kShortestPaths` auf `LB_NET_WELLE` (Phase 7a) | Wellenstrahlen `QUELLE` → Orte, k = 3 | Java | **ja**: Cenotaph 139,9 s, Anchorage 320,2 s, Eingang 364,7 s wie `route` (im Protokoll noch N, weil der Sporn keinen Knoten hat; seit Phase 8 zählt er nicht mehr) |
+| 30 | Dynamische Segmentierung (Phase 7a) | `LOCATE_PT`, `PROJECT_PT`, `CLIP_GEOM_SEGMENT` auf `LB_NET_UFER` gegen `route.Measure` (≤ 5 cm) | SQL | **ja**: `LOCATE_PT` 4,8 mm, `PROJECT_PT` 0,0 mm, `CLIP` 2 000,000 m |
 
 Geprüft am 01.11.2026 mit `ant netzdb` (`docs/status/netzdb_Phase3.txt`): 22 von 23 ja; es fehlt nur Property Graph (21c). Befunde: `LINK_LEVEL` muss auch in einstufigen Netzen gefüllt sein. `Db` aus `Renderer.jar` wartet sonst 30 s auf eine Antwort; `NetzDb` hebt die Grenze auf. `mcst` spannt keinen Wald.
 
@@ -259,6 +259,7 @@ Verbindlich, Abnahme-Bedingung (Prompt 2.3):
 | `klassen` | Sentinel-2 (klarste Szenen), WorldCover, IfSAR-Radarbild | `klassen/kern_10m.u8` (Wald, Gebüsch, Fels, Schutt, Eis, Schnee, Wasser, Strand), Makrofarbe `farbe/*.rgb` | Klassenbild |
 | `wald` | DSM 2012 − DTM, Lidar (Boden), ArcticDEM-Streifen | Kronenhöhe 5 m, Waldalter aus der Spurlinie [G außerhalb des Bands] | Kronenhöhe |
 | `spurlinie` | Miller-Karte 1:50 000 (georef., digitalisiert), NCEI-Auflaufhöhen, Lidar-Kante | `ereignis/spurlinie_1958.geojson` (Linie mit Höhe je Stützpunkt), `auflauf.csv` | Spurlinie über Lidar |
+| `stoerung` (Phase 8) | Qfaults 2020 (`geologie/stoerungen/Qfaults_GIS.zip`), ComCat (`ereignis/usgs_erdbeben/`) | `ereignis/stoerung.tsv` (Spur der Fairweather-Störung, 10 km), `stoerung_abschnitte.tsv`, `beben.txt` (Herd, M) | `Beben.png` (`ant bebenbild`) |
 | `netz` | alle obigen | `netz/<netz>/knoten.tsv`, `kanten.tsv`, `pruefwege.tsv` (Abschnitt 7) | Netzbilder |
 | `namen` | GNIS, Tlingit | `namen.tsv` mit UTM | |
 | `gletscher` | RGI 7, GLIMS, ITS_LIVE, Fronten 1958 | Umrisse je Zeitstand, Geschwindigkeit | |
@@ -335,6 +336,11 @@ Kein Package ruft ein anderes direkt: Die Pfeile sind Schnittstellen (`Landslide
 - **Presets:** `fairweather1958()`, `magnitude(M, Abstand)`.
 - **Check:** $t_S - t_P = D\,(1/v_S - 1/v_P)$ gegen Handrechnung; Abminderung gegen Tabelle; Newmark-Block auf schiefer Ebene gegen geschlossene Lösung für Rechteckimpuls.
 - **Später für:** Geiranger (Åkerneset), Glacier, jede Gebirgsszene.
+- **Umgesetzt in Phase 8** (Renderer, Branch `lituya-phase-8`; Entscheidungen: BSSA14, Package und Schritt `stoerung`, alles aus 5.1, Demo als Karte mit Zeitreihen):
+  - **Kern:** `Fault` (Spur, Herd, WELLS94, Bruch mit `vr` und Anteil nach vorn, Rjb), `Bssa14` (PGA, PGV, SA 0,2 s und 1,0 s, Boden linear und nichtlinear, σ), `Quake` (Laufzeiten, Stärke, synthetische Zeitreihe aus Teilflächen, Arias, D5–95, Presets `fairweather1958()` und `magnitude(M, Abstand)`), `Slope` (FS, pseudo-statisch, a_c, Newmark, JIBSON93), `Basin` (Merian, Anregung), `Shake`, `Rumble` (PCM, WAV).
+  - **Demo und Prüfung:** `demo/QuakeDemo` (Karte mit PGA-Feld, Störung, Bruchfront, P- und S-Front; Zeitreihen an fünf Orten; Newmark; Seiche; `--bild`, `--wav`), `demo/QuakeCheck`.
+  - **Prüfung:** tS − tP = D (1/vS − 1/vP); WELLS94 166,7 km und 10,1 m; BSSA14 gegen die Formel von Hand (0,308 g Fels, 0,391 g bei Vs30 400 m/s); Newmark-Rechteckimpuls gleich der geschlossenen Lösung; Merian 11,2 min; Zeitreihe still vor P, Spitze = BSSA14.
+  - **App-Daten:** Schritt `stoerung` (`tools.Stoerung`): Spur aus Qfaults 2020 (228 Punkte der Abschnitte „Fairweather fault“ 1:500 000 → 345 km, gemittelt alle 10 km), Herd aus ComCat (`daten/ereignis/stoerung.tsv`, `beben.txt`); `tools.Bebenbild` (`ant bebenbild`).
 
 ### 5.2 `com.dan.landslide` — Fels-, Eis- und Schneelawinen *(Prunkstück)*
 
@@ -665,6 +671,8 @@ Formeln mit Quelle; Zahlen aus 2.1; Annahmen [G]. Die Kette folgt der Zeitleiste
 $$\text{FS} = \frac{c' + \gamma z \cos^2\alpha\,\tan\varphi'}{\gamma z \sin\alpha\cos\alpha}, \qquad \frac{\tan\varphi'}{\tan\alpha} = 0{,}83 < 1$$
 Ohne Kohäsion wäre die Platte schon in Ruhe instabil; die Kohäsion der Klüfte hält sie, das Beben nimmt sie ihr (pseudo-statisch mit $k$: Zähler um $k\sin\alpha\cos\alpha$ vermindert, Nenner um $k\cos^2\alpha$ vermehrt). Dass der Sturz erst 1–2½ min nach dem ersten Stoß kam, passt zur Newmark-Verschiebung, die sich über die Dauer aufsummiert.
 
+**Befund Phase 8 (`quake`):** Mit dem Bruch nach WELLS94 (167 km, ¾ nach Nordwesten [G]) läuft die Bruchfront nach 24 s am Gilbert Inlet vorbei: PGA 0,51 g (Rjb 0,5 km), Arias 4,8 m/s, starkes Schütteln (D5–95) von 22 bis 51 s. Ein Newmark-Block mit FS 1,05 bis 1,15 versagt schon nach 23 bis 27 s, mit FS ≥ 1,20 gar nicht. Die 1 bis 2½ min der Zeugen erklärt das Modell so nicht: Das Schütteln ist zu kurz (Zeugen 1 bis 4 min). Möglich sind ein längerer Bruch (für 1958 werden auch rund 260 km genannt [zu prüfen]), Abnahme der Festigkeit beim Gleiten (progressives Versagen) oder Wasser in den Klüften; das bleibt für Phase 9 (`landslide`, Auslösung) offen.
+
 **Seiche der Bucht** (Merian): $T_n = \frac{2L}{n\sqrt{g\bar h}}$; mit $L = 12$ km, $\bar h \approx 130$ m: $T_1 \approx 11$ min [G]. Das Beben regt sie schwach an, die Welle stark; sie ist das lange Nachschwingen nach t = 600 s.
 
 ### 9.2 Der Felssturz bis zum Wasser (`landslide`)
@@ -865,7 +873,7 @@ Sequence + Trigger, nie IDENTITY; SRID 26908, Sichten in 4326.
 | 6a | L | Regenwald, Unterwuchs, Gletscher (6.3), `scree` (R) | „Abend vor Anker“ vollständig |
 | 7 | R | **gebaut:** `route` erweitern (6.9), `netview` (5.12) | `RouteCheck` (Gitterfehler 2,75 % / 0,76 %), Demo Isochronen |
 | 7a | L+D | **gebaut:** **`LB_NET_WELLE`**, **`LB_NET_UFER`**, Netzblick | NDM = `route`; Isochronen 1940 und heute; Spurlinie je Ufermeter |
-| 8 | R | `quake` | `QuakeCheck`, Demo |
+| 8 | R | **gebaut:** `quake` | `QuakeCheck`, Demo |
 | 9 | R | `landslide` (+ `fracture` 6.2) | `LandslideCheck`: Block, Fahrböschung, Lituya-Preset 96–110 m/s |
 | 10 | R | `impact` | Laborfall FRITZ01: 152 m bei 885 m nach 16 s, Energieanteil 2–30 % |
 | 11 | R | `wave` optimieren (6.1) | `WaveCheck` CPU = GPU, Auflauf 526 ± 50 m, Rungholt unverändert |
@@ -907,7 +915,7 @@ Speicher der Vorrechnung: Höhenfelder grob als 16-Bit je 0,5 s → 1,7 M × 2 B
 
 | Netz | Knoten | Kanten | Partitionen | Ladezeit | Analyse (ms) | Speicher LOD |
 |---|---|---|---|---|---|---|
-| WELLE | 75 696 (mit `QUELLE`) | 594 887 | 16 [erwartet] | [`ant netzdb`] | `withinCost` je Kostenart: [ausstehend]; im Speicher 2,4–2,6 s | |
+| WELLE | 74 484 (mit `QUELLE`) | 585 257 (mit 187 von `QUELLE`) | 16 (`SPATIAL_PARTITION`) | Knoten 1,0 s, Kanten 5,7 s, Linien 19,6 s; Partitionen und BLOBs in `04` 80 s | `withinCost` je Kostenart 1,3 bis 5,7 s; LOD laden 174 s (mit den Meldungen aus 26) | |
 | UFER | 85 | 84 | 1 | | | |
 | SEE | ≈ 10 000 | | | | | |
 | WASSER | ≈ 50 000 | | | | | |
@@ -1067,13 +1075,14 @@ Fragenblock II (Oberfläche, Datenbank) kommt in Phase 19 und wird hier als 16.3
 | 01.11.2026 | 7 | **Abnahme** auf der Radeon: `ant pruefung` 103 Prüfungen, alles in Ordnung (ein Hinweis: `scree` aus 6a nachzuholen). `ant routecheck` und `ant netviewcheck` grün: Gitterfehler 2,75 % / 0,75 % wie die Theorie, 16 Nachbarn über 160 801 Zellen in 72 ms. `ant isochronenbild` (Grund heute auf 4 m gelesen): Eingang 365 s linear, 291 s nichtlinear; 1940 355 / 288 s; 0,2 s je Lauf. `ant netviewbild` zeigt auf der Radeon dasselbe wie mit Mesa; `Unterwuchs.png` ist nicht mehr schwarz.<br>• **Befund:** Am Sporn gibt es heute in 500 m kein Wasser (NaN): Der Gilbert Inlet ist vom Gletscher gefüllt (siehe 7.1, Phase 7a) | `docs/status/Isochronen.png`, `Netzblick.png`, `routecheck_Phase7.txt` | neu gebaut |
 | 01.11.2026 | 7a | **Netz der Welle, Ufer, Netzblick** (Freigabe „Phase7a, los!“; Entscheidungen: Bucht und 1 km See; Ufer als Netz jetzt, Werte später; Netzblick als Bild im Bild und in der Szene; die App liest die Dateien, Oracle wahlweise).<br>• **Aufbereitung:** Schritte `welle` (`tools.Welle`) und `ufer` (`tools.Ufer`), siehe 7.1 und 7.2; Leser `scene.WellenNetz`, `scene.UferNetz`.<br>• **Oracle:** `01` mit `LB_ANKUNFT`, `LB_ISOCHRONE`, `LB_UFER_GEOM`, `LB_UFER_PUNKT`, `LB_AUFLAUF`, `LB_SPURLINIE_LRS`/`_STUETZ`; `02` mit `LB_NET_WELLE` (räumlich, Benutzerdaten) und `LB_NET_UFER` (LRS); `04` Partitionen und Raumindizes; `05` Sichten; neu `06_ufer.sql`; `99` räumt alles ab. `tools.WelleDb` lädt und rechnet nach; `netz.WelleLod` (LOD). Neu `ant netzvergleich`. Proben 24 bis 30 in 2.8.<br>• **App:** `gl.Netzblick`, Bedienfeld NETZE, Taste N, Zeile im vollen HUD.<br>• **Renderer** (Branch `lituya-phase-7a`): `NetviewGl.gain`.<br>• **Hier geprüft:** beide Schritte über dem Grund (heute auf 20 m gemittelt hochgerechnet); LOD im Speicher gegen `route` auf 0,003 s; `Pruefung` mit neuem Abschnitt grün; die App mit dem Netzblick über die Brücke zu Mesa gezeichnet. Oracle nicht (hier keine Datenbank).<br>• **Ausstehend auf dem Rechner:** Renderer bauen und kopieren; `ant aufbereitung "-Dschritte=welle,ufer"`, `ant netzdb`, `ant pruefung`, App starten (NETZE) | `docs/status/Vorschau_Phase7a_Netzblick_Mesa.png` (Mesa) | neu zu bauen (`gain`) |
 | 01.11.2026 | 7a | **Erster Lauf `ant netzdb`** (7 min): Welle und Ufer geladen, Partitionen ja (24: `SPATIAL_PARTITION` 16 Partitionen, BLOBs mit Benutzerdaten; 25 ja). LOD auf `LB_NET_WELLE` gegen `route`: alle 74 483 Knoten, größte Abweichung 0,0016 bis 0,0031 s je Kostenart; Wellenstrahlen (k = 3) mit denselben Zeiten wie `route` (Cenotaph 139,9 s, Anchorage 320,2 s, Eingang 364,7 s).<br>• **Befund 1:** `SDO_UTIL.FROM_WKTGEOMETRY` hat in 21c kein SRID-Argument (PLS-306); jetzt `SDO_GEOMETRY(CLOB, 26908)`.<br>• **Befund 2:** Die Kosten kamen aus der Tabelle, nicht aus den Benutzerdaten, und LOD schrieb beim Laden rund 9 000-mal `NullPointerException` (Laden 286 s). Vermutete Ursache: die Einträge in `USER_SDO_NETWORK_USER_DATA` ohne `CATEGORY_ID`; jetzt mit 0. LOD fragt nach einer Kostenart ohne Benutzerdaten nicht weiter danach, die Meldungen werden gezählt statt ausgegeben.<br>• **Befund 3:** Das Protokoll von `NetzDb` und die umgeleitete Konsole schrieben in dieselbe Datei; das Protokoll heißt jetzt `netzdb_protokoll_Phase7a.txt`.<br>• Der Sporn bekam mit 1 km Suchradius einen Knoten der Einschlaglinie (0 s); jetzt 400 m, also keiner | `netzdb_Phase7a.txt` | — |
+| 01.11.2026 | 7a | **Abnahme** auf der Radeon: `ant netzdb` „ok“ (Protokoll `netzdb_protokoll_Phase7a.txt`): `VALIDATE_NETWORK` TRUE für Herkunft, Welle und Ufer; LOD = `route` auf 0,003 s (Probe 27), Ufer `SDO_LRS` = `Measure` auf 5 mm (30), Partitionen ja (24, 25); `LB_ISOCHRONE` 256 Konturen. `ant pruefung` alles in Ordnung. App mit Netzblick (Fotos `Status_Phase7a1` bis `3`). Aufbereitung auf 4 m: 74 483 Knoten, 585 070 Kanten; Eingang 365 s linear, 291 s nichtlinear.<br>• **Befund 1:** Benutzerdaten in LOD gehen nicht (Probe 26, siehe 2.8).<br>• **Befund 2:** `fastWithinCostPolygon` geht nicht (28); Isochronen als Konturen.<br>• **Befund 3:** Laden von LOD dauert 174 s, wohl wegen der Meldungen aus 26 | `netzdb_protokoll_Phase7a.txt`, `Status_Phase7a1.png` | neu gebaut |
+| 01.11.2026 | 8 | **Erdbeben** (Freigabe „Phase8, los!“; Entscheidungen: BSSA14; Package und Aufbereitungsschritt `stoerung`; alles aus 5.1 mit Newmark, Seiche, Zittern und Grollen; Demo als Karte mit Zeitreihen).<br>• **`com.dan.quake`** (neu): siehe 5.1.<br>• **LituyaBay:** Schritt `stoerung`, `tools.Bebenbild`, `PHASE` 8, Abschnitt Beben in `ant pruefung`, `Herkunft` kennt `daten/ereignis`; Probe 29 zählt Orte ohne Knoten nicht.<br>• **Neu in `build.xml`:** `ant quakecheck`, `ant quakebild`, `ant quakedemo`, `ant grollen`, `ant bebenbild`.<br>• **Hier geprüft:** `QuakeCheck` grün, `check-packages` grün, Schritt `stoerung` an Qfaults und ComCat, `Bebenbild`.<br>• **Befund:** Newmark versagt nach 23 bis 27 s, nicht nach 60 bis 150 s (siehe 9.1).<br>• **Ausstehend auf dem Rechner:** Renderer bauen und kopieren; `ant aufbereitung -Dschritte=stoerung,herkunft,inhalt`, `ant quakecheck`, `ant quakebild`, `ant bebenbild`, `ant grollen`, `ant pruefung` | `docs/status/Vorschau_Phase8_Quake.png`, `Vorschau_Phase8_Beben.png` | neu zu bauen (mit `quake`) |
 | | 0b | parallel: Recherche vervollständigen (Miller S. 51–86, Zeugen, Boote, Tide, Zeitzone), Texturquellen und Lizenzen, `docs/QUELLEN.md` | | |
 
-**Nächster Schritt:** Phase 7a auf dem Rechner abschließen:
+**Nächster Schritt:** Phase 8 auf dem Rechner abschließen:
 
-1. Im Renderer auf Branch `lituya-phase-7a` „Clean and Build“ ausführen und `dist/Renderer.jar` nach `lib/` kopieren (`netview` mit `gain`).
-2. `ant aufbereitung "-Dschritte=welle,ufer"`: `daten/netz/welle` (≈ 75 700 Knoten, ≈ 595 000 Kanten) und `daten/netz/ufer`.
-3. `ant netzdb`: lädt Herkunft, Welle und Ufer, partitioniert, rechnet mit LOD nach. Protokoll `docs/status/netzdb_protokoll_Phase7a.txt`; die Proben 24 bis 30 in `LB_V_NDM_PROBE`. Das Laden der Welle dauert einige Minuten.
-4. `ant pruefung`, dann die App: Bedienfeld NETZE, „Welle: Einschlag“, Zeitraffer 10-fach; ein Foto mit F12.
+1. Im Renderer auf Branch `lituya-phase-8` „Clean and Build“ ausführen und `dist/Renderer.jar` nach `lib/` kopieren.
+2. `ant aufbereitung "-Dschritte=stoerung,herkunft,inhalt"`: Spur und Herd nach `daten/ereignis`, Herkunft und Inhalt neu.
+3. `ant quakecheck`, `ant quakebild`, `ant bebenbild` (Zeit mit `-Dzeit=…`), `ant grollen` (anhören) und `ant pruefung`.
 
-Abnahme: NDM = `route` (Ankunft auf 0,01 s, Probe 27), Isochronen 1940 und heute, Ufer als Messstrecke (Probe 30). Danach: 6a (Regenwald, Unterwuchs, Gletscher, `scree`) und 5a (Grundbild) nachholen; `rueckbau1958` und `spurlinie` (Ufer 1958, Gilbert Inlet 1958, Spurlinie je Ufermeter). Offen aus 3.4: `klassen`, `wald`, `gletscher`. Offen für 0b: die Tide am Abend des 9. Juli 1958 (heute Mittelwasser [G]).
+Abnahme: `QuakeCheck` grün, Bogen und Grollen. Danach Phase 9 (`landslide` mit `fracture`, Auslösung durch `quake`); offen bleiben 6a und 5a (App), `rueckbau1958` und `spurlinie`, die Tide (0b).

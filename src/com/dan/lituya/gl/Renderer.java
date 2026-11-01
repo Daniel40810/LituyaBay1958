@@ -49,9 +49,9 @@ import java.util.function.Consumer;
  */
 public final class Renderer implements GLEventListener {
     public static final int MIN_MAJOR = 4, MIN_MINOR = 3;
-    public static final String VERSION = "Phase 7a";
+    public static final String VERSION = "Phase 8";
     /** Phase des Stands (für Ansichten und Bedienfeld). */
-    public static final int PHASE = 7;
+    public static final int PHASE = 8;
     public static final String[] PASSES = {"Himmel", "Gelände", "Wasser", "Nachbearbeitung", "HUD"};
     private static final int MARKS = PASSES.length + 1;
     /** Nah- und Fernebene (m): vom Kutter bis über die Kimm des Mount Fairweather (264 km). */

@@ -227,7 +227,7 @@ public final class WelleDb {
             probe(c, 28, "fastWithinCostPolygon (Network Buffer, F23)", "Isochronen-Flächen nach 60 … 360 s", pf + " von " + puffer.length + " Flächen"
                     + (pf < puffer.length && puffer.length > 0 && puffer[0] != null ? "; " + NetzDb.kurz(puffer[0], 300) : ""), pf == puffer.length);
             boolean ks = true;
-            for (double[] s : strahl) ks &= s.length > 0;
+            for (int i = 0; i < strahl.length; i++) ks &= ziele[i] <= 0 || strahl[i].length > 0;   // Orte ohne Knoten (Sporn) zählen nicht
             probe(c, 29, "kShortestPaths auf LB_NET_WELLE (Wellenstrahlen)", "QUELLE → Orte, k = 3", ks ? "zu allen Orten" : "nicht zu allen Orten", ks);
         }
         return v;

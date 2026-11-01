@@ -341,6 +341,20 @@ public final class Pruefung {
             }
         }
 
+        teil("Beben (Phase 8): quake und daten/ereignis");
+        {
+            double p10 = com.dan.quake.Bssa14.median(com.dan.quake.Bssa14.Imt.PGA, 7.8, 10, 760, com.dan.quake.Bssa14.Mechanism.STRIKE_SLIP);
+            check(Math.abs(p10 - 0.3077) < 0.001, f("BSSA14 aus Renderer.jar: M 7,8 Blattverschiebung, Rjb 10 km, Fels: %.3f g", p10));
+            File ev = new File(daten, "ereignis/stoerung.tsv");
+            if (!ev.isFile()) hinweis("daten/ereignis fehlt: ant aufbereitung -Dschritte=stoerung");
+            else {
+                com.dan.quake.Quake q = com.dan.lituya.tools.Bebenbild.beben(daten);
+                double gx = Site.GILBERT.x(), gz = Site.GILBERT.z(), rjb = q.rjbKm(gx, gz), d = q.tS(gx, gz) - q.tP(gx, gz);
+                check(q.fault.length() > 250_000 && rjb < 3 && Math.abs(d - 8.1) < 0.5 && q.magnitude == 7.8,
+                        f("Fairweather-Störung %.0f km (Qfaults), am Gilbert Inlet Rjb %.1f km, tS − tP %.1f s, PGA %.2f g (Herd ComCat, M %.1f)", q.fault.length() / 1000, rjb, d, q.pga(gx, gz), q.magnitude));
+            }
+        }
+
         teil("Netze der Welle und des Ufers (Phase 7a): daten/netz/welle und daten/netz/ufer");
         {
             File wd = new File(daten, com.dan.lituya.scene.WellenNetz.ORDNER), ud = new File(daten, com.dan.lituya.scene.UferNetz.ORDNER);

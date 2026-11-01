@@ -233,6 +233,16 @@ public final class Herkunft {
                 if (q.art().equals("ROHDATEI") && q.name().startsWith("texturen/tex_" + p[1] + "/")) h.kante(q.id(), k.id(), "LIEFERT");
         }
 
+        // Störung und Herd (Phase 8): Qfaults und ComCat → daten/ereignis
+        boolean st = false;
+        for (Knoten k : List.copyOf(h.knoten)) {
+            if (!k.art().equals("AUSGABE") || !k.name().startsWith("ereignis/")) continue;
+            if (!st) { h.knoten("SCHRITT", "stoerung", "com.dan.lituya.tools.Aufbereitung stoerung", 0, null, null); st = true; }
+            h.kante(h.id("SCHRITT", "stoerung"), k.id(), "ERZEUGT");
+            String quelle = k.name().equals("ereignis/beben.txt") ? "ereignis/usgs_erdbeben/erdbeben_1958" : "geologie/stoerungen/Qfaults";
+            for (Knoten q : h.knoten) if (q.art().equals("ROHDATEI") && q.name().startsWith(quelle)) h.kante(q.id(), k.id(), "LIEFERT");
+        }
+
         // Prüfungen: kreisfrei, jede Ausgabe hat einen Schritt, jede Datenausgabe eine Rohdatei davor
         int n = h.knoten.size();
         List<int[]> rein = h.rein();

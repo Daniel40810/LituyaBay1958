@@ -76,7 +76,7 @@
         lib/Renderer.jar alles hat, was LituyaBay1958 braucht (jedes gebrauchte Package mit Klassen und README, Java 21,
         von den 14 neuen die, deren Phase erreicht ist); abschalten mit -Dohne.paketpruefung=true.
     -->
-    <property name="lituya.phase" value="7a"/>
+    <property name="lituya.phase" value="8"/>
     <target name="check-packages" description="Prüft lib/Renderer.jar: die gebrauchten Packages mit README, Java 21, die fälligen neuen." unless="ohne.paketpruefung">
         <property name="platform.java" value="java"/>
         <exec executable="${platform.java}" dir="${basedir}" failonerror="true">
@@ -389,5 +389,33 @@
     </target>
     <target name="netviewdemo" depends="compile" description="Phase 7: NetviewDemo im Fenster.">
         <renderer-fenster klasse="com.dan.netview.demo.NetviewDemo" speicher="-Xmx2g"/>
+    </target>
+    <!-- Phase 8 (Werkbuch 5.1, 9.1): das neue Package com.dan.quake aus lib/Renderer.jar. quakecheck: QuakeCheck (Laufzeiten,
+         WELLS94, BSSA14 von Hand, Newmark-Rechteckimpuls, Merian) nach docs/status/quakecheck_Phase8.txt; quakebild: der Bogen
+         von QuakeDemo (Preset fairweather1958) nach docs/status/Quake_Demo.png; quakedemo: Fenster; grollen: das Grollen am
+         Gilbert Inlet als docs/status/Grollen.wav; bebenbild: das Beben über daten/ereignis (Schritt stoerung) nach
+         docs/status/Beben.png mit Newmark je Sicherheitsfaktor. -->
+    <target name="quakecheck" depends="compile" description="Phase 8: QuakeCheck nach docs/status/quakecheck_Phase8.txt.">
+        <renderer-java klasse="com.dan.quake.demo.QuakeCheck" ausgabe="docs/status/quakecheck_Phase${lituya.phase}.txt" speicher="-Xmx1g"/>
+        <loadfile property="quakecheck.text" srcFile="docs/status/quakecheck_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${quakecheck.text}"/>
+    </target>
+    <target name="quakebild" depends="compile" description="Phase 8: QuakeDemo (fairweather1958) nach docs/status/Quake_Demo.png.">
+        <property name="zeit" value="30"/>
+        <renderer-java klasse="com.dan.quake.demo.QuakeDemo" args="--bild docs/status/Quake_Demo.png ${zeit}" ausgabe="docs/status/quakebild_Phase${lituya.phase}.txt" speicher="-Xmx2g"/>
+        <loadfile property="quakebild.text" srcFile="docs/status/quakebild_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${quakebild.text}"/>
+    </target>
+    <target name="quakedemo" depends="compile" description="Phase 8: QuakeDemo im Fenster.">
+        <renderer-fenster klasse="com.dan.quake.demo.QuakeDemo" speicher="-Xmx2g"/>
+    </target>
+    <target name="grollen" depends="compile" description="Phase 8: das Grollen am Gilbert Inlet nach docs/status/Grollen.wav.">
+        <renderer-java klasse="com.dan.quake.demo.QuakeDemo" args="--wav docs/status/Grollen.wav" ausgabe="docs/status/grollen_Phase${lituya.phase}.txt" speicher="-Xmx1g"/>
+    </target>
+    <target name="bebenbild" depends="compile" description="Phase 8: das Beben über daten/ereignis nach docs/status/Beben.png.">
+        <property name="zeit" value="30"/>
+        <renderer-java klasse="com.dan.lituya.tools.Bebenbild" args="daten docs/status/Beben.png ${zeit}" ausgabe="docs/status/bebenbild_Phase${lituya.phase}.txt" speicher="-Xmx2g"/>
+        <loadfile property="bebenbild.text" srcFile="docs/status/bebenbild_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${bebenbild.text}"/>
     </target>
 </project>
