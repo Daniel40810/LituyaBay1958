@@ -1,6 +1,6 @@
 # LituyaBay1958 — Planungsprompt für das Werkbuch
 
-> **Zweck dieser Datei:** Aus ihr erstellt Claude das **„LituyaBay1958 Werkbuch“**.
+> **Zweck dieser Datei:** Aus ihr erstellt Claude das **„LituyaBay1958 Werkbuch“** (angelegt am 01.11.2026 als `docs/claude/LITUYABAY1958_WERKBUCH.md`).
 > Noch **kein Code, keine Skripte** (außer dem schon vorhandenen Werkzeug `tools/kartenmaterial`). Zuerst wird geplant: Ausgangspunkt klären, Themen und Struktur festlegen, offene Fragen stellen. Programmiert wird erst, wenn Phase 1 freigegeben ist.
 >
 > Stand: 01.11.2026, überarbeitet nach den Wünschen vom selben Tag (Kartenmaterial nach Abschluss auslagern, möglichst viele neue Packages für den Renderer, passende Texturen, bestehende Engines optimieren, **episch**) · NetBeans-Projekt `C:\Users\Dan40810\Documents\NetBeansProjects\LituyaBay1958` · Repo `Daniel40810/LituyaBay1958`
