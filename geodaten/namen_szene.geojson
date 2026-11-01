@@ -1,0 +1,1979 @@
+{
+ "type": "FeatureCollection",
+ "features": [
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1421221",
+    "feature_name": "Cormorant Rock",
+    "feature_class": "Bar",
+    "map_name": "Mount Fairweather C-5 SW",
+    "elev_in_m": "",
+    "date_created": "03/31/1981",
+    "date_edited": "10/14/2008",
+    "utm8n_ost": 345729.7,
+    "utm8n_nord": 6499524.6
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.6555556,
+     58.6086111
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1423200",
+    "feature_name": "La Chaussee Spit",
+    "feature_class": "Bar",
+    "map_name": "Mount Fairweather C-6 SE",
+    "elev_in_m": "",
+    "date_created": "03/31/1981",
+    "date_edited": "09/24/2010",
+    "utm8n_ost": 344812.3,
+    "utm8n_nord": 6500830.5
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.6722222,
+     58.62
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1424168",
+    "feature_name": "Passage Rock",
+    "feature_class": "Bar",
+    "map_name": "Mount Fairweather C-5 SW",
+    "elev_in_m": "",
+    "date_created": "03/31/1981",
+    "date_edited": "",
+    "utm8n_ost": 345664.9,
+    "utm8n_nord": 6499929.7
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.6569444,
+     58.6122222
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1420097",
+    "feature_name": "Anchorage Cove",
+    "feature_class": "Bay",
+    "map_name": "Mount Fairweather C-5 SW",
+    "elev_in_m": "",
+    "date_created": "03/31/1981",
+    "date_edited": "05/25/2010",
+    "utm8n_ost": 345252.6,
+    "utm8n_nord": 6500936.8
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.6647222,
+     58.6211111
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1421280",
+    "feature_name": "Crillon Inlet",
+    "feature_class": "Bay",
+    "map_name": "Mount Fairweather C-5 NE",
+    "elev_in_m": "",
+    "date_created": "03/31/1981",
+    "date_edited": "11/17/2010",
+    "utm8n_ost": 356876.9,
+    "utm8n_nord": 6504362.0
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.4669444,
+     58.6558333
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1422142",
+    "feature_name": "Gilbert Inlet",
+    "feature_class": "Bay",
+    "map_name": "Mount Fairweather C-5 NW",
+    "elev_in_m": "",
+    "date_created": "03/31/1981",
+    "date_edited": "",
+    "utm8n_ost": 354903.5,
+    "utm8n_nord": 6506385.5
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.5022222,
+     58.6733333
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1422862",
+    "feature_name": "Johns Hopkins Inlet",
+    "feature_class": "Bay",
+    "map_name": "Mount Fairweather D-4 NE",
+    "elev_in_m": "",
+    "date_created": "01/01/2000",
+    "date_edited": "03/22/2011",
+    "utm8n_ost": 382242.3,
+    "utm8n_nord": 6529570.7
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.0433333,
+     58.8897222
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1423375",
+    "feature_name": "Lituya Bay",
+    "feature_class": "Bay",
+    "map_name": "Mount Fairweather C-5 NW",
+    "elev_in_m": "",
+    "date_created": "03/31/1981",
+    "date_edited": "08/17/2010",
+    "utm8n_ost": 350641.9,
+    "utm8n_nord": 6502491.1
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.5730556,
+     58.6369444
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1420851",
+    "feature_name": "Cape Fairweather",
+    "feature_class": "Cape",
+    "map_name": "Mount Fairweather D-6 SW",
+    "elev_in_m": "",
+    "date_created": "03/31/1981",
+    "date_edited": "04/07/2009",
+    "utm8n_ost": 329932.8,
+    "utm8n_nord": 6522139.8
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.9441667,
+     58.8055556
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1420951",
+    "feature_name": "Cenotaph Point",
+    "feature_class": "Cape",
+    "map_name": "Mount Fairweather C-5 NW",
+    "elev_in_m": "",
+    "date_created": "03/31/1981",
+    "date_edited": "",
+    "utm8n_ost": 350326.1,
+    "utm8n_nord": 6502255.6
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.5783333,
+     58.6347222
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1419549",
+    "feature_name": "Confusion Point",
+    "feature_class": "Cape",
+    "map_name": "Mount Fairweather D-3 NW",
+    "elev_in_m": "",
+    "date_created": "09/01/1992",
+    "date_edited": "",
+    "utm8n_ost": 385259.8,
+    "utm8n_nord": 6530841.5
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -136.9916667,
+     58.9019444
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1422445",
+    "feature_name": "Harbor Point",
+    "feature_class": "Cape",
+    "map_name": "Mount Fairweather C-5 SW",
+    "elev_in_m": "",
+    "date_created": "03/31/1981",
+    "date_edited": "01/29/2009",
+    "utm8n_ost": 346074.5,
+    "utm8n_nord": 6499665.8
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.6497222,
+     58.61
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1415991",
+    "feature_name": "Jaw Point",
+    "feature_class": "Cape",
+    "map_name": "Mount Fairweather D-4 NE",
+    "elev_in_m": "",
+    "date_created": "01/01/2000",
+    "date_edited": "",
+    "utm8n_ost": 383905.4,
+    "utm8n_nord": 6531067.7
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.0152778,
+     58.9036111
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1415297",
+    "feature_name": "Three Saints Point",
+    "feature_class": "Cape",
+    "map_name": "Mount Fairweather C-5 NW",
+    "elev_in_m": "",
+    "date_created": "03/31/1981",
+    "date_edited": "",
+    "utm8n_ost": 348462.0,
+    "utm8n_nord": 6503721.0
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.6113889,
+     58.6472222
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1420904",
+    "feature_name": "Cascade Glacier",
+    "feature_class": "Glacier",
+    "map_name": "Mount Fairweather C-5 NE",
+    "elev_in_m": "",
+    "date_created": "01/01/2000",
+    "date_edited": "02/23/2023",
+    "utm8n_ost": 356690.2,
+    "utm8n_nord": 6505420.6
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.47083,
+     58.66527
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1420985",
+    "feature_name": "Charley Glacier (historical)",
+    "feature_class": "Glacier",
+    "map_name": "Mount Fairweather D-4 SE",
+    "elev_in_m": "",
+    "date_created": "01/01/2000",
+    "date_edited": "07/17/2026",
+    "utm8n_ost": 375915.9,
+    "utm8n_nord": 6526643.0
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.1513889,
+     58.8616667
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1421072",
+    "feature_name": "Clark Glacier",
+    "feature_class": "Glacier",
+    "map_name": "Mount Fairweather D-4 SE",
+    "elev_in_m": "",
+    "date_created": "01/01/2000",
+    "date_edited": "11/10/2016",
+    "utm8n_ost": 378061.1,
+    "utm8n_nord": 6520812.5
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.1110384,
+     58.8099526
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1894041",
+    "feature_name": "Dagelet Glacier",
+    "feature_class": "Glacier",
+    "map_name": "Mount Fairweather C-4 SW",
+    "elev_in_m": "",
+    "date_created": "03/23/2001",
+    "date_edited": "02/24/2023",
+    "utm8n_ost": 371874.6,
+    "utm8n_nord": 6497259.0
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.204648,
+     58.59678
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1421436",
+    "feature_name": "Desolation Glacier",
+    "feature_class": "Glacier",
+    "map_name": "Mount Fairweather D-5 SW",
+    "elev_in_m": "",
+    "date_created": "03/31/1981",
+    "date_edited": "02/15/2018",
+    "utm8n_ost": 353889.1,
+    "utm8n_nord": 6517954.1
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.5272132,
+     58.7767894
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1421836",
+    "feature_name": "Fairweather Glacier",
+    "feature_class": "Glacier",
+    "map_name": "Mount Fairweather D-6 SE",
+    "elev_in_m": "",
+    "date_created": "03/31/1981",
+    "date_edited": "02/15/2018",
+    "utm8n_ost": 341731.1,
+    "utm8n_nord": 6523911.6
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.7414517,
+     58.8259443
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1402050",
+    "feature_name": "Finger Glacier",
+    "feature_class": "Glacier",
+    "map_name": "Mount Fairweather C-4 SE",
+    "elev_in_m": "",
+    "date_created": "03/31/1981",
+    "date_edited": "02/15/2018",
+    "utm8n_ost": 376967.1,
+    "utm8n_nord": 6487094.2
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.111595,
+     58.507021
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1422151",
+    "feature_name": "Gilman Glacier",
+    "feature_class": "Glacier",
+    "map_name": "Mount Fairweather D-4 SE",
+    "elev_in_m": "",
+    "date_created": "01/01/2000",
+    "date_edited": "03/21/2019",
+    "utm8n_ost": 384043.8,
+    "utm8n_nord": 6515299.4
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.0046844,
+     58.7621223
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1422642",
+    "feature_name": "Hoonah Glacier",
+    "feature_class": "Glacier",
+    "map_name": "Mount Fairweather D-4 SE",
+    "elev_in_m": "",
+    "date_created": "05/16/2023",
+    "date_edited": "05/16/2023",
+    "utm8n_ost": 383216.5,
+    "utm8n_nord": 6523065.8
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.02303,
+     58.831605
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1669443",
+    "feature_name": "Huscroft Glacier (historical)",
+    "feature_class": "Glacier",
+    "map_name": "Mount Fairweather C-5 NE",
+    "elev_in_m": "",
+    "date_created": "05/17/2023",
+    "date_edited": "05/17/2023",
+    "utm8n_ost": 359902.8,
+    "utm8n_nord": 6503400.3
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.414246,
+     58.648192
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1422856",
+    "feature_name": "John Glacier",
+    "feature_class": "Glacier",
+    "map_name": "Mount Fairweather D-4 SW",
+    "elev_in_m": "",
+    "date_created": "01/01/2000",
+    "date_edited": "11/10/2016",
+    "utm8n_ost": 374589.8,
+    "utm8n_nord": 6526092.2
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.1740513,
+     58.8563385
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1422861",
+    "feature_name": "Johns Hopkins Glacier",
+    "feature_class": "Glacier",
+    "map_name": "Mount Fairweather D-4 SW",
+    "elev_in_m": "",
+    "date_created": "03/31/1981",
+    "date_edited": "11/10/2016",
+    "utm8n_ost": 373145.8,
+    "utm8n_nord": 6516356.2
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.1935378,
+     58.7685419
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1894952",
+    "feature_name": "Jones Glacier",
+    "feature_class": "Glacier",
+    "map_name": "Mount Fairweather D-4 NE",
+    "elev_in_m": "",
+    "date_created": "03/23/2001",
+    "date_edited": "",
+    "utm8n_ost": 376397.4,
+    "utm8n_nord": 6534148.9
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.1472222,
+     58.9291667
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1422905",
+    "feature_name": "Kadachan Glacier",
+    "feature_class": "Glacier",
+    "map_name": "Mount Fairweather D-4 NE",
+    "elev_in_m": "",
+    "date_created": "01/01/2000",
+    "date_edited": "11/10/2016",
+    "utm8n_ost": 378433.0,
+    "utm8n_nord": 6530069.3
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.1096527,
+     58.8931357
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1422965",
+    "feature_name": "Kashoto Glacier",
+    "feature_class": "Glacier",
+    "map_name": "Mount Fairweather D-4 SE",
+    "elev_in_m": "",
+    "date_created": "01/01/2000",
+    "date_edited": "11/10/2016",
+    "utm8n_ost": 383921.9,
+    "utm8n_nord": 6525744.1
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.0122133,
+     58.855835
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1895174",
+    "feature_name": "Klooch Glacier",
+    "feature_class": "Glacier",
+    "map_name": "Mount Fairweather C-4 SW",
+    "elev_in_m": "",
+    "date_created": "03/23/2001",
+    "date_edited": "02/15/2018",
+    "utm8n_ost": 366653.1,
+    "utm8n_nord": 6497459.8
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.2945324,
+     58.5970112
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1423201",
+    "feature_name": "La Perouse Glacier",
+    "feature_class": "Glacier",
+    "map_name": "Mount Fairweather C-4 SW",
+    "elev_in_m": "",
+    "date_created": "03/31/1981",
+    "date_edited": "11/10/2016",
+    "utm8n_ost": 372488.4,
+    "utm8n_nord": 6492760.9
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.1915703,
+     58.5565913
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1423376",
+    "feature_name": "Lituya Glacier",
+    "feature_class": "Glacier",
+    "map_name": "Mount Fairweather C-5 NE",
+    "elev_in_m": "",
+    "date_created": "01/01/2000",
+    "date_edited": "02/15/2018",
+    "utm8n_ost": 359669.5,
+    "utm8n_nord": 6510116.4
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.4224399,
+     58.7083811
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1895483",
+    "feature_name": "Lookout Glacier",
+    "feature_class": "Glacier",
+    "map_name": "Mount Fairweather C-5 SE",
+    "elev_in_m": "",
+    "date_created": "03/23/2001",
+    "date_edited": "",
+    "utm8n_ost": 363442.0,
+    "utm8n_nord": 6497904.0
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.35,
+     58.6
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1423550",
+    "feature_name": "Margerie Glacier",
+    "feature_class": "Glacier",
+    "map_name": "Mount Fairweather D-4 NW",
+    "elev_in_m": "",
+    "date_created": "01/01/2000",
+    "date_edited": "09/21/2018",
+    "utm8n_ost": 370088.1,
+    "utm8n_nord": 6532685.6
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.2558746,
+     58.9141706
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1423971",
+    "feature_name": "North Crillon Glacier",
+    "feature_class": "Glacier",
+    "map_name": "Mount Fairweather C-4 NW",
+    "elev_in_m": "",
+    "date_created": "01/01/2000",
+    "date_edited": "08/14/2018",
+    "utm8n_ost": 365938.1,
+    "utm8n_nord": 6506113.4
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.3119521,
+     58.6744474
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1414548",
+    "feature_name": "Sea Otter Glacier",
+    "feature_class": "Glacier",
+    "map_name": "Mount Fairweather D-6 NE",
+    "elev_in_m": "",
+    "date_created": "03/31/1981",
+    "date_edited": "10/24/2016",
+    "utm8n_ost": 344446.3,
+    "utm8n_nord": 6534919.9
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.7021765,
+     58.9256871
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1414877",
+    "feature_name": "South Crillon Glacier",
+    "feature_class": "Glacier",
+    "map_name": "Mount Fairweather C-4 NW",
+    "elev_in_m": "",
+    "date_created": "01/01/2000",
+    "date_edited": "02/15/2018",
+    "utm8n_ost": 367532.8,
+    "utm8n_nord": 6501250.4
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.281624,
+     58.6312967
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1415371",
+    "feature_name": "Topeka Glacier",
+    "feature_class": "Glacier",
+    "map_name": "Mount Fairweather D-4 NE",
+    "elev_in_m": "",
+    "date_created": "01/01/2000",
+    "date_edited": "11/10/2016",
+    "utm8n_ost": 378318.2,
+    "utm8n_nord": 6534554.3
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.1141028,
+     58.9333547
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1415384",
+    "feature_name": "Toyatte Glacier",
+    "feature_class": "Glacier",
+    "map_name": "Mount Fairweather D-4 NE",
+    "elev_in_m": "",
+    "date_created": "01/01/2000",
+    "date_edited": "11/10/2016",
+    "utm8n_ost": 378031.3,
+    "utm8n_nord": 6532127.6
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.1177483,
+     58.911494
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1415488",
+    "feature_name": "Tyeen Glacier",
+    "feature_class": "Glacier",
+    "map_name": "Mount Fairweather D-4 SW",
+    "elev_in_m": "",
+    "date_created": "01/01/2000",
+    "date_edited": "11/10/2016",
+    "utm8n_ost": 374275.9,
+    "utm8n_nord": 6527661.2
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.1803743,
+     58.8703282
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1420950",
+    "feature_name": "Cenotaph Island",
+    "feature_class": "Island",
+    "map_name": "Mount Fairweather C-5 NW",
+    "elev_in_m": "",
+    "date_created": "03/31/1981",
+    "date_edited": "07/30/2008",
+    "utm8n_ost": 350204.8,
+    "utm8n_nord": 6502879.5
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.5808333,
+     58.6402778
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1421281",
+    "feature_name": "Crillon Lake",
+    "feature_class": "Lake",
+    "map_name": "Mount Fairweather C-5 SE",
+    "elev_in_m": "",
+    "date_created": "03/31/1981",
+    "date_edited": "10/24/2016",
+    "utm8n_ost": 361559.0,
+    "utm8n_nord": 6493711.9
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.3798159,
+     58.5617861
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1421941",
+    "feature_name": "Fish Lake",
+    "feature_class": "Lake",
+    "map_name": "Mount Fairweather C-5 NW",
+    "elev_in_m": "",
+    "date_created": "03/31/1981",
+    "date_edited": "06/29/2015",
+    "utm8n_ost": 347172.4,
+    "utm8n_nord": 6504296.0
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.633974,
+     58.6519285
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1894582",
+    "feature_name": "Grassy Pond",
+    "feature_class": "Lake",
+    "map_name": "Mount Fairweather C-5 SE",
+    "elev_in_m": "",
+    "date_created": "03/23/2001",
+    "date_edited": "06/29/2015",
+    "utm8n_ost": 359949.9,
+    "utm8n_nord": 6495816.8
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.4087459,
+     58.5801585
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1421837",
+    "feature_name": "Fairweather Range",
+    "feature_class": "Range",
+    "map_name": "Mount Fairweather C-4 NE",
+    "elev_in_m": "",
+    "date_created": "03/31/1981",
+    "date_edited": "01/06/2011",
+    "utm8n_ost": 374332.8,
+    "utm8n_nord": 6504966.0
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.1666667,
+     58.6666667
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1894583",
+    "feature_name": "Grassy Ridge",
+    "feature_class": "Ridge",
+    "map_name": "Mount Fairweather C-5 SE",
+    "elev_in_m": "",
+    "date_created": "03/23/2001",
+    "date_edited": "07/13/2017",
+    "utm8n_ost": 357848.1,
+    "utm8n_nord": 6497663.4
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.4460153,
+     58.5960462
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1414856",
+    "feature_name": "Solomon Railroad",
+    "feature_class": "Ridge",
+    "map_name": "Mount Fairweather C-5 NW",
+    "elev_in_m": "",
+    "date_created": "03/31/1981",
+    "date_edited": "07/13/2017",
+    "utm8n_ost": 351962.9,
+    "utm8n_nord": 6505622.5
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.5523749,
+     58.6654925
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1893708",
+    "feature_name": "Boulder Creek",
+    "feature_class": "Stream",
+    "map_name": "Mount Fairweather C-5 SW",
+    "elev_in_m": "",
+    "date_created": "03/23/2001",
+    "date_edited": "",
+    "utm8n_ost": 350335.6,
+    "utm8n_nord": 6497456.4
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.575,
+     58.5916667
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1893761",
+    "feature_name": "Butcher Creek",
+    "feature_class": "Stream",
+    "map_name": "Mount Fairweather C-5 NW",
+    "elev_in_m": "",
+    "date_created": "03/23/2001",
+    "date_edited": "",
+    "utm8n_ost": 350352.4,
+    "utm8n_nord": 6502099.8
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.5777778,
+     58.6333333
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1893797",
+    "feature_name": "Campbell Creek",
+    "feature_class": "Stream",
+    "map_name": "Mount Fairweather C-5 SW",
+    "elev_in_m": "",
+    "date_created": "03/23/2001",
+    "date_edited": "08/31/2010",
+    "utm8n_ost": 352202.1,
+    "utm8n_nord": 6495527.7
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.5416667,
+     58.575
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1421120",
+    "feature_name": "Coal Creek",
+    "feature_class": "Stream",
+    "map_name": "Mount Fairweather C-5 NW",
+    "elev_in_m": "",
+    "date_created": "03/31/1981",
+    "date_edited": "",
+    "utm8n_ost": 352482.7,
+    "utm8n_nord": 6502080.4
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.5411111,
+     58.6338889
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1421282",
+    "feature_name": "Crillon River",
+    "feature_class": "Stream",
+    "map_name": "Mount Fairweather C-5 SE",
+    "elev_in_m": "",
+    "date_created": "03/31/1981",
+    "date_edited": "11/17/2010",
+    "utm8n_ost": 359191.6,
+    "utm8n_nord": 6489356.6
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.4177778,
+     58.5219444
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1421330",
+    "feature_name": "Dagelet River",
+    "feature_class": "Stream",
+    "map_name": "Mount Fairweather C-5 SE",
+    "elev_in_m": "",
+    "date_created": "03/31/1981",
+    "date_edited": "11/17/2010",
+    "utm8n_ost": 360238.3,
+    "utm8n_nord": 6487833.1
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.3988889,
+     58.5086111
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1421590",
+    "feature_name": "Eagle Creek",
+    "feature_class": "Stream",
+    "map_name": "Mount Fairweather C-6 NE",
+    "elev_in_m": "",
+    "date_created": "03/31/1981",
+    "date_edited": "12/23/2010",
+    "utm8n_ost": 344995.0,
+    "utm8n_nord": 6503795.6
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.6711111,
+     58.6466667
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1421648",
+    "feature_name": "Echo Creek",
+    "feature_class": "Stream",
+    "map_name": "Mount Fairweather C-6 NE",
+    "elev_in_m": "",
+    "date_created": "03/31/1981",
+    "date_edited": "",
+    "utm8n_ost": 343609.6,
+    "utm8n_nord": 6506668.7
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.6969444,
+     58.6719444
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1421841",
+    "feature_name": "Fall Creek",
+    "feature_class": "Stream",
+    "map_name": "Mount Fairweather C-5 NW",
+    "elev_in_m": "",
+    "date_created": "01/01/2000",
+    "date_edited": "01/06/2011",
+    "utm8n_ost": 353914.2,
+    "utm8n_nord": 6502800.4
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.5169444,
+     58.6408333
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1894359",
+    "feature_name": "Fish Creek",
+    "feature_class": "Stream",
+    "map_name": "Mount Fairweather C-5 NW",
+    "elev_in_m": "",
+    "date_created": "03/23/2001",
+    "date_edited": "02/01/2011",
+    "utm8n_ost": 347176.8,
+    "utm8n_nord": 6503461.6
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.6333333,
+     58.6444444
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1894414",
+    "feature_name": "Fourmile Creek",
+    "feature_class": "Stream",
+    "map_name": "Mount Fairweather C-6 NE",
+    "elev_in_m": "",
+    "date_created": "03/23/2001",
+    "date_edited": "03/01/2011",
+    "utm8n_ost": 343594.7,
+    "utm8n_nord": 6506700.3
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.6972222,
+     58.6722222
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1422903",
+    "feature_name": "Justice Creek",
+    "feature_class": "Stream",
+    "map_name": "Mount Fairweather C-6 NE",
+    "elev_in_m": "",
+    "date_created": "01/01/2000",
+    "date_edited": "",
+    "utm8n_ost": 339229.9,
+    "utm8n_nord": 6511523.2
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.7758333,
+     58.7138889
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1895710",
+    "feature_name": "Mineral Creek",
+    "feature_class": "Stream",
+    "map_name": "Mount Fairweather C-5 SE",
+    "elev_in_m": "",
+    "date_created": "03/23/2001",
+    "date_edited": "",
+    "utm8n_ost": 357228.3,
+    "utm8n_nord": 6491470.9
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.4527778,
+     58.5402778
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1423829",
+    "feature_name": "Mudslide Creek",
+    "feature_class": "Stream",
+    "map_name": "Mount Fairweather C-5 NW",
+    "elev_in_m": "",
+    "date_created": "01/01/2000",
+    "date_edited": "",
+    "utm8n_ost": 354605.1,
+    "utm8n_nord": 6503579.4
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.5055556,
+     58.6480556
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1424611",
+    "feature_name": "Portage Creek",
+    "feature_class": "Stream",
+    "map_name": "Mount Fairweather C-6 NE",
+    "elev_in_m": "",
+    "date_created": "03/31/1981",
+    "date_edited": "",
+    "utm8n_ost": 344864.3,
+    "utm8n_nord": 6506587.5
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.6752778,
+     58.6716667
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1414547",
+    "feature_name": "Sea Otter Creek",
+    "feature_class": "Stream",
+    "map_name": "Mount Fairweather D-6 NW",
+    "elev_in_m": "",
+    "date_created": "03/31/1981",
+    "date_edited": "",
+    "utm8n_ost": 330449.3,
+    "utm8n_nord": 6530231.5
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.9413889,
+     58.8783333
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1414998",
+    "feature_name": "Steelhead Creek",
+    "feature_class": "Stream",
+    "map_name": "Mount Fairweather C-5 SW",
+    "elev_in_m": "",
+    "date_created": "01/01/2000",
+    "date_edited": "",
+    "utm8n_ost": 351799.9,
+    "utm8n_nord": 6496007.3
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.5488889,
+     58.5791667
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1415372",
+    "feature_name": "Topsy Creek",
+    "feature_class": "Stream",
+    "map_name": "Mount Fairweather C-5 SE",
+    "elev_in_m": "",
+    "date_created": "01/01/2000",
+    "date_edited": "",
+    "utm8n_ost": 354797.6,
+    "utm8n_nord": 6493572.7
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.4958333,
+     58.5583333
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1897285",
+    "feature_name": "Whale Creek",
+    "feature_class": "Stream",
+    "map_name": "Mount Fairweather C-5 SW",
+    "elev_in_m": "",
+    "date_created": "03/23/2001",
+    "date_edited": "",
+    "utm8n_ost": 351349.3,
+    "utm8n_nord": 6496488.8
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.5569444,
+     58.5833333
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1893468",
+    "feature_name": "Bald Mountain",
+    "feature_class": "Summit",
+    "map_name": "Mount Fairweather C-5 SE",
+    "elev_in_m": "",
+    "date_created": "03/23/2001",
+    "date_edited": "07/13/2017",
+    "utm8n_ost": 356387.3,
+    "utm8n_nord": 6500330.4
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.4728138,
+     58.6194965
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1893529",
+    "feature_name": "Bay Peak",
+    "feature_class": "Summit",
+    "map_name": "Mount Fairweather C-5 NE",
+    "elev_in_m": "",
+    "date_created": "03/23/2001",
+    "date_edited": "07/02/2021",
+    "utm8n_ost": 357766.8,
+    "utm8n_nord": 6509243.8
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.4546997,
+     58.6999294
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1893775",
+    "feature_name": "Cairn Peak",
+    "feature_class": "Summit",
+    "map_name": "Mount Fairweather C-5 SE",
+    "elev_in_m": "",
+    "date_created": "03/23/2001",
+    "date_edited": "07/13/2017",
+    "utm8n_ost": 364082.4,
+    "utm8n_nord": 6499176.7
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.3397536,
+     58.6116214
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1894581",
+    "feature_name": "Grassy Mountain",
+    "feature_class": "Summit",
+    "map_name": "Mount Fairweather C-5 SE",
+    "elev_in_m": "",
+    "date_created": "03/23/2001",
+    "date_edited": "07/13/2017",
+    "utm8n_ost": 357695.7,
+    "utm8n_nord": 6498004.5
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.4488477,
+     58.5990572
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1423377",
+    "feature_name": "Lituya Mountain",
+    "feature_class": "Summit",
+    "map_name": "Mount Fairweather D-5 SE",
+    "elev_in_m": "",
+    "date_created": "03/31/1981",
+    "date_edited": "07/13/2017",
+    "utm8n_ost": 359244.2,
+    "utm8n_nord": 6520935.2
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.4365621,
+     58.8053183
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1423675",
+    "feature_name": "Middle Dome",
+    "feature_class": "Summit",
+    "map_name": "Mount Fairweather C-4 SW",
+    "elev_in_m": "",
+    "date_created": "03/31/1981",
+    "date_edited": "07/13/2017",
+    "utm8n_ost": 367651.9,
+    "utm8n_nord": 6488718.7
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.2722739,
+     58.5188716
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1419997",
+    "feature_name": "Mount Abbe",
+    "feature_class": "Summit",
+    "map_name": "Mount Fairweather D-4 SE",
+    "elev_in_m": "",
+    "date_created": "01/01/2000",
+    "date_edited": "07/22/2023",
+    "utm8n_ost": 379949.6,
+    "utm8n_nord": 6519403.8
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.0776124,
+     58.7978404
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1420392",
+    "feature_name": "Mount Bertha",
+    "feature_class": "Summit",
+    "map_name": "Mount Fairweather C-4 NE",
+    "elev_in_m": "",
+    "date_created": "03/31/1981",
+    "date_edited": "07/13/2017",
+    "utm8n_ost": 382484.4,
+    "utm8n_nord": 6506894.3
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.027231,
+     58.6862614
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1416005",
+    "feature_name": "Mount Cooper",
+    "feature_class": "Summit",
+    "map_name": "Mount Fairweather D-3 SW",
+    "elev_in_m": "",
+    "date_created": "01/01/2000",
+    "date_edited": "07/13/2017",
+    "utm8n_ost": 385631.6,
+    "utm8n_nord": 6526442.7
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -136.9829557,
+     58.8625628
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1421283",
+    "feature_name": "Mount Crillon",
+    "feature_class": "Summit",
+    "map_name": "Mount Fairweather C-4 NW",
+    "elev_in_m": "",
+    "date_created": "03/31/1981",
+    "date_edited": "07/13/2017",
+    "utm8n_ost": 374040.8,
+    "utm8n_nord": 6504480.7
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.1714265,
+     58.662226
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1421331",
+    "feature_name": "Mount Dagelet",
+    "feature_class": "Summit",
+    "map_name": "Mount Fairweather C-4 SW",
+    "elev_in_m": "",
+    "date_created": "03/31/1981",
+    "date_edited": "07/13/2017",
+    "utm8n_ost": 373640.1,
+    "utm8n_nord": 6497109.7
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.1742113,
+     58.5959567
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1421770",
+    "feature_name": "Mount Escures",
+    "feature_class": "Summit",
+    "map_name": "Mount Fairweather D-6 SE",
+    "elev_in_m": "",
+    "date_created": "03/31/1981",
+    "date_edited": "07/13/2017",
+    "utm8n_ost": 343850.5,
+    "utm8n_nord": 6518811.3
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.7012282,
+     58.7809631
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1420601",
+    "feature_name": "Mount Fairweather",
+    "feature_class": "Summit",
+    "map_name": "Mount Fairweather D-5 NW",
+    "elev_in_m": "",
+    "date_created": "03/31/1981",
+    "date_edited": "09/01/2017",
+    "utm8n_ost": 354470.8,
+    "utm8n_nord": 6532388.9
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.52658,
+     58.9064974
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1895175",
+    "feature_name": "Mount Klooch",
+    "feature_class": "Summit",
+    "map_name": "Mount Fairweather C-4 SW",
+    "elev_in_m": "",
+    "date_created": "03/23/2001",
+    "date_edited": "07/13/2017",
+    "utm8n_ost": 368106.6,
+    "utm8n_nord": 6498829.2
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.2703403,
+     58.6097438
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1423202",
+    "feature_name": "Mount La Perouse",
+    "feature_class": "Summit",
+    "map_name": "Mount Fairweather C-4 SE",
+    "elev_in_m": "",
+    "date_created": "03/31/1981",
+    "date_edited": "07/13/2017",
+    "utm8n_ost": 378850.7,
+    "utm8n_nord": 6493264.2
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.0825743,
+     58.5629266
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1405941",
+    "feature_name": "Mount Marchainville",
+    "feature_class": "Summit",
+    "map_name": "Mount Fairweather B-4 NE",
+    "elev_in_m": "",
+    "date_created": "03/31/1981",
+    "date_edited": "07/13/2017",
+    "utm8n_ost": 381774.8,
+    "utm8n_nord": 6480301.4
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.0256288,
+     58.447381
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1424098",
+    "feature_name": "Mount Orville",
+    "feature_class": "Summit",
+    "map_name": "Mount Fairweather C-4 NW",
+    "elev_in_m": "",
+    "date_created": "01/01/2000",
+    "date_edited": "07/13/2017",
+    "utm8n_ost": 368478.3,
+    "utm8n_nord": 6512954.6
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.2721809,
+     58.7366184
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1420603",
+    "feature_name": "Mount Root",
+    "feature_class": "Summit",
+    "map_name": "Mount Fairweather D-5 NW",
+    "elev_in_m": "",
+    "date_created": "03/31/1981",
+    "date_edited": "07/13/2017",
+    "utm8n_ost": 356212.0,
+    "utm8n_nord": 6541003.2
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.5019765,
+     58.9843727
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1414430",
+    "feature_name": "Mount Salisbury",
+    "feature_class": "Summit",
+    "map_name": "Mount Fairweather D-5 SE",
+    "elev_in_m": "",
+    "date_created": "01/01/2000",
+    "date_edited": "07/13/2017",
+    "utm8n_ost": 363109.3,
+    "utm8n_nord": 6525867.1
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.3727458,
+     58.8508188
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1416584",
+    "feature_name": "Mount Wilbur",
+    "feature_class": "Summit",
+    "map_name": "Mount Fairweather C-4 NW",
+    "elev_in_m": "",
+    "date_created": "01/01/2000",
+    "date_edited": "07/13/2017",
+    "utm8n_ost": 365858.9,
+    "utm8n_nord": 6513394.6
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.3176542,
+     58.7397618
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1897356",
+    "feature_name": "Mount Wright",
+    "feature_class": "Summit",
+    "map_name": "Mount Fairweather C-4 NW",
+    "elev_in_m": "",
+    "date_created": "03/23/2001",
+    "date_edited": "07/02/2021",
+    "utm8n_ost": 371587.1,
+    "utm8n_nord": 6509146.2
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.2163453,
+     58.7033759
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1423973",
+    "feature_name": "North Dome",
+    "feature_class": "Summit",
+    "map_name": "Mount Fairweather C-5 SE",
+    "elev_in_m": "",
+    "date_created": "03/31/1981",
+    "date_edited": "07/13/2017",
+    "utm8n_ost": 363473.6,
+    "utm8n_nord": 6493290.4
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.3466825,
+     58.5586084
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1896278",
+    "feature_name": "Ptarmigan Dome",
+    "feature_class": "Summit",
+    "map_name": "Mount Fairweather C-4 SW",
+    "elev_in_m": "",
+    "date_created": "03/23/2001",
+    "date_edited": "07/13/2017",
+    "utm8n_ost": 365013.8,
+    "utm8n_nord": 6495347.8
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.3214561,
+     58.5775521
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1896729",
+    "feature_name": "South Billy Goat Mountain",
+    "feature_class": "Summit",
+    "map_name": "Mount Fairweather C-5 NW",
+    "elev_in_m": "",
+    "date_created": "03/23/2001",
+    "date_edited": "07/13/2017",
+    "utm8n_ost": 352029.6,
+    "utm8n_nord": 6507253.7
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.5522964,
+     58.6801503
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1409911",
+    "feature_name": "South Dome",
+    "feature_class": "Summit",
+    "map_name": "Mount Fairweather B-4 NW",
+    "elev_in_m": "",
+    "date_created": "03/31/1981",
+    "date_edited": "07/13/2017",
+    "utm8n_ost": 371176.3,
+    "utm8n_nord": 6485535.2
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.2100181,
+     58.4913575
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1424957",
+    "feature_name": "The Paps",
+    "feature_class": "Summit",
+    "map_name": "Mount Fairweather C-5 SW",
+    "elev_in_m": "",
+    "date_created": "03/31/1981",
+    "date_edited": "07/13/2017",
+    "utm8n_ost": 346833.9,
+    "utm8n_nord": 6500344.7
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.6371248,
+     58.6163596
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1421437",
+    "feature_name": "Desolation Valley",
+    "feature_class": "Valley",
+    "map_name": "Mount Fairweather C-5 NW",
+    "elev_in_m": "",
+    "date_created": "03/31/1981",
+    "date_edited": "09/14/2016",
+    "utm8n_ost": 352074.2,
+    "utm8n_nord": 6511225.9
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.554136,
+     58.7158051
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "1894596",
+    "feature_name": "Great Valley",
+    "feature_class": "Valley",
+    "map_name": "Mount Fairweather C-4 SW",
+    "elev_in_m": "",
+    "date_created": "03/23/2001",
+    "date_edited": "09/14/2016",
+    "utm8n_ost": 369383.6,
+    "utm8n_nord": 6496930.8
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -137.2472854,
+     58.5930928
+    ]
+   }
+  }
+ ]
+}
