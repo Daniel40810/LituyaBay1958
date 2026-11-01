@@ -76,7 +76,7 @@
         lib/Renderer.jar alles hat, was LituyaBay1958 braucht (jedes gebrauchte Package mit Klassen und README, Java 21,
         von den 14 neuen die, deren Phase erreicht ist); abschalten mit -Dohne.paketpruefung=true.
     -->
-    <property name="lituya.phase" value="8"/>
+    <property name="lituya.phase" value="9"/>
     <target name="check-packages" description="Prüft lib/Renderer.jar: die gebrauchten Packages mit README, Java 21, die fälligen neuen." unless="ohne.paketpruefung">
         <property name="platform.java" value="java"/>
         <exec executable="${platform.java}" dir="${basedir}" failonerror="true">
@@ -417,5 +417,40 @@
         <renderer-java klasse="com.dan.lituya.tools.Bebenbild" args="daten docs/status/Beben.png ${zeit}" ausgabe="docs/status/bebenbild_Phase${lituya.phase}.txt" speicher="-Xmx2g"/>
         <loadfile property="bebenbild.text" srcFile="docs/status/bebenbild_Phase${lituya.phase}.txt" encoding="UTF-8"/>
         <echo message="${bebenbild.text}"/>
+    </target>
+    <!-- Phase 9 (Werkbuch 6.2, 9.2): das neue Package com.dan.landslide aus lib/Renderer.jar. landslidecheck: LandslideCheck
+         (Block, Coulomb, Fahrböschung, Volumen, Lituya 96–110 m/s) nach docs/status/landslidecheck_Phase9.txt; landslidebild:
+         der Bogen von LandslideDemo (-Dfall=gilbertInlet1958|vajont1963|spiritLake1980, -Dzeit, -Dqualitaet) nach
+         docs/status/Landslide_Demo.png; landslidedemo: Fenster; fracturecheck: FractureCheck mit der Übergabe (Glacier und Sylt
+         unverändert) nach docs/status/fracturecheck_Phase9.txt; sturz: Auslösung (Newmark mit Entfestigung über daten/ereignis),
+         Abbruch (fracture) und Strom (landslide) nach docs/status/Sturz.png (-Dzeit nach der Auslösung, -Dmodus=zeuge|newmark). -->
+    <target name="landslidecheck" depends="compile" description="Phase 9: LandslideCheck nach docs/status/landslidecheck_Phase9.txt.">
+        <renderer-java klasse="com.dan.landslide.demo.LandslideCheck" ausgabe="docs/status/landslidecheck_Phase${lituya.phase}.txt" speicher="-Xmx3g"/>
+        <loadfile property="landslidecheck.text" srcFile="docs/status/landslidecheck_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${landslidecheck.text}"/>
+    </target>
+    <target name="landslidebild" depends="compile" description="Phase 9: LandslideDemo nach docs/status/Landslide_Demo.png.">
+        <property name="zeit" value="18"/>
+        <property name="fall" value="gilbertInlet1958"/>
+        <property name="qualitaet" value="MEDIUM"/>
+        <renderer-java klasse="com.dan.landslide.demo.LandslideDemo" args="--bild docs/status/Landslide_Demo.png ${zeit} ${fall} ${qualitaet}" ausgabe="docs/status/landslidebild_Phase${lituya.phase}.txt" speicher="-Xmx3g"/>
+        <loadfile property="landslidebild.text" srcFile="docs/status/landslidebild_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${landslidebild.text}"/>
+    </target>
+    <target name="landslidedemo" depends="compile" description="Phase 9: LandslideDemo im Fenster.">
+        <renderer-fenster klasse="com.dan.landslide.demo.LandslideDemo" speicher="-Xmx4g"/>
+    </target>
+    <target name="fracturecheck" depends="compile" description="Phase 9: FractureCheck (mit Übergabe) nach docs/status/fracturecheck_Phase9.txt.">
+        <renderer-java klasse="com.dan.fracture.demo.FractureCheck" ausgabe="docs/status/fracturecheck_Phase${lituya.phase}.txt" speicher="-Xmx2g"/>
+        <loadfile property="fracturecheck.text" srcFile="docs/status/fracturecheck_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${fracturecheck.text}"/>
+    </target>
+    <target name="sturz" depends="compile" description="Phase 9: Auslösung, Abbruch und Strom nach docs/status/Sturz.png.">
+        <property name="zeit" value="18"/>
+        <property name="qualitaet" value="MEDIUM"/>
+        <property name="modus" value="zeuge"/>
+        <renderer-java klasse="com.dan.lituya.tools.Sturz" args="daten docs/status/Sturz.png ${zeit} ${qualitaet} ${modus}" ausgabe="docs/status/sturz_Phase${lituya.phase}.txt" speicher="-Xmx4g"/>
+        <loadfile property="sturz.text" srcFile="docs/status/sturz_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${sturz.text}"/>
     </target>
 </project>

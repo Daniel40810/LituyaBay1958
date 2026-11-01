@@ -355,6 +355,32 @@ public final class Pruefung {
             }
         }
 
+        teil("Sturz (Phase 9): landslide, Übergabe aus fracture, Entfestigung in quake");
+        {
+            com.dan.landslide.Landslide g = com.dan.landslide.Presets.gilbertInlet1958(com.dan.landslide.Landslide.Quality.LOW);
+            check(com.dan.landslide.Landslide.STAGE == 9 && Math.abs(g.volume() - 30.6e6) < 1,
+                    f("landslide aus Renderer.jar: Preset gilbertInlet1958 mit %.3e m³ auf %d × %d Zellen (8 m)", g.volume(), g.nx, g.nz));
+            com.dan.fracture.Fracture halt = com.dan.lituya.tools.Sturz.platte(1), los = com.dan.lituya.tools.Sturz.platte(com.dan.lituya.tools.Sturz.REST);
+            for (int i = 0; i < 180; i++) { halt.step(1.0 / 120); los.step(1.0 / 120); }
+            double vol = 0;
+            int frei = los.pieces().size();
+            com.dan.landslide.Landslide tl = com.dan.landslide.Presets.gilbertInlet1958Terrain(com.dan.landslide.Landslide.Quality.LOW);
+            for (com.dan.fracture.Piece p : los.pieces()) {
+                double[] c = los.handOver(p);
+                for (int i = 0; i < c.length; i += 8) { tl.inject(c[i], c[i + 2], c[i + 3], c[i + 5], c[i + 7], 0.62 * Math.cbrt(c[i + 3])); vol += c[i + 3]; }
+            }
+            check(halt.pieces().isEmpty() && frei > 10 && Math.abs(tl.volume() / los.handedOverVolume() - 1) < 1e-9 && Math.abs(vol / los.handedOverVolume() - 1) < 1e-9 && vol > 25e6,
+                    f("Platte mit voller Kohäsion der Klüfte hält; mit dem Rest %.0f %% bricht sie in %d Stücke, %.3e m³ kommen im Strom an", com.dan.lituya.tools.Sturz.REST * 100, frei, tl.volume()));
+            com.dan.quake.Slope wh = com.dan.lituya.tools.Sturz.wand(com.dan.lituya.tools.Sturz.FS, 1, 0.3), wr = com.dan.lituya.tools.Sturz.wand(com.dan.lituya.tools.Sturz.FS, com.dan.lituya.tools.Sturz.REST, 0.3);
+            check(wh.acAt(5) > 0 && wr.acAt(5) < 0, f("Entfestigung in quake.Slope: a_c nach 5 m ohne Rest %.3f g, mit Rest 20 %% %.3f g", wh.acAt(5) / 9.81, wr.acAt(5) / 9.81));
+            if (new File(daten, "ereignis/stoerung.tsv").isFile()) {
+                com.dan.quake.Quake q = com.dan.lituya.tools.Bebenbild.beben(daten);
+                com.dan.quake.Slope.Result n = wr.newmark(q.record(Site.GILBERT.x(), Site.GILBERT.z()));
+                check(n.runaway() && n.failTime() > 15 && n.failTime() < 60,
+                        f("NE-Wand im Beben aus daten/ereignis: geht nach %.0f s durch – vor den 60–150 s der Zeugen; die Szene löst von Hand aus (Werkbuch 9.2)", n.failTime()));
+            }
+        }
+
         teil("Netze der Welle und des Ufers (Phase 7a): daten/netz/welle und daten/netz/ufer");
         {
             File wd = new File(daten, com.dan.lituya.scene.WellenNetz.ORDNER), ud = new File(daten, com.dan.lituya.scene.UferNetz.ORDNER);
