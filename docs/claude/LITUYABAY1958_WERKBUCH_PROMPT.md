@@ -44,7 +44,7 @@ Auf Sylt („Brandung“) und Timmendorf („Segel“) folgt das **„Projekt de
 
 ### 2.2 Phase 0 ist erledigt: Gebiete und Kartenmaterial
 
-Siehe `Kartenmaterial.md` (Katalog von 47 Quellen) und `download/INVENTAR.md` (Planung mit Größen).
+Siehe `Kartenmaterial.md` (Katalog von 48 Quellen) und `download/INVENTAR.md` (Planung mit Größen).
 
 **Gebiete** in UTM Zone 8 Nord (EPSG:26908, NAD83), volle Kilometer (`tools/kartenmaterial/geo.py`, `geodaten/gebiete.geojson`):
 
@@ -472,7 +472,7 @@ Sylt Abschnitt 7 gilt vollständig (Werkbuch zuerst, Fragen mit A als Empfehlung
 
 | Phase | Ort | Inhalt | Abnahme |
 |---|---|---|---|
-| 0 | L | **erledigt:** Gebiete, Kartenmaterial (47 Quellen), Werkzeug `tools/kartenmaterial` | `Kartenmaterial.md`, `download/INVENTAR.md` |
+| 0 | L | **erledigt:** Gebiete, Kartenmaterial (48 Quellen; erster Lauf 1 170 Dateien, 12,6 GB), Werkzeug `tools/kartenmaterial` | `Kartenmaterial.md`, `download/INVENTAR.md` |
 | 0b | L | Kartenmaterial auf dem eigenen Rechner laden, Fehlgeschlagenes berichtigen; Texturquellen sichten und Lizenzen prüfen | `INVENTAR.md` ohne Fehler, Texturliste |
 | 1 | L | Grundgerüst: FFrame, GL-Engine aus Timmendorf, Kamera, HUD mit FPS, `wiring`, Startbild mit DB-Anmeldung; `sdonm.jar` und `lib/lod/` wie Timmendorf | leere Szene mit Horizont |
 | 2 | L | Aufbereitung (`tools`): Gelände in Kacheln für `clipmap`, Grund 1940/1959/heute, Karten 1951/1961 georeferenziert, Klassen, Namen → `daten/` mit `INHALT.txt` | **Start mit umbenanntem `download/`** gelingt |
