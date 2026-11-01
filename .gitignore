@@ -1,10 +1,16 @@
 /build/
 /db/info/
 /dist/
-/docs/
+/docs/*
+!/docs/claude/
 /templates/
 
 /lib/Renderer.jar
+<<<<<<< HEAD
+=======
+/db/db.properties
+# Kartenmaterial (tools/kartenmaterial), nur das Inventar wird mitgefuehrt
+>>>>>>> 8321ea991790f8e0673baa7dbfb195af8f13dece
 /download/*
 !/download/INVENTAR.md
 
