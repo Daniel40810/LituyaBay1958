@@ -60,9 +60,15 @@ public final class JarPruefung {
             for (int i = 0; i < NEU.length; i++) {
                 if (rang(NEU_PHASE[i]) > rang(phase)) continue;
                 neu++;
+                // Phase 7: Packages einer a-Phase (scree in 6a) gehören zu einer Phase der App, die nach den Renderer-Phasen
+                // nachgeholt wird; bis dahin ein Hinweis, kein Fehler
+                boolean spaeter = NEU_PHASE[i].trim().toLowerCase().endsWith("a");
                 String n = NEU[i], k = Character.toUpperCase(n.charAt(0)) + n.substring(1);
                 for (String e : new String[]{"README.md", "demo/" + k + "Check.class"})
-                    if (z.getEntry("com/dan/" + n + "/" + e) == null) { fehler++; System.out.println("  FEHLER: com/dan/" + n + "/" + e + " fehlt (fällig seit Phase " + NEU_PHASE[i] + ")"); }
+                    if (z.getEntry("com/dan/" + n + "/" + e) == null) {
+                        if (spaeter) System.out.println("  HINWEIS: com/dan/" + n + "/" + e + " fehlt (kommt mit Phase " + NEU_PHASE[i] + ", noch nicht gebaut)");
+                        else { fehler++; System.out.println("  FEHLER: com/dan/" + n + "/" + e + " fehlt (fällig seit Phase " + NEU_PHASE[i] + ")"); }
+                    }
             }
             if (fehler > 0) { System.out.println("check-packages: " + fehler + " Fehler – Renderer neu bauen (Clean and Build) und dist/Renderer.jar nach lib/ kopieren"); System.exit(1); }
             System.out.println("check-packages: alle " + GEBRAUCHT.length + " gebrauchten Packages in " + jar.getName() + "; von den 14 neuen sind bis Phase "

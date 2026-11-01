@@ -79,12 +79,25 @@ public final class Bibliothek {
         return f;
     }
 
-    /** Die neuen Packages, deren Phase schon erreicht ist, die aber im Jar fehlen. */
+    /**
+     * Die neuen Packages, deren Phase schon erreicht ist, die aber im Jar fehlen. Seit Phase 7 ohne die Packages einer
+     * a-Phase ({@code scree} in 6a): die a-Phasen gehören der App und werden nach den Renderer-Phasen nachgeholt
+     * ({@link #nachzuholen}).
+     */
     public static List<String> neuFaellig(String phase) {
         List<String> p = pakete(), f = new ArrayList<>();
-        for (int i = 0; i < NEU.length; i++) if (rang(NEU_PHASE[i]) <= rang(phase) && !p.contains(NEU[i])) f.add(NEU[i]);
+        for (int i = 0; i < NEU.length; i++) if (!aPhase(NEU_PHASE[i]) && rang(NEU_PHASE[i]) <= rang(phase) && !p.contains(NEU[i])) f.add(NEU[i]);
         return f;
     }
+
+    /** Packages einer a-Phase vor {@code phase}, die noch fehlen (Hinweis, kein Fehler). */
+    public static List<String> nachzuholen(String phase) {
+        List<String> p = pakete(), f = new ArrayList<>();
+        for (int i = 0; i < NEU.length; i++) if (aPhase(NEU_PHASE[i]) && rang(NEU_PHASE[i]) <= rang(phase) && !p.contains(NEU[i])) f.add(NEU[i] + " (Phase " + NEU_PHASE[i] + ")");
+        return f;
+    }
+
+    static boolean aPhase(String phase) { return phase.trim().toLowerCase(Locale.ROOT).endsWith("a"); }
 
     /** „50 Packages in Renderer.jar, alle 26 gebrauchten da; neu 0 von 14“ */
     public static String kurz() {

@@ -76,7 +76,7 @@
         lib/Renderer.jar alles hat, was LituyaBay1958 braucht (jedes gebrauchte Package mit Klassen und README, Java 21,
         von den 14 neuen die, deren Phase erreicht ist); abschalten mit -Dohne.paketpruefung=true.
     -->
-    <property name="lituya.phase" value="6"/>
+    <property name="lituya.phase" value="7"/>
     <target name="check-packages" description="Prüft lib/Renderer.jar: die gebrauchten Packages mit README, Java 21, die fälligen neuen." unless="ohne.paketpruefung">
         <property name="platform.java" value="java"/>
         <exec executable="${platform.java}" dir="${basedir}" failonerror="true">
@@ -336,5 +336,42 @@
     </target>
     <target name="unterwuchsdemo" depends="compile" description="Phase 6: UnderstoryDemo im Fenster.">
         <renderer-fenster klasse="com.dan.understory.demo.UnderstoryDemo" speicher="-Xmx2g"/>
+    </target>
+    <!-- Phase 7 (Werkbuch 6.9, 5.12): com.dan.route mit TravelGrid (Laufzeitgitter 4/8/16/32 Nachbarn, Isochronen, Messstrecke)
+         und das neue Package com.dan.netview, beide aus lib/Renderer.jar. routecheck: RouteCheck (Gitterfehler 2,75 % / 0,75 %,
+         T = L/√(g h) auf konstantem Grund) nach docs/status/routecheck_Phase7.txt; isochronendemo: gerechnete Fjordbucht nach
+         docs/status/Isochronen_Demo.png (Fenster: -Dfenster=ja); isochronenbild: die Front über dem echten Grund heute und 1940,
+         linear und nichtlinear, nach docs/status/Isochronen.png mit Ankunftszeiten; netviewcheck, netviewbild
+         (docs/status/Netzblick.png), netviewdemo. -->
+    <target name="routecheck" depends="compile" description="Phase 7: RouteCheck nach docs/status/routecheck_Phase7.txt.">
+        <renderer-java klasse="com.dan.route.demo.RouteCheck" ausgabe="docs/status/routecheck_Phase${lituya.phase}.txt" speicher="-Xmx2g"/>
+        <loadfile property="routecheck.text" srcFile="docs/status/routecheck_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${routecheck.text}"/>
+    </target>
+    <target name="isochronendemo" depends="compile" description="Phase 7: IsochroneDemo (gerechnete Bucht) nach docs/status/Isochronen_Demo.png.">
+        <renderer-java klasse="com.dan.route.demo.IsochroneDemo" args="--bild docs/status/Isochronen_Demo.png" ausgabe="docs/status/isochronendemo_Phase${lituya.phase}.txt" speicher="-Xmx2g"/>
+        <loadfile property="isochronendemo.text" srcFile="docs/status/isochronendemo_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${isochronendemo.text}"/>
+    </target>
+    <target name="isochronenfenster" depends="compile" description="Phase 7: IsochroneDemo im Fenster (Front mit Regler).">
+        <renderer-fenster klasse="com.dan.route.demo.IsochroneDemo" speicher="-Xmx2g"/>
+    </target>
+    <target name="isochronenbild" depends="compile" description="Phase 7: die Front über dem Grund heute und 1940 nach docs/status/Isochronen.png.">
+        <renderer-java klasse="com.dan.lituya.tools.Isochronenbild" args="daten docs/status/Isochronen.png" ausgabe="docs/status/isochronenbild_Phase${lituya.phase}.txt" speicher="-Xmx3g"/>
+        <loadfile property="isochronenbild.text" srcFile="docs/status/isochronenbild_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${isochronenbild.text}"/>
+    </target>
+    <target name="netviewcheck" depends="compile" description="Phase 7: NetviewCheck nach docs/status/netviewcheck_Phase7.txt.">
+        <renderer-java klasse="com.dan.netview.demo.NetviewCheck" ausgabe="docs/status/netviewcheck_Phase${lituya.phase}.txt" speicher="-Xmx1g"/>
+        <loadfile property="netviewcheck.text" srcFile="docs/status/netviewcheck_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${netviewcheck.text}"/>
+    </target>
+    <target name="netviewbild" depends="compile" description="Phase 7: vier Ansichten des Netzblicks nach docs/status/Netzblick.png.">
+        <renderer-java klasse="com.dan.netview.demo.NetviewDemo" args="--bild docs/status/Netzblick.png" ausgabe="docs/status/netviewbild_Phase${lituya.phase}.txt" speicher="-Xmx2g"/>
+        <loadfile property="netviewbild.text" srcFile="docs/status/netviewbild_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${netviewbild.text}"/>
+    </target>
+    <target name="netviewdemo" depends="compile" description="Phase 7: NetviewDemo im Fenster.">
+        <renderer-fenster klasse="com.dan.netview.demo.NetviewDemo" speicher="-Xmx2g"/>
     </target>
 </project>

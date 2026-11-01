@@ -132,6 +132,8 @@ public final class Pruefung {
         List<String> pk = Bibliothek.pakete();
         check(Bibliothek.fehlend().isEmpty(), "Renderer.jar: " + Bibliothek.kurz());
         check(Bibliothek.neuFaellig(String.valueOf(Renderer.PHASE)).isEmpty(), "neu (kommen in ihren Phasen): " + Bibliothek.neuStand());
+        if (!Bibliothek.nachzuholen(String.valueOf(Renderer.PHASE)).isEmpty())
+            hinweis("aus einer Phase der App nachzuholen: " + String.join(", ", Bibliothek.nachzuholen(String.valueOf(Renderer.PHASE))));
         check(pk.contains("kino") && pk.contains("store") && pk.contains("route"), "kino, store und route da");
         for (String[] prog : rd.shaderFiles())
             for (String file : prog)
@@ -300,6 +302,43 @@ public final class Pruefung {
             check(ks.size() == 7 && com.dan.understory.Kind.BERRY.suitability(hell, 0.6) > com.dan.understory.Kind.BERRY.suitability(dunkel, 0.6)
                             && com.dan.understory.Kind.MOSS.suitability(dunkel, 0.85) > com.dan.understory.Kind.MOSS.suitability(dunkel, 0.3),
                     f("Unterwuchs: 7 Arten (5.7); Licht am Boden unter Blattflächenindex 7,5: %.1f %%, in einer Lichtung (0,8): %.0f %%; Beeren in der Lichtung, Moos am Bach", dunkel * 100, hell * 100));
+        }
+
+        teil("Laufzeit und Netzblick (Phase 7): route (TravelGrid, Measure) und netview");
+        {
+            com.dan.route.TravelGrid.Stencil s16 = com.dan.route.TravelGrid.Stencil.N16, s32 = com.dan.route.TravelGrid.Stencil.N32;
+            check(s16.size() == 16 && Math.abs(s16.error() - 0.0275) < 0.0005 && s32.size() == 32 && Math.abs(s32.error() - 0.0076) < 0.001,
+                    f("Nachbarsterne (9.4): 16 mit Lücke %.1f° und Fehler %.2f %%, 32 mit %.1f° und %.2f %%", s16.maxGapDeg(), s16.error() * 100, s32.maxGapDeg(), s32.error() * 100));
+            int n0 = 201;
+            com.dan.route.TravelGrid g = new com.dan.route.TravelGrid(n0, n0, 0, 0, 20);
+            java.util.Arrays.fill(g.speed, (float) com.dan.route.TravelGrid.waveSpeed(130, 0));
+            g.solve(List.of(new com.dan.route.TravelGrid.Source(100, 100, 0)));
+            double c = Math.sqrt(9.81 * 130), max = 0;
+            for (int j = 0; j < n0; j++)
+                for (int i = 0; i < n0; i++) {
+                    double L = Math.hypot(i - 100, j - 100) * 20;
+                    if (L > 200) max = Math.max(max, g.arrival()[j * n0 + i] / (L / c) - 1);
+                }
+            check(max <= s16.error() + 1e-4 && max > 0.02, f("konstante Tiefe 130 m (c = %.1f m/s): größter Fehler %.2f %% ≤ %.2f %%, 2 000 m in %.0f s", c, max * 100, s16.error() * 100,
+                    g.arrival()[100 * n0 + 200]));
+            com.dan.route.Measure ms = new com.dan.route.Measure(new float[]{0, 0, 300, 0, 300, 400});
+            ms.segments.add(new com.dan.route.Measure.Segment("Spurlinie", 0, 700, new double[]{0, 700}, new double[]{524, 30}));
+            double[] mitte = ms.locate(500);
+            check(ms.length() == 700 && Math.abs(mitte[0] - 300) < 1e-9 && Math.abs(mitte[1] - 200) < 1e-9 && Math.abs(ms.project(310, 200).m() - 500) < 1e-9
+                    && Math.abs(ms.valueAt(350) - 277) < 1e-9, "Messstrecke: 700 m, Maß 500 bei (300, 200), Projektion, Wert in der Mitte 277 m");
+            com.dan.netview.NetLayer nl = new com.dan.netview.NetLayer("Isochronen");
+            float[] kreis = new float[101 * 101];
+            for (int j = 0; j <= 100; j++) for (int i = 0; i <= 100; i++) kreis[j * 101 + i] = (float) Math.hypot(i - 50, j - 50) * 10;
+            int stuecke = nl.isolines(kreis, 101, 101, -500, -500, 10, 0, new double[]{100, 200, 300, 400}, 0xFFFFFF, 2);
+            check(stuecke == 4, f("netview: vier Isolinien eines Kreisfelds, %d Strecken", nl.segments()));
+            File gr = new File(daten, "grund/heute_4m.r32");
+            if (!gr.isFile() || !new File(daten, "grund/1940_20m.r32").isFile()) hinweis("daten/grund fehlt: Laufzeit über dem Grund übersprungen");
+            else {
+                com.dan.lituya.tools.Isochronenbild.Lauf l = com.dan.lituya.tools.Isochronenbild.rechnen("heute", com.dan.lituya.tools.Isochronenbild.heute20(daten), false);
+                double ein = com.dan.lituya.tools.Isochronenbild.ankunft(l.gitter(), Site.CHAUSSEE.e(), Site.CHAUSSEE.n(), 400),
+                        ank = com.dan.lituya.tools.Isochronenbild.ankunft(l.gitter(), Site.ANCHORAGE.e(), Site.ANCHORAGE.n(), 400);
+                check(ein > 280 && ein < 420 && ank < ein, f("Front über dem Grund heute (20 m, 16 Nachbarn, linear): Anchorage Cove %.0f s, Eingang %.0f s; Handwert 350 s (9.5)", ank, ein));
+            }
         }
 
         teil("Netze (Phase 3): Skripte, Funktionsprobe im Speicher, Herkunft");

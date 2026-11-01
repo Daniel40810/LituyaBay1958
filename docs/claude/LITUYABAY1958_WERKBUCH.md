@@ -421,6 +421,12 @@ Kein Package ruft ein anderes direkt: Die Pfeile sind Schnittstellen (`Landslide
 
 - Graphen, Wege, Pfeile, Isolinien, laufende Isochronen, Strahlen, Messstrecken mit Werten, in der Ferne ausgedünnt; kennt keine Datenbank, bekommt Knoten, Kanten, Werte.
 - **Check:** Konturen eines bekannten Feldes (Kreis) treffen den Kreis.
+- **Umgesetzt in Phase 7** (Renderer, Branch `lituya-phase-7`):
+  - **Kern:** `NetLayer` (Ebene mit Stücken: Linie, Pfeil, Punkte, Isolinie mit Wert, Strahl mit Zeit je Punkt, Band mit Werten, Graph; `isolines` aus einem Rasterfeld), `Contour` (Marching Squares, NaN ausgelassen), `Simplify` (Douglas-Peucker, geschlossene Züge bleiben Ringe), `Ramp` (`TIME`, `HEIGHT`). Drei Stufen je Stück beim Einfügen (0, 4, 25 m), Wechsel bei 800 m und 4 km ab dem Rand der Hülle.
+  - **GPU:** `gl/NetviewGl`, jede Strecke ein Viereck in Bildpunkten (Breite unabhängig vom Abstand), Pfeilspitzen, runde Punkte; Isolinien erscheinen, wenn die Zeit ihren Wert erreicht (die vorderste leuchtet), Strahlen wachsen mit der Front; je Ebene ein `glMultiDrawArraysIndirect`. Tiefentest gegen die Szene mit kleinem Versatz, Mischung an.
+  - **Demo und Prüfung:** `demo/NetviewDemo` (gerechnete Bucht mit Insel, eigene Laufzeit über 16 Nachbarn, alle Arten; Fenster mit Zeit, Abstand und Ebenen; `--bild`), `demo/NetviewCheck`.
+  - **Prüfung:** Isolinien eines Kreisfelds auf 10 m liegen höchstens step²/(8 r) neben dem Kreis (r = 250 m: 0,035 m) und sind geschlossen; Douglas-Peucker hält Enden und Toleranz; Stufen, Rampe und Instanzen stimmen.
+  - **Offen für 7a:** Netzblick als Bild im Bild in der App, Ebenen aus `LB_NET_WELLE` und `LB_NET_UFER`; Beschriftung macht die App.
 
 ### 5.13 `com.dan.aurora` — Polarlicht (Zugabe)
 
@@ -446,7 +452,7 @@ Nach Paketvertrag 14: messen, vergleichen, alle Szenen gleich, alter Weg als Rü
 | 6.6 | `sky`, `cloud`, `fog` | 58,6° N, Juli, Sonne 1° unter dem Horizont, Berge bis 4 671 m | Dämmerung nach Sonnentiefe (bürgerlich, nautisch), Alpenglühen (Rot der tiefen Sonne auf Schnee), atmosphärische Perspektive über 60 km mit Höhenabhängigkeit der Dichte, Wolkenkappe und Wolkenbank an der Kette | | Sonnenstand gegen Abschnitt 9.10; andere Szenen unverändert |
 | 6.7 | `soundscape` | Beben, Sturz, Welle, Wald | tiefe Frequenzen, Laufzeit des Schalls (340 m/s) über Kilometer, Echo an den Wänden der Bucht, Doppler der Front | | Hörproben |
 | 6.8 | `kino` | episch | Zeitlupe bis 1:20 mit Zwischenbildern, Zeitleiste der Ereignisse, Bild im Bild (Netzblick), Kamerafahrten mit Trägheit | | Kino läuft durch |
-| 6.9 | `route` | Zweitrechnung zu NDM | Gitternetze (4/8/16/32 Nachbarn), Laufzeitbaum mit mehreren Quellen und Startzeiten, Isochronen als Linien, Messstrecke (m entlang einer Linie, Abschnitte mit Werten) | Knoten je Sekunde | `RouteCheck`: $T = L/\sqrt{gh}$ auf konstantem Grund; Fehler des Gitters gegen den Kreis: 16 Nachbarn ≤ 2,75 %, 32 Nachbarn ≤ 0,76 % (9.4) |
+| 6.9 | `route` | Zweitrechnung zu NDM | Gitternetze (4/8/16/32 Nachbarn), Laufzeitbaum mit mehreren Quellen und Startzeiten, Isochronen als Linien, Messstrecke (m entlang einer Linie, Abschnitte mit Werten) | Knoten je Sekunde | `RouteCheck`: $T = L/\sqrt{gh}$ auf konstantem Grund; Fehler des Gitters gegen den Kreis: 16 Nachbarn ≤ 2,75 %, 32 Nachbarn ≤ 0,76 % (9.4). **Umgesetzt in Phase 7** (siehe unten) |
 | 6.10 | GL-Engine | Fernsicht, große Schatten | Kaskadenschatten bis 60 km, Gelände über `clipmap`, Materialien über `surface`, HDR mit Belichtung wie das Auge aus Sylt | fps je Stufe | Tabelle in Abschnitt 15 gefüllt |
 
 **6.4 umgesetzt in Phase 6** (Renderer, Branch `lituya-phase-6` auf `lituya-phase-5`; `ForestGl`, `ForestField`, `TreeMesh`, alle alten Shader und `com.dan.tree` unverändert):
@@ -461,6 +467,13 @@ Nach Paketvertrag 14: messen, vergleichen, alle Szenen gleich, alter Weg als Rü
 - **Prüfung:** `ForestGpuCheck` vergleicht in vier Ansichten jede Instanz der Grafikkarte mit dem Spiegel auf dem Prozessor. Mit Mesa waren das 12 687 bis 58 166 Bäume ohne Abweichung (größte 1e-6). Gefunden wurde damit ein Fehler: Die Zähler wurden zwischen zwei Bildern nicht genullt.
 - **Unverändert:** `ant waldvergleich` vergleicht das alte und das neue Jar Byte für Byte sowie die Netze aller 26 alten Arten. Hier gleich mit gleichem Startwert.
 - **Demo:** gerechnete Bucht 16 × 12 km mit 2 038 471 Bäumen (1 914 834 stehend) und dem Band der Welle am Nordufer: 102 581 Plätze fort, 84 693 umgelegt, 33 196 gebrochen, 31 376 entrindet.
+
+**6.9 umgesetzt in Phase 7** (Renderer, Branch `lituya-phase-7` auf `lituya-phase-6`; `Route`, `Crowd`, `Line` und `RouteGl` unverändert):
+- **`TravelGrid`:** Ankunftszeit nach Fermat als kürzester Weg über die Zellmitten (Dijkstra mit Haufen). Sterne `N4`, `N8`, `N16`, `N32`; Kosten einer Kante = Länge × mittlere Langsamkeit der überquerten Zellen (Trapez), gesperrt, wenn eine davon Land ist. Mehrere Quellen mit eigener Startzeit, Laufzeitbaum (`parent`), Strahlen, Isochronen als Linienzüge, `arrivalAt` bilinear, `edges` gibt dieselben Knoten und Kanten mit Länge und Kosten für `LB_NET_WELLE` aus (7a: NDM = `route`). `waveSpeed(h, a)` = √(g (h + a)).
+- **`Measure`:** Messstrecke wie LRS: `locate`, `project` (Maß und Abstand mit Seite), `clip`, Abschnitte mit Werten an Stützstellen, `valueAt`, `sample`.
+- **`RouteCheck`:** Lücke und Fehler der Sterne: 16 Nachbarn 26,6° und 2,75 %, 32 Nachbarn 14,0° und 0,75 % (gerechnet 1/cos(7,0°) − 1 = 0,751 %; die 0,76 % im Werkbuch sind aufgerundet). Konstante Tiefe 100 m: größter Fehler je Stern gleich der Theorie (41,42 / 8,24 / 2,75 / 0,75 %), entlang der Achse 0,000 %; 16 Nachbarn über 160 801 Zellen in 182 ms (hier). Isochrone 60 s geschlossen, Radius 1 829–1 879 m (innen, da das Gitter nie schneller ist). Zwei Quellen mit Startzeit, Insel (Umweg 82,7 s statt 76,6 s), Kanten, Messstrecke.
+- **`IsochroneDemo`:** gerechnete Fjordbucht 14 × 6 km mit T-Kopf, Insel und Schwelle; 16 und 32 Nachbarn, linear und nichtlinear (a = 30 m), Strahlen zu drei Booten (Eingang 337 s linear, 292 s nichtlinear).
+- **Über dem echten Grund** (`tools.Isochronenbild`, `ant isochronenbild`): 20 m, 16 Nachbarn, Wasserstand Mittelwasser +0,59 m NAVD88 [G], Einschlaglinie 198 Wasserzellen am Ufer bis 412 m um den Wasserpunkt am Gilbert Inlet (E 354 810, N 6 505 710; der Punkt aus GNIS liegt heute unter dem Gletscher). Ankunft (heute linear / nichtlinear; 1940 linear / nichtlinear): Cenotaph Island 140 / 110; 135 / 108 s, Anchorage Cove 321 / 268; 316 / 266 s, **Eingang 365 / 292; 356 / 289 s**. Der Handwert aus 9.5 (350 s linear, 300 s nichtlinear) liegt 4 % und 3 % daneben. Rechenzeit je Lauf 0,4–0,5 s für 1,08 Mio. Zellen. Die Zahlen sind hier aus dem auf 20 m gemittelten Grund heute gerechnet; der Lauf auf dem Rechner liest `heute_4m.r32` selbst.
 
 ---
 
@@ -826,7 +839,7 @@ Sequence + Trigger, nie IDENTITY; SRID 26908, Sichten in 4326.
 | 5a | L | Grundbild: Gelände, Texturen, Himmel (6.6), Wasser mit Gletschermilch (6.5) | „Abend vor Anker“ ohne Wald, Sonne nach 9.10 |
 | 6 | R | **gebaut:** `forest` mit `ForestGpu` (6.4), `understory` (5.7) | Millionen Bäume, fps-Tabelle, andere Szenen unverändert |
 | 6a | L | Regenwald, Unterwuchs, Gletscher (6.3), `scree` (R) | „Abend vor Anker“ vollständig |
-| 7 | R | `route` erweitern (6.9), `netview` | `RouteCheck` (Gitterfehler 2,75 % / 0,76 %), Demo Isochronen |
+| 7 | R | **gebaut:** `route` erweitern (6.9), `netview` (5.12) | `RouteCheck` (Gitterfehler 2,75 % / 0,76 %), Demo Isochronen |
 | 7a | L+D | **`LB_NET_WELLE`**, **`LB_NET_UFER`**, Netzblick | NDM = `route`; Isochronen 1940 und heute; Spurlinie je Ufermeter |
 | 8 | R | `quake` | `QuakeCheck`, Demo |
 | 9 | R | `landslide` (+ `fracture` 6.2) | `LandslideCheck`: Block, Fahrböschung, Lituya-Preset 96–110 m/s |
@@ -878,6 +891,8 @@ Speicher der Vorrechnung: Höhenfelder grob als 16-Bit je 0,5 s → 1,7 M × 2 B
 | SICHT | ≈ 200 | | | | | |
 | HERKUNFT | ≈ 2 000 | | | | | |
 
+Befund Phase 7: Auf 20 m hat der Kern 305 305 Wasserzellen, davon der größte Teil vor der Küste. Die ≈ 75 000 Knoten von WELLE gelten nur für die Bucht innerhalb des Eingangs (mit einem Streifen See davor); das Netz in 7a wird auf diese Fläche beschnitten. Ein Lauf von `TravelGrid` über alle 1,08 Mio. Zellen dauert 0,4–0,5 s.
+
 ### 15.4 Risiken
 
 | Risiko | Folge | Gegenmittel |
@@ -889,6 +904,19 @@ Speicher der Vorrechnung: Höhenfelder grob als 16-Bit je 0,5 s → 1,7 M × 2 B
 | VRAM 2 GB | Texturen und Bäume | Budget 600 MB, Impostors, Clipmap-Streaming |
 | Belege zu Booten und Zeugen dünn | [G] statt belegt | Phase 0b: Miller vollständig lesen; was fehlt, bleibt [G] und wird gesagt |
 | Zeitzone 1958 | Sonnenstand um 1 h falsch | in 0b prüfen; die Rechnung 9.10 ist parametrisiert |
+
+### 15.5 Wald (Phase 6, gemessen auf der Radeon 680M, `ant waldzeiten`)
+
+Gesamtzeit auf der Grafikkarte je Bild (ms, Full HD: Boden, Wald, Rest), in Klammern die fps daraus:
+
+| Qualität | Waldrand | Bucht | Weitblick | Im Wald | Grafikspeicher |
+|---|---|---|---|---|---|
+| LOW | 2,08 | 0,97 | 3,73 | 10,18 (98) | 129 MB |
+| MEDIUM | 3,60 | 2,13 | 8,42 | 16,79 (60) | 177 MB |
+| HIGH | 5,91 | 4,55 | 13,99 | 29,91 (33) | 243 MB |
+| ULTRA | 7,22 | 6,61 | 18,14 (283 336 Bäume) | 49,74 (20) | 328 MB |
+
+Die Kultur (Compute) kostet überall ≤ 1,7 ms. Teuer ist „Im Wald“: viele Bäume in Stufe 0 und 1 nah an der Kamera. Für Hoch ≥ 30 fps im Wald in 6a die Reichweite der nahen Stufen senken oder die Netze der Stufe 0 leichter machen.
 
 ---
 
@@ -1010,15 +1038,16 @@ Fragenblock II (Oberfläche, Datenbank) kommt in Phase 19 und wird hier als 16.3
 | 01.11.2026 | 5 | **Materialien** (Freigabe „Phase5, los!“; Entscheidungen: Ladeschritt im Werkzeug, alle 13 aus Tabelle 8, der Treiber packt und das Ergebnis wird gemerkt, Renderer-Branch `lituya-phase-5` auf `lituya-phase-4`).<br>• **Package `com.dan.surface`** im Renderer: siehe 5.10. `SurfaceCheck` grün; `check-packages` grün.<br>• **Kartenmaterial:** Gruppe `texturen` mit 13 Quellen `tex_*` (ambientCG, CC0), zusammen rund 330 MB.<br>• **Aufbereitung:** Schritt `texturen` (`tools.Texturen`, Kante `-Dlituya.textur.kante`, Vorgabe 2048) vor `herkunft`; `inhalt` ohne `gpu_*.bin`.<br>• **Neu in `build.xml`:** `ant surfacecheck`, `ant texturbild` (Kontaktbogen `docs/status/Texturen.png`), `ant surfacedemo`. `ant pruefung` mit Abschnitt Materialien (Katalog, gebackene Sätze, Lizenzliste, Budget).<br>• **Hier mit Mesa geprüft:** Kontaktbogen aus Probesätzen, gepackt geladen.<br>• **Ausstehend auf dem Rechner:** `Renderer.jar` bauen und kopieren; Texturen laden und backen; `ant pruefung`, `ant surfacecheck`, `ant texturbild` | `docs/status/Vorschau_Phase5_Mesa.png` (Mesa, Probesätze) | neu zu bauen (mit `surface`) |
 | 01.11.2026 | 5 | **Abnahme** auf dem Rechner:<br>• **Laden und Backen:** 13 Sätze geladen. `ant aufbereitung "-Dschritte=texturen,herkunft,inhalt"` in 0,9 min: 14 Materialien gebacken (je rund 3 s bei 2048²), dazu `LIZENZEN.txt`. Herkunft 1 866 Knoten, 8 243 Kanten; `INHALT.txt` 565 Dateien, 8,40 GB.<br>• **`ant pruefung`:** 94 Prüfungen, alles in Ordnung; Budget gepackt bei 2048² 234 MB.<br>• **`ant texturbild`:** 42 Karten vom Treiber in 14,6 s gepackt (1024², 59 MB); Bogen 2,92 ms auf der Grafikkarte.<br>• **Befund 1:** Mit dem echten Strandkies gab `SurfaceCheck` auch der einfach gekachelten Fläche nur 0,02. Das Maß war wertlos: Die schräge Messlinie trifft nie dieselbe Stelle der Kachel, und das feine Korn ist Rauschen. In Phase 6 berichtigt: Linien, auf denen sich die Kachel genau wiederholt, Helligkeit auf 64² und 8² je Kachel gemittelt. Mit dem echten Strandkies (Gravel041) jetzt hex 0,01 / 0,03 gegen einfach 1,00 / 1,00 (hier mit der gebackenen `a.png` gerechnet).<br>• **Befund 2:** Im Bogen zeigten die Strandstreifen fast nur Himmel; die Kamera steht jetzt 4 m hoch, und Platz für die Zeile ist da.<br>• **Befund 3:** Schiefer, verwittert (Rock063) ist sehr gelb (Flechten); mit 5a tönen | `docs/status/*_Phase5.*`, `Texturen.png` | mit `surface` |
 | 01.11.2026 | 6 | **Wald und Unterwuchs** (Freigabe „Phase6, los!“; Entscheidungen: Arten prozedural in `forest`; der GPU-Weg neu als `forest/gl/ForestGpu` neben dem alten; Prüfung der anderen Szenen mit Demos und Vergleich vorher/nachher; `understory` voll nach 5.7).<br>• **`com.dan.forest`:** siehe 6.4 (unter der Tabelle). Neu: `TreeStates`, `ForestCulture`, `Octahedral`, `gl/ForestGpu` mit fünf Shadern, `demo/BayScene`, `demo/ForestGpuDemo`, `demo/ForestGpuCheck`. `ForestCheck` hat neue Prüfungen.<br>• **`com.dan.understory`** (neu): siehe 5.7.<br>• **`com.dan.surface`:** das Maß des Kiesstrands berichtigt (Befund 1 aus Phase 5) und der Bogen.<br>• **Hier geprüft:** `ForestCheck`, `UnderstoryCheck` und `SurfaceCheck` grün; `ForestGpuCheck` und beide Demos über eine Brücke zu Mesa (die Java-Klassen selbst, die GL-Aufrufe an llvmpipe); `check-packages` grün.<br>• **LituyaBay:** `PHASE` 6. `ant pruefung` hat einen Abschnitt Wald und Unterwuchs. Die Phase von `scree` ist jetzt „6a“ (`Bibliothek.NEU_PHASE` und `tools/JarPruefung` als Text).<br>• **Neu in `build.xml`:** `ant waldcheck`, `ant waldbild`, `ant waldzeiten`, `ant walddemo`, `ant waldvergleich` (`tools/WaldVergleich.java`), `ant unterwuchscheck`, `ant unterwuchsbild`, `ant unterwuchsdemo`.<br>• **Ausstehend auf dem Rechner:** das alte Jar sichern, das neue bauen und kopieren; `ant waldvergleich`, `ant waldcheck`, `ant waldzeiten` (fps-Tabelle), `ant waldbild`, `ant unterwuchscheck`, `ant unterwuchsbild`, `ant surfacecheck`, `ant pruefung` | `docs/status/Vorschau_Phase6_Wald_Mesa.png`, `Vorschau_Phase6_Unterwuchs_Mesa.png` (Mesa) | neu zu bauen (mit `understory`) |
+| 01.11.2026 | 6 | **Abnahme** auf der Radeon: `ant pruefung` 98 Prüfungen, alles in Ordnung. `ant waldcheck` grün (ForestCheck und ForestGpuCheck), `ant unterwuchscheck` und `ant surfacecheck` grün, `ant waldvergleich` 26 von 26 alten Arten unverändert. `ant waldzeiten`: Tabelle 15.5 (LOW „Im Wald“ 10,2 ms, ULTRA 49,7 ms; Kultur ≤ 1,7 ms; 129–328 MB).<br>• **Befund 1:** `lib/FStyle.jar` bringt alte Kopien von `com.dan.forest`, `ground`, `river` und `road` mit. Steht es im Klassenpfad vor `Renderer.jar`, fehlen neue Felder (`NoSuchFieldError: Species.lying`). Die Ziele der Phase 6 legen `Renderer.jar` jetzt zuerst; in NetBeans steht `Renderer.jar` über `FStyle.jar` (Project Properties → Libraries).<br>• **Befund 2:** Auf der Radeon wichen 0,1–1,3 % der Bäume der Grafikkarte im letzten Bit vom Prozessor ab (FMA und `atan`, größte Abweichung 0,017). `ForestGpuCheck` vergleicht jetzt je Platz mit Toleranz (Lage 5 cm, Winkel 0,05 rad, sonst 1e-3).<br>• **Befund 3:** `Unterwuchs.png` war auf der Radeon schwarz (gelesen wurde der nicht getauschte Puffer), die Zahlen in `Wald.png` gehörten zur vorigen Ansicht. Beides in Phase 7 berichtigt.<br>• **Befund 4:** „Im Wald“ kostet die nahe Stufe viel (HIGH 33 fps); Gegenmittel in 6a (15.5) | `docs/status/Wald.png`, `waldzeiten_Phase6.txt` | neu gebaut |
+| 01.11.2026 | 7 | **Laufzeit und Netzblick** (Freigabe „Phase7, los!“; Entscheidungen: eigene Gitterklasse `route.TravelGrid`, die dieselben Knoten und Kanten für NDM ausgeben kann; Demo im Renderer mit gerechneter Bucht und dazu ein Ziel über dem echten Grund heute und 1940, linear und nichtlinear; `netview` ganz nach 5.12 als Package mit Demo, in die App mit 7a).<br>• **`com.dan.route`:** siehe 6.9 (unter der Tabelle). Neu: `TravelGrid`, `Contour`, `Measure`, `demo/IsochroneDemo`; `RouteCheck` mit neuen Prüfungen.<br>• **`com.dan.netview`** (neu): siehe 5.12.<br>• **Berichtigt aus Phase 6:** `UnderstoryDemo --bild` einfach gepuffert und liest den gezeichneten Puffer; `ForestGpuDemo --bild` liest die Zahlen je Ansicht.<br>• **Hier geprüft:** `RouteCheck` und `NetviewCheck` grün, `check-packages` grün (netview kennt nur sich und JOGL); `NetviewDemo` über die Brücke zu Mesa gezeichnet; `Isochronenbild` über dem Grund heute (auf 20 m gemittelt) und 1940.<br>• **LituyaBay:** `PHASE` 7. `tools.Isochronenbild`. `ant pruefung` hat einen Abschnitt Laufzeit und Netzblick (Sterne, konstante Tiefe 130 m, Messstrecke, Isolinien, Front über dem Grund heute gegen den Handwert). Packages einer a-Phase (`scree` in 6a) sind bis zu ihrer Phase ein Hinweis statt eines Fehlers (`Bibliothek.nachzuholen`, `tools/JarPruefung`), weil die Phasen der App nach den Renderer-Phasen nachgeholt werden.<br>• **Neu in `build.xml`:** `ant routecheck`, `ant isochronendemo`, `ant isochronenfenster`, `ant isochronenbild`, `ant netviewcheck`, `ant netviewbild`, `ant netviewdemo`.<br>• **Ausstehend auf dem Rechner:** Renderer bauen und kopieren; `ant routecheck`, `ant netviewcheck`, `ant isochronenbild`, `ant isochronendemo`, `ant netviewbild`, `ant unterwuchsbild`, `ant pruefung` | `docs/status/Vorschau_Phase7_Netzblick_Mesa.png` (Mesa), `Vorschau_Phase7_Isochronen.png`, `Vorschau_Phase7_Isochronen_Demo.png` | neu zu bauen (mit `netview`) |
 | | 0b | parallel: Recherche vervollständigen (Miller S. 51–86, Zeugen, Boote, Tide, Zeitzone), Texturquellen und Lizenzen, `docs/QUELLEN.md` | | |
 
-**Nächster Schritt:** Phase 6 auf dem Rechner abschließen:
+**Nächster Schritt:** Phase 7 auf dem Rechner abschließen:
 
-1. In LituyaBay1958 `lib/Renderer.jar` als `lib/Renderer_phase5.jar` sichern.
-2. Im Renderer auf Branch `lituya-phase-6` „Clean and Build“ ausführen; `check-packages` muss grün sein. Dann `dist/Renderer.jar` nach `lib/` kopieren.
-3. `ant waldvergleich`: die Wälder der anderen Szenen unverändert.
-4. `ant waldcheck`: Grafikkarte = Prozessor.
-5. `ant waldzeiten`: die fps-Tabelle, Zahlen nach 15.
-6. `ant waldbild`, `ant unterwuchscheck`, `ant unterwuchsbild`, `ant surfacecheck` (mit dem echten Strandkies) und `ant pruefung`.
+1. Im Renderer auf Branch `lituya-phase-7` „Clean and Build“ ausführen; `check-packages` muss grün sein. Dann `dist/Renderer.jar` nach `lib/` kopieren.
+2. `ant routecheck` und `ant netviewcheck`: beide enden mit „Alles in Ordnung.“
+3. `ant isochronenbild`: `docs/status/Isochronen.png` und die Ankunftszeiten (Eingang rund 365 s linear, 292 s nichtlinear).
+4. `ant isochronendemo` und `ant netviewbild`: `Isochronen_Demo.png`, `Netzblick.png` (mit Grafikkarte).
+5. `ant unterwuchsbild` (berichtigt) und `ant pruefung`.
 
-Abnahme: Millionen Bäume, fps-Tabelle, andere Szenen unverändert. Danach die Phasen der App: 5a (Grundbild: `surface` im Geländeshader, Durchgang Gelände auf ~1 ms) und 6a (Regenwald mit `ForestGpu` aus DSM und Klassen, Unterwuchs, Gletscher, `scree`). Offen aus 3.4: Karten einpassen (`rueckbau1958`, `spurlinie`), `klassen`, `wald`, `gletscher`.
+Abnahme: Gitterfehler 2,75 % / 0,75 %, Isochronen über dem Grund, Netzblick. Danach: 6a (Regenwald, Unterwuchs, Gletscher, `scree`) und 5a (Grundbild) nachholen, dann 7a (`LB_NET_WELLE` mit den Kanten aus `TravelGrid.edges`, `LB_NET_UFER`, Netzblick als Bild im Bild). Offen aus 3.4: Karten einpassen (`rueckbau1958`, `spurlinie`), `klassen`, `wald`, `gletscher`. Offen für 0b: die Tide am Abend des 9. Juli 1958 (heute Mittelwasser [G]).
