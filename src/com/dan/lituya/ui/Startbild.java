@@ -90,8 +90,9 @@ public final class Startbild extends JDialog {
     public static String datenZeile() {
         java.io.File d = daten();
         if (new java.io.File(d, "INHALT.txt").isFile()) return "Daten aus " + d.getPath() + " (INHALT.txt).";
-        return "Noch keine aufbereiteten Daten in " + d.getPath() + ": die Szene zeigt in Phase 1 nur Wasser, Himmel und Marken. "
-                + "Phase 2 schreibt sie mit ant aufbereitung aus dem Kartenmaterial in download/ nach " + d.getPath() + "; die App selbst liest nie aus download/.";
+        return "Noch keine aufbereiteten Daten in " + d.getPath() + ". Werkzeug: ant aufbereitung (com.dan.lituya.tools.Aufbereitung); es liest das "
+                + "Kartenmaterial aus dem Pfad in " + d.getPath() + "/rohdaten.properties (Vorgabe download/) und schreibt Gelände, Grund und Namen nach "
+                + d.getPath() + ". Die App selbst liest nie aus download/; bis Phase 4 zeigt die Szene ohnehin nur Wasser, Himmel und Marken.";
     }
 
     private Startbild() {

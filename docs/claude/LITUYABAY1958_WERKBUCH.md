@@ -2,7 +2,7 @@
 
 **Das Projekt der Riesenwelle und des Netzes.** Lituya Bay, Alaska, 9. Juli 1958, 22:16 Uhr Ortszeit.
 
-> **Stand: 01.11.2026. Fragen F1–F43 beantwortet: alle A (Entscheidung vom 01.11.2026, Abschnitt 16). Phase 1 (Gerüst) erledigt; Phase 0b (Recherche) und Phase 2 (Aufbereitung) sind die nächsten Schritte.**
+> **Stand: 01.11.2026. Fragen F1–F43 beantwortet: alle A (Entscheidung vom 01.11.2026, Abschnitt 16). Phase 1 (Gerüst) erledigt; Phase 2 (Aufbereitung): Werkzeuge fertig, Volllauf mit `ant aufbereitung` auf dem Rechner steht aus; Phase 0b (Recherche) läuft parallel.**
 > Erstellt aus `docs/claude/LITUYABAY1958_WERKBUCH_PROMPT.md`. Das Werkbuch wird über das ganze Projekt fortgeschrieben (Abschnitt 19). Jede Zahl ist **belegt** (Quelle in Abschnitt 2.9), **gemessen** (aus den Daten in `download/`), **gerechnet** (hier hergeleitet, Formel in Abschnitt 9) oder **gestaltet [G]**. Was noch keine Quelle hat, trägt **[zu prüfen]**.
 >
 > Vorlage: Sylt Werkbuch (Projekt der Brandung) und Timmendorf (Projekt des Segels). Geschwisterdateien: `Kartenmaterial.md` (48 Quellen), `download/INVENTAR.md` (zweiter Lauf: 1 227 Dateien, 13,5 GB), `geodaten/gebiete.geojson`, `geodaten/namen_szene.geojson`.
@@ -245,7 +245,11 @@ Verbindlich, Abnahme-Bedingung (Prompt 2.3):
 | `ereignis` (Phase 13) | — | `ereignis/<lauf>/…` (Höhenfelder, Strom, Zustände je Zeitschritt), vorgerechnet | Bildfolge |
 | `inhalt` | — | `INHALT.txt` | |
 
-Höhenbezug: Lidar und USACE sind NAVD88; BlueTopo NAVD88; NOS-Lotungen beziehen sich auf MLLW und werden mit der Bezugshöhe der Station Elfin Cove (`bezugshoehen_elfin_cove.json`) umgerechnet; GEBCO und Copernicus (Ellipsoid bzw. EGM) nur im Fern, dort reicht ein Versatz [G].
+Höhenbezug: Lidar und USACE sind NAVD88; BlueTopo NAVD88 (VDatum, GEOID17B); NOS-Lotungen beziehen sich auf MLLW und werden mit der Bezugshöhe der Station Elfin Cove (`bezugshoehen_elfin_cove.json`) umgerechnet; GEBCO und Copernicus (Ellipsoid bzw. EGM) nur im Fern, dort reicht ein Versatz [G].
+
+**Befund Phase 2:** `bezugshoehen_elfin_cove.json` nennt MSL − MLLW = 1,747 m, aber keinen Wert für NAVD88. Die Aufbereitung setzt NAVD88 ≈ MSL [G] und misst den Rest an BlueTopo in Zellen tiefer als 60 m: im Probelauf 1940 gegen heute Median −0,59 m (5–95 %: −17,0 bis +1,6 m) – der Bezug passt auf rund einen halben Meter. 1926 und 1940 stimmen an gemeinsamen Lotpunkten auf 1,8 m überein (Einheit Meter bestätigt).
+
+**Mischung von Land und Grund [G]:** Liegt der Grund mehr als 1 m unter dem Land und das Land unter 3 m, hat das Landmodell Wasser flach gelegt (Lidar und IfSAR „hydroflattened“), und der Grund gilt; sonst das Land. Wasser in `grund/wasser_4m.u8` heißt außerdem Grund unter 3 m (BlueTopo trägt Landwerte, etwa auf dem Schwemmfächer vor dem Lituya-Gletscher; dort sagt BlueTopo noch −80 bis −98 m aus alten Lotungen, das Lidar 14 bis 32 m: das Lidar gilt).
 
 ---
 
@@ -761,7 +765,7 @@ Sequence + Trigger, nie IDENTITY; SRID 26908, Sichten in 4326.
 | 0 | L | **erledigt:** Gebiete, Kartenmaterial (48 Quellen), `tools/kartenmaterial`; Werkbuch-Prompt; dieses Werkbuch | `Kartenmaterial.md`, `INVENTAR.md` (zweiter Lauf 1 227 Dateien, 13,5 GB) |
 | 0b | L | Recherche 2.1–2.7 vervollständigen (Miller S. 51–86 lesen, Zeugen, Boote, Tide, Zeitzone), Texturquellen und Lizenzen, `docs/QUELLEN.md` anlegen | alle [zu prüfen] in Abschnitt 2 und 9 aufgelöst oder als [G] erklärt |
 | 1 | L | **erledigt:** Grundgerüst: FFrame, GL-Engine aus Timmendorf, Kamera, HUD, `wiring`, Startbild mit DB-Anmeldung, `sdonm.jar`, `lib/lod/`, Git | leere Szene mit Horizont |
-| 2 | L | Aufbereitung nach 3.4 | Prüfbilder; **Start mit umbenanntem `download/`** |
+| 2 | L | Aufbereitung nach 3.4 (**Werkzeuge fertig:** `gelaende`, `grund`, `namen`, `bilder`, `inhalt`; offen `rueckbau1958`, `spurlinie`, `klassen`, `wald`, `gletscher`) | Prüfbilder; **Start mit umbenanntem `download/`** |
 | 3 | D | Schema, Rechte, **NDM-Funktionsprobe (2.8)**, Ladeskripte, `LB_NET_HERKUNFT` | Tabelle 2.8 gefüllt, `VALIDATE_NETWORK` grün |
 | 4 | R | `clipmap` | Demo Lidar bis zum Horizont, Nahtprüfung, Zeit je Bild |
 | 5 | R | `surface` + Backwerkzeug | Kontaktbogen, Kiesstrand ohne Wiederholung |
@@ -942,7 +946,9 @@ Fragenblock II (Oberfläche, Datenbank) kommt in Phase 19 und wird hier als 16.3
 | 01.11.2026 | 0 | Gebiete festgelegt; Kartenmaterial-Werkzeug mit 48 Quellen; erster Lauf 1 170 Dateien, zweiter Lauf 1 227 Dateien (13,5 GB); Fehler berichtigt (Fortsetzen, Verzeichnisse, ENC-Katalog, USGS-Publikationen); Werkbuch-Prompt; **dieses Werkbuch als Entwurf** | `images/Gebiete_Szene.jpg`, `images/Gebiete_Fern.jpg`, `images/Kern_BlueTopo.png` | — |
 | 01.11.2026 | — | **Fragen F1–F43 beantwortet: alle A** (Abschnitt 16.1) | | |
 | 01.11.2026 | 1 | **Gerüst** (Freigabe „Phase1, los“): `com.dan.lituya` mit `app`, `camera`, `gl`, `scene`, `wiring`, `ui`, `data`, `netz`, `tools`; GL-Engine aus Timmendorf entschlackt (Himmel, Wasser mit Erdkrümmung bis zur Kimm, Nachbearbeitung, HUD; Zeitmessung je Durchgang, Qualitätsstufen, Foto, Shader neu laden, Physik-Faden, Kino als Anschluss); Raum UTM 8 N mit Ursprung E 352 000, N 6 503 000 [G]; Gebiete und 25 Orte aus GNIS als Marken, der Sporn [G]; drei Uhren (Ortszeit `America/Juneau`: 1958 PST = UTC−8, Simulationszeit ab 06:16 UTC, Zeitstand vor/Welle/danach/heute); neun Ansichten; Startbild mit Anmeldung; Bedienfeld mit allen Blöcken aus 12; `lib/sdonm.jar`, `lib/lod/` mit Klassenlader `netz.Lod` und `ant lod`; `ant pruefung` (64 Prüfungen, alles in Ordnung), `ant statusbild`, `check-packages`. Befunde: Sonnenuntergang 22:14 statt 22:04 (2.1 berichtigt); Sichtstrahl und Schnitt mit der gekrümmten Wasserfläche in float neu gelöst (aus 1,9 km Höhe zitterten Raster und Marken); `db/db.properties` aus Git genommen | `docs/status/Vorschau_Phase1_Mesa.png` (Mesa, ohne HUD); `Status_Phase1.png` mit `ant statusbild` auf der Radeon | Stand 31.10.2026, 55,7 MB, unverändert |
-| | 0b | nächster Schritt: Recherche vervollständigen (Miller S. 51–86, Zeugen, Boote, Tide, Zeitzone), Texturquellen und Lizenzen, `docs/QUELLEN.md` | | |
-| | 2 | danach: Aufbereitung nach 3.4 | | |
+| 01.11.2026 | 1 | Nachtrag: `ant lod` sucht ORACLE_HOME auch in der Registry, im PATH und unter `C:\app` | | |
+| 01.11.2026 | 2 | **Aufbereitung, Werkzeuge** (Freigabe „Phase2, los“): `com.dan.lituya.tools` mit `GeoTiff` (TIFF und BigTIFF, LZW, Deflate, Prädiktor 2 und 3, Kacheln, GeoKeys mit Albers), `Abbildung` (UTM 8 N, geographisch, Alaska Albers), `Quelle`, `Gitter`, `Gelaende` (Fern 30 m, Szene 5 m, Kern 0,5 m, Kacheln 2000² als `.r32`, Format in `scene.Stufe`), `Grund` (heute 4 m mit Wassermaske; 1926, 1940, 1959 zu 20 m aus den Lotungen über `Delaunay`), `Namen`, `Pruefbilder`, `Aufbereitung` (`ant aufbereitung`, `daten/INHALT.txt` mit SHA-256). Probelauf hier an 21 Dateien des Kartenmaterials (Lidar um den Gilbert Inlet und am Eingang, BlueTopo, USACE, 3DEP 1″, Copernicus, GEBCO, IfSAR GB-336, NOS): alle Formate gelesen, 0,6 s je Kern-Kachel; Befunde Höhenbezug und Mischung in 3.4. `ant pruefung` 77 Prüfungen. Offen aus 3.4: `rueckbau1958` und `spurlinie` (brauchen die von Hand eingepassten Karten 1951/C-5 und Millers Karte), `klassen` (Sentinel-2, WorldCover), `wald` (DSM 2012 nicht geladen, Stufe „gross“), `gletscher` (RGI, GLIMS; Fronten 1958 aus der Karte); `netz` mit Phase 7a, `ereignis` mit Phase 13 | Prüfbilder des Probelaufs; die echten schreibt `ant aufbereitung` nach `docs/status/Phase2_*.png` | unverändert |
+| | 2 | Volllauf `ant aufbereitung` auf dem Rechner, dann Abnahme mit umbenanntem `download/` | | |
+| | 0b | parallel: Recherche vervollständigen (Miller S. 51–86, Zeugen, Boote, Tide, Zeitzone), Texturquellen und Lizenzen, `docs/QUELLEN.md` | | |
 
-**Nächster Schritt:** Phase 0b (Recherche, ohne Code), dann Phase 2 (Aufbereitung). Offen aus Phase 1: Statusbild auf der Radeon (`ant statusbild`), Treiber 21 nach `lib/lod/` (`ant lod`), Schemaname (F40 A sagt `LITUYA`, angelegt ist der Benutzer `LituyaBay1958`; entscheidet Phase 3).
+**Nächster Schritt:** Volllauf der Aufbereitung (`ant aufbereitung`) und Abnahme von Phase 2 mit umbenanntem `download/`; danach die offenen Schritte aus 3.4 (Karten einpassen) und Phase 3. Offen aus Phase 1: Statusbild auf der Radeon (`ant statusbild`), Treiber 21 nach `lib/lod/` (`ant lod`), Schemaname (F40 A sagt `LITUYA`, angelegt ist der Benutzer `LituyaBay1958`; entscheidet Phase 3).

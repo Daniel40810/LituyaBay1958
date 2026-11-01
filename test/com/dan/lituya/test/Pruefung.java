@@ -36,7 +36,7 @@ public final class Pruefung {
 
     public static void main(String[] args) throws Exception {
         long t0 = System.nanoTime();
-        System.out.println("LituyaBay1958 " + Renderer.VERSION + " · Prüfung ohne Grafikkarte");
+        System.out.println("LituyaBay1958 " + Renderer.VERSION + " · Prüfung ohne Grafikkarte und ohne download/");
 
         teil("Raum und Gebiete (F1 A, F2 A, F41 A)");
         double[] ll = Geo.UTM8N.inverse(352_000, 6_503_000), en = Geo.UTM8N.forward(ll[0], ll[1]);
@@ -146,6 +146,61 @@ public final class Pruefung {
             check(p.ok(), p.text());
         }
 
+        teil("Aufbereitung (Phase 2): Rechenwege");
+        check(com.dan.lituya.tools.Gelaende.mischen(150f, -90f) == 0 && com.dan.lituya.tools.Gelaende.mischen(0.8f, -40f) == 1
+                && com.dan.lituya.tools.Gelaende.mischen(Float.NaN, -12f) == 1 && com.dan.lituya.tools.Gelaende.mischen(2f, 1.5f) == 0
+                && com.dan.lituya.tools.Gelaende.mischen(Float.NaN, Float.NaN) == -1, "Mischung: hohes Land bleibt, flach gelegtes Wasser nimmt den Grund");
+        double[] al = new com.dan.lituya.tools.Abbildung.Albers(50, -154, 55, 65, 0, 0).vor(-137.6, 58.64);
+        check(Math.abs(al[0] - 939_594.6) < 0.5 && Math.abs(al[1] - 1_076_845.3) < 0.5, f("Alaska Albers (IfSAR) wie geo.py: %.1f / %.1f", al[0], al[1]));
+        {
+            java.util.Random rnd = new java.util.Random(3);
+            int np = 400;
+            double[] xy = new double[np * 2], zz = new double[np];
+            for (int i = 0; i < np; i++) {
+                xy[2 * i] = 350_000 + rnd.nextDouble() * 2000;
+                xy[2 * i + 1] = 6_500_000 + rnd.nextDouble() * 2000;
+                zz[i] = 0.02 * (xy[2 * i] - 350_000) - 0.03 * (xy[2 * i + 1] - 6_500_000) - 40;
+            }
+            com.dan.lituya.tools.Delaunay d = new com.dan.lituya.tools.Delaunay(xy);
+            com.dan.lituya.tools.Gitter g = new com.dan.lituya.tools.Gitter(350_000, 6_502_000, 20, 100, 100);
+            float[] v = g.leer();
+            com.dan.lituya.tools.Delaunay.aufGitter(xy, zz, g, 1e9, v);
+            double worst = 0;
+            int voll = 0;
+            for (int j = 0; j < g.h(); j++)
+                for (int i = 0; i < g.w(); i++) {
+                    float x = v[j * g.w() + i];
+                    if (Float.isNaN(x)) continue;
+                    voll++;
+                    worst = Math.max(worst, Math.abs(x - (0.02 * (g.ce(i) - 350_000) - 0.03 * (g.cn(j) - 6_500_000) - 40)));
+                }
+            check(d.triangles.length / 3 > np && d.triangles.length / 3 < 2 * np && voll > 8000 && worst < 1e-3,
+                    f("Delaunay: %d Dreiecke aus %d Punkten, Ebene auf %d Zellen genau (%.1e m)", d.triangles.length / 3, np, voll, worst));
+        }
+
+        teil("Aufbereitung (Phase 2): daten/");
+        File daten = new File(System.getProperty("lituya.daten", "daten")), inhalt = new File(daten, "INHALT.txt");
+        if (!inhalt.isFile()) hinweis("noch keine aufbereiteten Daten (daten/INHALT.txt fehlt): ant aufbereitung");
+        else {
+            int fehlt = 0, dateien = 0;
+            for (String zl : Files.readAllLines(inhalt.toPath(), StandardCharsets.UTF_8)) {
+                if (zl.startsWith("#") || zl.isBlank()) continue;
+                String[] p = zl.split("\t");
+                dateien++;
+                File x = new File(daten, p[0]);
+                if (!x.isFile() || x.length() != Long.parseLong(p[1])) { fehlt++; if (fehlt < 5) System.out.println("    fehlt oder anders: " + p[0]); }
+            }
+            check(fehlt == 0, f("daten/INHALT.txt: %d Dateien, alle da und gleich groß", dateien));
+            for (com.dan.lituya.scene.Stufe st : com.dan.lituya.scene.Stufe.values()) {
+                File[] kd = st.ordner(daten).listFiles((dd, nm) -> nm.endsWith(".r32"));
+                int sollK = st.nx() * st.ny(), ist = kd == null ? 0 : kd.length;
+                check(ist == sollK && new File(st.ordner(daten), "STUFE.txt").isFile(), f("Gelände %s: %d von %d Kacheln", st, ist, sollK));
+            }
+            for (String g : new String[]{"heute_4m.r32", "wasser_4m.u8", "1940_20m.r32", "1959_20m.r32", "GRUND.txt"})
+                check(new File(daten, "grund/" + g).isFile(), "grund/" + g);
+            check(new File(daten, "namen.tsv").isFile(), "namen.tsv");
+        }
+
         teil("Regel 3.3 und Paketvertrag 13");
         File src = new File("src");
         if (src.isDirectory()) {
@@ -154,7 +209,7 @@ public final class Pruefung {
                 for (Path p : (Iterable<Path>) st.filter(x -> x.toString().endsWith(".java"))::iterator) {
                     String txt = Files.readString(p, StandardCharsets.UTF_8), pfad = p.toString().replace('\\', '/');
                     boolean tool = pfad.contains("/lituya/tools/"), db = pfad.contains("/lituya/data/") || pfad.contains("/lituya/netz/");
-                    if (!tool && txt.contains("new File(\"download")) { download++; System.out.println("    liest download/: " + pfad); }
+                    if (!tool && txt.contains("\"download")) { download++; System.out.println("    liest download/: " + pfad); }
                     if (!tool && !db && (txt.contains("import java.sql") || txt.contains("import oracle.") || txt.contains("oracle.spatial."))) {
                         oracle++;
                         System.out.println("    kennt Oracle: " + pfad);
