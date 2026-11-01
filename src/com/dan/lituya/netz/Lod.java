@@ -104,15 +104,58 @@ public final class Lod {
         return "es fehlt " + String.join(", ", f) + (f.contains("lib/lod/ojdbc11.jar") ? " (ant lod holt ihn aus ORACLE_HOME\\jdbc\\lib)" : "");
     }
 
-    /** Wo der Treiber 21 liegen kann: %ORACLE_HOME%\jdbc\lib, dazu die üblichen Orte einer Installation unter C:\app. */
+    /**
+     * Wo der Treiber 21 liegen kann (Befund Phase 1: ORACLE_HOME ist auf dem Rechner nicht gesetzt). Gesucht wird in dieser
+     * Reihenfolge: %ORACLE_HOME%, die Oracle-Homes aus der Registry ({@code HKLM\SOFTWARE\Oracle}), jedes Verzeichnis im
+     * PATH mit {@code sqlplus.exe} oder {@code oci.dll} (dessen Elternordner ist das Home), dann die Ordner unter
+     * {@code C:\app\*\product\*\*} und {@code *db_home*} in den Wurzeln von C: bis F:.
+     */
     static List<File> kandidaten() {
-        List<File> l = new ArrayList<>();
+        java.util.LinkedHashSet<File> homes = new java.util.LinkedHashSet<>();
         String oh = System.getenv("ORACLE_HOME");
-        if (oh != null && !oh.isBlank()) l.add(new File(oh, "jdbc/lib/ojdbc11.jar"));
-        String user = System.getProperty("user.name", "");
-        for (String base : new String[]{"C:/app/" + user + "/product/21c/dbhomeXE", "C:/app/" + user + "/product/21c/dbhome_1",
-                "C:/app/oracle/product/21c/dbhome_1", "C:/WINDOWS.X64_213000_db_home", "C:/db_home"})
-            l.add(new File(base, "jdbc/lib/ojdbc11.jar"));
+        if (oh != null && !oh.isBlank()) homes.add(new File(oh));
+        homes.addAll(ausRegistry());
+        String path = System.getenv("PATH");
+        if (path != null)
+            for (String d : path.split(File.pathSeparator)) {
+                if (d.isBlank()) continue;
+                File f = new File(d.trim().replace("\"", ""));
+                if (new File(f, "sqlplus.exe").isFile() || new File(f, "oci.dll").isFile() || new File(f, "sqlplus").isFile())
+                    if (f.getParentFile() != null) homes.add(f.getParentFile());
+            }
+        for (String lw : new String[]{"C:", "D:", "E:", "F:"}) {
+            File[] user = new File(lw + "/app").listFiles(File::isDirectory);
+            if (user != null)
+                for (File u : user) {
+                    File[] vers = new File(u, "product").listFiles(File::isDirectory);
+                    if (vers != null)
+                        for (File v : vers) {
+                            File[] h = v.listFiles(File::isDirectory);
+                            if (h != null) homes.addAll(java.util.Arrays.asList(h));
+                        }
+                }
+            File[] wurzel = new File(lw + "/").listFiles(f -> f.isDirectory() && f.getName().toLowerCase(java.util.Locale.ROOT).contains("db_home"));
+            if (wurzel != null) homes.addAll(java.util.Arrays.asList(wurzel));
+        }
+        List<File> l = new ArrayList<>();
+        for (File h : homes) l.add(new File(h, "jdbc/lib/ojdbc11.jar"));
+        return l;
+    }
+
+    /** Die ORACLE_HOME-Einträge unter HKLM\SOFTWARE\Oracle (nur unter Windows; sonst leer). */
+    static List<File> ausRegistry() {
+        List<File> l = new ArrayList<>();
+        if (!System.getProperty("os.name", "").toLowerCase(java.util.Locale.ROOT).contains("win")) return l;
+        try {
+            Process p = new ProcessBuilder("reg", "query", "HKLM\\SOFTWARE\\Oracle", "/s", "/v", "ORACLE_HOME").redirectErrorStream(true).start();
+            String out = new String(p.getInputStream().readAllBytes(), java.nio.charset.Charset.defaultCharset());
+            p.waitFor(10, java.util.concurrent.TimeUnit.SECONDS);
+            for (String z : out.split("\\R")) {
+                z = z.strip();
+                int k = z.indexOf("REG_SZ");
+                if (z.startsWith("ORACLE_HOME") && k > 0) l.add(new File(z.substring(k + 6).strip()));
+            }
+        } catch (Exception e) { /* ohne Registry */ }
         return l;
     }
 
@@ -123,8 +166,9 @@ public final class Lod {
             File quelle = a.length > 0 && !a[0].isBlank() ? new File(a[0]) : null;
             if (quelle == null) for (File k : kandidaten()) if (k.isFile()) { quelle = k; break; }
             if (quelle == null || !quelle.isFile()) {
-                System.out.println("Kein ojdbc11.jar gefunden. Gesucht: " + kandidaten());
-                System.out.println("Bitte ORACLE_HOME setzen oder den Pfad angeben: ant lod -Dtreiber=C:\\…\\jdbc\\lib\\ojdbc11.jar");
+                System.out.println("Kein ojdbc11.jar gefunden. Gesucht in:");
+                for (File k : kandidaten()) System.out.println("  " + k.getPath());
+                System.out.println("Bitte den Pfad angeben: ant lod -Dtreiber=<ORACLE_HOME>\\jdbc\\lib\\ojdbc11.jar (den Ordner zeigt in SQL*Plus: host echo %ORACLE_HOME%)");
                 System.exit(1);
             }
             lodDir().mkdirs();
