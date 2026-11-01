@@ -1,0 +1,155 @@
+LOD2 Schleswig-Holstein: Kacheln mit Land im Fernfeld, die im Ordner LOD2 der Rohdaten fehlen (BautenImport, 2026-10-27).
+Gelesen: 455_6085, 464_6100 (die übrigen ZIPs waren Doppel).
+Einzeln laden (Links aus LOD2_SH_Massendownload.geojson), in den Ordner LOD2 legen (Pfad in daten/rohdaten.properties)
+und `ant aufbereitung -Dschritt=bauten,inhalt` laufen lassen.
+Der Kern (Kampen, Wenningstedt, Türme) braucht 455_6087 bis 458_6091.
+
+LoD2_32_454_6081_1_SH.xml
+    https://geodaten.schleswig-holstein.de/gaialight-sh/_apps/dladownload/massen.php?file=LoD2_32_454_6081_1_SH.xml&id=4&live=2024&km=32450_6080
+LoD2_32_454_6082_1_SH.xml
+    https://geodaten.schleswig-holstein.de/gaialight-sh/_apps/dladownload/massen.php?file=LoD2_32_454_6082_1_SH.xml&id=4&live=2024&km=32450_6080
+LoD2_32_454_6083_1_SH.xml
+    https://geodaten.schleswig-holstein.de/gaialight-sh/_apps/dladownload/massen.php?file=LoD2_32_454_6083_1_SH.xml&id=4&live=2024&km=32450_6080
+LoD2_32_454_6084_1_SH.xml
+    https://geodaten.schleswig-holstein.de/gaialight-sh/_apps/dladownload/massen.php?file=LoD2_32_454_6084_1_SH.xml&id=4&live=2024&km=32450_6080
+LoD2_32_455_6081_1_SH.xml
+    https://geodaten.schleswig-holstein.de/gaialight-sh/_apps/dladownload/massen.php?file=LoD2_32_455_6081_1_SH.xml&id=4&live=2024&km=32450_6080
+LoD2_32_455_6082_1_SH.xml
+    https://geodaten.schleswig-holstein.de/gaialight-sh/_apps/dladownload/massen.php?file=LoD2_32_455_6082_1_SH.xml&id=4&live=2024&km=32450_6080
+LoD2_32_455_6083_1_SH.xml
+    https://geodaten.schleswig-holstein.de/gaialight-sh/_apps/dladownload/massen.php?file=LoD2_32_455_6083_1_SH.xml&id=4&live=2024&km=32450_6080
+LoD2_32_455_6084_1_SH.xml
+    https://geodaten.schleswig-holstein.de/gaialight-sh/_apps/dladownload/massen.php?file=LoD2_32_455_6084_1_SH.xml&id=4&live=2024&km=32450_6080
+LoD2_32_455_6086_1_SH.xml
+    https://geodaten.schleswig-holstein.de/gaialight-sh/_apps/dladownload/massen.php?file=LoD2_32_455_6086_1_SH.xml&id=4&live=2024&km=32450_6080
+LoD2_32_455_6087_1_SH.xml
+    https://geodaten.schleswig-holstein.de/gaialight-sh/_apps/dladownload/massen.php?file=LoD2_32_455_6087_1_SH.xml&id=4&live=2024&km=32450_6080
+LoD2_32_456_6081_1_SH.xml  (nicht in der Übersicht)
+LoD2_32_456_6082_1_SH.xml
+    https://geodaten.schleswig-holstein.de/gaialight-sh/_apps/dladownload/massen.php?file=LoD2_32_456_6082_1_SH.xml&id=4&live=2024&km=32450_6080
+LoD2_32_456_6083_1_SH.xml
+    https://geodaten.schleswig-holstein.de/gaialight-sh/_apps/dladownload/massen.php?file=LoD2_32_456_6083_1_SH.xml&id=4&live=2024&km=32450_6080
+LoD2_32_456_6084_1_SH.xml
+    https://geodaten.schleswig-holstein.de/gaialight-sh/_apps/dladownload/massen.php?file=LoD2_32_456_6084_1_SH.xml&id=4&live=2024&km=32450_6080
+LoD2_32_456_6085_1_SH.xml
+    https://geodaten.schleswig-holstein.de/gaialight-sh/_apps/dladownload/massen.php?file=LoD2_32_456_6085_1_SH.xml&id=4&live=2024&km=32450_6080
+LoD2_32_456_6086_1_SH.xml
+    https://geodaten.schleswig-holstein.de/gaialight-sh/_apps/dladownload/massen.php?file=LoD2_32_456_6086_1_SH.xml&id=4&live=2024&km=32450_6080
+LoD2_32_456_6087_1_SH.xml
+    https://geodaten.schleswig-holstein.de/gaialight-sh/_apps/dladownload/massen.php?file=LoD2_32_456_6087_1_SH.xml&id=4&live=2024&km=32450_6080
+LoD2_32_456_6088_1_SH.xml  (Kern)
+    https://geodaten.schleswig-holstein.de/gaialight-sh/_apps/dladownload/massen.php?file=LoD2_32_456_6088_1_SH.xml&id=4&live=2024&km=32450_6080
+LoD2_32_456_6089_1_SH.xml  (Kern)  (nicht in der Übersicht)
+LoD2_32_456_6090_1_SH.xml  (Kern)  (nicht in der Übersicht)
+LoD2_32_457_6081_1_SH.xml  (nicht in der Übersicht)
+LoD2_32_457_6082_1_SH.xml
+    https://geodaten.schleswig-holstein.de/gaialight-sh/_apps/dladownload/massen.php?file=LoD2_32_457_6082_1_SH.xml&id=4&live=2024&km=32450_6080
+LoD2_32_457_6083_1_SH.xml
+    https://geodaten.schleswig-holstein.de/gaialight-sh/_apps/dladownload/massen.php?file=LoD2_32_457_6083_1_SH.xml&id=4&live=2024&km=32450_6080
+LoD2_32_457_6084_1_SH.xml
+    https://geodaten.schleswig-holstein.de/gaialight-sh/_apps/dladownload/massen.php?file=LoD2_32_457_6084_1_SH.xml&id=4&live=2024&km=32450_6080
+LoD2_32_457_6085_1_SH.xml
+    https://geodaten.schleswig-holstein.de/gaialight-sh/_apps/dladownload/massen.php?file=LoD2_32_457_6085_1_SH.xml&id=4&live=2024&km=32450_6080
+LoD2_32_457_6086_1_SH.xml
+    https://geodaten.schleswig-holstein.de/gaialight-sh/_apps/dladownload/massen.php?file=LoD2_32_457_6086_1_SH.xml&id=4&live=2024&km=32450_6080
+LoD2_32_457_6087_1_SH.xml
+    https://geodaten.schleswig-holstein.de/gaialight-sh/_apps/dladownload/massen.php?file=LoD2_32_457_6087_1_SH.xml&id=4&live=2024&km=32450_6080
+LoD2_32_457_6088_1_SH.xml  (Kern)
+    https://geodaten.schleswig-holstein.de/gaialight-sh/_apps/dladownload/massen.php?file=LoD2_32_457_6088_1_SH.xml&id=4&live=2024&km=32450_6080
+LoD2_32_457_6089_1_SH.xml  (Kern)
+    https://geodaten.schleswig-holstein.de/gaialight-sh/_apps/dladownload/massen.php?file=LoD2_32_457_6089_1_SH.xml&id=4&live=2024&km=32450_6080
+LoD2_32_457_6090_1_SH.xml  (Kern)
+    https://geodaten.schleswig-holstein.de/gaialight-sh/_apps/dladownload/massen.php?file=LoD2_32_457_6090_1_SH.xml&id=4&live=2024&km=32450_6090
+LoD2_32_457_6091_1_SH.xml  (Kern)
+    https://geodaten.schleswig-holstein.de/gaialight-sh/_apps/dladownload/massen.php?file=LoD2_32_457_6091_1_SH.xml&id=4&live=2024&km=32450_6090
+LoD2_32_457_6092_1_SH.xml  (nicht in der Übersicht)
+LoD2_32_458_6081_1_SH.xml  (nicht in der Übersicht)
+LoD2_32_458_6082_1_SH.xml
+    https://geodaten.schleswig-holstein.de/gaialight-sh/_apps/dladownload/massen.php?file=LoD2_32_458_6082_1_SH.xml&id=4&live=2024&km=32450_6080
+LoD2_32_458_6083_1_SH.xml
+    https://geodaten.schleswig-holstein.de/gaialight-sh/_apps/dladownload/massen.php?file=LoD2_32_458_6083_1_SH.xml&id=4&live=2024&km=32450_6080
+LoD2_32_458_6084_1_SH.xml
+    https://geodaten.schleswig-holstein.de/gaialight-sh/_apps/dladownload/massen.php?file=LoD2_32_458_6084_1_SH.xml&id=4&live=2024&km=32450_6080
+LoD2_32_458_6085_1_SH.xml
+    https://geodaten.schleswig-holstein.de/gaialight-sh/_apps/dladownload/massen.php?file=LoD2_32_458_6085_1_SH.xml&id=4&live=2024&km=32450_6080
+LoD2_32_458_6086_1_SH.xml
+    https://geodaten.schleswig-holstein.de/gaialight-sh/_apps/dladownload/massen.php?file=LoD2_32_458_6086_1_SH.xml&id=4&live=2024&km=32450_6080
+LoD2_32_458_6087_1_SH.xml
+    https://geodaten.schleswig-holstein.de/gaialight-sh/_apps/dladownload/massen.php?file=LoD2_32_458_6087_1_SH.xml&id=4&live=2024&km=32450_6080
+LoD2_32_458_6088_1_SH.xml
+    https://geodaten.schleswig-holstein.de/gaialight-sh/_apps/dladownload/massen.php?file=LoD2_32_458_6088_1_SH.xml&id=4&live=2024&km=32450_6080
+LoD2_32_458_6089_1_SH.xml
+    https://geodaten.schleswig-holstein.de/gaialight-sh/_apps/dladownload/massen.php?file=LoD2_32_458_6089_1_SH.xml&id=4&live=2024&km=32450_6080
+LoD2_32_458_6090_1_SH.xml
+    https://geodaten.schleswig-holstein.de/gaialight-sh/_apps/dladownload/massen.php?file=LoD2_32_458_6090_1_SH.xml&id=4&live=2024&km=32450_6090
+LoD2_32_458_6091_1_SH.xml
+    https://geodaten.schleswig-holstein.de/gaialight-sh/_apps/dladownload/massen.php?file=LoD2_32_458_6091_1_SH.xml&id=4&live=2024&km=32450_6090
+LoD2_32_458_6092_1_SH.xml
+    https://geodaten.schleswig-holstein.de/gaialight-sh/_apps/dladownload/massen.php?file=LoD2_32_458_6092_1_SH.xml&id=4&live=2024&km=32450_6090
+LoD2_32_458_6093_1_SH.xml  (nicht in der Übersicht)
+LoD2_32_458_6094_1_SH.xml
+    https://geodaten.schleswig-holstein.de/gaialight-sh/_apps/dladownload/massen.php?file=LoD2_32_458_6094_1_SH.xml&id=4&live=2024&km=32450_6090
+LoD2_32_458_6095_1_SH.xml  (nicht in der Übersicht)
+LoD2_32_459_6081_1_SH.xml
+    https://geodaten.schleswig-holstein.de/gaialight-sh/_apps/dladownload/massen.php?file=LoD2_32_459_6081_1_SH.xml&id=4&live=2024&km=32450_6080
+LoD2_32_459_6082_1_SH.xml
+    https://geodaten.schleswig-holstein.de/gaialight-sh/_apps/dladownload/massen.php?file=LoD2_32_459_6082_1_SH.xml&id=4&live=2024&km=32450_6080
+LoD2_32_459_6083_1_SH.xml
+    https://geodaten.schleswig-holstein.de/gaialight-sh/_apps/dladownload/massen.php?file=LoD2_32_459_6083_1_SH.xml&id=4&live=2024&km=32450_6080
+LoD2_32_459_6084_1_SH.xml
+    https://geodaten.schleswig-holstein.de/gaialight-sh/_apps/dladownload/massen.php?file=LoD2_32_459_6084_1_SH.xml&id=4&live=2024&km=32450_6080
+LoD2_32_459_6085_1_SH.xml
+    https://geodaten.schleswig-holstein.de/gaialight-sh/_apps/dladownload/massen.php?file=LoD2_32_459_6085_1_SH.xml&id=4&live=2024&km=32450_6080
+LoD2_32_459_6086_1_SH.xml
+    https://geodaten.schleswig-holstein.de/gaialight-sh/_apps/dladownload/massen.php?file=LoD2_32_459_6086_1_SH.xml&id=4&live=2024&km=32450_6080
+LoD2_32_459_6087_1_SH.xml
+    https://geodaten.schleswig-holstein.de/gaialight-sh/_apps/dladownload/massen.php?file=LoD2_32_459_6087_1_SH.xml&id=4&live=2024&km=32450_6080
+LoD2_32_459_6088_1_SH.xml  (nicht in der Übersicht)
+LoD2_32_459_6090_1_SH.xml  (nicht in der Übersicht)
+LoD2_32_459_6092_1_SH.xml  (nicht in der Übersicht)
+LoD2_32_459_6093_1_SH.xml
+    https://geodaten.schleswig-holstein.de/gaialight-sh/_apps/dladownload/massen.php?file=LoD2_32_459_6093_1_SH.xml&id=4&live=2024&km=32450_6090
+LoD2_32_459_6094_1_SH.xml
+    https://geodaten.schleswig-holstein.de/gaialight-sh/_apps/dladownload/massen.php?file=LoD2_32_459_6094_1_SH.xml&id=4&live=2024&km=32450_6090
+LoD2_32_459_6095_1_SH.xml  (nicht in der Übersicht)
+LoD2_32_459_6096_1_SH.xml
+    https://geodaten.schleswig-holstein.de/gaialight-sh/_apps/dladownload/massen.php?file=LoD2_32_459_6096_1_SH.xml&id=4&live=2024&km=32450_6090
+LoD2_32_459_6097_1_SH.xml  (nicht in der Übersicht)
+LoD2_32_460_6081_1_SH.xml  (nicht in der Übersicht)
+LoD2_32_460_6082_1_SH.xml
+    https://geodaten.schleswig-holstein.de/gaialight-sh/_apps/dladownload/massen.php?file=LoD2_32_460_6082_1_SH.xml&id=4&live=2024&km=32460_6080
+LoD2_32_460_6083_1_SH.xml
+    https://geodaten.schleswig-holstein.de/gaialight-sh/_apps/dladownload/massen.php?file=LoD2_32_460_6083_1_SH.xml&id=4&live=2024&km=32460_6080
+LoD2_32_460_6094_1_SH.xml
+    https://geodaten.schleswig-holstein.de/gaialight-sh/_apps/dladownload/massen.php?file=LoD2_32_460_6094_1_SH.xml&id=4&live=2024&km=32460_6090
+LoD2_32_460_6095_1_SH.xml
+    https://geodaten.schleswig-holstein.de/gaialight-sh/_apps/dladownload/massen.php?file=LoD2_32_460_6095_1_SH.xml&id=4&live=2024&km=32460_6090
+LoD2_32_460_6096_1_SH.xml  (nicht in der Übersicht)
+LoD2_32_460_6097_1_SH.xml  (nicht in der Übersicht)
+LoD2_32_461_6081_1_SH.xml
+    https://geodaten.schleswig-holstein.de/gaialight-sh/_apps/dladownload/massen.php?file=LoD2_32_461_6081_1_SH.xml&id=4&live=2024&km=32460_6080
+LoD2_32_461_6082_1_SH.xml  (nicht in der Übersicht)
+LoD2_32_461_6095_1_SH.xml  (nicht in der Übersicht)
+LoD2_32_461_6096_1_SH.xml
+    https://geodaten.schleswig-holstein.de/gaialight-sh/_apps/dladownload/massen.php?file=LoD2_32_461_6096_1_SH.xml&id=4&live=2024&km=32460_6090
+LoD2_32_461_6097_1_SH.xml  (nicht in der Übersicht)
+LoD2_32_462_6081_1_SH.xml
+    https://geodaten.schleswig-holstein.de/gaialight-sh/_apps/dladownload/massen.php?file=LoD2_32_462_6081_1_SH.xml&id=4&live=2024&km=32460_6080
+LoD2_32_462_6095_1_SH.xml
+    https://geodaten.schleswig-holstein.de/gaialight-sh/_apps/dladownload/massen.php?file=LoD2_32_462_6095_1_SH.xml&id=4&live=2024&km=32460_6090
+LoD2_32_462_6096_1_SH.xml
+    https://geodaten.schleswig-holstein.de/gaialight-sh/_apps/dladownload/massen.php?file=LoD2_32_462_6096_1_SH.xml&id=4&live=2024&km=32460_6090
+LoD2_32_462_6097_1_SH.xml
+    https://geodaten.schleswig-holstein.de/gaialight-sh/_apps/dladownload/massen.php?file=LoD2_32_462_6097_1_SH.xml&id=4&live=2024&km=32460_6090
+LoD2_32_463_6081_1_SH.xml
+    https://geodaten.schleswig-holstein.de/gaialight-sh/_apps/dladownload/massen.php?file=LoD2_32_463_6081_1_SH.xml&id=4&live=2024&km=32460_6080
+LoD2_32_463_6096_1_SH.xml
+    https://geodaten.schleswig-holstein.de/gaialight-sh/_apps/dladownload/massen.php?file=LoD2_32_463_6096_1_SH.xml&id=4&live=2024&km=32460_6090
+LoD2_32_463_6097_1_SH.xml
+    https://geodaten.schleswig-holstein.de/gaialight-sh/_apps/dladownload/massen.php?file=LoD2_32_463_6097_1_SH.xml&id=4&live=2024&km=32460_6090
+LoD2_32_464_6081_1_SH.xml
+    https://geodaten.schleswig-holstein.de/gaialight-sh/_apps/dladownload/massen.php?file=LoD2_32_464_6081_1_SH.xml&id=4&live=2024&km=32460_6080
+LoD2_32_464_6096_1_SH.xml
+    https://geodaten.schleswig-holstein.de/gaialight-sh/_apps/dladownload/massen.php?file=LoD2_32_464_6096_1_SH.xml&id=4&live=2024&km=32460_6090
+LoD2_32_464_6097_1_SH.xml
+    https://geodaten.schleswig-holstein.de/gaialight-sh/_apps/dladownload/massen.php?file=LoD2_32_464_6097_1_SH.xml&id=4&live=2024&km=32460_6090
