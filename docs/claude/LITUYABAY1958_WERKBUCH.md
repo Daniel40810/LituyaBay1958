@@ -1,0 +1,947 @@
+# LituyaBay1958 Werkbuch
+
+**Das Projekt der Riesenwelle und des Netzes.** Lituya Bay, Alaska, 9. Juli 1958, 22:16 Uhr Ortszeit.
+
+> **Stand: 01.11.2026. Fragen F1–F43 beantwortet: alle A (Entscheidung vom 01.11.2026, Abschnitt 16). Phase 0b (Recherche) ist der nächste Schritt; Phase 1 wartet auf die Freigabe.**
+> Erstellt aus `docs/claude/LITUYABAY1958_WERKBUCH_PROMPT.md`. Das Werkbuch wird über das ganze Projekt fortgeschrieben (Abschnitt 19). Jede Zahl ist **belegt** (Quelle in Abschnitt 2.9), **gemessen** (aus den Daten in `download/`), **gerechnet** (hier hergeleitet, Formel in Abschnitt 9) oder **gestaltet [G]**. Was noch keine Quelle hat, trägt **[zu prüfen]**.
+>
+> Vorlage: Sylt Werkbuch (Projekt der Brandung) und Timmendorf (Projekt des Segels). Geschwisterdateien: `Kartenmaterial.md` (48 Quellen), `download/INVENTAR.md` (zweiter Lauf: 1 227 Dateien, 13,5 GB), `geodaten/gebiete.geojson`, `geodaten/namen_szene.geojson`.
+
+---
+
+## Inhalt
+
+1. Auftrag und Leitidee
+2. Recherche und was daraus folgt
+3. Daten: Gebiete, Kartenmaterial, Aufbereitung
+4. Grundsatzentscheidungen
+5. Neue Packages
+6. Optimierung bestehender Engines
+7. Die Netze (Oracle Network Data Model)
+8. Texturen
+9. Physik in Kurzform
+10. Die Szene
+11. Regie
+12. Oberfläche
+13. Datenbank
+14. Phasenplan
+15. Leistungsbudget und Risiken
+16. Offene Fragen
+17. Ideenspeicher
+18. Rückfluss
+19. Fortschritt
+
+---
+
+## 1. Auftrag und Leitidee
+
+Eine animierte 3D-Echtzeitszene der Lituya Bay am Fuß der Fairweather-Kette. Das Beben an der Fairweather-Störung löst 1 bis 2½ Minuten nach dem ersten Stoß einen Felssturz von 30,6 Mio. m³ in den Gilbert Inlet aus. Der Fels trifft mit rund 110 m/s auf das Wasser, die Welle wird 162 m hoch, läuft am Sporn gegenüber bis 524 m hinauf, die höchste je gemessene Auflaufhöhe, rasiert auf 10 km² den Wald von den Ufern und läuft die 12 km lange Bucht hinab bis zum Eingang, wo drei Fischkutter vor Anker liegen. Die Szene zeigt die Bucht **vor**, **während** und **nach** der Welle und **heute** (Zeitstände, Abschnitt 10.1).
+
+Drei Säulen, gleichrangig:
+
+1. **Die Ereigniskette als Physik:** Beben → Hangversagen → Felssturz → Eintauchen → Impulswelle → Auflauf → Wellenwurf → Treibgut → Wiederbewaldung. Jedes Glied ist ein eigenes Package im Renderer (Abschnitt 5), geprüft gegen Laborversuche und Belege (Abschnitt 9).
+2. **Das Oracle Network Data Model, ausgereizt:** sieben Netze der Natur und des Ereignisses (Abschnitt 7). Jedes beantwortet eine Frage, die man in der Szene sieht, und wird gegen eine zweite Rechnung oder einen Beleg geprüft.
+3. **Das Bild, episch:** Mt Fairweather (4 671 m) steigt in 24 km von null auf; die Welle ist höher als jedes Gebäude Europas; die Julinacht ist hell. Gelände bis 0,5 m aus dem Lidar, Fernsicht bis zum Horizont, echte Texturen, Wald in Millionen Bäumen, Kino mit Zeitlupe und Unterwasserblick.
+
+### 1.1 Was „episch“ heißt (Leitplanken)
+
+- **Maßstab zeigen:** Menschen, Boote und Bäume als Maßstab im Bild; atmosphärische Perspektive über 60 km; Erdkrümmung am Horizont. Die 524 m sind beeindruckend genug: episch durch Physik und Belege, nicht durch Übertreibung.
+- **Zeit dehnen:** Die ersten zehn Minuten nach dem Beben in Echtzeit, in Zeitlupe bis 1:20 und im Zeitraffer; dazu 68 Jahre Wiederbewaldung in einer Minute.
+- **Alle Sinne:** Grollen des Bebens, Donner des Sturzes (der Schall braucht 30 s bis zur Anchorage Cove), Brüllen der Welle, brechender Wald; Alpenglühen am Fairweather, Staub im Gegenlicht; Gletschermilch, Gischt, Unterwasser.
+- **Wahr bleiben:** Was gestaltet ist, trägt [G], im Werkbuch und im Code.
+
+---
+
+## 2. Recherche und was daraus folgt
+
+### 2.1 Das Ereignis in Zahlen
+
+| Größe | Wert | Art | Quelle |
+|---|---|---|---|
+| Beben, Zeit | 9. Juli 1958, 22:16 Ortszeit (= 10.07. 06:16 UTC) | belegt | FRITZ01 (S. 6), COMCAT |
+| Beben, Magnitude | 8,3 (Richter, 1959); Mw 7,8 (ISC-GEM) | belegt | FRITZ01, COMCAT |
+| Beben, Versatz an der Fairweather-Störung | bis 6,4 m horizontal, 1 m vertikal; SW-Seite nach NW und hoch | belegt | TOCHER59 über FRITZ01 |
+| Dauer des starken Schüttelns | 1 bis 4 min (zwei Zeugen auf Booten) | belegt | FRITZ01 |
+| Zeit bis zum Felssturz | 1 bis 2½ min nach dem ersten Stoß | belegt | FRITZ01 |
+| Felssturz, Ort | NE-Wand des Gilbert Inlet, Hang im Mittel 40°, bis 915 m | belegt | MILLER60 über FRITZ01 |
+| Felssturz, Gestein | Amphibol- und Biotitschiefer, ρ ≈ 2,7 t/m³ | belegt | FRITZ01 |
+| Felssturz, Maße | Breite 732–915 m (Mittel 823 m), Länge am Hang 970 m, Dicke bis 92 m, Schwerpunkt 610 m | belegt | MILLER60, SLINGERLAND79 über FRITZ01 |
+| Felssturz, Volumen | 30,6 · 10⁶ m³ (≈ 83 Mio. t) | belegt | MILLER60 |
+| Aufschlaggeschwindigkeit | 110 m/s (freier Fall vom Schwerpunkt, obere Grenze) | belegt/gerechnet | FRITZ01; Abschnitt 9.2 |
+| Froude-Zahl des Aufschlags | F = 3,18 bei h = 122 m | belegt | FRITZ01 |
+| Gilbert Inlet | Breite 1 342 m, Tiefe 122 m, beide Hänge ≈ 45° | belegt | FRITZ01 |
+| Welle im Inlet (Modell 1:675) | Amplitude 152 m bei x = 885 m nach 16 s, Höhe 162 m, H/h = 1,33; über 200 m bei x = 600 m nach 11 s | belegt | FRITZ01 |
+| Auflauf am Sporn | 524 m (Natur), 526 m (Modell, nach 35 s); überspült bis 550 m | belegt | MILLER60, FRITZ01 |
+| Periode der Folgewellen im Inlet | 76 bis 91 s | belegt | FRITZ01 |
+| Spurlinie Südufer | 208 m bei Mudslide Creek | belegt | MILLER60 |
+| Zerstörter Wald | rund 10 km² zwischen Spurlinie und Hochwasserlinie; bei Fish Lake 1 100 m landeinwärts | belegt | FRITZ01 |
+| Gletscherfront | bis 400 m Eis abgeschert, Deltas fortgeschoben; danach senkrechte Wand quer zum Inlet | belegt | FRITZ01 |
+| Bucht | Stamm 12 km, 1,2–3,3 km breit, Eingang 300 m, Tiefe bis 220 m, Eingang 10 m; U-Trog | belegt | FRITZ01 |
+| Sonne zur Bebenzeit | 1° unter dem Horizont, ≈ 12 min nach Sonnenuntergang (22:04); bürgerliche Dämmerung, Himmel hell | gerechnet | Abschnitt 9.10 |
+| Tide zur Bebenzeit | [zu prüfen] aus `download/klima/gezeiten/gezeiten_lituya_juli1958.json` | gemessen (Vorausberechnung) | COOPS |
+| Wetter | [zu prüfen] aus ERA5 (`--gross`) und Zeugen; Zeugen berichten ruhige See [zu prüfen] | | ERA5, MILLER60 |
+
+### 2.2 Zeitleiste der Nacht (Simulationszeit t in Sekunden ab dem ersten Stoß)
+
+| t | Ereignis | Art |
+|---|---|---|
+| 0 | erster Stoß; Schütteln beginnt, hält 60 bis 240 s | belegt |
+| 60 … 150 | Felssturz löst sich an der NE-Wand des Gilbert Inlet | belegt |
+| +0 … 7 | Eintauchen (Gleitdauer am Wasser ≈ 6,8 s im Modell) | belegt |
+| +11 | Amplitude über 200 m bei 600 m vom Aufschlag | belegt |
+| +16 | 152 m bei 885 m | belegt |
+| +23 … 35 | Auflauf am Sporn gegenüber bis 524 m, Höchststand nach 35 s | belegt |
+| +35 … 240 | Nachschwingen im Inlet, Reflexionen (Zeugen: „jumping and shaking“) | belegt |
+| +150 … 400 | Front läuft die Bucht hinab; Cenotaph Island; Südufer bis 208 m | gerechnet (7.1, 9.4) |
+| +300 … 600 | Front am Eingang, die drei Boote; Badger über die Nehrung | gerechnet, Zeugen [zu prüfen] |
+| +600 … 3 600 | Seiche der Bucht (Grundperiode ≈ 11 min), Treibholz sammelt sich | gerechnet [G] |
+| Tage | Holzteppiche treiben aus, Staub setzt sich | gestaltet [G] |
+| Jahre bis 2026 | Wiederbewaldung, Gletscherrückzug | gemessen (DSM 2012, ArcticDEM 2013–2022, Lidar 2019) |
+
+Die gerechneten Zeiten sind Vorgaben für Phase 13a, wo `wave`, `LB_NET_WELLE` und die Zeugen gegeneinander gehalten werden.
+
+### 2.3 Die drei Boote
+
+| Boot | Besatzung | Lage | Schicksal | Art |
+|---|---|---|---|---|
+| Edrie | Howard Ulrich mit Sohn | Anchorage Cove, vor Anker | reitet die Welle, Ankerkette reißt, überlebt | [zu prüfen in MILLER60] |
+| Badger | Bill und Vivian Swanson | nahe dem Eingang | über La Chaussee Spit getragen, sinkt draußen, gerettet | [zu prüfen in MILLER60] |
+| Sunmore | Orville und Mickey Wagner | nahe dem Eingang | versucht die Flucht durch den Eingang, verloren | [zu prüfen in MILLER60] |
+
+Bauart (Troller/Seiner der 1950er), Länge, Tiefgang und genaue Ankerplätze: Recherche in Phase 0b aus MILLER60 (S. 61 ff.) und den Zeitungsberichten. Was unbelegt bleibt, wird [G] und so markiert.
+
+### 2.4 Frühere Wellen
+
+| Jahr | Auflauf | Ursache (Miller) | Art |
+|---|---|---|---|
+| 1853 oder 1854 | 120 m, Nordufer gegenüber Mudslide Creek | Felssturz von der Südwand | belegt (FRITZ01 nach MILLER60) |
+| 1874 | [zu prüfen] | | |
+| 1899 | [zu prüfen] (Beben Yakutat Bay) | | |
+| 1936 | 150 m, NE-Wand des Crillon Inlet; drei Wellen wachsender Höhe | Felssturz vom SW-Ufer des Crillon Inlet (unbestätigt) | belegt |
+| 1958 | 524 m | Felssturz Gilbert Inlet | belegt |
+
+Vier, wahrscheinlich fünf Riesenwellen in zwei Jahrhunderten: Die Bucht ist der Ort der Riesenwellen. Das Regiebuch „Die Bucht der Wellen“ (Abschnitt 11.3) und das Ufer-LRS (7.2) tragen alle Spurlinien.
+
+### 2.5 Vergleichsfälle
+
+| Ort | Jahr | Auflauf | Bemerkung |
+|---|---|---|---|
+| Loen, Norwegen | 1936 | 75 m | höchster Auflauf in Norwegen |
+| Vajont, Italien | 1963 | 270 m über dem Stausee, 245 m über der Dammkrone | 0,24 km³, fast waagerecht mit bis 30 m/s |
+| Spirit Lake, Mt. St. Helens | 1980 | 260 m | Lawine mit 70–80 m/s |
+| Lituya Bay | 1958 | 524 m | siebenmal Loen |
+
+Alle belegt über FRITZ01. Sie sind die Grenzfälle für `impact` und `wave` (Abschnitt 9.4).
+
+### 2.6 Bucht, Grund, Wald, Gletscher
+
+- **Grund 1958:** Vermessungen H06581–83 (1940) sind der Stand vor der Welle, H08492 (Juli/August 1959) der Stand danach; beide liegen in `download/bathymetrie/nos_vermessungen/` (57 Dateien). Franco et al. 2020 haben daraus die Bathymetrie vor 1958 rekonstruiert (FRANCO20, zum Abgleich). Heute: BlueTopo (mit H14228, 2025) und USACE-Topobathy 2019.
+- **Wald:** Sitka-Fichte (*Picea sitchensis*) und Westliche Hemlocktanne (*Tsuga heterophylla*) als Hauptarten, Erle an Ufern und im Vorfeld [zu prüfen]; Höhen aus dem IfSAR-DSM 2012 (`--gross`) und dem Lidar 2019 (Boden) gegen ArcticDEM (Oberfläche). Miller: Bäume gebrochen, entrindet und bis 10 m über die Spurlinie geschleudert (FRITZ01, S. 14).
+- **Gletscher:** Lituya-, Nord-Crillon- und Cascade-Gletscher sind Reste des Talgletschers, der die Bucht geformt hat; Fronten 1958 aus der Karte 1951 (Luftbilder 1948) und C-5 (Luftbilder 1954), heute aus Lidar und ITS_LIVE.
+- **Die Fairweather-Störung** bildet den Graben, dessen Teil die beiden Arme am Kopf der Bucht sind (FRITZ01, S. 4); Verlauf aus `download/geologie/stoerungen/`.
+
+### 2.7 Tiere, Menschen, Namen
+
+- Küstenbraunbär, Seehund, Seeotter, Möwen, Weißkopfseeadler [zu prüfen, NPS].
+- Tlingit: Mount Fairweather = Tsalxaan; „Lituya“ = See in der Landspitze (NPS „Tlingit Place Names of Huna Káawu“, Kartenmaterial `nps_karten`).
+- 94 amtliche Namen in der Szene, 42 im Kern (`geodaten/namen_szene.geojson`).
+
+### 2.8 NDM-Funktionsprobe (Phase 3)
+
+Vor dem ersten Netz wird gegen die installierte Datenbank geprüft, je mit einer Zeile SQL oder Java, Ergebnis in diese Tabelle:
+
+| Fähigkeit | Prüfung | Ergebnis |
+|---|---|---|
+| Version | `select banner from v$version` | |
+| räumliches Netz mit Höhe | `SDO_NET.CREATE_SDO_NETWORK` + `VALIDATE_NETWORK` auf 3001/3002 | |
+| logisches Netz | `CREATE_LOGICAL_NETWORK` | |
+| LRS-Netz | `CREATE_LRS_NETWORK`, `SDO_LRS.LOCATE_PT` | |
+| hierarchisch | `no_of_hierarchy_levels = 2`, Elternknoten | |
+| Feature-Layer | `SDO_NET.ADD_FEATURE_LAYER` | |
+| Partitionen, LOD | `SPATIAL_PARTITION`, `GENERATE_PARTITION_BLOBS`, `LODNetworkManager` | |
+| `withinCost`, `nearestNeighbors`, `kShortestPaths`, `tsp`, `mcst`, `traceIn`/`traceOut` | `NetworkAnalyst` | |
+| `LinkCostCalculator`, `NetworkConstraint` | eigene Klasse | |
+| Network Buffer | `networkBuffer` | |
+| Zusammenhangskomponenten | `FIND_CONNECTED_COMPONENTS` | |
+| Property Graph, SQL/PGQ | nur 23ai: `CREATE PROPERTY GRAPH`, `GRAPH_TABLE` | |
+
+Was fehlt, wird nicht geplant, sondern als Wunsch notiert (F39).
+
+### 2.9 Quellen (Kurzzeichen)
+
+| Kurz | Quelle |
+|---|---|
+| FRITZ01 | Fritz, Hager & Minor 2001: Lituya Bay case: rockslide impact and wave run-up. Science of Tsunami Hazards 19(1), 3–22. `download/dokumente/dokumente/Fritz_LituyaBay_STHVol19N1Y2001.pdf` |
+| MILLER60 | Miller 1960: Giant waves in Lituya Bay, Alaska. USGS Professional Paper 354-C, mit Karte 1:50 000. `download/dokumente/usgs_publikationen/pp354C/` |
+| TOCHER59 | Tocher & Miller 1959: Field observations on effects of Alaskan earthquake of 10 July 1958. Science 129, 394–395 |
+| SLINGERLAND79 | Slingerland & Voight 1979: Occurrences, properties and predictive models of landslide-generated impulse waves |
+| HALLWATTS53 | Hall & Watts 1953: Laboratory investigation of the vertical rise of solitary waves on impermeable slopes |
+| SYNOLAKIS87 | Synolakis 1987: The run-up of solitary waves. J. Fluid Mech. 185 |
+| MUELLER95 | Müller 1995: Auflaufen und Überschwappen von Impulswellen an Talsperren. VAW-Mitteilung 137 |
+| HUBERHAGER97 | Huber & Hager 1997: Forecasting impulse waves in reservoirs |
+| HELLER10 | Heller & Hager 2010: Impulse product parameter in landslide-generated impulse waves. J. Waterw. Port Coast. Ocean Eng. [zu prüfen am Original] |
+| WIEGEL64 | Wiegel 1964: Oceanographical engineering (Modell 1:1000 der Bucht in MILLER60, S. 65 f.) |
+| MADER99 | Mader 1999: Modelling the 1958 Lituya Bay mega-tsunami. STH 17(2) |
+| FRANCO20 | Franco et al. 2020: NHESS 20, 2255–2279 (Bathymetrie vor 1958). `download/dokumente/dokumente/Franco_2020_NHESS.pdf` |
+| GONZALEZ19 | González-Vida et al. 2019: NHESS 19, 369 |
+| NEWMARK65 | Newmark 1965: Effects of earthquakes on dams and embankments. Géotechnique 15 |
+| JIBSON93 | Jibson 1993: Predicting earthquake-induced landslide displacements using Newmark's sliding block analysis [zu prüfen] |
+| WELLS94 | Wells & Coppersmith 1994: New empirical relationships among magnitude, rupture length, … BSSA 84 [zu prüfen] |
+| SAVAGEHUTTER89 | Savage & Hutter 1989: The motion of a finite mass of granular material down a rough incline. J. Fluid Mech. 199 |
+| VOELLMY55 | Voellmy 1955: Über die Zerstörungskraft von Lawinen |
+| HEIM32 | Heim 1932: Bergsturz und Menschenleben (Fahrböschung) |
+| WOODHB | USDA Forest Products Laboratory: Wood Handbook (Festigkeit Sitka-Fichte) [zu prüfen] |
+| COMCAT | USGS ComCat, Ereignis iscgem884702. `download/ereignis/usgs_erdbeben/` |
+| NCEI | NCEI Global Historical Tsunami Database. `download/ereignis/ncei_tsunami/` |
+| COOPS | NOAA CO-OPS, Station 9452928. `download/klima/gezeiten/` |
+| ERA5 | ECMWF ERA5 Juli 1958 (NSF NCAR, `--gross`) |
+| DATEN | Kartenmaterial nach `Kartenmaterial.md`: Lidar 2019, IfSAR 2012, BlueTopo, USACE 2019, Karten 1951/1961, Sentinel-2, WorldCover, GNIS, … |
+| APP | eigene Rechnung und Gestaltung [G] |
+
+---
+
+## 3. Daten: Gebiete, Kartenmaterial, Aufbereitung
+
+### 3.1 Gebiete
+
+UTM Zone 8 Nord (EPSG:26908, NAD83; EPSG:32608 weicht unter 2 m ab), volle Kilometer, Höhen NAVD88 (F3).
+
+| Gebiet | Ost (m) | Nord (m) | Größe | Raster der App | Quelle |
+|---|---|---|---|---|---|
+| Kern | 340 000 – 364 000 | 6 494 000 – 6 512 000 | 24 × 18 km | 0,5–1 m Lidar, Wasser 4 m BlueTopo, 1 m USACE | DATEN |
+| Szene | 322 000 – 388 000 | 6 480 000 – 6 540 000 | 66 × 60 km | 5 m IfSAR, 10 m 3DEP | DATEN |
+| Fern | 220 000 – 480 000 | 6 385 000 – 6 625 000 | 260 × 240 km | 30 m Copernicus, 460 m GEBCO | DATEN |
+
+Warum 260 km: Vom Meer aus ist der Gipfel des Mt Fairweather bis zur Entfernung $d \approx 3{,}86\sqrt{H}$ km $= 264$ km sichtbar (mit Refraktion k = 0,13, Abschnitt 9.11). Das Fernfeld reicht genau so weit.
+
+### 3.2 Kartenmaterial
+
+Katalog in `Kartenmaterial.md`, geladen mit `tools/kartenmaterial`, Stand in `download/INVENTAR.md`. Für das Werkbuch zählen: Lidar 2019 (312 Kacheln im Kern), IfSAR 2012 (DTM; DSM und Radarbild mit `--gross`), BlueTopo, USACE 2019, NOS-Vermessungen 1926/1940/1959/2025, USGS-Karten 1951 und 1961, ENC (23 Zellen), Sentinel-2, WorldCover, GNIS, RGI/GLIMS, ITS_LIVE (`--gross`), NCEI-Tsunami, ComCat, Gezeiten, die USGS-Berichte mit Tafeln (36 Dateien), FRITZ01 (von Hand). Fotos von Miller: von Hand aus ScienceBase.
+
+### 3.3 Regel: Kartenmaterial nur in Phase 2, nach Abschluss ausgelagert
+
+Verbindlich, Abnahme-Bedingung (Prompt 2.3):
+
+1. Kartenmaterial liest nur die Aufbereitung `com.dan.lituya.tools`, einmal; Pfad in `daten/rohdaten.properties` (in `.gitignore`), Vorgabe `download/`.
+2. Die Aufbereitung schreibt alles, was die App braucht, nach `daten/` mit `daten/INHALT.txt` (Prüfsumme je Datei).
+3. App, Netze und Oracle lesen nie aus `download/`.
+4. Abnahme Phase 2: `download/` umbenannt, App und Prüfungen laufen vollständig. Fehlt `daten/`, sagt das Startbild, welches Werkzeug zu laufen hat.
+5. Nach Projektabschluss bleiben `tools/kartenmaterial/`, `Kartenmaterial.md`, `download/INVENTAR.md`, `geodaten/`; `docs/QUELLEN.md` nennt den Ort jeder Rohdatei auf der Wechselfestplatte.
+6. Neue Rohdaten über den Katalog und die Aufbereitung, nie über den Laufzeitcode.
+
+### 3.4 Aufbereitung (Phase 2): Schritte und Ausgaben
+
+| Schritt | Eingang (`download/`) | Ausgabe (`daten/`) | Prüfbild |
+|---|---|---|---|
+| `gelaende` | Lidar 2019 (Kern), IfSAR-DTM (Szene), 3DEP 1″ und Copernicus (Fern) | `gelaende/kern_0.5m/*.r32` (Kacheln 1 km, für `clipmap`), `szene_5m`, `fern_30m`; NAVD88 | Schummerung je Stufe, Nahtprüfung |
+| `grund` | BlueTopo, USACE 2019, NOS 1940 und 1959 (GEODAS xyz), GEBCO | `grund/heute_4m`, `grund/1940_20m`, `grund/1959_20m` (Lotungen → Raster mit Nachbarschaftsinterpolation, Trog nach FRANCO20 geprüft), Land-Wasser-Maske | Tiefenkarte wie `images/Kern_BlueTopo.png`, Differenz 1940–1959 |
+| `rueckbau1958` | Karte 1951 und C-5 (georef.), Miller-Karte, Lidar | Gletscherfronten 1958, Deltas, Rutschnarbe aufgefüllt (Prisma 823 × 970 × 92 m) → `gelaende/kern_1958_delta.r32` [G an den Nähten] | Vorher/Nachher Gilbert Inlet |
+| `klassen` | Sentinel-2 (klarste Szenen), WorldCover, IfSAR-Radarbild | `klassen/kern_10m.u8` (Wald, Gebüsch, Fels, Schutt, Eis, Schnee, Wasser, Strand), Makrofarbe `farbe/*.rgb` | Klassenbild |
+| `wald` | DSM 2012 − DTM, Lidar (Boden), ArcticDEM-Streifen | Kronenhöhe 5 m, Waldalter aus der Spurlinie [G außerhalb des Bands] | Kronenhöhe |
+| `spurlinie` | Miller-Karte 1:50 000 (georef., digitalisiert), NCEI-Auflaufhöhen, Lidar-Kante | `ereignis/spurlinie_1958.geojson` (Linie mit Höhe je Stützpunkt), `auflauf.csv` | Spurlinie über Lidar |
+| `netz` | alle obigen | `netz/<netz>/knoten.tsv`, `kanten.tsv`, `pruefwege.tsv` (Abschnitt 7) | Netzbilder |
+| `namen` | GNIS, Tlingit | `namen.tsv` mit UTM | |
+| `gletscher` | RGI 7, GLIMS, ITS_LIVE, Fronten 1958 | Umrisse je Zeitstand, Geschwindigkeit | |
+| `ereignis` (Phase 13) | — | `ereignis/<lauf>/…` (Höhenfelder, Strom, Zustände je Zeitschritt), vorgerechnet | Bildfolge |
+| `inhalt` | — | `INHALT.txt` | |
+
+Höhenbezug: Lidar und USACE sind NAVD88; BlueTopo NAVD88; NOS-Lotungen beziehen sich auf MLLW und werden mit der Bezugshöhe der Station Elfin Cove (`bezugshoehen_elfin_cove.json`) umgerechnet; GEBCO und Copernicus (Ellipsoid bzw. EGM) nur im Fern, dort reicht ein Versatz [G].
+
+---
+
+## 4. Grundsatzentscheidungen
+
+### 4.1 Renderer-Ablauf
+
+Wie Sylt und Timmendorf: Package-Arbeit nur in `Renderer/src`, `check-packages` grün, `Renderer/dist/Renderer.jar` nach `LituyaBay1958/lib/`, Datum und Größe im Fortschritt (Abschnitt 19). Die App enthält nie Kopien von Element-Packages. `sdonm.jar` und `lib/lod/` (Treiber 21) wie Timmendorf (F26).
+
+### 4.2 Engine
+
+GL-Engine aus Timmendorf (F6), erweitert um `clipmap` (Gelände bis zum Horizont, 5.11) und `surface` (Materialien, 5.10), Kaskadenschatten bis 60 km (6.10). FFrame als Hülle, FStyle für die Bedienung, FPS- und GPU-Zeit ab Phase 1.
+
+### 4.3 Paketvertrag (15 Punkte)
+
+Sylt Abschnitt 4, Punkte 1–12, unverändert. Dazu:
+
+13. **Kein Package kennt Oracle.** NDM, JDBC, `sdonm.jar` nur in `com.dan.lituya.netz` und `com.dan.lituya.tools`. Was NDM rechnet, rechnet `route` unabhängig nach.
+14. **Optimierung nur mit Messung** vorher/nachher (Zeit je Bild, GPU-Zeit, Speicher) und Vergleichsbildern. Alle Szenen, die das Package nutzen, rechnen danach gleich; die alte Rechnung bleibt als Rückfall, bis die neue überall abgenommen ist.
+15. **Texturen:** kleine gebackene Karten (≤ 4 MB) als Ressource im Package wie in `com.dan.beach`; große Sätze von der App aus `daten/texturen/`; Herkunft und Lizenz je Textur in `texturen.txt` bzw. `daten/texturen/LIZENZEN.txt`.
+
+### 4.4 Vorrechnung und Echtzeit (F10)
+
+Das Ereignis in voller Auflösung (Granularstrom auf 2 m, Nahfeld mit Partikeln, Welle in drei Gittern, Millionen Bäume mit Zustand) ist auf der Radeon 680M nicht in Echtzeit zu rechnen (Abschnitt 15). Deshalb **beides**:
+
+- **Vorgerechnet** in der Aufbereitung (`ereignis`), hohe Auflösung, nach `daten/ereignis/<lauf>/`: je Zeitschritt (0,1 s im Nahfeld, 0,5 s in der Bucht) Höhenfeld der Welle, Nässe, Strom des Felssturzes, Staub, Zustände der Bäume (als Bitfelder je Kachel), Lage der Boote. Die App spielt ab: vorwärts, rückwärts, Zeitlupe bis 1:20, frei mit der Kamera.
+- **Echtzeit** in geringer Auflösung (Welle 16 m im Kern, 4 m im Inlet, Felssturz 8 m) für „Was wäre wenn“: Volumen, Ort, Tide, Grund 1940 gegen heute. Bedienfeld EREIGNIS.
+
+### 4.5 Zeit
+
+Drei Uhren: **Simulationszeit** t ab dem ersten Stoß (Zeitleiste 2.2), **Weltzeit** (9.7.1958 22:16 PST, UTC−8 [zu prüfen: Zeitzone Alaskas 1958], Sonnenstand, Tide), **Zeitstand** (vor, Welle, danach, heute). Der Zeitraffer der Wiederbewaldung läuft über Jahre.
+
+---
+
+## 5. Neue Packages
+
+Alle entstehen in `Renderer/src` aus `muster`, mit Kern (nur Java 21), `gl/` (JOGL), `demo/` (FStyle), `…Check` („Alles in Ordnung.“), README, Statusbild. Schnittstellen sind schmal und werden in `com.dan.lituya.wiring` verdrahtet.
+
+### Abhängigkeitsbild
+
+```
+                         com.dan.lituya (App, wiring, netz, tools)
+                                        │
+   ┌──────────┬──────────┬──────────┬───┴──────┬──────────┬──────────┬──────────┐
+ quake    landslide    impact     wave      debris   succession  vessel    netview
+   │          │           │          │           │          │          │
+   └── Quake.Slope ─►     │          │           │          │          │
+              └── Landslide.Water ─► impact ─► Impact.Far ─► wave      │
+                          └── Landslide.Dust ─► dustcloud               │
+                                     wave.runupAt ─► succession ─► forest/tree, understory
+                                     wave/ocean (Strömung) ─► debris, vessel (über buoyancy)
+   clipmap ◄── surface ──► cliff, ice, scree, forest, vessel          route ◄── (Zweitrechnung zu NDM)
+```
+
+Kein Package ruft ein anderes direkt: Die Pfeile sind Schnittstellen (`Landslide.Water`, `Impact.Far`, `Wave.Bed` …), die die App mit dem jeweils anderen Package füllt.
+
+### 5.1 `com.dan.quake` — Erdbeben
+
+- **Quelle:** Störung als Linie (aus `LB_NET_WASSER`-fremd: eigene Datei `stoerung.tsv`), Bruchlänge und Versatz aus der Magnitude (WELLS94, 9.1), Bruch läuft mit $v_r \approx 0{,}8\,v_S$ entlang der Störung ab dem Hypozentrum.
+- **Bodenbewegung je Ort:** Laufzeiten P und S, Hüllkurve der Beschleunigung aus einem Abminderungsgesetz (9.1), Dauer, synthetische Zeitreihe aus gefiltertem Rauschen mit dieser Hülle (`accelerationAt(x, z, t)` → Vektor), Arias-Intensität $I_A$.
+- **Folgen:** `Quake.Slope` (kritische Beschleunigung je Hang → Newmark-Verschiebung → Auslösung an `landslide`), `Quake.Basin` (Anregung einer Seiche an `wave`), Kamerazittern, Schnee- und Eisabbrüche als Ereignisse.
+- **Klang:** Grollen (Infraschall hörbar gemacht), Knacken im Wald.
+- **Presets:** `fairweather1958()`, `magnitude(M, Abstand)`.
+- **Check:** $t_S - t_P = D\,(1/v_S - 1/v_P)$ gegen Handrechnung; Abminderung gegen Tabelle; Newmark-Block auf schiefer Ebene gegen geschlossene Lösung für Rechteckimpuls.
+- **Später für:** Geiranger (Åkerneset), Glacier, jede Gebirgsszene.
+
+### 5.2 `com.dan.landslide` — Fels-, Eis- und Schneelawinen *(Prunkstück)*
+
+- **Ablösen:** Platte an Kluftflächen (Material aus `cliff`), Auslösung durch `quake` (Newmark) oder von Hand; Übergabe von `fracture` nach dem Bruch.
+- **Strom:** tiefengemittelte Granularströmung nach Savage-Hutter auf dem Gelände (9.2), Reibung nach Voellmy ($\mu$, $\xi$) wählbar auch $\mu(I)$; Materialien Fels (Schiefer), Eis, Schnee, Schutt; Rechnung auf der GPU (Compute), Gitter 2 m im Nahbereich.
+- **Eintauchen:** je Zeitschritt Masse, Geschwindigkeit und Querschnitt am Ufer an `Landslide.Water` (→ `impact`, `wave`); Dicke am Wasser im Lituya-Fall bis 134 m (Modellprofil FRITZ01).
+- **Ablagerung:** Schuttkegel ins Gelände, Blöcke an `scree`, Staub an `dustcloud`.
+- **Bild:** Strom als Höhenfeld mit Material, nahe der Kamera Blöcke und Splitter als Instanzen.
+- **Presets:** `gilbertInlet1958()` (Prisma 823 × 970 × 92 m, 40°, ρ = 2 700, Schwerpunkt 610 m), `vajont1963()`, `spiritLake1980()` als Grenzfälle.
+- **Check:** Block auf schiefer Ebene gegen $v = \sqrt{2 g L (\sin\alpha - \mu\cos\alpha)}$; Fahrböschung (HEIM32) gegen Literaturwerte; Volumen erhalten; Aufschlaggeschwindigkeit des Lituya-Presets im Bereich 96–110 m/s (9.2).
+- **Später für:** Geiranger, Glacier, Brocken (Lawinen im Winter).
+
+### 5.3 `com.dan.impact` — das Nahfeld des Eintauchens
+
+- Würfel um den Aufschlag (Lituya: 1 500 × 1 500 × 600 m), darin Partikel (SPH, Wasser und Granulat als zwei Phasen, Luft als Hohlraum) auf der GPU; Wasserkrater, Wasserwand (Splash Curtain), Strahl, Spritzer, Luftblasen, Weißwasser.
+- Die zwei Stufen nach FRITZ01: Aufschlag und Eindringen mit Strömungsabriss und **Luftkaverne** (wenn die Eindringgeschwindigkeit die Wellengeschwindigkeit übersteigt, F > 1), dann Zusammenbruch der Kaverne mit Auslauf des Gesteins und Phasenmischung (9.3).
+- Übergabe an `wave` am Rand des Würfels: Wasserstand und Durchfluss je Randzelle (`Impact.Far`).
+- **Check:** Lituya im Modell 1:675 (FRITZ01): Amplitude 152 m bei 885 m nach 16 s, über 200 m bei 600 m nach 11 s, Höhe 162 m; Energieanteil der Welle an der Gleitenergie zwischen 2 und 30 % (9.3); Volumen erhalten.
+- **Später für:** Glacier (Kalbung), Edersee, Stapellauf.
+
+### 5.4 `com.dan.dustcloud` — Staubwolke
+
+- Dichtestrom aus Gesteinsstaub (Partikelgröße-Verteilung, Sinkgeschwindigkeit nach Stokes), fließt hangab, hebt sich über dem Wasser, verdünnt im Wind (`wind`), setzt sich ab; Front nach Benjamin $u_f \approx 0{,}5\sqrt{g' h}$ mit $g' = g\,\Delta\rho/\rho$ (9.2).
+- Licht: Mie-Streuung, Eigenschatten, Sonne als Scheibe durch den Staub.
+- **Später für:** Sylt (Abbruch), Steinbruch, Vulkan.
+
+### 5.5 `com.dan.debris` — Treibgut
+
+- Stämme (mit und ohne Krone, entrindet), Äste, Eisbrocken, Schaummatten; Auftrieb über `buoyancy` (Holz ρ ≈ 0,45 t/m³ → 45 % unter Wasser), Drift mit der Strömung aus `wave`/`ocean` und 2–3 % des Windes, Verkeilen zu Holzteppichen (Dichte der Packung), Stranden, Vergrauen über Jahre (`weathering`).
+- **Check:** Drift gegen Strömung, Volumen, Teppich bleibt bei Wind zusammen.
+- **Später für:** Rungholt, Sylt (Sturmflut), Hochwasser.
+
+### 5.6 `com.dan.succession` — Störung und Wiederbewaldung
+
+- **Störung:** Schadensband mit Zuständen je Fläche (bis zum Fels abgeräumt, Boden freigelegt, Bäume gebrochen, entrindet, umgelegt in Strömungsrichtung), Kante aus der belegten Spurlinie (7.2) oder aus `wave.runupAt` und der Strömungsgeschwindigkeit (9.7), umschaltbar (F17).
+- **Wiederbesiedlung:** Pioniere (Erle, Weide) ab Jahr 2, Fichte und Hemlock ab Jahr 10 [G nach Literatur, zu prüfen], Höhe je Alter nach Wuchskurve, das Band bleibt Jahrzehnte sichtbar; Abgleich mit dem DSM 2012 (Kronenhöhe im Band gegen außerhalb) und ArcticDEM 2013–2022.
+- Liefert an `forest`/`tree` je Baum Art, Alter, Zustand; an `understory` die Bodenklasse.
+- **Später für:** Brocken (Windwurf, Borkenkäfer), Glacier (Gletschervorfeld).
+
+### 5.7 `com.dan.understory` — Unterwuchs des Regenwalds
+
+- Moospolster auf Boden, Stämmen, Ästen; Bartflechten; Farne; Teufelskeule; Beerensträucher; Totholz mit Moos; Nadelstreu. Dichte aus Licht unter dem Kronendach (Beer-Lambert mit Blattflächenindex) und Feuchte.
+- **Später für:** Brocken, Haithabu, jede Waldszene.
+
+### 5.8 `com.dan.scree` — Geröll, Blöcke, Moränen
+
+- Blöcke als Instanzen nach Korngrößenverteilung (Fuller-Kurve), Grundkörper mit Verformung, Material aus `surface`; Platzierung nach Hang und Schüttwinkel (≈ 35–40°); Moränenwälle, Schuttkegel, Geröllstrände; Ablagerung aus `landslide`.
+- **Später für:** Geiranger, Glacier, Brocken (Blockmeere).
+
+### 5.9 `com.dan.vessel` — Motorboote und Kutter
+
+- Rümpfe der 1950er Fischkutter (Maße aus der Recherche), Aufbau, Masten, Licht; Anker mit Kette als Kettenlinie, Schwojen; Rollen und Stampfen über `buoyancy` auf `wave` und `ocean`; Kielwasser über `wake`; Kentern, Volllaufen, Sinken; Fahrt mit Motor und Ruder; Menschen an Bord über `figure`.
+- **Check:** Kettenlinie gegen Handrechnung, Rollperiode gegen metazentrische Höhe.
+- **Später für:** Timmendorf (Niendorfer Hafen), Lighthouse, Kiel.
+
+### 5.10 `com.dan.surface` — PBR-Materialien und Texturensätze
+
+- Materialbibliothek: Albedo, Normale, Rauheit, Umgebungsverdeckung, Höhe; stochastische Kachelung (Hex-Tiling), triplanar an Wänden, Makrovariation aus Luftbild; Mischen über die Höhe; Nässe, Schnee, Staub als Auflage; BC7/BC5, Mipmaps, Budget; Werkzeug zum Backen aus Asset-Paketen (Verallgemeinerung von `tools/beach/SandAsset.java`).
+- **Check:** Kontaktbogen, „1 km Kiesstrand ohne Wiederholung“ (Autokorrelation der Textur unter einer Schwelle).
+
+### 5.11 `com.dan.clipmap` — Gelände bis zum Horizont
+
+- Geometrie-Clipmaps um das Auge (z. B. 8 Stufen à 256², Zellweite ab 0,5 m), Kacheln aus `daten/gelaende/` in einem eigenen Faden nachgeladen; virtuelle Textur für Material und Farbe; Erdkrümmung und Refraktion (9.11), Nähte ohne Risse, Höhen NAVD88.
+- **Check:** Höhe an 1 000 Stichproben gleich der Kachel; Nahtprüfung; Zeit je Bild.
+
+### 5.12 `com.dan.netview` — Netze und Felder zeichnen
+
+- Graphen, Wege, Pfeile, Isolinien, laufende Isochronen, Strahlen, Messstrecken mit Werten, in der Ferne ausgedünnt; kennt keine Datenbank, bekommt Knoten, Kanten, Werte.
+- **Check:** Konturen eines bekannten Feldes (Kreis) treffen den Kreis.
+
+### 5.13 `com.dan.aurora` — Polarlicht (Zugabe)
+
+- Vorhänge und Bögen entlang des Magnetfelds, Farben nach Höhe (9.12), Bewegung, Kp-Stärke; nur im Zeitstand „heute“ in dunklen Monaten (F35).
+
+### 5.14 `com.dan.bear` — Küstenbraunbär (Zugabe)
+
+- Gang, Laufen, Graben, Fischen, Schnüffeln, Flucht; Fell im Wind und nass; Verhalten wie `herd`.
+
+---
+
+## 6. Optimierung bestehender Engines
+
+Nach Paketvertrag 14: messen, vergleichen, alle Szenen gleich, alter Weg als Rückfall. Die Messtabelle wird im Fortschritt je Phase gefüllt.
+
+| Nr. | Package | Warum | Was | Messung | Abnahme |
+|---|---|---|---|---|---|
+| 6.1 | `wave` | Kern 24 × 18 km; H/h = 1,33; Auflauf an 45°-Hängen; CPU zu langsam (9.4) | Compute-Shader neben der CPU-Rechnung (gleiche Gleichungen, Arakawa C, Flussform); **drei Gitter** (16 m Kern, 4 m Mitte, 2 m Inlet) mit Durchfluss am Rand; **Impulsquelle** aus `impact`/`landslide` (Wasserstand und Durchfluss am Rand, nicht nur Volumen); Nass-trocken-Rand an Steilhängen (dünne Schichten nicht abschneiden, Reibung begrenzt); Stoßerfassung (HLL-Flüsse statt zentraler Differenzen, F12); Front als Bore an `spray`; Pegel und `runupAt` wie bisher | Sekunden Welle je Sekunde Rechenzeit, CPU gegen GPU, je Gitter | `WaveCheck` alt = neu (CPU = GPU auf 1 mm); Laborfall Lituya (FRITZ01) mit Auflauf 526 ± 50 m; Rungholt und Edersee-Demo pixelgleich |
+| 6.2 | `fracture` | Millionen Tonnen, nicht Tausende Stücke | nach dem Bruch Übergabe der Zellen als Masse und Geschwindigkeit an `landslide`; mehr Zellen in der Ablösezone | Zeit bis zum Bruch, Zellen | Glacier-Kalbung und Sylt-Abbruch unverändert |
+| 6.3 | `ice` | Fronten 1958, Kalben durch Beben und Welle; Eis bis 400 m abgeschert | Spalten und Seracs als Feinform, Schuttbänder, blaues Eis in Spalten (Absorption im Roten), Kalben über `fracture`, Abscheren durch `impact` (Druck auf die Front) | Dreiecke, Zeit | Glacier unverändert |
+| 6.4 | `forest`, `tree` | Millionen Bäume im Kern mit Zustand je Baum | GPU-Kultur (Verteilung auf der GPU aus Dichte und Startwert), Oktaeder-Impostors (Richtungen aus 8 × 8 Ansichten), Zustände aus `succession` (stehend, gebrochen, entrindet, umgelegt mit Richtung, fort), Arten Sitka-Fichte und Hemlock | Bäume je Bild, Zeit, VRAM | fps-Tabelle; Haithabu, Timmendorf, Brocken unverändert |
+| 6.5 | `ocean` | Gletschermilch | Trübung und Farbe aus Schwebstoffkonzentration (9.9), Übergang `ocean` ↔ `wave` am Eingang (gemeinsame Höhe, `Sea`), Gezeitenstrom im Eingang | | Farbe gegen Sentinel-2; andere Szenen mit Trübung 0 unverändert |
+| 6.6 | `sky`, `cloud`, `fog` | 58,6° N, Juli, Sonne 1° unter dem Horizont, Berge bis 4 671 m | Dämmerung nach Sonnentiefe (bürgerlich, nautisch), Alpenglühen (Rot der tiefen Sonne auf Schnee), atmosphärische Perspektive über 60 km mit Höhenabhängigkeit der Dichte, Wolkenkappe und Wolkenbank an der Kette | | Sonnenstand gegen Abschnitt 9.10; andere Szenen unverändert |
+| 6.7 | `soundscape` | Beben, Sturz, Welle, Wald | tiefe Frequenzen, Laufzeit des Schalls (340 m/s) über Kilometer, Echo an den Wänden der Bucht, Doppler der Front | | Hörproben |
+| 6.8 | `kino` | episch | Zeitlupe bis 1:20 mit Zwischenbildern, Zeitleiste der Ereignisse, Bild im Bild (Netzblick), Kamerafahrten mit Trägheit | | Kino läuft durch |
+| 6.9 | `route` | Zweitrechnung zu NDM | Gitternetze (4/8/16/32 Nachbarn), Laufzeitbaum mit mehreren Quellen und Startzeiten, Isochronen als Linien, Messstrecke (m entlang einer Linie, Abschnitte mit Werten) | Knoten je Sekunde | `RouteCheck`: $T = L/\sqrt{gh}$ auf konstantem Grund; Fehler des Gitters gegen den Kreis: 16 Nachbarn ≤ 2,75 %, 32 Nachbarn ≤ 0,76 % (9.4) |
+| 6.10 | GL-Engine | Fernsicht, große Schatten | Kaskadenschatten bis 60 km, Gelände über `clipmap`, Materialien über `surface`, HDR mit Belichtung wie das Auge aus Sylt | fps je Stufe | Tabelle in Abschnitt 15 gefüllt |
+
+---
+
+## 7. Die Netze (Oracle Network Data Model)
+
+Schema `LITUYA` (F40), Präfix `LB_`, Netze `LB_NET_*`, SRID 26908 mit Höhe (3001/3002), Toleranz 5 mm, Index `SPATIAL_INDEX_V2`, Raum-Metadaten auch für `_PATH$` (Lehre aus Timmendorf). Jedes Netz hat ein Datei-Abbild in `daten/netz/<netz>/` (`knoten.tsv`, `kanten.tsv`, `pruefwege.tsv`), ein Ladeskript `db/netz/NN_<netz>.sql`, Prüfwege, eine Zweitrechnung in `route`, eine Prüfsumme in `LB_NETZ_STAND`, und mindestens eine Frage, die es für die Szene beantwortet.
+
+### 7.1 `LB_NET_WELLE` — Laufzeit der Welle *(Herzstück)*
+
+**Frage:** Wann erreicht die Front welchen Ort? Wie viel Zeit hatte jedes Boot? Wie teilt sich die Front an Cenotaph Island?
+
+**Modell:** Nach Fermat ist die Ankunftszeit der Front die kürzeste Laufzeit $T(\mathbf{x}) = \min\int ds/c$, die Eikonalgleichung $\lvert\nabla T\rvert = 1/c$. Auf einem Gitter wird daraus ein kürzester Weg (9.4).
+
+| Element | Festlegung |
+|---|---|
+| Knoten | Gitter 20 m über dem Wasser des Kerns (F21): rund 75 000 Knoten; Attribute `TIEFE_1940`, `TIEFE_1959`, `TIEFE_HEUTE`, `AMPLITUDE` (aus `wave`, je Lauf) |
+| Kanten | 16 Nachbarn (Königszüge und Springerzüge), ungerichtet, `LAENGE` |
+| Kosten | `COST` = Laufzeit linear heute; weitere über `LinkCostCalculator` (F22): `T_1940`, `T_1959`, `T_HEUTE` mit $c = \sqrt{g\,h}$, `T_NICHTLINEAR` mit $c = \sqrt{g\,(h + a)}$ |
+| Quelle | virtueller Knoten `QUELLE`, Kosten 0 zu allen Knoten der Einschlaglinie (Ufer des Gilbert Inlet unter der Rutschnarbe, Breite 823 m) |
+| Partitionen | `SPATIAL_PARTITION` mit 5 000 Knoten, Partition-BLOBs, LOD |
+| Analysen | kürzester-Wege-Baum von `QUELLE` → `ANKUNFT` je Knoten; `withinCost(QUELLE, t)` für t = 10, 20, … s → Isochronen (Network Buffer oder Konturen, F23); `nearestNeighbors(Boot)` zur Front; `kShortestPaths` zu einem Boot als Wellenstrahlen |
+| Ergebnis | `LB_ISOCHRONE` (Polygone je Kostenart), `LB_ANKUNFT` (Zeit je Knoten) |
+| Zweitrechnung | `route.gridTravelTime` auf denselben Knoten und Kosten: gleiche Ankunftszeiten bis auf Rundung |
+| Prüfung | gegen `wave` (Pegel an 20 Orten, Zeit des ersten Anstiegs über 1 m), gegen Zeugen (Anchorage Cove, Eingang), gegen den Handwert (9.5) |
+
+Abweichungen zwischen Eikonal und `wave` sind kein Fehler, sondern das Ergebnis: Die Eikonalgleichung kennt keine Amplitudenabhängigkeit außer über `T_NICHTLINEAR`, keine Reflexion und kein Brechen. Die Tabelle in Phase 13a zeigt, wo das zählt.
+
+### 7.2 `LB_NET_UFER` — das Ufer als Messstrecke (LRS)
+
+**Frage:** Wie hoch lief die Welle an jedem Ufermeter auf? Wo fehlt der Wald, und seit wann?
+
+| Element | Festlegung |
+|---|---|
+| Netz | LRS-Netz (`CREATE_LRS_NETWORK`), zwei Stränge: Ufer 1958 (Karte 1951/C-5, Vermessung 1940) und Ufer heute (Lidar), dazu Cenotaph Island als Ring; Maß m in Metern ab La Chaussee Spit im Uhrzeigersinn |
+| Ereignisse | `LB_AUFLAUF` (Punkt-Ereignis: m, Höhe, Jahr, Quelle), `LB_SPURLINIE_LRS` (Linien-Ereignis: m₁–m₂, Höhe je Stützpunkt, Jahr 1853/1874/1899/1936/1958, Rechnung), `LB_FOTO` (Miller-Standorte), Breite des Schadensbands |
+| Dynamische Segmentierung | `SDO_LRS.LOCATE_PT`, `PROJECT_PT`, `CLIP_GEOM_SEGMENT`: je Ufermeter Höhe der Spurlinie durch lineare Interpolation zwischen den Stützpunkten |
+| Feature-Layer | Auflaufpunkte und Fotos als Features auf den Kanten (wenn 2.8 es erlaubt) |
+| Für die Szene | `succession` fragt je Ufermeter die belegte Höhe; Vergleich belegt gegen `wave.runupAt` als Band um das Ufer |
+| Zweitrechnung | `route.measure` entlang der Uferlinie |
+
+### 7.3 `LB_NET_SEE` — Fahrwasser 1958 mit Gezeiten
+
+**Frage:** Wer hätte entkommen können? Welche Fahrt hat La Pérouse 1786 im Eingang gekostet?
+
+| Element | Festlegung |
+|---|---|
+| Netz | gerichtet mit Gegenrichtung, Knoten auf dem Wasser (50 m im Eingang, 200 m in der Bucht), Ankerplätze der Boote, Anchorage Cove, Eingang, offene See |
+| Kosten | zeitabhängig über `LinkCostCalculator`: Fahrzeit = Länge / (Bootsgeschwindigkeit ± Strom im Eingang zur Zeit t); Tiefe $h(t) = h_{1940} + \eta_{\text{Tide}}(t)$ aus COOPS |
+| Einschränkung | `LODNetworkConstraint`: Kante gesperrt, wenn $h(t) < $ Tiefgang + 0,5 m; Eingang bei Ebbstrom gesperrt für Boote unter 6 kn [G] |
+| Analysen | kürzester Weg von jedem Ankerplatz zur offenen See für t = 22:16 + Δ; Vergleich mit `LB_ANKUNFT`: entkommen, wenn Fahrzeit bis zum Ort x kleiner als Ankunft der Front dort; `kShortestPaths` als Varianten |
+| Prüfung | gegen `route` mit denselben Kosten (zu festen Zeiten) |
+
+### 7.4 `LB_NET_WASSER` — Gewässer und Gletscher (hierarchisch)
+
+**Frage:** Welche Fläche entwässert in den Gilbert Inlet? Wie viel Wasser führen Mudslide Creek und die Bäche nach Regen?
+
+| Element | Festlegung |
+|---|---|
+| Ebene 1 | Bäche aus dem Abfluss im Lidar/IfSAR (D8-Abfluss, Schwelle 0,5 km²), gerichtet stromab, `COST` = Fließzeit (Manning) |
+| Ebene 2 | Einzugsgebiete als Elternknoten, Fließlinien der Gletscher (ITS_LIVE) als Kanten mit Jahresgeschwindigkeit |
+| Analysen | `traceIn(Gilbert Inlet)` → Einzugsgebiet; `traceOut(Quelle)`; Zusammenhangskomponenten (abflusslose Senken = Seen); Fließzeit nach Regen |
+| Für die Szene | `fall`/`river` bekommen die Wasserführung je Kante aus Fläche × Niederschlag × Abflussbeiwert [G] |
+| Zweitrechnung | `route` auf dem gerichteten Graphen |
+
+### 7.5 `LB_NET_WEG` — Wege über Gelände, mehrere Kosten, mehrere Modi
+
+**Frage:** Wie kommt man von der Bucht zum Mt Crillon (Washburn 1934)? Wie weit kommt man in einer Stunde vom Strand?
+
+| Element | Festlegung |
+|---|---|
+| Ebene 1 | Gitter 10 m im Kern (≈ 3,3 Mio. Knoten auf Land), Ebene 2: 50 m in der Szene (≈ 1,6 Mio. Knoten); hierarchisch verknüpft |
+| Kosten | Gehzeit nach Tobler $v = 6\,e^{-3{,}5\,\lvert \tan\theta + 0{,}05\rvert}$ km/h (9.8) × Zuschlag je Klasse (Wald 1,5, Gebüsch 2,5, Gletscher 2 mit Spaltenzone gesperrt, Bach > 0,5 m³/s gesperrt) [G] |
+| Modi | Umsteigekanten Boot → Strand zu `LB_NET_SEE` an den Stränden |
+| Analysen | `kShortestPaths`, `withinCost(Strand, 1 h)`, Washburns Route nachgerechnet (falls belegt, F31) |
+| Leistung | Millionen Kanten: Partitionen, LOD, Speicher und Zeit in die Tabelle 15.3 |
+
+### 7.6 `LB_NET_SICHT` — Sicht und Kamera
+
+| Element | Festlegung |
+|---|---|
+| Knoten | Aussichtspunkte, Gipfel, Ankerplätze, Kamerapunkte (≈ 200) |
+| Kanten | freie Sicht im Höhenmodell (Strahl mit Erdkrümmung), Kosten = Flugzeit der Kamera |
+| Analysen | `tsp` für den Rundflug über alle Motive, `mcst` (minimaler Spannbaum) für die Kamerafahrt, `nearestNeighbors` |
+| Für die Szene | Regiebücher und Kamera-Presets (11) |
+
+### 7.7 `LB_NET_HERKUNFT` — woher jede Zahl kommt (logisch)
+
+Quelle → Rohdatei → Aufbereitung → Befund → Szenenobjekt, gerichtet, ohne Geometrie. `traceIn(Szenenobjekt)` zeigt die Quellen; Befunde ohne Weg zu einer Quelle sind [G]; nach Abschluss der Nachweis, welche Datei auf der Wechselfestplatte wofür gebraucht wurde. Erstes Netz in Phase 3, weil klein.
+
+### 7.8 Abnahme-Matrix
+
+| Fähigkeit | Netz |
+|---|---|
+| räumliches Netz mit Höhe, gerichtet und ungerichtet | 7.1–7.6 |
+| logisches Netz | 7.7 |
+| LRS-Netz, dynamische Segmentierung | 7.2 |
+| hierarchisches Netz | 7.4, 7.5 |
+| mehrere Kosten, eigener `LinkCostCalculator` | 7.1, 7.3, 7.5 |
+| zeitabhängige Kosten, Einschränkungen | 7.3 |
+| kürzester Weg (Dijkstra, A*), *k* kürzeste Wege | 7.1, 7.3, 7.5 |
+| `withinCost`, Isochronen, Network Buffer | 7.1, 7.5 |
+| `nearestNeighbors` | 7.1, 7.6 |
+| TSP, minimaler Spannbaum | 7.6 |
+| `traceIn`/`traceOut`, Erreichbarkeit, Zusammenhangskomponenten | 7.4, 7.7 |
+| Feature-Layer | 7.2 |
+| Partitionen, Partition-BLOBs, LOD | 7.1, 7.5 |
+| `VALIDATE_NETWORK`, Prüfwege gegen `route` | alle |
+| Property Graph, SQL/PGQ | alle, nur 23ai (F39) |
+
+### 7.9 Ladeablauf (wie Timmendorf)
+
+`db/netz/00_sys.sql` (Rechte direkt, `DATA_PUMP_DIR`), `01_tabellen.sql`, `02_netze.sql` (`CREATE_*_NETWORK`, Zusatzspalten, Raum-Metadaten inkl. `_PATH$`), Laden aus `daten/netz/` über `tools.NetzDb` (JDBC, Batches), `04_nach_dem_laden.sql` (Indizes, Partitionen, BLOBs), `05_sichten.sql` (QGIS), `99_abbau.sql`. `ant netzdb`, `ant netzvergleich` (Prüfwege LOD gegen `route`), `ant dbpruefung`.
+
+### 7.10 Netzblick
+
+Bedienfeld NETZE: Ebenen Isochronen (laufen mit der Welle), Wellenstrahlen, Ufer mit Spurlinien und Auflaufhöhen, Gewässer, Wege, Sicht, Herkunft einer angeklickten Zahl; gezeichnet mit `netview`, im Kino als Bild im Bild.
+
+---
+
+## 8. Texturen
+
+Grundsatz: echte Texturen, wo das Auge nah ist; Luftbild und Klassen in der Ferne; nirgends sichtbare Kachelung (Hex-Tiling in `surface`).
+
+**Quellen** (Herkunft und Lizenz je Textur, Paketvertrag 15): CC0-Bibliotheken (Poly Haven, ambientCG, Lizenz in Phase 0b geprüft), eigene Assets in `templates/` (gebacken wie `SandAsset`), Makrofarbe aus Sentinel-2 und Radarbild, Kronenhöhe aus dem DSM; Fotos von Miller nur als Vorlage für Farbe und Zustand.
+
+| Material | wo | Hinweis |
+|---|---|---|
+| Schiefer, verwittert (Amphibol-, Biotitschiefer) | Wände, Grate | Schieferung sichtbar, Flechten, Nässestreifen |
+| Schiefer, frischer Bruch | Rutschnarbe, abgeräumte Hänge | hell, scharfkantig; 1958 frisch, heute angewittert |
+| Gletschereis | Fronten, Spalten | blau in Spalten, weiß oben, Schuttbänder |
+| Firn und Schnee | Gipfel, Firnfelder | Sastrugi |
+| Moräne, Schutt, Geröll | Vorfeld, Kegel | mit `scree` |
+| Strandkies und Gerölle | Ufer, La Chaussee Spit | nass und trocken |
+| Sand und Gletschermehl | Flachwasser, Deltas, Fish Lake | |
+| Waldboden mit Nadeln und Moos | Regenwald | mit `understory` |
+| Moos, Bartflechte | Boden, Stämme, Steine | |
+| Rinde Sitka-Fichte, Hemlock | Bäume | |
+| entrindetes Holz | Stämme im Band 1958 | hell, splittrig; Treibholz silbergrau |
+| Seetang, Kelp | Ufer, Wasser | |
+| Kutter: Holz, Farbe, Metall, Tau | `vessel` | 1950er |
+
+Budget: VRAM 2 GB; Texturen ≤ 600 MB (F19), gestreamt über `clipmap`; Kontaktbogen `docs/status/Texturen.png`.
+
+---
+
+## 9. Physik in Kurzform
+
+Formeln mit Quelle; Zahlen aus 2.1; Annahmen [G]. Die Kette folgt der Zeitleiste.
+
+### 9.1 Das Beben (`quake`)
+
+**Bruch.** Empirische Skalierung nach WELLS94 für Blattverschiebungen [zu prüfen]: $\log_{10} L_{\text{Oberfl.}} = -3{,}55 + 0{,}74\,M$, $\log_{10} D_{\max} = -7{,}03 + 1{,}03\,M$. Für $M = 7{,}8$: $L \approx 170$ km, $D_{\max} \approx 10$ m; gemessen am Kopf der Bucht 6,4 m (TOCHER59). Der Bruch läuft mit $v_r \approx 0{,}8\,v_S \approx 2{,}8$ km/s.
+
+**Laufzeiten.** $t_P = D/v_P$, $t_S = D/v_S$ mit $v_P \approx 6{,}0$, $v_S \approx 3{,}5$ km/s in der Kruste [G]; die S-Welle bringt das Schütteln, $t_S - t_P \approx D/8{,}4$ km/s. Der Abstand $D$ zum Hypozentrum kommt aus COMCAT.
+
+**Stärke am Ort.** Abminderungsgesetz der Form $\ln \text{PGA} = c_1 + c_2 M - c_3 \ln\sqrt{R^2 + h_0^2} - c_4 R$ (Koeffizienten aus einer aktuellen GMPE für Kruste [zu prüfen]). Arias-Intensität $I_A = \frac{\pi}{2g}\int a^2\,dt$. Dauer des starken Schüttelns 60–240 s (Zeugen).
+
+**Hangversagen nach Newmark (NEWMARK65).** Kritische Beschleunigung eines Blocks auf dem Hang $\alpha$ mit Sicherheitsfaktor FS: $a_c = (\text{FS} - 1)\,g\sin\alpha$. Verschiebung $D$ durch doppelte Integration von $a(t) - a_c$, solange $a > a_c$. Faustformel JIBSON93 [zu prüfen]: $\log_{10} D_{\text{cm}} = 1{,}521\log_{10} I_A - 1{,}993\log_{10} a_c - 1{,}546$. Ab $D \gtrsim 10$ cm gilt der Hang als versagt → `landslide`.
+
+**Sicherheitsfaktor des Hangs** (unendlicher Hang, Kluftfläche fallend mit $\alpha = 40°$, Schiefer $\varphi' \approx 35°$, Kohäsion $c'$ an den Klüften [G]):
+$$\text{FS} = \frac{c' + \gamma z \cos^2\alpha\,\tan\varphi'}{\gamma z \sin\alpha\cos\alpha}, \qquad \frac{\tan\varphi'}{\tan\alpha} = 0{,}83 < 1$$
+Ohne Kohäsion wäre die Platte schon in Ruhe instabil; die Kohäsion der Klüfte hält sie, das Beben nimmt sie ihr (pseudo-statisch mit $k$: Zähler um $k\sin\alpha\cos\alpha$ vermindert, Nenner um $k\cos^2\alpha$ vermehrt). Dass der Sturz erst 1–2½ min nach dem ersten Stoß kam, passt zur Newmark-Verschiebung, die sich über die Dauer aufsummiert.
+
+**Seiche der Bucht** (Merian): $T_n = \frac{2L}{n\sqrt{g\bar h}}$; mit $L = 12$ km, $\bar h \approx 130$ m: $T_1 \approx 11$ min [G]. Das Beben regt sie schwach an, die Welle stark; sie ist das lange Nachschwingen nach t = 600 s.
+
+### 9.2 Der Felssturz bis zum Wasser (`landslide`)
+
+**Energie.** $E_{\text{pot}} = m\,g\,\Delta h = 8{,}3\cdot10^{10}\,\text{kg}\cdot 9{,}81\cdot 610\,\text{m} = 4{,}9\cdot10^{14}$ J ≈ 118 kt TNT (gerechnet).
+
+**Geschwindigkeit am Wasser.** Freier Fall vom Schwerpunkt: $v = \sqrt{2 g\,\Delta h} = \sqrt{2\cdot 9{,}81\cdot 610} = 109$ m/s, die obere Grenze (FRITZ01 nimmt 110 m/s). Gleiten mit Reibung $\mu$ über $L = 970$ m bei $\alpha = 40°$:
+$$v = \sqrt{2 g L\,(\sin\alpha - \mu\cos\alpha)}$$
+$\mu = 0$: 111 m/s; $\mu = 0{,}1$: 104 m/s; $\mu = 0{,}2$: 96 m/s. `landslide.gilbertInlet1958()` muss zwischen 96 und 110 m/s landen; die Froude-Zahl dann 2,8–3,2.
+
+**Granularstrom** (SAVAGEHUTTER89, tiefengemittelt, Höhe $h_s$, Geschwindigkeit $\mathbf{u}$ entlang des Hangs):
+$$\partial_t h_s + \nabla\cdot(h_s\mathbf{u}) = 0, \qquad \partial_t(h_s\mathbf{u}) + \nabla\cdot(h_s\mathbf{u}\otimes\mathbf{u}) + \nabla\!\left(\tfrac{1}{2}k_{a/p}\,g_\perp h_s^2\right) = h_s\,\mathbf{g}_\parallel - \mathbf{S}_f$$
+mit Erddruckbeiwert $k_{a/p}$ (aktiv bei Dehnung, passiv bei Stauchung) und Reibung nach VOELLMY55: $S_f = \mu\,g_\perp h_s + g\,\lvert\mathbf{u}\rvert^2/\xi$, Fels $\mu \approx 0{,}1$–$0{,}2$, $\xi \approx 500$–$2\,000$ m/s² [G nach Literatur]. **Fahrböschung** (HEIM32): $\tan\varphi_f = H/L_{\text{Reichweite}}$, für $30\cdot10^6$ m³ typisch $\varphi_f \approx 15$–$20°$; hier endet der Strom im Wasser, die Reichweite zeigt sich als Schuttfächer auf dem Grund (H08492 gegen H06581: Prüfung in Phase 2).
+
+**Profil am Wasser.** Im Modell (FRITZ01) wächst die Dicke des Stroms am Ufer langsam auf 134 m (1,4 × Plattendicke 92 m, Auflockerung 39 %) und fällt schnell ab; Länge 748 m, Dauer 6,8 s. `landslide` liefert genau dieses Profil $s(t)$ an `impact`.
+
+**Staub** (`dustcloud`): Schwerestrom mit $g' = g\,\Delta\rho/\rho_{\text{Luft}}$, Frontgeschwindigkeit $u_f \approx 0{,}5\sqrt{g' h_{\text{Wolke}}}$ (Benjamin); Sinkgeschwindigkeit der Körner nach Stokes $w = \frac{(\rho_s - \rho)\,g\,d^2}{18\,\eta}$, für $d = 50$ µm rund 0,2 m/s, für 5 µm 2 mm/s: Die Wolke bleibt Stunden [G].
+
+### 9.3 Das Eintauchen (`impact`)
+
+**Kennzahlen** (FRITZ01, HELLER10): Froude-Zahl $F = v_s/\sqrt{g h} = 3{,}18$; relative Dicke $S = s/h = 0{,}75$ (Platte) bis 1,1 (Strom); relative Masse $M = m'/(\rho_w h^2) = 98{,}5\cdot10^3/(1\cdot 122^2) = 6{,}6$; Aufschlagwinkel $\alpha = 45°$.
+
+**Impulsprodukt-Parameter** (HELLER10, [zu prüfen am Original]):
+$$P = F\,S^{1/2}\,M^{1/4}\,\left[\cos\!\left(\tfrac{6}{7}\alpha\right)\right]^{1/2}, \qquad \frac{a_M}{h} = \frac{4}{9}\,P^{4/5}$$
+Mit $S = 0{,}75$: $P = 3{,}9$, $a_M = 162$ m. **Gemessen 152 m (Amplitude) bzw. 162 m (Höhe)**: Die Skalierung trifft. Mit $S = 1{,}1$ (Strom): $a_M = 188$ m, auch das im Bereich (über 200 m bei x = 600 m). Die ältere Formel HUBERHAGER97 $H = 0{,}88\sin\alpha\,(\rho_s/\rho_w)^{1/4}(V_s/b)^{1/2}(h/x)^{1/4}$ gibt nur 94 m (Faktor 1,8 zu klein, FRITZ01), weil sie flachere Gleitkörper voraussetzt.
+
+**Energie.** Gleitenergie je Breite $E'_s = \tfrac{1}{2} m' v_s^2 = 6{,}0\cdot10^{11}$ J/m. Energie der Solitärwelle (Boussinesq) $E'_w = \frac{8}{3\sqrt 3}\,\rho g h^3 (H/h)^{3/2} = 4{,}2\cdot10^{10}$ J/m: **7 %** der Gleitenergie gehen in die Welle (gerechnet; Literatur 2–30 %). Der Rest: Reibung, Kaverne, Phasenmischung, Wärme. `impact` muss diesen Anteil treffen (Check 5.3).
+
+**Zwei Stufen** (FRITZ01, PIV): (a) Aufschlag und Eindringen, Strömungsabriss an der Schulter des Stroms, **Luftkaverne** hinter dem Strom, weil die Eindringgeschwindigkeit die Wellengeschwindigkeit übersteigt; die Welle läuft aus dem Aufschlagbereich, bevor die Kaverne zusammenbricht; (b) Zusammenbruch der Kaverne, Auslauf des Gesteins am Grund, Lufteinschluss, Blasen, Phasenmischung. Die führende Welle bleibt davon unberührt: Das ist der Grund, warum das Fernfeld (`wave`) sauber am Rand des Würfels abgeholt werden kann.
+
+**Modellgesetz.** Froude-Ähnlichkeit 1:675: Längen $\lambda$, Zeiten $\sqrt\lambda$, Geschwindigkeiten $\sqrt\lambda$. Maßstabseffekte durch Zähigkeit und Oberflächenspannung unter 5 % bei $H_{\text{Modell}} = 0{,}24$ m (FRITZ01). `ImpactCheck` rechnet in Naturmaßen und vergleicht mit den auf Natur skalierten Messwerten.
+
+### 9.4 Die Welle in der Bucht (`wave`)
+
+**Ist sie lang?** Ursell-Zahl $U = H L^2/h^3 = 162\cdot 1100^2/122^3 \approx 110 \gg 1$: nichtlineare lange Welle, Dispersion schwach → Flachwassergleichungen mit Stoßerfassung (F12 A), Boussinesq-Korrektur nur als Prüfung.
+
+**Gleichungen** (Flussform, Arakawa C wie bisher in `wave`, $D = h + \eta$):
+$$\partial_t \eta + \nabla\cdot\mathbf{q} = 0, \qquad \partial_t\mathbf{q} + \nabla\cdot\!\left(\frac{\mathbf{q}\otimes\mathbf{q}}{D}\right) + g D\,\nabla\eta = -\frac{g\,n^2\,\lvert\mathbf{q}\rvert\,\mathbf{q}}{D^{7/3}}$$
+Manning $n \approx 0{,}03$ über Fels, 0,1 über Wald [G]. Stoßerfassung mit HLL-Flüssen, damit die Bore am Eingang nicht oszilliert. CFL: $\Delta t \le 0{,}45\,\Delta x/(c\sqrt2)$; mit $c = \sqrt{g(h+a)} \le 61$ m/s: 16 m → 0,08 s, 4 m → 0,02 s, 2 m → 0,01 s. Zehn Minuten Ereignis sind 7 500 Schritte auf dem groben und 60 000 auf dem feinen Gitter: GPU (6.1).
+
+**Solitärwelle als Grenzfall.** $\eta = H\,\mathrm{sech}^2\!\left[\sqrt{\tfrac{3H}{4h^3}}\,(x - ct)\right]$, $c = \sqrt{g(h + H)}$. Im Inlet: linear $\sqrt{g h} = 34{,}6$ m/s, nichtlinear mit $a = 152$ m: 51,8 m/s; **beobachtet** 885 m in 16 s = 55 m/s (FRITZ01). Die Amplitude macht die Welle anderthalbmal so schnell: Darum hat `LB_NET_WELLE` die Kostenart `T_NICHTLINEAR`.
+
+**Laufzeit nach Fermat.** $T = \min\int ds/c(\mathbf{x})$, Eikonal $\lvert\nabla T\rvert = 1/c$. Auf einem Gitter ersetzt der kürzeste Weg die Eikonalgleichung; der Fehler ist der Winkelfehler des Nachbarsterns: $\epsilon = 1/\cos(\theta_{\max}/2) - 1$ mit $\theta_{\max} = 26{,}6°$ bei 16 Nachbarn → 2,75 %, 14,0° bei 32 Nachbarn → 0,76 %. `RouteCheck` prüft genau diese Werte auf konstantem Grund (6.9). Handwert für die Bucht: 12 km bei $\bar h \approx 130$ m linear → 350 s; nichtlinear mit $a \approx 30$ m im Stamm → 300 s: **Die Front braucht rund fünf Minuten bis zum Eingang** [gerechnet, Prüfung in 13a].
+
+**Shoaling und Einschnürung** (linear, Green): $H \propto h^{-1/4} b^{-1/2}$. Vom Stamm (h ≈ 150 m, b ≈ 2,5 km) zum Eingang (10 m, 300 m): Faktor $(150/10)^{1/4}(2500/300)^{1/2} \approx 5{,}7$, weit über dem Brechkriterium $H/h \approx 0{,}78$ (McCowan): **Die Welle bricht lange vor dem Eingang zur Bore**, die Badger wird darauf über die Nehrung getragen. Bore-Geschwindigkeit aus den Sprungbedingungen $c_b = \sqrt{g\,h_2\,(h_1 + h_2)/(2 h_1)}$.
+
+**Diffraktion und Reflexion.** Cenotaph Island teilt die Front; hinter der Insel schließt sie sich (Zeugen: „jumping and shaking“ durch Reflexionen im Inlet, FRITZ01). Die Eikonal-Isochronen zeigen die Teilung, `wave` die Reflexionen; der Unterschied ist das Lehrbild im Netzblick.
+
+### 9.5 Der Auflauf am Sporn (`wave`, `impact`)
+
+**Empirisch** (FRITZ01), $H = 162$ m, $h = 122$ m, $\beta = 45°$:
+
+| Formel | Quelle | $R$ |
+|---|---|---|
+| $R/h = 3{,}1\,(H/h)^{1{,}15}$ | HALLWATTS53 | 524 m |
+| $R/h = 2{,}831\sqrt{\cot\beta}\,(H/h)^{5/4}$ | SYNOLAKIS87 (nicht brechend, gültig für $H/h \le 0{,}818\,(\cot\beta)^{-9/10}$) | 492 m |
+| $R/h = 1{,}25\,(\pi/2\beta)^{0{,}2}(H/h)^{1{,}25}(H/L)^{-0{,}15}$ | MUELLER95 (gültig $H/h \le 0{,}5$) | 333 m |
+
+Hall & Watts trifft die Natur (524 m) und das Modell (526 m); Synolakis liegt 6 % darunter; Müller ist außerhalb seines Bereichs. **Energiegrenze:** Ein Teilchen mit $v$ am Fuß steigt höchstens $v^2/2g$; für 524 m wären 101 m/s nötig, was die PIV-Felder (bis 50 m/s Pfeile, Spitzen höher) plausibel machen: Der Auflauf ist Umwandlung von Bewegungs- in Lageenergie, mit Reibung am Hang und dünner werdender Schicht (Halbsattel als Stagnationspunkt nach 30 s, Höchststand nach 35 s, FRITZ01).
+
+**Für `wave`:** Nass-trocken-Rand auf 45°; die Schicht wird dünner als 5 m (Pegel fallen aus, FRITZ01); Miller: Wasser 10 m über die höchsten umgelegten Bäume. Abnahme 6.1: Auflauf 526 ± 50 m im Laborfall.
+
+### 9.6 Die Welle am Südufer und am Eingang
+
+Südufer bei Mudslide Creek 208 m (belegt): Die Welle schwenkt um den Sporn, läuft quer über die Bucht und am Gegenufer auf; WIEGEL64 beobachtete das im Modell 1:1000. Das ist der Prüfpunkt für das mittlere Gitter. Am Eingang: Bore über die Barre (10 m), die Nehrung La Chaussee Spit wird überspült (Badger).
+
+### 9.7 Wellenwurf (`succession`, `forest`)
+
+**Kraft auf einen Baum** im Wasser mit $u$: $F_D = \tfrac{1}{2}\rho_w C_D A\,u^2$, Krone $A \approx 100$ m², $C_D \approx 1$ (durchströmt). **Bruch** am Stammfuß, Biegemoment $M = F_D h_c$ ($h_c \approx 20$ m), Widerstandsmoment $W = \pi d^3/32$, Bruchspannung grün $\sigma_b \approx 40$ MPa (Sitka-Fichte, WOODHB [zu prüfen]). Kritische Geschwindigkeit:
+$$u_{\text{krit}} = \sqrt{\frac{2\,\sigma_b\,W}{\rho_w\,C_D\,A\,h_c}} \approx 1{,}4\ \text{m/s} \quad (d = 0{,}8\ \text{m})$$
+Zum Vergleich: Orkan mit 40 m/s in Luft ($\rho = 1{,}2$) entspricht 1,4 m/s in Wasser. **Jede Strömung, die die Krone erfasst, bricht den Baum**; WIEGEL64 schätzte die Kräfte auf das Zehnfache des Nötigen. Deshalb ist die Spurlinie so scharf: Sie ist die Linie des höchsten Wasserstands, nicht einer Kraft. Oberhalb bleibt der Wald unberührt. Entwurzeln gegen Brechen entscheidet die Wurzelplatte (dünne Böden auf Fels → Entwurzeln, Boden bis zum Fels abgeräumt, FRITZ01 Abb. 5a). **Entrindung** durch Abrasion mit Sediment im Strom; **Richtung** der umgelegten Stämme = Strömungsrichtung beim Rückfluss [G].
+
+**Wiederbewaldung:** Höhe $H(t)$ nach einer Wuchskurve (Chapman-Richards) $H = H_\infty\,(1 - e^{-kt})^p$ mit Artparametern [G nach Ertragstafeln, zu prüfen]; Abgleich: Kronenhöhe im Band (DSM 2012, 54 Jahre) gegen außerhalb.
+
+### 9.8 Wege über Gelände (`LB_NET_WEG`)
+
+Tobler: $v = 6\,\exp\!\left(-3{,}5\,\lvert\tan\theta + 0{,}05\rvert\right)$ km/h; Naismith zum Vergleich: 1 h je 5 km + 1 h je 600 m Aufstieg.
+
+### 9.9 Gletschermilch (`ocean`)
+
+Schwebende Gletschermehl-Körner (1–10 µm) streuen nach Mie fast farbneutral, das Wasser absorbiert Rot ($a_w(650\,\text{nm}) \approx 0{,}35$ m⁻¹ gegen $0{,}02$ im Blaugrün); die Rückstreuung aus den obersten Metern ergibt das milchige Türkis. Abschwächung $K_d \approx a + b_b$ mit Trübung; Sichttiefe $z_{\text{Secchi}} \approx 1{,}7/K_d$. Eichung: Farbe aus Sentinel-2 (B2/B3/B4) über der Bucht gegen das offene Meer.
+
+### 9.10 Licht der Julinacht (`sky`)
+
+Sonnenhöhe $\sin h_\odot = \sin\varphi\sin\delta + \cos\varphi\cos\delta\cos H$ mit $\varphi = 58{,}62°$, $\delta = 22{,}3°$ (10. Juli), Stundenwinkel aus der Sonnenzeit (Länge −137,55° → Sonnenmittag 13:10 PST). **Zur Bebenzeit 22:16 PST steht die Sonne 1° unter dem Horizont im NNW**, Sonnenuntergang war um 22:04, bürgerliche Dämmerung bis etwa 23:25, nautische Dämmerung die ganze Nacht (die Sonne sinkt in 58,6° N im Juli nicht unter −12°): **Die Welle kam im hellen Abendlicht**, der Himmel über dem Fairweather noch rot. [gerechnet; gegen die Zeugen und die Zeitzone 1958 zu prüfen]
+
+### 9.11 Horizont und Ferne (`clipmap`, `sky`)
+
+Sichtweite bis zur Kimm mit Refraktion $d \approx 3{,}86\sqrt{H}$ km: 500 m → 86 km, 4 671 m → 264 km. Erdkrümmung senkt ein Objekt in $d$ um $d^2/(2R)\,(1 - k)$, $k = 0{,}13$. Atmosphärische Perspektive: Rayleigh ($\propto\lambda^{-4}$, Skalenhöhe 8 km) und Mie (Dunst, Skalenhöhe 1,2 km); über 60 km verblassen die Berge zu Blau, der Schnee bleibt hell.
+
+### 9.12 Polarlicht (`aurora`)
+
+Emissionen: Sauerstoff 557,7 nm (grün, 100–150 km), 630,0 nm (rot, > 200 km), Stickstoff N₂⁺ 427,8 nm (violett, unten). Lituya Bay liegt bei rund 60° geomagnetischer Breite [zu prüfen]: Polarlicht ab Kp ≈ 4 am Nordhimmel, in Sommernächten unsichtbar (9.10), im Herbst und Winter häufig.
+
+### 9.13 Klang (`soundscape`)
+
+Laufzeit $t = d/340$ m/s: Der Sturz ist in der Anchorage Cove (≈ 10 km) nach 30 s zu hören, die Welle nach 5 min zu sehen. Beben als Infraschall (unter 20 Hz, hörbar gemacht durch Transposition), Felssturz als Breitbandrauschen mit tiefem Grundton, Welle als Rauschen mit Doppler.
+
+---
+
+## 10. Die Szene (`com.dan.lituya`)
+
+### 10.1 Zeitstände (F4)
+
+| Zeitstand | Gelände | Wasser | Wald | Gletscher | Boote |
+|---|---|---|---|---|---|
+| **vor** (9.7.1958, 22:00) | Lidar + Rückbau 1958 | Grund 1940, ruhig, Tide nach COOPS | bis ans Ufer, alt | Fronten 1958 | drei vor Anker, Licht |
+| **die Welle** (22:16 + 10 min) | wie vor, Rutschnarbe entsteht | `wave`, `impact`, Bore am Eingang | Wellenwurf | 400 m abgeschert | Edrie reitet, Badger über die Nehrung, Sunmore verloren |
+| **danach** (10.7., Morgen) | Narbe, Schuttfächer | Grund 1959, Holzteppiche, Seiche klingt ab | Band bis 524 m, nackter Fels | neue Front | Wrack |
+| **heute** (2026) | Lidar | BlueTopo 2025 | Band 68 Jahre jünger | heutige Fronten | keine |
+
+### 10.2 Bauteile
+
+Gelände über `clipmap` und `surface`; Wasser `ocean` (Gletschermilch) + `wave` + `surf` (Barre); Gletscher `ice`; Wald `forest`/`tree` + `understory` + `succession`; Boden `scree`; Boote `vessel`; Leben `flock`, `seal`, `bear`, `figure`; Himmel `sky`, `cloud`, `fog`, `aurora`; Klang `soundscape`.
+
+### 10.3 Schaustücke
+
+1. **Abend vor Anker** — Anchorage Cove, Spiegel aus Gletschermilch, Alpenglühen am Fairweather, 22:00
+2. **Das Beben** — die Bucht zittert, Lawinen an allen Hängen, Eis bricht von der Front
+3. **Der Sturz** — die NE-Wand des Gilbert Inlet löst sich, 30 Mio. m³ in 7 s ins Wasser, Staub im Gegenlicht
+4. **Die Wand aus Wasser** — Nahfeld in Zeitlupe: Krater, Kaverne, Wasserwand, Strahl
+5. **524 m** — die Welle steigt den Sporn hinauf, der Wald verschwindet; ein Mensch, ein Baum, ein Kutter als Maßstab
+6. **Die Front** — vor der Front die Bucht hinab, Isochronen im Netzblick
+7. **Unter Wasser** — die Front von unten, Geröll und Stämme im Strom
+8. **Mit der Edrie** — aus dem Boot, die Ankerkette reißt
+9. **Über die Nehrung** — die Badger über La Chaussee Spit
+10. **Der Morgen danach** — Spurlinie, Holzteppiche, Staub, Stille
+11. **68 Jahre** — Zeitraffer bis heute, die Kante bleibt
+12. **Heute bei Nacht** — Polarlicht über dem Fairweather
+13. **Die Bucht der Wellen** — 1853, 1874, 1899, 1936, 1958 als Spurlinien
+14. **Das Netz** — alle Analysen als Bilder
+15. Freie Kamera: Orbit, Zoom, Rundblick, Bodennähe, Boot, Drohne
+
+---
+
+## 11. Regie
+
+### 11.1 Uhrzeit, Tide, Wetter
+
+Weltzeit aus 4.5; Sonne aus 9.10; Tide aus COOPS (Vorausberechnung Juli 1958 und 2026); Wetter: Lage „Sommerabend 1958“ nach ERA5 und Zeugen [zu prüfen], dazu Lagen für „heute“ (Regen, Nebel, Herbststurm, Winter).
+
+### 11.2 Kamera-Presets
+
+Aus `LB_NET_SICHT` (7.6): Rundflug (TSP), Kamerafahrt (Spannbaum), Standorte der Zeugen und Millers Fotostandorte (7.2).
+
+### 11.3 Regiebücher
+
+- **„Die Nacht der Welle“** — 9. Juli 1958 in Echtzeit vom Abend vor Anker bis zum Morgen
+- **„Zehn Minuten“** — die Ereigniskette in Zeitlupe mit Netzblick als Bild im Bild
+- **„Die drei Boote“** — Edrie, Badger, Sunmore, je aus ihrer Sicht; am Ende „Wer hätte entkommen können?“ aus `LB_NET_SEE`
+- **„68 Jahre“** — vom Morgen danach bis heute
+- **„Die Bucht der Wellen“** — von La Pérouse 1786 bis heute
+
+Kino (`kino`): Balken 2,39:1, Vor- und Abspann, Untertitel, Zeitlupe, Bild im Bild.
+
+---
+
+## 12. Oberfläche
+
+FFrame maximiert, Bedienfelder in FTheme-Farben: **ANSICHT** (Presets, Fahrten), **ZEIT** (Zeitstand, Weltzeit, Simulationszeit, Zeitlupe, Zeitraffer), **EREIGNIS** (Abspielen/Echtzeit, Volumen, Ort, Tide, Grund 1940/heute), **NETZE** (Ebenen des Netzblicks, Abfragen), **WETTER**, **REGIEBÜCHER**, **DATEN** (Einrichten, Speichern, Laden, Stand der Netze). HUD mit FPS, GPU-Zeit, Simulationszeit, Pegeln. Tasten wie Sylt (F1 Hilfe, F11 nur Szene, F12 Foto).
+
+---
+
+## 13. Datenbank (Phase 19, eigener Fragenblock)
+
+| Tabelle | Inhalt |
+|---|---|
+| `LB_QUELLE`, `LB_BEFUND`, `LB_BEFUND_QUELLE` | wie Sylt; Befund belegt/gemessen/gerechnet/[G] |
+| `LB_NET_*` | sieben Netze (7) |
+| `LB_NETZ_STAND` | Prüfsumme je Netz gegen `daten/netz/` |
+| `LB_ZEUGE` | Aussagen mit Zeit, Ort, Quelle |
+| `LB_AUFLAUF`, `LB_SPURLINIE`, `LB_SPURLINIE_LRS` | Auflaufhöhen und Spurlinien je Jahr und Herkunft |
+| `LB_ISOCHRONE`, `LB_ANKUNFT` | Ergebnisse 7.1 |
+| `LB_BOOT`, `LB_BOOT_LAGE` | Boote, Ankerplätze, Bahnen |
+| `LB_EREIGNIS_LAUF` | Läufe (vorgerechnet und Echtzeit): Eingaben und Kennzahlen (Auflauf, Ankunftszeiten, Energieanteil) |
+| `LB_TEXTUR` | Herkunft und Lizenz |
+| `LB_SZENARIO`, `LB_SZENARIO_SCHRITT`, `LB_KAMERA_FAHRT`, `LB_SCHNAPPSCHUSS` | Regie |
+
+Sequence + Trigger, nie IDENTITY; SRID 26908, Sichten in 4326.
+
+---
+
+## 14. Phasenplan
+
+„R“ Renderer, „L“ LituyaBay1958, „D“ Datenbank. Je Phase ein Statusbild `docs/status/Status_PhaseN.png` und ein Eintrag in Abschnitt 19.
+
+| Phase | Ort | Inhalt | Abnahme |
+|---|---|---|---|
+| 0 | L | **erledigt:** Gebiete, Kartenmaterial (48 Quellen), `tools/kartenmaterial`; Werkbuch-Prompt; dieses Werkbuch | `Kartenmaterial.md`, `INVENTAR.md` (zweiter Lauf 1 227 Dateien, 13,5 GB) |
+| 0b | L | Recherche 2.1–2.7 vervollständigen (Miller S. 51–86 lesen, Zeugen, Boote, Tide, Zeitzone), Texturquellen und Lizenzen, `docs/QUELLEN.md` anlegen | alle [zu prüfen] in Abschnitt 2 und 9 aufgelöst oder als [G] erklärt |
+| 1 | L | Grundgerüst: FFrame, GL-Engine aus Timmendorf, Kamera, HUD, `wiring`, Startbild mit DB-Anmeldung, `sdonm.jar`, `lib/lod/`, Git | leere Szene mit Horizont |
+| 2 | L | Aufbereitung nach 3.4 | Prüfbilder; **Start mit umbenanntem `download/`** |
+| 3 | D | Schema, Rechte, **NDM-Funktionsprobe (2.8)**, Ladeskripte, `LB_NET_HERKUNFT` | Tabelle 2.8 gefüllt, `VALIDATE_NETWORK` grün |
+| 4 | R | `clipmap` | Demo Lidar bis zum Horizont, Nahtprüfung, Zeit je Bild |
+| 5 | R | `surface` + Backwerkzeug | Kontaktbogen, Kiesstrand ohne Wiederholung |
+| 5a | L | Grundbild: Gelände, Texturen, Himmel (6.6), Wasser mit Gletschermilch (6.5) | „Abend vor Anker“ ohne Wald, Sonne nach 9.10 |
+| 6 | R | `forest`/`tree` optimieren (6.4), `understory` | Millionen Bäume, fps-Tabelle, andere Szenen unverändert |
+| 6a | L | Regenwald, Unterwuchs, Gletscher (6.3), `scree` (R) | „Abend vor Anker“ vollständig |
+| 7 | R | `route` erweitern (6.9), `netview` | `RouteCheck` (Gitterfehler 2,75 % / 0,76 %), Demo Isochronen |
+| 7a | L+D | **`LB_NET_WELLE`**, **`LB_NET_UFER`**, Netzblick | NDM = `route`; Isochronen 1940 und heute; Spurlinie je Ufermeter |
+| 8 | R | `quake` | `QuakeCheck`, Demo |
+| 9 | R | `landslide` (+ `fracture` 6.2) | `LandslideCheck`: Block, Fahrböschung, Lituya-Preset 96–110 m/s |
+| 10 | R | `impact` | Laborfall FRITZ01: 152 m bei 885 m nach 16 s, Energieanteil 2–30 % |
+| 11 | R | `wave` optimieren (6.1) | `WaveCheck` CPU = GPU, Auflauf 526 ± 50 m, Rungholt unverändert |
+| 12 | R | `dustcloud`, `debris` | je Check und Demo |
+| 13 | L | **Das Ereignis:** Kette verdrahtet, Vorrechnung, Abspielen, Echtzeit | Schaustücke 2–7 |
+| 13a | L+D | Vergleich `wave` ↔ `LB_NET_WELLE` ↔ Zeugen ↔ Miller (Spurlinie, 208 m Südufer) | Tabelle der Ankunftszeiten und Spurlinien in Abschnitt 19 |
+| 14 | R | `succession` | Demo: Band und Wiederbewaldung |
+| 14a | L | Wellenwurf, „danach“, „heute“, 68 Jahre | Schaustücke 10, 11 |
+| 15 | R | `vessel` | Demo: Kutter vor Anker auf Welle |
+| 15a | L+D | Boote, **`LB_NET_SEE`** | Schaustücke 8, 9; „Wer hätte entkommen können?“ |
+| 16 | L+D | **`LB_NET_WASSER`**, **`LB_NET_WEG`** | Einzugsgebiete, Leistungstabelle 15.3 |
+| 17 | L+D | **`LB_NET_SICHT`**, Regiebücher, Kino (6.8) | Kino läuft durch |
+| 18 | R+L | Klang (6.7), Wetter, Leben; `aurora`, `bear` | Hörproben, Schaustück 12 |
+| 19 | L+D | Oberfläche und Datenbank (Fragenblock II) | Tabellen freigegeben, Speichern/Laden |
+| 20 | L | Schliff: Qualitätsstufen, READMEs, GitHub-README, Icon, Verknüpfungen, Video, Dauerlauf; **Kartenmaterial ausgelagert, Start ohne `download/`** | „fertig“ |
+
+---
+
+## 15. Leistungsbudget und Risiken
+
+### 15.1 Ziel
+
+Ryzen 7 7735HS, Radeon 680M (2 GB VRAM), 64 GB RAM, Full HD. Hoch ≥ 30 fps, Mittel 60 fps; Ereignis abgespielt in Hoch ≥ 30 fps; Netzanalysen außerhalb des Bildfadens (F37).
+
+### 15.2 Abschätzung Ereignis (Vorrechnung)
+
+| Teil | Gitter | Zellen | Schritte je 10 min | Rechnung |
+|---|---|---|---|---|
+| `wave` grob | 16 m, 1 500 × 1 125 | 1,7 M | 7 500 | GPU: Minuten |
+| `wave` mittel | 4 m, 1 024² | 1,0 M | 30 000 | GPU: Minuten |
+| `wave` fein | 2 m, 1 024² | 1,0 M | 60 000 | GPU: zehn Minuten |
+| `landslide` | 2 m, 1 000 × 600 | 0,6 M | 7 s Eintauchen, CFL 0,02 s → 350; Ablösen und Gleiten 30 s → 1 500 | GPU: Sekunden |
+| `impact` | Partikel 2–5 M | — | 60 s à 5 ms = 12 000 | GPU: Stunden (das Teure) |
+| Bäume | 6 M (Kern) | Zustände als Bits je Kachel | 600 Schritte | CPU: Minuten |
+
+Speicher der Vorrechnung: Höhenfelder grob als 16-Bit je 0,5 s → 1,7 M × 2 B × 1 200 ≈ 4 GB; mit Kachelung auf das bewegte Fenster deutlich weniger. Ziel: `daten/ereignis/` ≤ 10 GB [G].
+
+### 15.3 Netze (wird in Phase 7a, 13a, 16 gefüllt)
+
+| Netz | Knoten | Kanten | Partitionen | Ladezeit | Analyse (ms) | Speicher LOD |
+|---|---|---|---|---|---|---|
+| WELLE | ≈ 75 000 | ≈ 600 000 | ≈ 15 | | | |
+| UFER | ≈ 5 000 | | | | | |
+| SEE | ≈ 10 000 | | | | | |
+| WASSER | ≈ 50 000 | | | | | |
+| WEG | ≈ 4,9 M | ≈ 39 M | ≈ 1 000 | | | |
+| SICHT | ≈ 200 | | | | | |
+| HERKUNFT | ≈ 2 000 | | | | | |
+
+### 15.4 Risiken
+
+| Risiko | Folge | Gegenmittel |
+|---|---|---|
+| `impact` mit Partikeln zu teuer oder instabil | kein Nahfeld | Rückfall: Volumen-Impuls-Quelle in `wave` nach dem Modellprofil (F13 B), kalibriert auf 152 m bei 885 m |
+| `wave` auf 45° instabil (dünne Schichten) | Auflauf falsch | Schichtschwelle, Reibungsbegrenzung, Vergleich mit Hall & Watts |
+| NDM-Funktionen fehlen in der installierten Version | Netze schrumpfen | Funktionsprobe zuerst (2.8); PL/SQL-Ersatz; `route` rechnet alles ohnehin |
+| `sdonm.jar` gegen Treiber 23 | LOD läuft nicht | Klassenlader wie Timmendorf (F26) |
+| VRAM 2 GB | Texturen und Bäume | Budget 600 MB, Impostors, Clipmap-Streaming |
+| Belege zu Booten und Zeugen dünn | [G] statt belegt | Phase 0b: Miller vollständig lesen; was fehlt, bleibt [G] und wird gesagt |
+| Zeitzone 1958 | Sonnenstand um 1 h falsch | in 0b prüfen; die Rechnung 9.10 ist parametrisiert |
+
+---
+
+## 16. Fragen und Entscheidungen
+
+**Entscheidung vom 01.11.2026: alle A.** Die Spalte A ist damit nicht mehr Empfehlung, sondern Beschluss; B und C bleiben als Rückfall stehen, falls eine Phase A nicht einlöst (dann wird die Frage neu gestellt und hier vermerkt).
+
+### 16.1 Was aus „alle A“ folgt (verbindlich)
+
+- **Raum und Zeit:** Gebiete wie 3.1, echte Lage in UTM 8N, Höhen NAVD88 (NOS-Lotungen über Elfin Cove umgerechnet); vier Zeitstände umschaltbar; Grund 1958 aus der Vermessung 1940, abgeglichen mit FRANCO20 und 1959.
+- **Daten:** Kartenmaterial nur in Phase 2, Auslagerung in Phase 20 geprüft; Datei-Abbild der Netze in `daten/netz/`, die App läuft ohne Datenbank.
+- **Renderer:** GL-Engine aus Timmendorf mit `clipmap` und `surface`; alle 14 neuen Packages (Zugaben `aurora` und `bear` zuletzt); alle Optimierungen aus Abschnitt 6 mit Messung und Rückfall; LOD mit eigenem Klassenlader und Treiber 21.
+- **Ereignis:** vorgerechnet in hoher Auflösung und Echtzeit in geringer; `quake` mit Newmark; `landslide` nach Savage-Hutter mit Voellmy; `impact` mit Partikeln und Übergabe an `wave` (Volumen-Impuls-Quelle als Rückfall); `wave` auf der GPU mit Flachwasser und Stoßerfassung, Dispersion nur als Prüfung; Gletschermilch aus Schwebstoff; Fronten 1958 aus Karte 1951/C-5.
+- **Wald:** Millionen Bäume mit Impostors und Zuständen; Spurlinie belegt und gerechnet nebeneinander; Texturen aus CC0, eigenen Assets und Daten mit Lizenz, Budget 600 MB.
+- **Netze:** alle sieben; `LB_NET_WELLE` auf 20 m mit 16 Nachbarn und vier Kosten in einem Netz; Isochronen über Network Buffer, sonst Konturen; Netzblick mit allen Ebenen als Bild im Bild; Property Graph nur bei 23ai; Schema `LITUYA`, Präfix `LB_`, SRID 26908.
+- **Szene und Regie:** drei Boote nach Miller mit [G], Menschen an Bord ohne Gesicht, La Pérouse 1786 als Szenario, Tiere mit Bär, Washburn 1934 falls belegt; Zeitlupe bis 1:20, Unterwasserblick, Polarlicht nur „heute“ und belegt; Ton erzeugt mit tiefen Frequenzen.
+- **Ziel:** Hoch ≥ 30 fps, Mittel 60 fps, Ereignis abgespielt ≥ 30 fps; Rückfluss als Wunschliste; Programmsymbol mit Goldkante und Spurlinie.
+
+### 16.2 Die Fragen
+
+A ist gewählt (Entscheidung vom 01.11.2026).
+
+| Nr. | Frage | A (gewählt) | B | C | Begründung für A |
+|---|---|---|---|---|---|
+| F1 | Gebiete | Kern/Szene/Fern wie 3.1 | Kern enger | größer | Kern deckt Bucht und Spurlinie, Fern reicht bis zur Kimm des Fairweather (264 km) |
+| F2 | Maßstab und Lage | echt, UTM 8N, NAVD88 | Lage frei | — | Netze und Belege sitzen auf echten Koordinaten |
+| F3 | Höhenbezug | NAVD88, NOS von MLLW über Elfin Cove umgerechnet | MLLW für Wasser, NAVD88 für Land | — | ein Bezug für Welle und Auflauf; 524 m sind über Meeresspiegel |
+| F4 | Zeitstände | vor, Welle, danach, heute, umschaltbar | nur 1958 | nur heute | die Geschichte ist der Kontrast |
+| F5 | Grund 1958 | Vermessung 1940, Abgleich FRANCO20 und 1959 | BlueTopo heute [G] | — | die Welle lief auf dem Grund von 1940; 1959 zeigt den Schuttfächer |
+| F6 | Engine | Timmendorf + `clipmap` + `surface` | neu | ohne `clipmap` | Lidar 0,5 m bis 260 km geht nur mit Streaming |
+| F7 | Kartenmaterial | nur Phase 2, Auslagerung in Phase 20 geprüft | zur Laufzeit lesen | — | Regel 3.3 |
+| F8 | Neue Packages | alle 14, Zugaben zuletzt | ohne Zugaben | nur Ereigniskette | jedes hat ein „später für“ |
+| F9 | Optimierungen | alle aus 6 mit Messung und Rückfall | nur `wave`, `forest` | keine | Paketvertrag 14 schützt die alten Szenen |
+| F10 | Ereignis | vorgerechnet und Echtzeit | nur vorgerechnet | nur Echtzeit | hohe Auflösung fürs Kino, Echtzeit fürs Spielen |
+| F11 | `wave` auf der GPU | Compute neben CPU, CPU = GPU geprüft | nur CPU | neue Engine | 60 000 Schritte auf 1 M Zellen sind CPU-fremd |
+| F12 | Nichtlinearität | Flachwasser mit Stoßerfassung | Boussinesq | linear | Ursell 110: lang und nichtlinear; Dispersion schwach |
+| F13 | Nahfeld | `impact` mit Partikeln, Übergabe an `wave` | Volumen-Impuls-Quelle | gestaltet | Kaverne und Wasserwand sind das Schaustück 4; B als Rückfall |
+| F14 | Lawinenmodell | Savage-Hutter, Voellmy | µ(I) | Partikel | Stand der Praxis, auf dem Gelände rechenbar |
+| F15 | Beben | `quake` mit Newmark | nur Auslöser | — | erklärt die 1–2½ min Verzögerung |
+| F16 | Wald | Millionen Bäume mit Impostors und Zuständen | nur nah echt | — | die Spurlinie lebt von jedem Baum |
+| F17 | Spurlinie | belegt und gerechnet nebeneinander | nur belegt | nur gerechnet | der Vergleich ist die Prüfung |
+| F18 | Texturquellen | CC0 + eigene + Daten | prozedural | nur eigene | echte Scans tragen das Nahbild |
+| F19 | Texturbudget | 600 MB | 400 MB | 1 GB | Rest für Gelände, Bäume, Ereignis |
+| F20 | Gletschermilch | aus Schwebstoff, gegen Sentinel-2 | feste Farbe | — | 9.9 |
+| F21 | Gitter WELLE | 20 m, 16 Nachbarn | 10 m, 8 Nachbarn | 50 m | 75 000 Knoten reichen für LOD, Fehler 2,75 % |
+| F22 | Kosten WELLE | vier Kosten in einem Netz | je Zeitstand ein Netz | nur linear | `LinkCostCalculator` ist die Fähigkeit, die gezeigt werden soll |
+| F23 | Isochronen | Network Buffer, sonst Konturen | Konturen | — | 2.8 entscheidet |
+| F24 | Netze | alle sieben | Welle, Ufer, See | nur Welle | Abnahme-Matrix 7.8 |
+| F25 | Datei-Abbild | `daten/netz/`, App ohne DB lauffähig | nur Oracle | nur Datei | wie Timmendorf |
+| F26 | LOD und Treiber | Klassenlader, Treiber 21 in `lib/lod/` | neues `sdonm.jar` | PL/SQL | bewährt |
+| F27 | Boote | drei nach Miller, [G] wo unbelegt | ohne | nur Edrie | die Boote sind der Maßstab und die Geschichte |
+| F28 | Menschen | an Bord, klein, ohne Gesicht | keine | — | Maßstab |
+| F29 | La Pérouse 1786 | Szenario im Seenetz und Regiebuch | Ideenspeicher | weg | zeigt die zeitabhängigen Kosten |
+| F30 | Tiere | Möwen, Seehunde, Adler, Bär | ohne Bär | nur Möwen | Zugabe, klein |
+| F31 | Washburn 1934 | falls belegt | frei | weg | Wegenetz braucht einen echten Weg |
+| F32 | Gletscher 1958 | Karte 1951/C-5, Miller | heutige Front | — | 400 m Eis abgeschert: die Front 1958 ist Teil des Ereignisses |
+| F33 | Zeitlupe | bis 1:20, frei mit Kamera | nur Echtzeit | — | episch |
+| F34 | Unterwasser | ja | nein | — | Schaustück 7 |
+| F35 | Polarlicht | nur „heute“, wenn belegt | immer [G] | weg | Sommer ist zu hell (9.10) |
+| F36 | Ton | erzeugt, tiefe Frequenzen | keiner | Dateien | wie alle Szenen |
+| F37 | Leistungsziel | Hoch ≥ 30, Mittel 60, Ereignis ≥ 30 | nur 30 | frei | 15.1 |
+| F38 | Netzblick | alle Ebenen, Bild im Bild | nur Isochronen | keiner | Säule 2 muss sichtbar sein |
+| F39 | Property Graph | nur bei 23ai | nicht | Upgrade | 2.8 |
+| F40 | Schema | `LITUYA`, `LB_` | `LITUYABAY1958` | DEMO | kurz, wie `SY_`, `TD_` |
+| F41 | SRID | 26908, Sichten 4326 | 32608 | — | NAD83 wie die Daten |
+| F42 | Rückfluss | Wünsche als Liste | Phase | keiner | Abschnitt 18 |
+| F43 | Programmsymbol | Goldkante, Spurlinie über der Bucht | Welle | — | wie `heidelberg.ico` |
+
+Fragenblock II (Oberfläche, Datenbank) kommt in Phase 19 und wird hier als 16.3 angefügt.
+
+---
+
+## 17. Ideenspeicher
+
+- **Rückwärts rechnen:** Schnitt der Isochronen von den Booten aus (`withinCost` rückwärts): Trifft er den Gilbert Inlet?
+- **Wellenstrahlen** an Cenotaph Island: Teilung und Schließen der Front im Netzblick.
+- **Die Uhr der Welle:** Laufzeituhr je Ort im Kino.
+- **1940 gegen heute:** dieselbe Welle auf dem heutigen Grund (BlueTopo: die Bucht ist flacher geworden).
+- **Was wäre wenn:** halbes oder doppeltes Volumen; Sturz von der Crillon-Seite (wie 1936); Flut statt Ebbe; die Spurlinie wandert im Wald mit; `impact` liefert $a_M \propto P^{4/5}$: halbes Volumen → Welle nur um ein Fünftel kleiner ($M^{1/4}$), das überrascht und ist erklärbar.
+- **Frühere Wellen** als Ereignisse auf dem Ufer-LRS, wie Miller sie am Wald gelesen hat.
+- **Der Wald als Kalender:** Nachwuchs aus ArcticDEM 2013–2022.
+- **Maßstabsfiguren:** Kölner Dom (157 m), Freiheitsstatue, Kampener Leuchtturm neben der Welle.
+- **Energiebilanz als Fenster:** Gleitenergie, Wellenenergie, Reibung, Kaverne, als Balken live aus `impact`.
+- **Wege der Tlingit**, wenn belegt.
+- **Herkunft im Bild:** Klick auf eine Wassertiefe zeigt den Weg bis zur Vermessung von 1940.
+
+---
+
+## 18. Rückfluss (Wünsche, keine Pflicht, F42)
+
+| Was | wohin | warum |
+|---|---|---|
+| `clipmap`, `surface` | Sylt, Timmendorf | Fernsicht und Texturen ohne eigene Geländeklassen |
+| `wave` auf der GPU, drei Gitter | Rungholt | Sturmflut feiner und größer |
+| `landslide`, `quake` | Geiranger (Åkerneset), Glacier | der Felssturz, der dort immer geplant war |
+| `impact` | Glacier | Kalbungswellen |
+| `debris` | Rungholt, Sylt | Treibgut der Sturmflut |
+| `succession`, `understory` | Brocken | Windwurf, Borkenkäfer, Regenwald der Hochlagen |
+| `vessel` | Timmendorf, Lighthouse | Kutter im Hafen, Versorger am Turm |
+| `netview` | Timmendorf | Netze sichtbar machen |
+| `route` III (Gitter, Laufzeit, Messstrecke) | alle mit NDM | Zweitrechnung |
+
+---
+
+## 19. Fortschritt
+
+| Datum | Phase | Stand | Statusbild | `Renderer.jar` |
+|---|---|---|---|---|
+| 01.11.2026 | 0 | Gebiete festgelegt; Kartenmaterial-Werkzeug mit 48 Quellen; erster Lauf 1 170 Dateien, zweiter Lauf 1 227 Dateien (13,5 GB); Fehler berichtigt (Fortsetzen, Verzeichnisse, ENC-Katalog, USGS-Publikationen); Werkbuch-Prompt; **dieses Werkbuch als Entwurf** | `images/Gebiete_Szene.jpg`, `images/Gebiete_Fern.jpg`, `images/Kern_BlueTopo.png` | — |
+| 01.11.2026 | — | **Fragen F1–F43 beantwortet: alle A** (Abschnitt 16.1) | | |
+| | 0b | nächster Schritt: Recherche vervollständigen (Miller S. 51–86, Zeugen, Boote, Tide, Zeitzone), Texturquellen und Lizenzen, `docs/QUELLEN.md` | | |
+| | 1 | wartet auf die Freigabe | | |
+
+**Nächster Schritt:** Phase 0b (Recherche, ohne Code) und danach die Freigabe von Phase 1. Bis dahin kein Code.
