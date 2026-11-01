@@ -267,7 +267,8 @@
                 <jvmarg line="--add-opens java.desktop/sun.awt=ALL-UNNAMED --add-opens java.desktop/sun.awt.windows=ALL-UNNAMED --add-opens java.desktop/sun.java2d=ALL-UNNAMED"/>
                 <jvmarg value="@{speicher}"/>
                 <arg line="@{args}"/>
-                <classpath><pathelement path="${run.classpath}"/></classpath>
+                <!-- Renderer.jar zuerst: FStyle.jar bringt ältere Kopien von com.dan.forest, ground, river und road mit -->
+                <classpath><pathelement location="lib/Renderer.jar"/><pathelement path="${run.classpath}"/></classpath>
             </java>
         </sequential>
     </macrodef>
@@ -281,7 +282,8 @@
                 <jvmarg value="--enable-native-access=ALL-UNNAMED"/>
                 <jvmarg line="--add-opens java.desktop/sun.awt=ALL-UNNAMED --add-opens java.desktop/sun.awt.windows=ALL-UNNAMED --add-opens java.desktop/sun.java2d=ALL-UNNAMED"/>
                 <jvmarg value="@{speicher}"/>
-                <classpath><pathelement path="${run.classpath}"/></classpath>
+                <!-- Renderer.jar zuerst: FStyle.jar bringt ältere Kopien von com.dan.forest, ground, river und road mit -->
+                <classpath><pathelement location="lib/Renderer.jar"/><pathelement path="${run.classpath}"/></classpath>
             </java>
         </sequential>
     </macrodef>
