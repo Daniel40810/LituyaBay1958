@@ -38,10 +38,10 @@ public final class WellenNetz {
 
     /**
      * Orte für Prüfwege, Strahlen und Tabellen: Name, Ost, Nord, Suchradius (m). Der Sporn liegt heute hinter der
-     * Gletscherfront des Gilbert Inlet (kein Wasser in 1 km); er kommt mit dem Ufer 1958 (Schritt rueckbau1958).
+     * Gletscherfront des Gilbert Inlet (kein Wasser in 400 m; in 1 km nur die Einschlaglinie); er kommt mit dem Ufer 1958 (Schritt rueckbau1958).
      */
     public static final Object[][] ORTE = {
-            {"Sporn", Site.SPORN.e(), Site.SPORN.n(), 1000.0},
+            {"Sporn", Site.SPORN.e(), Site.SPORN.n(), 400.0},
             {"Cenotaph Island", Site.CENOTAPH.e(), Site.CENOTAPH.n(), 700.0},
             {"Anchorage Cove", Site.ANCHORAGE.e(), Site.ANCHORAGE.n(), 400.0},
             {"Eingang", Site.CHAUSSEE.e(), Site.CHAUSSEE.n(), 400.0},

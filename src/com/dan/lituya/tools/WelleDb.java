@@ -281,7 +281,8 @@ public final class WelleDb {
             p.executeBatch();
         }
         int nl = 0, np = 0;
-        try (PreparedStatement p = c.prepareStatement("INSERT INTO LB_ISOCHRONE (KOSTEN, T, ART, GEOMETRY) VALUES (?, ?, ?, SDO_UTIL.FROM_WKTGEOMETRY(?, 26908))")) {
+        // Befund Phase 7a: SDO_UTIL.FROM_WKTGEOMETRY hat in 21c kein SRID-Argument (PLS-306); der Konstruktor SDO_GEOMETRY(CLOB, SRID) schon
+        try (PreparedStatement p = c.prepareStatement("INSERT INTO LB_ISOCHRONE (KOSTEN, T, ART, GEOMETRY) VALUES (?, ?, ?, SDO_GEOMETRY(?, 26908))")) {
             for (int a = 0; a < 4; a++) {
                 float[] f = new float[WellenNetz.BREITE * WellenNetz.HOEHE];
                 Arrays.fill(f, Float.NaN);
@@ -293,7 +294,7 @@ public final class WelleDb {
                         for (int q = 0; q < l.length; q += 2)
                             b.append(q > 0 ? ", " : "").append(String.format(Locale.ROOT, "%.2f %.2f", WellenNetz.E_NW + WellenNetz.ZELLE / 2 + l[q], WellenNetz.N_NW - WellenNetz.ZELLE / 2 - l[q + 1]));
                         b.append(')');
-                        p.setString(1, WellenNetz.KOSTEN[a]); p.setDouble(2, lv); p.setString(3, "KONTUR"); p.setString(4, b.toString());
+                        p.setString(1, WellenNetz.KOSTEN[a]); p.setDouble(2, lv); p.setString(3, "KONTUR"); p.setClob(4, new java.io.StringReader(b.toString()));
                         p.addBatch();
                         nl++;
                     }
@@ -301,7 +302,7 @@ public final class WelleDb {
             }
             for (int i = 0; i < puffer.length; i++) {
                 if (puffer[i] == null || puffer[i].startsWith("FEHLER")) continue;
-                p.setString(1, "T_HEUTE"); p.setDouble(2, PUFFER[i]); p.setString(3, "PUFFER"); p.setString(4, puffer[i]);
+                p.setString(1, "T_HEUTE"); p.setDouble(2, PUFFER[i]); p.setString(3, "PUFFER"); p.setClob(4, new java.io.StringReader(puffer[i]));
                 p.executeUpdate();
                 np++;
             }

@@ -71,8 +71,14 @@ BEGIN
     -- Benutzerdaten der Kanten (Kategorie 0) für LOD; geht das nicht, rechnet LOD mit den Kosten aus der Datei (Probe 26)
     BEGIN
         DELETE FROM USER_SDO_NETWORK_USER_DATA WHERE NETWORK = t;
+        -- Befund Phase 7a: ohne CATEGORY_ID warf LOD beim Lesen der Benutzerdaten tausendfach NullPointerException
         FOR x IN (SELECT COLUMN_VALUE AS N FROM TABLE(SYS.ODCIVARCHAR2LIST('T_HEUTE', 'T_1940', 'T_1959', 'T_NICHTLINEAR'))) LOOP
-            INSERT INTO USER_SDO_NETWORK_USER_DATA (NETWORK, TABLE_TYPE, DATA_NAME, DATA_TYPE) VALUES (t, 'LINK', x.N, 'NUMBER');
+            BEGIN
+                EXECUTE IMMEDIATE 'INSERT INTO USER_SDO_NETWORK_USER_DATA (NETWORK, TABLE_TYPE, DATA_NAME, DATA_TYPE, CATEGORY_ID) VALUES (:1, ''LINK'', :2, ''NUMBER'', 0)'
+                    USING t, x.N;
+            EXCEPTION WHEN OTHERS THEN
+                INSERT INTO USER_SDO_NETWORK_USER_DATA (NETWORK, TABLE_TYPE, DATA_NAME, DATA_TYPE) VALUES (t, 'LINK', x.N, 'NUMBER');
+            END;
         END LOOP;
     EXCEPTION WHEN OTHERS THEN
         LB_PROBE_SETZEN(26, 'LinkCostCalculator mit Benutzerdaten (LB_NET_WELLE)', 'USER_SDO_NETWORK_USER_DATA für T_*', SQLERRM, 'N');

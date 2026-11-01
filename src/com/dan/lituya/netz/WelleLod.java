@@ -94,10 +94,11 @@ public final class WelleLod {
         String[] weg = new String[4];
         double[] ms = new double[4];
         var alt = a.getLinkCostCalculators();
+        boolean daten = io != null;
         try {
             for (int k = 0; k < 4; k++) {
                 java.util.Arrays.fill(t[k], Double.NaN);
-                Kosten c = new Kosten(io == null ? -1 : index(io, KOSTEN[k]), tabelle[k]);
+                Kosten c = new Kosten(daten ? index(io, KOSTEN[k]) : -1, tabelle[k]);
                 a.setLinkCostCalculator(c);
                 long t0 = System.nanoTime();
                 LogicalSubPath[] w = a.withinCost(new PointOnNet(quelle), 1e9, null, null);
@@ -108,6 +109,8 @@ public final class WelleLod {
                     if (n >= 0 && n <= maxId && x.getEndPercentage() > 1 - 1e-9) t[k][(int) n] = x.getCost();
                 }
                 weg[k] = c.weg() + String.format(Locale.ROOT, ", %d Wege, %.0f ms", w.length, ms[k]);
+                // kamen keine Benutzerdaten, fragt die nächste Kostenart gar nicht erst danach (spart das Nachladen)
+                if (c.ausDaten == 0) daten = false;
             }
         } finally {
             a.setLinkCostCalculators(alt);
@@ -157,8 +160,42 @@ public final class WelleLod {
         return b.toString();
     }
 
+    /**
+     * Zählt Zeilen, die LOD selbst ausgibt und die nur „java.lang.NullPointerException“ sagen (Befund Phase 7a: beim Lesen
+     * der Benutzerdaten tausendfach), statt sie durchzulassen; alles andere geht weiter.
+     */
+    static final class Filter extends java.io.OutputStream {
+        final java.io.PrintStream ziel;
+        final StringBuilder zeile = new StringBuilder();
+        long verschluckt;
+        Filter(java.io.PrintStream ziel) { this.ziel = ziel; }
+        @Override public synchronized void write(int b) {
+            if (b == '\n') {
+                String z = zeile.toString().strip();
+                if (z.equals("java.lang.NullPointerException")) verschluckt++; else ziel.println(zeile);
+                zeile.setLength(0);
+            } else if (b != '\r') zeile.append((char) b);
+        }
+    }
+
     /** Alles für {@code ant netzdb} und {@code ant netzvergleich} in Oracle: Ankunft, Strahlen zu den Zielen, Flächen zu den Zeiten. */
     public static Object[] oracle(String url, String user, String pw, long quelle, int maxId, double[][] tabelle, long[] ziele, double[] zeiten) throws Exception {
+        java.io.PrintStream out = System.out, err = System.err;
+        Filter fo = new Filter(out), fe = new Filter(err);
+        System.setOut(new java.io.PrintStream(fo, true, java.nio.charset.StandardCharsets.UTF_8));
+        System.setErr(new java.io.PrintStream(fe, true, java.nio.charset.StandardCharsets.UTF_8));
+        try {
+            Object[] r = oracleIntern(url, user, pw, quelle, maxId, tabelle, ziele, zeiten);
+            long n = fo.verschluckt + fe.verschluckt;
+            if (n > 0) r[4] = r[4] + String.format(Locale.ROOT, "; LOD meldete %d-mal NullPointerException (ausgeblendet)", n);
+            return r;
+        } finally {
+            System.setOut(out);
+            System.setErr(err);
+        }
+    }
+
+    static Object[] oracleIntern(String url, String user, String pw, long quelle, int maxId, double[][] tabelle, long[] ziele, double[] zeiten) throws Exception {
         try (Connection c = LODNetworkManager.getConnection(url, user, pw)) {
             long t0 = System.nanoTime();
             NetworkIO io = LODNetworkManager.getCachedNetworkIO(c, NETZ, NETZ, null);

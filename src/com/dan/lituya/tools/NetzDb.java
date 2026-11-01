@@ -87,7 +87,8 @@ public final class NetzDb {
         log("=== %s", ok ? "ok" : "FEHLER (siehe oben)");
         File st = new File("docs/status");
         if (st.isDirectory())
-            Files.write(new File(st, was + "_Phase7a.txt").toPath(), PROTOKOLL, StandardCharsets.UTF_8);
+            // eigener Name: die Konsole leitet man gern nach netzdb_Phase7a.txt um (Befund Phase 7a: beide schrieben in dieselbe Datei)
+            Files.write(new File(st, was + "_protokoll_Phase7a.txt").toPath(), PROTOKOLL, StandardCharsets.UTF_8);
         System.exit(ok ? 0 : 1);
     }
 
