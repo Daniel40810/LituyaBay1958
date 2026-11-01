@@ -408,8 +408,8 @@ statisch("luftbilder_historisch", "luftbild", "Historische Luftbilder 1929–198
 COOPS = "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter"
 statisch("gezeiten", "klima", "Gezeiten Lituya Bay (9452928) und Elfin Cove (9452634), Boje Fairweather Ground",
          "NOAA CO-OPS / NDBC", "gemeinfrei", "Zeitreihen", "1958 und heute", "kern", "standard",
-         """Vorausberechnete Hoch- und Niedrigwasser für Lituya Bay am 9./10. Juli 1958 (die Welle kam um
-         22:17 Ortszeit bei Ebbe) und für Juli 2026; Bezugshöhen von Elfin Cove; Seegang der Boje 46083.
+         """Vorausberechnete Hoch- und Niedrigwasser für Lituya Bay am 9./10. Juli 1958 (Bebenzeit laut
+         ComCat 10.07.1958 06:15:58 UTC; Tidenstand daraus berechnen) und für Juli 2026; Bezugshöhen von Elfin Cove; Seegang der Boje 46083.
          Ungeprüft.""",
          "https://tidesandcurrents.noaa.gov/stationhome.html?id=9452928",
          [(COOPS + "?station=9452928&product=predictions&begin_date=19580705&end_date=19580715&datum=MLLW"

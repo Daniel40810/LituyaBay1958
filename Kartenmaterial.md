@@ -27,7 +27,7 @@ Die Szene braucht die Bucht **vor**, **während** und **nach** der Welle. Die Sa
 |---|---|---|---|
 | **vor 1958** | Mt Fairweather 1:250 000, Ausgabe 1951 aus Luftbildern von 1948 (die einzige USGS-Karte von vor der Welle); Blätter 1:63 360 C-6 (Luftbilder 1948) und C-5 (Luftbilder 1954), gedruckt 1961 | NOS-Vermessungen H04608/H04648 (1926) und H06581–83 (1940) | Seekarte C&GS 8505 (1929, 1942); Washburn-Luftbilder 1934/37 |
 | **1958/59** | Miller 1960 (PP 354-C) mit Karte 1:50 000 der Zerstörung und der Spurlinie | H08492: Nachvermessung 21.7.–27.8.1959 | Fotos von D. J. Miller, 7.–29. August 1958 |
-| **heute** | Lidar Glacier Bay 2019/20 (0,5–1 m), USACE-Topobathy 2019 (1 m), IfSAR 2012 (5 m DTM/DSM), ArcticDEM 2 m (Mosaik und ≈47 datierte Streifen ab 2009), 3DEP 10 m, Copernicus 30 m | BlueTopo (4 m, aus 1926–2025 zusammengesetzt), H14228 (Rainier, Juli 2025; laut NOAA ist die Bucht seit den alten Aufnahmen deutlich flacher geworden) | US Topo 2017, NOAA ENC, Sentinel-2 ab 2017, Landsat ab 1972, WorldCover 2021 |
+| **heute** | Lidar Glacier Bay 2019/20 (0,5–1 m), USACE-Topobathy 2019 (1 m), IfSAR 2012 (5 m DTM/DSM), ArcticDEM 2 m (Mosaik und 47 datierte Streifen über dem Kern, 2013–2022), 3DEP 10 m, Copernicus 30 m | BlueTopo (4 m, aus 1926–2025 zusammengesetzt), H14228 (Rainier, Juli 2025; laut NOAA ist die Bucht seit den alten Aufnahmen deutlich flacher geworden) | US Topo 2017, NOAA ENC, Sentinel-2 ab 2017, Landsat ab 1972, WorldCover 2021 |
 
 ![BlueTopo im Kern](images/Kern_BlueTopo.png)
 
@@ -361,7 +361,7 @@ Luft- und Bodenaufnahmen von Spurlinie, Waldschneise und Gilbert Inlet wenige Wo
 
 **Gezeiten Lituya Bay (9452928) und Elfin Cove (9452634), Boje Fairweather Ground** (`gezeiten`, Stufe standard, Gebiet kern)  
 NOAA CO-OPS / NDBC · Zeitreihen · Stand 1958 und heute · Lizenz: gemeinfrei  
-Vorausberechnete Hoch- und Niedrigwasser für Lituya Bay am 9./10. Juli 1958 (die Welle kam um 22:17 Ortszeit bei Ebbe) und für Juli 2026; Bezugshöhen von Elfin Cove; Seegang der Boje 46083. Ungeprüft.  
+Vorausberechnete Hoch- und Niedrigwasser für Lituya Bay am 9./10. Juli 1958 (Bebenzeit laut ComCat 10.07.1958 06:15:58 UTC; Tidenstand daraus berechnen) und für Juli 2026; Bezugshöhen von Elfin Cove; Seegang der Boje 46083. Ungeprüft.  
 <https://tidesandcurrents.noaa.gov/stationhome.html?id=9452928>
 
 **ERA5 Reanalyse Juli 1958 (Wind, Luftdruck, Temperatur)** (`era5_juli1958`, Stufe gross, Gebiet fern)  
