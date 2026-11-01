@@ -49,14 +49,14 @@ import java.util.function.Consumer;
  */
 public final class Renderer implements GLEventListener {
     public static final int MIN_MAJOR = 4, MIN_MINOR = 3;
-    public static final String VERSION = "Phase 3";
+    public static final String VERSION = "Phase 4";
     /** Phase des Stands (für Ansichten und Bedienfeld). */
-    public static final int PHASE = 3;
-    public static final String[] PASSES = {"Himmel", "Wasser", "Nachbearbeitung", "HUD"};
+    public static final int PHASE = 4;
+    public static final String[] PASSES = {"Himmel", "Gelände", "Wasser", "Nachbearbeitung", "HUD"};
     private static final int MARKS = PASSES.length + 1;
     /** Nah- und Fernebene (m): vom Kutter bis über die Kimm des Mount Fairweather (264 km). */
     static final double NEAR = 0.3, FAR = 400_000;
-    /** Höhe „kein Grund“ bis Phase 4: unter jedem Wasser (m über NAVD88). */
+    /** Höhe „kein Grund“, solange das Gelände nicht geladen ist oder fehlt: unter jedem Wasser (m über NAVD88). */
     public static final double KEIN_GRUND = -10_000;
 
     public final SceneClock clock;
@@ -67,6 +67,13 @@ public final class Renderer implements GLEventListener {
     public final Wiring wiring;
     /** Phase 17: der Kinomodus (com.dan.kino); bis dahin nur der Anschluss für die Tasten der Szene. */
     public final com.dan.kino.Kino kino = new com.dan.kino.Kino();
+    /** Phase 4: das Gelände aus daten/gelaende über com.dan.clipmap (vor dem Konstruktor angelegt, setQuality braucht es). */
+    public final com.dan.lituya.scene.Land land = new com.dan.lituya.scene.Land();
+    private final com.dan.clipmap.gl.ClipmapGl clipGl = new com.dan.clipmap.gl.ClipmapGl();
+    /** Das Gelände zeigen (G … im Bedienfeld TECHNIK). */
+    public volatile boolean showGelaende = true;
+    /** Texturstelle der Höhen der Clipmap. */
+    static final int UNIT_CLIP = 3;
 
     private volatile Quality quality = Quality.MITTEL;
     public volatile double renderScale = quality.renderScale;
@@ -95,9 +102,10 @@ public final class Renderer implements GLEventListener {
 
     private final Shader skyShader = new Shader("Himmel", null, "fullscreen.vert", "sky.frag"),
             meerShader = new Shader("Wasser", null, "fullscreen.vert", "meer.frag"),
+            gelaendeShader = new Shader("Gelände", null, "gelaende.vert", "gelaende.frag"),
             post = new Shader("Nachbearbeitung", null, "fullscreen.vert", "post.frag"),
             overlay = new Shader("Überlagerung", null, "fullscreen.vert", "overlay.frag");
-    private final Shader[] all = {skyShader, meerShader, post, overlay};
+    private final Shader[] all = {skyShader, gelaendeShader, meerShader, post, overlay};
     private final HudOverlay hud = new HudOverlay();
     private int emptyVao, hdrTex, depthTex, hdrFbo, hdrColorFbo, hdrW, hdrH, surfW = 1, surfH = 1, defaultFbo;
     private boolean reversedZ, ready;
@@ -156,10 +164,15 @@ public final class Renderer implements GLEventListener {
     public void setQuality(Quality q) {
         quality = q;
         renderScale = q.renderScale;
+        // Phase 4: die Clipmap folgt der Stufe eins zu eins (NIEDRIG 129², MITTEL 193², HOCH 257², ULTRA 385²)
+        land.clipmap(com.dan.clipmap.Clipmap.Quality.values()[q.ordinal()]);
     }
 
-    /** Höhe des Grunds am Ort: bis Phase 4 kein Gelände ({@link #KEIN_GRUND}); dann aus {@code clipmap}. */
-    public double groundHeight(double x, double z) { return KEIN_GRUND; }
+    /** Höhe des Geländes (m über NAVD88) aus der Clipmap; {@link #KEIN_GRUND}, solange nichts geladen ist. */
+    public double groundHeight(double x, double z) {
+        double h = land.hoehe(x, z);
+        return Double.isNaN(h) ? KEIN_GRUND : h;
+    }
 
     /** Stellt die Kamera auf eine Ansicht nach Namen. */
     public boolean placeView(Ansichten.Ansicht a) {
@@ -241,6 +254,7 @@ public final class Renderer implements GLEventListener {
         }
         clock.step(dt);
         kino.schritt(dt);
+        land.auge(camera.eye[0], camera.eye[2]);
         physik.advance(dt);
         camera.groundLevel = groundHeight(camera.eye[0], camera.eye[2]);
         camera.waterLevel = wiring.pegel;
@@ -316,14 +330,38 @@ public final class Renderer implements GLEventListener {
         gl.glDrawArrays(GL.GL_TRIANGLES, 0, 3);
         mark(gl, 1);
 
-        // 2 Wasser: die Fläche im Pegel mit Erdkrümmung bis zur Kimm (Platzhalter bis ocean in Phase 5a), mit den Marken;
-        //   ab Phase 4 liest sie die Tiefe des Geländes aus clipmap
+        // 2 Gelände (Phase 4): alle Stufen der Clipmap mit Tiefe, Rückseiten weg
+        com.dan.clipmap.Clipmap cm = land.clipmap();
+        if (showGelaende && cm != null) {
+            clipGl.upload(gl, cm);
+            gl.glEnable(GL.GL_DEPTH_TEST);
+            gl.glDepthFunc(reversedZ ? GL.GL_GREATER : GL.GL_LESS);
+            gl.glDepthMask(true);
+            gl.glEnable(GL.GL_CULL_FACE);
+            gl.glCullFace(GL.GL_BACK);
+            gl.glFrontFace(GL.GL_CCW);
+            common(gl, gelaendeShader, vp, inv, sun);
+            bindMarks(gl, gelaendeShader);
+            clipGl.draw(gl, gelaendeShader.id(), cm, vp, camera.eye, UNIT_CLIP);
+            gl.glDisable(GL.GL_CULL_FACE);
+            gl.glDisable(GL.GL_DEPTH_TEST);
+            gl.glBindVertexArray(emptyVao);
+        }
+        mark(gl, 2);
+
+        // 3 Wasser: die Fläche im Pegel mit Erdkrümmung bis zur Kimm (Platzhalter bis ocean in Phase 5a), mit den Marken;
+        //   seit Phase 4 mit Tiefe gegen das Gelände
         if (showMeer) {
+            gl.glEnable(GL.GL_DEPTH_TEST);
+            gl.glDepthFunc(reversedZ ? GL.GL_GEQUAL : GL.GL_LEQUAL);
+            gl.glDepthMask(false);
             common(gl, meerShader, vp, inv, sun);
             bindMarks(gl, meerShader);
             gl.glDrawArrays(GL.GL_TRIANGLES, 0, 3);
+            gl.glDepthMask(true);
+            gl.glDisable(GL.GL_DEPTH_TEST);
         }
-        mark(gl, 2);
+        mark(gl, 3);
 
         // 4 Nachbearbeitung ins Fenster
         gl.glBindFramebuffer(GL.GL_FRAMEBUFFER, defaultFbo);
@@ -336,9 +374,9 @@ public final class Renderer implements GLEventListener {
         post.set(gl, "uScotopic", 0f);
         gl.glBindVertexArray(emptyVao);
         gl.glDrawArrays(GL.GL_TRIANGLES, 0, 3);
-        mark(gl, 3);
+        mark(gl, 4);
 
-        // 4 HUD (vorher abschicken: die Grafikkarte arbeitet, während das HUD im selben Faden gemalt wird; aus Brocken)
+        // 5 HUD (vorher abschicken: die Grafikkarte arbeitet, während das HUD im selben Faden gemalt wird; aus Brocken)
         gl.glFlush();
         if (showHud && !kino.laeuft()) {
             hud.refresh(gl, 250, this::paintHud, frozen);
@@ -346,7 +384,7 @@ public final class Renderer implements GLEventListener {
         }
         gl.glBindVertexArray(0);
         gl.glUseProgram(0);
-        mark(gl, 4);
+        mark(gl, 5);
     }
 
     private void bindMarks(GL4 gl, Shader s) {
@@ -559,7 +597,8 @@ public final class Renderer implements GLEventListener {
                 String.format(Locale.GERMAN, "Belichtung %.2g (Platzhalter-Himmel bis Phase 5a) · Zeitraffer %.0f×", exposure(), clock.lapse),
                 wiring.zeile(),
                 physik.describe(),
-                "!Gelände: noch keins (clipmap ab Phase 4, Aufbereitung in Phase 2)",
+                land.zeile(),
+                clipGl.info(),
                 cameraLine(),
                 String.format(Locale.GERMAN, "UTM 8 N  E %.0f  N %.0f · %s · Kimm %.1f km", utm[0], utm[1], Site.dms(ll[0], ll[1]), kimm / 1000),
                 "Renderer.jar: " + Bibliothek.kurz(),
@@ -628,6 +667,9 @@ public final class Renderer implements GLEventListener {
         physik.stop();
         GL4 gl = d.getGL().getGL4();
         for (Shader s : all) s.dispose(gl);
+        clipGl.dispose(gl);
+        com.dan.clipmap.Clipmap cm = land.clipmap();
+        if (cm != null) cm.stop();
         hud.dispose(gl);
         Gpu.deleteFbos(gl, hdrFbo, hdrColorFbo);
         Gpu.deleteTextures(gl, hdrTex, depthTex);

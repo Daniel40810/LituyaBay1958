@@ -66,18 +66,32 @@ public final class Tempo {
         String pg = opt("pegel");
         if (pg != null && !pg.isBlank()) r.wiring.pegel = Double.parseDouble(pg.replace(',', '.'));
         String an = opt("ansicht"), ka = opt("kamera");
-        if (ka != null && !ka.isBlank()) {
-            String[] p = ka.split(",");
-            double x = Double.parseDouble(p[0]), z = Double.parseDouble(p[1]);
-            double hd = p.length > 2 ? Double.parseDouble(p[2]) : 0, pt = p.length > 3 ? Double.parseDouble(p[3]) : 10, up = p.length > 4 ? Double.parseDouble(p[4]) : 2;
-            r.camera.place(x, Math.max(r.groundHeight(x, z), r.wiring.pegel) + up, z, hd, pt);
-        } else if (an != null && !an.isBlank()) {
-            Ansichten.Ansicht v = Ansichten.byName(an);
-            if (v == null) System.err.println("FEHLER: keine Ansicht „" + an + "“");
-            else r.placeView(v);
-        }
+        Runnable stellen = () -> {
+            if (ka != null && !ka.isBlank()) {
+                String[] p = ka.split(",");
+                double x = Double.parseDouble(p[0]), z = Double.parseDouble(p[1]);
+                double hd = p.length > 2 ? Double.parseDouble(p[2]) : 0, pt = p.length > 3 ? Double.parseDouble(p[3]) : 10, up = p.length > 4 ? Double.parseDouble(p[4]) : 2;
+                r.camera.place(x, Math.max(r.groundHeight(x, z), r.wiring.pegel) + up, z, hd, pt);
+            } else if (an != null && !an.isBlank()) {
+                Ansichten.Ansicht v = Ansichten.byName(an);
+                if (v == null) System.err.println("FEHLER: keine Ansicht „" + an + "“");
+                else r.placeView(v);
+            }
+        };
+        stellen.run();
         d.addGLEventListener(r);
         d.display();   // init
+        // Phase 4: das Gelände um das Auge laden, dann die Ansicht noch einmal stellen (jetzt mit Boden)
+        if (r.land.da()) {
+            long t0 = System.nanoTime();
+            r.land.auge(r.camera.eye[0], r.camera.eye[2]);
+            boolean ok = r.land.warten(300_000);
+            stellen.run();
+            r.camera.snap();
+            r.land.auge(r.camera.eye[0], r.camera.eye[2]);
+            ok &= r.land.warten(300_000);
+            System.out.printf(Locale.GERMAN, "Gelände %s in %.1f s%n", ok ? "geladen" : "NICHT geladen", (System.nanoTime() - t0) / 1e9);
+        }
         for (int i = 0; i < 20; i++) { r.step(1 / 60.0); d.display(); }
         double best = Double.MAX_VALUE, sum = 0;
         for (int i = 0; i < frames; i++) {

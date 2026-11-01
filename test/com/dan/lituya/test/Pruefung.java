@@ -29,7 +29,8 @@ import java.util.stream.Stream;
  * Ansichten und Kamera, Kimm, Qualitätsstufen und Regelung, Renderer.jar, die Shader-Dateien, der Weg zum Network Data
  * Model ({@code sdonm.jar}, Treiber 21 in {@code lib/lod/}, F26 A), Regel 3.3 (kein Laufzeitcode liest {@code download/})
  * und Paketvertrag 13 (Oracle nur in {@code data}, {@code netz} und {@code tools}); ab Phase 2 {@code daten/}, ab Phase 3
- * die Skripte in {@code db/netz}, die LOD-Analysen auf dem Probenetz im Speicher und das Herkunftsnetz. Endet mit „ERGEBNIS: alles in
+ * die Skripte in {@code db/netz}, die LOD-Analysen auf dem Probenetz im Speicher und das Herkunftsnetz, ab Phase 4 das Gelände
+ * (clipmap: 1 000 Stichproben gegen die Kacheln, Naht). Endet mit „ERGEBNIS: alles in
  * Ordnung“ oder der Zahl der Fehler (Rückgabewert 1).
  */
 public final class Pruefung {
@@ -118,7 +119,7 @@ public final class Pruefung {
 
         teil("Renderer, Qualität, Verdrahtung");
         Renderer rd = new Renderer(clock);
-        check(rd.groundHeight(0, 0) == Renderer.KEIN_GRUND, "Phase 1 ohne Gelände");
+        check(rd.groundHeight(0, 0) == Renderer.KEIN_GRUND, "ohne geladene Stufen kein Grund (der Ladefaden der Clipmap gibt erst nach dem ersten Bild frei)");
         rd.setQuality(Quality.MITTEL);
         rd.regulateForTest(30, 10_000_000_000L);
         check(rd.renderScale < Quality.MITTEL.renderScale && rd.renderScale >= Renderer.MIN_SCALE, f("Regelung senkt die Auflösung bei 30 ms: %.0f %%", rd.renderScale * 100));
@@ -200,6 +201,60 @@ public final class Pruefung {
             for (String g : new String[]{"heute_4m.r32", "wasser_4m.u8", "1940_20m.r32", "1959_20m.r32", "GRUND.txt"})
                 check(new File(daten, "grund/" + g).isFile(), "grund/" + g);
             check(new File(daten, "namen.tsv").isFile(), "namen.tsv");
+        }
+
+        teil("Gelände (Phase 4): clipmap über daten/gelaende");
+        {
+            com.dan.lituya.scene.Land land = new com.dan.lituya.scene.Land(new File(daten, "gelaende"));
+            if (!land.da()) hinweis("kein Gelände in daten/gelaende: ant aufbereitung");
+            else {
+                com.dan.clipmap.Clipmap c = land.clipmap(com.dan.clipmap.Clipmap.Quality.MEDIUM);
+                check(c.levels() >= 12 && c.half() * c.cell(c.levels() - 1) >= com.dan.lituya.scene.Land.REICHWEITE,
+                        f("%d Stufen à %d², %.1f m bis %.0f m, reicht %.0f km", c.levels(), c.grid, c.cell(0), c.cell(c.levels() - 1), c.half() * c.cell(c.levels() - 1) / 1000));
+                // 1 000 Stichproben an Zellmitten des Kerns, gegen Stufe.lesen (eigener Leser, nicht der des Packages)
+                java.util.Random rnd = new java.util.Random(1958);
+                com.dan.lituya.scene.Stufe sk = com.dan.lituya.scene.Stufe.KERN;
+                java.util.List<double[]> kach = new java.util.ArrayList<>(sk.kacheln());
+                kach.removeIf(t -> !sk.datei(daten, t[0], t[1]).isFile());
+                int nst = 0, falsch = 0, ohne = 0;
+                double worst = 0, ms = 0, naht = 0;
+                for (int o = 0; o < 10; o++) {
+                    double[] t = kach.get(rnd.nextInt(kach.size()));
+                    float[] v = com.dan.lituya.scene.Stufe.lesen(sk.datei(daten, t[0], t[1]));
+                    int ci = 100 + rnd.nextInt(1800), cj = 100 + rnd.nextInt(1800);
+                    double[] cxz = Site.fromUtm(t[0] + (ci + 0.5) * sk.zelle, t[1] + sk.kachel() - (cj + 0.5) * sk.zelle);
+                    long tg = System.nanoTime();
+                    land.auge(cxz[0], cxz[1]);
+                    if (!land.warten(180_000)) { check(false, "Gelände lädt nicht"); break; }
+                    ms += (System.nanoTime() - tg) / 1e6;
+                    for (int q = 0; q < 100; q++) {
+                        int i = ci - 70 + rnd.nextInt(140), j = cj - 70 + rnd.nextInt(140);   // im Fenster der feinsten Stufe (Mittel: ±48 m)
+                        float sollH = v[j * com.dan.lituya.scene.Stufe.N + i];
+                        if (Float.isNaN(sollH)) { ohne++; continue; }
+                        double[] p = Site.fromUtm(t[0] + (i + 0.5) * sk.zelle, t[1] + sk.kachel() - (j + 0.5) * sk.zelle);
+                        double d = Math.abs(land.hoehe(p[0], p[1]) - sollH);
+                        nst++;
+                        worst = Math.max(worst, d);
+                        if (d > 1e-3) falsch++;
+                    }
+                    // Naht: Randscheitel jeder Stufe auf den Kanten der gröberen
+                    int hh = c.half(), m = c.grid;
+                    for (int L = 0; L + 1 < c.levels(); L++) {
+                        int[] fc = c.center(L), gc = c.center(L + 1);
+                        for (int e = 0; e < m; e++) {
+                            int kk = e, lz = (e & 1) == 0 ? 0 : m - 1;
+                            int ii = fc[0] - hh + kk, jj = fc[1] - hh + lz;
+                            int gk = Math.floorDiv(ii, 2) - (gc[0] - hh), gl = Math.floorDiv(jj, 2) - (gc[1] - hh);
+                            double soll2 = (ii & 1) == 0 ? c.vertexHeight(L + 1, gk, gl) : 0.5 * (c.vertexHeight(L + 1, gk, gl) + c.vertexHeight(L + 1, gk + 1, gl));
+                            naht = Math.max(naht, Math.abs(c.vertexHeight(L, kk, lz) - soll2));
+                        }
+                    }
+                }
+                check(nst >= 900 && falsch == 0, f("Höhe an %d Stichproben an Zellmitten des Kerns gleich der Kachel (größte Abweichung %.1e m, %d ohne Wert)", nst, worst, ohne));
+                check(naht < 1e-2, f("Naht: Randscheitel aller Stufen auf den Kanten der gröberen (größte Abweichung %.1e m)", naht));
+                System.out.printf(Locale.GERMAN, "    10 Orte im Kern in %.0f ms je Ort geladen (mit dem Lesen der Kacheln); %s%n", ms / 10, land.stapel().describe());
+                c.stop();
+            }
         }
 
         teil("Netze (Phase 3): Skripte, Funktionsprobe im Speicher, Herkunft");

@@ -1,7 +1,8 @@
 // meer.frag — das Wasser als Platzhalter (Phase 1, aus Sylt und Timmendorf, bis ocean mit Gletschermilch in Phase 5a):
 // eine Wasserfläche im Pegel uLevel mit Erdkrümmung (der Strahl trifft die gekrümmte Fläche, daher liegt die Kimm richtig
 // unter dem Horizont des Auges), Spiegelung des Himmels nach Fresnel (Schlick), Glitzer der Sonne aus einem Rauschen der
-// Normale [G] und die Marken (marken.glsl). Phase 1 hat kein Gelände: das Wasser reicht überall bis zur Kimm. Die Farbe
+// Normale [G] und die Marken (marken.glsl). Seit Phase 4 schreibt es seine Tiefe: wo das Gelände (clipmap) näher ist,
+// verdeckt es das Wasser; unter dem Pegel liegt das Gelände unter dem Wasser. Die Farbe
 // des Wassers ist ein kühles Fjordgrün [G]; die Trübe aus Schwebstoff der Gletscher kommt in Phase 5a (9.9, F20 A).
 #include "common.glsl"
 #include "marken.glsl"
@@ -57,5 +58,7 @@ void main() {
     col += sunLight() * pow(max(dot(n, hv), 0.0), shin) * (shin / 400.0) * 3.0;
     col = applyMarks(col, q, dist, B);
     col = aerial(col, d, dist);
+    // ab Phase 4: die Tiefe der Wasserfläche, damit das Gelände davor und darüber das Wasser verdeckt
+    gl_FragDepth = depthOf(w);
     frag = vec4(col, 1.0);
 }

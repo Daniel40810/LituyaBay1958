@@ -51,7 +51,8 @@ public final class ControlPanel extends JPanel implements javax.swing.Scrollable
     private final FSlider time = new FSlider(0, 24 * 60 - 1, (int) (SceneClock.START_HOUR * 60)), scaleSl = new FSlider(50, 100, 85), expSl = new FSlider(-30, 30, 0);
     private final FCheckBox free = new FCheckBox("Frei fliegen (F)"), orbit = new FCheckBox("Von selbst kreisen (R)"),
             marks = new FCheckBox("Marken (UTM-Raster, Kern, Szene, Fern, Orte)"), autoBox = new FCheckBox("Auflösung selbst regeln"),
-            meerBox = new FCheckBox("Wasser zeigen (Platzhalter bis Phase 5a)");
+            meerBox = new FCheckBox("Wasser zeigen (Platzhalter bis Phase 5a)"),
+            gelaendeBox = new FCheckBox("Gelände zeigen (clipmap, Farben bis Phase 5)");
     private FComboBox lapseBox, qualBox, hudBox, standBox;
     private boolean fromScene;
     private int ticks;
@@ -107,8 +108,8 @@ public final class ControlPanel extends JPanel implements javax.swing.Scrollable
         hb.addActionListener(e -> { view.goHome(); view.requestFocusInWindow(); });
         home.add(hb);
         put(home);
-        put(small("<html><body style='width:215px'>Die Ansichten stehen in Phase 1 über dem Wasser, ohne Gelände; ab Phase 4 auf dem Gelände "
-                + "aus clipmap. Fahrten und Presets aus LB_NET_SICHT kommen mit Phase 17, „Mit der Edrie“ mit Phase 15.</body></html>"));
+        put(small("<html><body style='width:215px'>Die Ansichten stehen seit Phase 4 auf dem Gelände aus clipmap (vor dem ersten Laden über dem Wasser)."
+                + " Fahrten und Presets aus LB_NET_SICHT kommen mit Phase 17, „Mit der Edrie“ mit Phase 15.</body></html>"));
 
         // ============================================================== ZEIT
         block("ZEIT", true);
@@ -209,6 +210,9 @@ public final class ControlPanel extends JPanel implements javax.swing.Scrollable
         meerBox.setSelected(r.showMeer);
         meerBox.addActionListener(e -> { r.showMeer = meerBox.isSelected(); view.requestFocusInWindow(); });
         put(meerBox);
+        gelaendeBox.setSelected(r.showGelaende);
+        gelaendeBox.addActionListener(e -> { r.showGelaende = gelaendeBox.isSelected(); view.requestFocusInWindow(); });
+        put(gelaendeBox);
         JPanel pic = grid(2);
         FButton photo = new FButton("Foto (F12)"), shaders = new FButton("Shader neu (F5)");
         photo.addActionListener(e -> { r.photoRequest = true; view.requestFocusInWindow(); });

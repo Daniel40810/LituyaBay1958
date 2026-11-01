@@ -76,7 +76,7 @@
         lib/Renderer.jar alles hat, was LituyaBay1958 braucht (jedes gebrauchte Package mit Klassen und README, Java 21,
         von den 14 neuen die, deren Phase erreicht ist); abschalten mit -Dohne.paketpruefung=true.
     -->
-    <property name="lituya.phase" value="2"/>
+    <property name="lituya.phase" value="4"/>
     <target name="check-packages" description="Prüft lib/Renderer.jar: die gebrauchten Packages mit README, Java 21, die fälligen neuen." unless="ohne.paketpruefung">
         <property name="platform.java" value="java"/>
         <exec executable="${platform.java}" dir="${basedir}" failonerror="true">
@@ -102,7 +102,7 @@
          Stufe Mittel, Full HD, volles HUD mit den Zeiten jedes Durchgangs). Auf der Radeon laufen lassen; die Zeiten
          stehen auch in der Ausgabe. -Dansicht=Name wählt eine der neun Ansichten (etwa -Dansicht=AnchorageCove),
          -Dbild=… einen anderen Dateinamen. -->
-    <target name="statusbild" depends="jar" description="Phase 1: docs/status/Status_Phase1.png (Grundansicht, volles HUD).">
+    <target name="statusbild" depends="jar" description="docs/status/Status_Phase${lituya.phase}.png (Grundansicht, volles HUD; seit Phase 4 mit Gelände).">
         <property name="platform.java" value="java"/>
         <property name="ansicht" value=""/>
         <property name="bild" value="docs/status/Status_Phase${lituya.phase}.png"/>
@@ -169,6 +169,43 @@
             <jvmarg value="-Dstdout.encoding=UTF-8"/>
             <jvmarg value="-Djava.awt.headless=true"/>
             <arg value="pruefen"/>
+            <classpath><pathelement path="${run.classpath}"/></classpath>
+        </java>
+    </target>
+    <!-- Phase 4 (Werkbuch 5.11): das Package com.dan.clipmap aus lib/Renderer.jar über daten/gelaende (Ursprung E 352 000,
+         N 6 503 000). clipmapcheck: ClipmapCheck mit 1 000 Stichproben an den Kacheln und dem Baustein auf der Grafikkarte
+         gegen Java (Ausgabe auch nach docs/status/clipmapcheck_Phase4.txt); clipmapdemo: die Vorschau des Packages, Auge in
+         der Bucht vor dem Gilbert Inlet; clipmapbild: vier Ansichten mit der Zeit je Bild nach docs/status/Phase4_Clipmap.png. -->
+    <target name="clipmapcheck" depends="compile" description="Phase 4: ClipmapCheck über daten/gelaende, mit Grafikkarte.">
+        <property name="platform.java" value="java"/>
+        <java classname="com.dan.clipmap.demo.ClipmapCheck" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="true" output="docs/status/clipmapcheck_Phase4.txt" logError="true">
+            <jvmarg value="-Dstdout.encoding=UTF-8"/>
+            <jvmarg value="--enable-native-access=ALL-UNNAMED"/>
+            <jvmarg value="-Xmx4g"/>
+            <arg line="--gpu --daten daten/gelaende 352000 6503000"/>
+            <classpath><pathelement path="${run.classpath}"/></classpath>
+        </java>
+        <loadfile property="clipmapcheck.text" srcFile="docs/status/clipmapcheck_Phase4.txt" encoding="UTF-8"/>
+        <echo message="${clipmapcheck.text}"/>
+    </target>
+    <target name="clipmapdemo" depends="compile" description="Phase 4: die Vorschau von com.dan.clipmap über daten/gelaende.">
+        <property name="platform.java" value="java"/>
+        <java classname="com.dan.clipmap.demo.ClipmapDemo" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="true">
+            <jvmarg value="-Dstdout.encoding=UTF-8"/>
+            <jvmarg value="--enable-native-access=ALL-UNNAMED"/>
+            <jvmarg line="--add-opens java.desktop/sun.awt=ALL-UNNAMED --add-opens java.desktop/sun.awt.windows=ALL-UNNAMED --add-opens java.desktop/sun.java2d=ALL-UNNAMED"/>
+            <jvmarg value="-Xmx4g"/>
+            <arg line="--daten daten/gelaende 352000 6503000 --auge 2300 -1900 60 30"/>
+            <classpath><pathelement path="${run.classpath}"/></classpath>
+        </java>
+    </target>
+    <target name="clipmapbild" depends="compile" description="Phase 4: vier Ansichten der Clipmap mit der Zeit je Bild nach docs/status/Phase4_Clipmap.png.">
+        <property name="platform.java" value="java"/>
+        <java classname="com.dan.clipmap.demo.ClipmapDemo" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="true">
+            <jvmarg value="-Dstdout.encoding=UTF-8"/>
+            <jvmarg value="--enable-native-access=ALL-UNNAMED"/>
+            <jvmarg value="-Xmx4g"/>
+            <arg line="--daten daten/gelaende 352000 6503000 --auge 2300 -1900 60 30 --bild docs/status/Phase4_Clipmap.png"/>
             <classpath><pathelement path="${run.classpath}"/></classpath>
         </java>
     </target>
