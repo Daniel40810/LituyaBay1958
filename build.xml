@@ -76,7 +76,7 @@
         lib/Renderer.jar alles hat, was LituyaBay1958 braucht (jedes gebrauchte Package mit Klassen und README, Java 21,
         von den 14 neuen die, deren Phase erreicht ist); abschalten mit -Dohne.paketpruefung=true.
     -->
-    <property name="lituya.phase" value="13c"/>
+    <property name="lituya.phase" value="14"/>
     <target name="check-packages" description="Prüft lib/Renderer.jar: die gebrauchten Packages mit README, Java 21, die fälligen neuen." unless="ohne.paketpruefung">
         <property name="platform.java" value="java"/>
         <exec executable="${platform.java}" dir="${basedir}" failonerror="true">
@@ -649,5 +649,33 @@
         <echtzeitlauf ort="2"/>
         <loadfile property="echtzeit.text" srcFile="docs/status/echtzeit_Phase${lituya.phase}.txt" encoding="UTF-8"/>
         <echo message="${echtzeit.text}"/>
+    </target>
+    <!-- Phase 14 (Werkbuch 5.6, 9.7): succession im Renderer; Prüfung ohne Fenster, dazu ForestGpuCheck (Nachwuchs in
+         TreeStates, fünfter Blick); die Vorführung mit forest steht in der App (tools.Wiederbewaldung), weil ein Package
+         kein anderes kennt: im Fenster (Jahresregler, Zeitraffer 68 Jahre in einer Minute) oder als zwei Bögen der
+         Jahre 0, 10, 30, 68 nach docs/status/Wiederbewaldung_Spurlinie.png und Wiederbewaldung_Band.png. -->
+    <target name="successioncheck" depends="compile" description="Phase 14: SuccessionCheck und ForestGpuCheck nach docs/status/successioncheck_Phase14.txt.">
+        <renderer-java klasse="com.dan.succession.demo.SuccessionCheck" ausgabe="docs/status/successioncheck_Phase${lituya.phase}.txt" speicher="-Xmx2g"/>
+        <renderer-java klasse="com.dan.forest.demo.ForestGpuCheck" ausgabe="docs/status/successioncheck_gpu_Phase${lituya.phase}.txt"/>
+        <concat destfile="docs/status/successioncheck_Phase${lituya.phase}.txt" append="true" encoding="UTF-8" outputencoding="UTF-8">
+            <header>&#10;--- ForestGpuCheck (Grafikkarte, mit Nachwuchs)&#10;</header>
+            <fileset file="docs/status/successioncheck_gpu_Phase${lituya.phase}.txt"/>
+        </concat>
+        <delete file="docs/status/successioncheck_gpu_Phase${lituya.phase}.txt"/>
+        <loadfile property="successioncheck.text" srcFile="docs/status/successioncheck_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${successioncheck.text}"/>
+    </target>
+    <target name="wiederbewaldungbild" depends="compile" description="Phase 14: Bögen der Wiederbewaldung (Jahre 0, 10, 30, 68) nach docs/status/Wiederbewaldung_*.png.">
+        <renderer-java klasse="com.dan.lituya.tools.Wiederbewaldung" args="--bild docs/status/Wiederbewaldung_Spurlinie.png 2" ausgabe="docs/status/wiederbewaldung_Phase${lituya.phase}.txt" speicher="-Xmx4g"/>
+        <renderer-java klasse="com.dan.lituya.tools.Wiederbewaldung" args="--bild docs/status/Wiederbewaldung_Band.png 1" ausgabe="docs/status/wiederbewaldung_band_Phase${lituya.phase}.txt" speicher="-Xmx4g"/>
+        <concat destfile="docs/status/wiederbewaldung_Phase${lituya.phase}.txt" append="true" encoding="UTF-8" outputencoding="UTF-8">
+            <fileset file="docs/status/wiederbewaldung_band_Phase${lituya.phase}.txt"/>
+        </concat>
+        <delete file="docs/status/wiederbewaldung_band_Phase${lituya.phase}.txt"/>
+        <loadfile property="wiederbewaldung.text" srcFile="docs/status/wiederbewaldung_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${wiederbewaldung.text}"/>
+    </target>
+    <target name="wiederbewaldung" depends="compile" description="Phase 14: Wiederbewaldung im Fenster (succession + forest).">
+        <renderer-fenster klasse="com.dan.lituya.tools.Wiederbewaldung" speicher="-Xmx4g"/>
     </target>
 </project>

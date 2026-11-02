@@ -86,12 +86,19 @@ public final class EchtzeitTempo {
         double rueck = 0, minFps = Double.MAX_VALUE, sumFps = 0;
         int zeilen = 0;
         boolean bild1 = false;
+        double tStart = clock.simSeconds(), tWelle = Double.NaN, wWelle = Double.NaN;
         while ((System.nanoTime() - start) / 1e9 < dauer) {
             d.display();
+            // wie ein Fenster mit Bildwechsel: auf die Grafikkarte warten (ohne das stauen sich Bilder, und jeder Schritt
+            // der Welle wartet auf den ganzen Stau; Befund 13c)
+            d.getContext().makeCurrent();
+            d.getGL().glFinish();
+            d.getContext().release();
             bilder++;
             alle++;
             double te = clock.simSeconds();
             if (!Double.isNaN(ez.bis()) && te > 105) rueck = Math.max(rueck, te - ez.bis());
+            if (Double.isNaN(tWelle) && te > 106) { tWelle = te; wWelle = (System.nanoTime() - start) / 1e9; }
             long now = System.nanoTime();
             if (now - sek >= 1_000_000_000L) {
                 double fps = bilder / ((now - sek) / 1e9);
@@ -105,10 +112,12 @@ public final class EchtzeitTempo {
         }
         foto(d, r, new File(vor + "_" + ort + "_b.png"));
         double wand = (System.nanoTime() - start) / 1e9;
-        System.out.printf(Locale.GERMAN, "%nErgebnis: %d Bilder in %.0f s, Mittel %.1f Bilder/s ab der Welle, kleinstes %.1f · größter Rückstand der Rechnung %.1f s · %s · %s%n",
-                alle, wand, zeilen > 0 ? sumFps / zeilen : 0, zeilen > 0 ? minFps : 0, rueck, ez.messung(), ez.zeile());
-        System.out.println(zeilen > 0 && sumFps / zeilen >= 10 && rueck < 5 ? "ABNAHME: über 10 Bilder je Sekunde, die Rechnung hält mit der Uhr Schritt"
-                : "ABNAHME: NICHT erreicht (Ziel über 10 Bilder je Sekunde und Rückstand unter 5 s)");
+        // die Uhr selbst: lief sie mit der Wanduhr? (Bilder über 0,1 s lassen sie nachhinken, Befund 13c)
+        double uhr = Double.isNaN(tWelle) ? 0 : (clock.simSeconds() - tWelle) / Math.max(1e-3, wand - wWelle);
+        System.out.printf(Locale.GERMAN, "%nErgebnis: %d Bilder in %.0f s, Mittel %.1f Bilder/s ab der Welle, kleinstes %.1f · Uhr ab der Welle %.2f s je Sekunde (%.0f s → %.0f s) · größter Rückstand der Rechnung %.1f s · %s · %s%n",
+                alle, wand, zeilen > 0 ? sumFps / zeilen : 0, zeilen > 0 ? minFps : 0, uhr, tStart, clock.simSeconds(), rueck, ez.messung(), ez.zeile());
+        System.out.println(zeilen > 0 && sumFps / zeilen >= 10 && rueck < 5 && uhr > 0.9 ? "ABNAHME: über 10 Bilder je Sekunde, Uhr in Echtzeit, die Rechnung hält Schritt"
+                : "ABNAHME: NICHT erreicht (Ziel über 10 Bilder je Sekunde, Uhr über 0,9 s je Sekunde, Rückstand unter 5 s)");
         for (String l : r.hudLines()) System.out.println("  " + l);
         d.destroy();
         System.exit(0);

@@ -621,6 +621,37 @@ public final class Pruefung {
             } else hinweis("daten/grund fehlt: Grund 1940 gegen heute nicht geprüft");
         }
 
+        teil("Wiederbewaldung (Phase 14): succession, Nachwuchs in forest");
+        {
+            // ein kleiner Hang: Wasser für z > 0, Land mit 25°, Spurlinie 120 m
+            com.dan.succession.Succession.Gelaende hg = (px, pz) -> pz > 0 ? -40 : -pz * Math.tan(Math.toRadians(25));
+            com.dan.succession.Succession su = com.dan.succession.Succession.covering(0, -600, 600, 0, 6,
+                    List.of(com.dan.succession.Art.sitkaFichte(), com.dan.succession.Art.hemlock(), com.dan.succession.Art.roterle()), 1958);
+            su.stoeren(hg, (px, pz) -> { double g = hg.height(px, pz); return g < 120 ? g + 0.35 * (120 - g) + 0.5 : Double.NaN; }, (px, pz, sp) -> sp == 0 ? 0.55 : sp == 1 ? 0.37 : 0.08);
+            su.rechnen(54);
+            com.dan.succession.Succession.Statistik s0 = su.statistik(0), s54 = su.statistik(54);
+            check(su.band() > 1000 && s0.deckung() < 0.15 && s54.deckung() > 0.5 && s54.verhaeltnis() > 0.2 && s54.verhaeltnis() < 0.9,
+                    f("succession aus Renderer.jar: Band %,d Plätze, Deckung nach der Welle %.0f %%, nach 54 Jahren %.0f %%, Kronenhöhe im Band %.2f von außerhalb",
+                            su.band(), 100 * s0.deckung(), 100 * s54.deckung(), s54.verhaeltnis()));
+            com.dan.forest.TreeStates ts = com.dan.forest.TreeStates.covering(0, -600, 600, 0, 6);
+            double[] ref = {33, 28.7, 15.2};
+            int[] n = new int[2];
+            su.zustand(54, (i, j, st, fall, art, hh) -> { ts.set(i, j, st, fall); if (art >= 0) { ts.setGrowth(i, j, art, Math.min(1, hh / ref[art])); n[0]++; } });
+            com.dan.forest.ForestCulture cu = new com.dan.forest.ForestCulture(3, 3, 6, 1958);
+            cu.states = ts;
+            com.dan.forest.ForestCulture.Tree t = new com.dan.forest.ForestCulture.Tree();
+            int abw = 0;
+            for (int j = ts.j0; j < ts.j0 + ts.h; j++)
+                for (int i = ts.i0; i < ts.i0 + ts.w; i++) {
+                    int g = ts.growth(i, j);
+                    if (g == 0) continue;
+                    n[1]++;
+                    if (!cu.at(i, j, t) || t.species != (g & 15) - 1 || t.scale > 1.07f * com.dan.forest.TreeStates.growthSize(g) + 1e-4f) abw++;
+                }
+            check(n[0] > 0 && n[0] == n[1] && abw == 0, f("Nachwuchs in TreeStates: %,d junge Bäume, die Kultur von forest stellt jeden mit Art und Größe (%d Abweichungen)", n[1], abw));
+            check(Bibliothek.pakete().contains("succession"), "succession in Renderer.jar");
+        }
+
         teil("Staub und Treibgut (Phase 12): dustcloud, debris");
         {
             com.dan.dustcloud.DustCloud dc = new com.dan.dustcloud.DustCloud(0, 0, 40, 20, 50, com.dan.dustcloud.DustCloud.rockDust());
