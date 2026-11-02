@@ -54,7 +54,7 @@ public final class Renderer implements GLEventListener {
     public static final int MIN_MAJOR = 4, MIN_MINOR = 3;
     public static final String VERSION = "Phase 9";
     /** Phase des Stands (für Ansichten und Bedienfeld). */
-    public static final int PHASE = 14;
+    public static final int PHASE = 15;
     public static final String[] PASSES = {"Himmel", "Gelände", "Wald", "Welle", "Wasser", "Staub", "Nachbearbeitung", "HUD"};
     private static final int MARKS = PASSES.length + 1;
     /** Nah- und Fernebene (m): vom Kutter bis über die Kimm des Mount Fairweather (264 km). */
@@ -84,7 +84,7 @@ public final class Renderer implements GLEventListener {
     public final Echtzeit echtzeit = new Echtzeit();
     /** Phase 14a: der Wald (forest mit succession) über den Kern, Zustände nach dem Zeitstand, Treibgut am Morgen. */
     public final WaldGl wald = new WaldGl();
-    /** Phase 14a: Jahres-Zeitraffer (Jahre je Minute; die Uhrzeit bleibt), hält am 9.7.2026. */
+    /** Phase 14a: Jahres-Zeitraffer (Jahre je Minute, in ganzen Jahren; Tag und Uhrzeit bleiben), hält am 9.7.2026. */
     public volatile boolean jahresRaffer;
     public volatile double jahreJeMinute = 68;
     private double rafferTage;
@@ -314,14 +314,14 @@ public final class Renderer implements GLEventListener {
         }
         clock.step(dt);
         if (jahresRaffer) {
-            rafferTage += dt * jahreJeMinute / 60 * 365.25;
-            int tage = (int) rafferTage;
-            if (tage > 0) {
-                rafferTage -= tage;
-                java.time.LocalDate ende = SceneClock.Zeitstand.HEUTE.date;
-                long bis = java.time.temporal.ChronoUnit.DAYS.between(clock.date(), ende);
-                if (tage >= bis) { clock.shiftDays((int) Math.max(0, bis)); jahresRaffer = false; hudMeldung("Jahres-Zeitraffer: heute erreicht"); }
-                else clock.shiftDays(tage);
+            // ganze Jahre am selben Tag und zur selben Uhrzeit (die Jahreszeit bleibt; mit Tagen landete der Sprung im Winter)
+            rafferTage += dt * jahreJeMinute / 60;
+            java.time.LocalDate ende = SceneClock.Zeitstand.HEUTE.date;
+            while (rafferTage >= 1 && jahresRaffer) {
+                rafferTage -= 1;
+                java.time.LocalDate n = clock.date().plusYears(1);
+                if (!n.isBefore(ende)) { clock.set(ende, clock.hour()); clock.zeitstand = SceneClock.Zeitstand.HEUTE; jahresRaffer = false; hudMeldung("Jahres-Zeitraffer: heute erreicht"); }
+                else clock.set(n, clock.hour());
             }
         }
         kino.schritt(dt);

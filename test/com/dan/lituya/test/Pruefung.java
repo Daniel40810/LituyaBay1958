@@ -702,6 +702,19 @@ public final class Pruefung {
             }
         }
 
+        teil("Boote (Phase 15): vessel");
+        {
+            com.dan.vessel.Boat ed = com.dan.vessel.Kutter.edrie();
+            com.dan.vessel.Water ru = com.dan.vessel.Water.still(0, 30);
+            ed.settle(ru, 0, 0, 270);
+            for (int i = 0; i < 1000; i++) ed.step(ru, 0.01);
+            check(Math.abs(ed.draftNow(ru) - ed.hull.draft) < 0.05 && Math.abs(ed.hull.loa / 0.3048 - 40) < 2 && ed.gmDesign() > 0.5,
+                    f("vessel aus Renderer.jar: %s, schwimmt auf %.2f m, Rollperiode von Hand %.2f s", ed, ed.draftNow(ru), ed.rollPeriodHand()));
+            double[] kl = com.dan.vessel.Chain.catenaryTension(10, 66, com.dan.vessel.Kutter.EDRIE_KETTE, com.dan.vessel.Kutter.edrieKette().wetWeight());
+            check(kl != null && kl[2] > 0 && com.dan.vessel.Kutter.edrieKette().fouled, f("Kette der Edrie: 40 Faden, Kettenlinie in 5 Faden %.0f N an der Klüse, Anker festgehakt", kl == null ? 0 : kl[2]));
+            check(Bibliothek.pakete().contains("vessel"), "vessel in Renderer.jar");
+        }
+
         teil("Staub und Treibgut (Phase 12): dustcloud, debris");
         {
             com.dan.dustcloud.DustCloud dc = new com.dan.dustcloud.DustCloud(0, 0, 40, 20, 50, com.dan.dustcloud.DustCloud.rockDust());
