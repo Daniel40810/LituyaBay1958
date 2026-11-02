@@ -34,10 +34,11 @@ public final class Bibliothek {
             "succession", "vessel", "aurora", "bear"};
     public static final String[] NEU_PHASE = {"4", "5", "6", "6a", "7", "8", "9", "10", "12", "12", "14", "15", "18", "18"};
 
-    /** Reihenfolge einer Phase: „6“ = 6, „6a“ = 6,5. */
+    /** Reihenfolge einer Phase: „6“ = 6, „6a“ = 6,5, „11b“ = 11,6 (wie tools/JarPruefung). */
     public static double rang(String phase) {
         String p = phase.trim().toLowerCase(Locale.ROOT);
-        return p.endsWith("a") ? Double.parseDouble(p.substring(0, p.length() - 1)) + 0.5 : Double.parseDouble(p);
+        char c = p.isEmpty() ? '0' : p.charAt(p.length() - 1);
+        return c >= 'a' && c <= 'z' ? Double.parseDouble(p.substring(0, p.length() - 1)) + 0.5 + 0.1 * (c - 'a') : Double.parseDouble(p);
     }
 
     private static volatile List<String> cache;
