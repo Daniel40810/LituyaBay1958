@@ -76,7 +76,7 @@
         lib/Renderer.jar alles hat, was LituyaBay1958 braucht (jedes gebrauchte Package mit Klassen und README, Java 21,
         von den 14 neuen die, deren Phase erreicht ist); abschalten mit -Dohne.paketpruefung=true.
     -->
-    <property name="lituya.phase" value="14a"/>
+    <property name="lituya.phase" value="15"/>
     <target name="check-packages" description="Prüft lib/Renderer.jar: die gebrauchten Packages mit README, Java 21, die fälligen neuen." unless="ohne.paketpruefung">
         <property name="platform.java" value="java"/>
         <exec executable="${platform.java}" dir="${basedir}" failonerror="true">
@@ -710,5 +710,21 @@
         <schaustueck nr="11" liste="waldszene"/>
         <loadfile property="waldszene.text" srcFile="docs/status/waldszene_Phase${lituya.phase}.txt" encoding="UTF-8"/>
         <echo message="${waldszene.text}"/>
+    </target>
+    <!-- Phase 15 (Werkbuch 5.9, 2.3): com.dan.vessel – Kutter als Starrkörper, Ankerkette aus Massenpunkten, die Edrie in
+         einer Einzelwelle. vesselcheck: VesselCheck nach docs/status/vesselcheck_Phase15.txt; vesselbild: der Bogen der
+         Vorführung nach docs/status/Vessel_Demo.png (Grafikkarte); vesseldemo: im Fenster. -->
+    <target name="vesselcheck" depends="compile" description="Phase 15: VesselCheck nach docs/status/vesselcheck_Phase15.txt.">
+        <renderer-java klasse="com.dan.vessel.demo.VesselCheck" ausgabe="docs/status/vesselcheck_Phase${lituya.phase}.txt" speicher="-Xmx2g"/>
+        <loadfile property="vesselcheck.text" srcFile="docs/status/vesselcheck_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${vesselcheck.text}"/>
+    </target>
+    <target name="vesselbild" depends="compile" description="Phase 15: VesselDemo (Edrie in der Welle) nach docs/status/Vessel_Demo.png.">
+        <renderer-java klasse="com.dan.vessel.demo.VesselDemo" args="--bild docs/status/Vessel_Demo.png" ausgabe="docs/status/vesselbild_Phase${lituya.phase}.txt" speicher="-Xmx2g"/>
+        <loadfile property="vesselbild.text" srcFile="docs/status/vesselbild_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${vesselbild.text}"/>
+    </target>
+    <target name="vesseldemo" depends="compile" description="Phase 15: VesselDemo im Fenster.">
+        <renderer-fenster klasse="com.dan.vessel.demo.VesselDemo" speicher="-Xmx2g"/>
     </target>
 </project>
