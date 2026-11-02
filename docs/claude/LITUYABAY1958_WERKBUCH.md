@@ -2,7 +2,7 @@
 
 **Das Projekt der Riesenwelle und des Netzes.** Lituya Bay, Alaska, 9. Juli 1958, 22:16 Uhr Ortszeit.
 
-> **Stand: 01.11.2026. Fragen F1–F43 beantwortet: alle A (Entscheidung vom 01.11.2026, Abschnitt 16). Phase 0b (Recherche) ist der nächste Schritt; Phase 1 wartet auf die Freigabe.**
+> **Stand: 01.11.2026. Fragen F1–F43 beantwortet: alle A (Entscheidung vom 01.11.2026, Abschnitt 16). Phase 1 (Gerüst) erledigt; Phase 2 (Aufbereitung): Werkzeuge fertig, Volllauf mit `ant aufbereitung` auf dem Rechner steht aus; Phase 0b (Recherche) läuft parallel.**
 > Erstellt aus `docs/claude/LITUYABAY1958_WERKBUCH_PROMPT.md`. Das Werkbuch wird über das ganze Projekt fortgeschrieben (Abschnitt 19). Jede Zahl ist **belegt** (Quelle in Abschnitt 2.9), **gemessen** (aus den Daten in `download/`), **gerechnet** (hier hergeleitet, Formel in Abschnitt 9) oder **gestaltet [G]**. Was noch keine Quelle hat, trägt **[zu prüfen]**.
 >
 > Vorlage: Sylt Werkbuch (Projekt der Brandung) und Timmendorf (Projekt des Segels). Geschwisterdateien: `Kartenmaterial.md` (48 Quellen), `download/INVENTAR.md` (zweiter Lauf: 1 227 Dateien, 13,5 GB), `geodaten/gebiete.geojson`, `geodaten/namen_szene.geojson`.
@@ -77,7 +77,7 @@ Drei Säulen, gleichrangig:
 | Zerstörter Wald | rund 10 km² zwischen Spurlinie und Hochwasserlinie; bei Fish Lake 1 100 m landeinwärts | belegt | FRITZ01 |
 | Gletscherfront | bis 400 m Eis abgeschert, Deltas fortgeschoben; danach senkrechte Wand quer zum Inlet | belegt | FRITZ01 |
 | Bucht | Stamm 12 km, 1,2–3,3 km breit, Eingang 300 m, Tiefe bis 220 m, Eingang 10 m; U-Trog | belegt | FRITZ01 |
-| Sonne zur Bebenzeit | 1° unter dem Horizont, ≈ 12 min nach Sonnenuntergang (22:04); bürgerliche Dämmerung, Himmel hell | gerechnet | Abschnitt 9.10 |
+| Sonne zur Bebenzeit | 1° unter dem Horizont, 2 min nach Sonnenuntergang (22:14; der Entwurf nannte 22:04, in Phase 1 nachgerechnet mit `scene.Sun`, Prüfung 2.1); bürgerliche Dämmerung, Himmel hell; tiefster Stand der Nacht −9° | gerechnet | Abschnitt 9.10 |
 | Tide zur Bebenzeit | [zu prüfen] aus `download/klima/gezeiten/gezeiten_lituya_juli1958.json` | gemessen (Vorausberechnung) | COOPS |
 | Wetter | [zu prüfen] aus ERA5 (`--gross`) und Zeugen; Zeugen berichten ruhige See [zu prüfen] | | ERA5, MILLER60 |
 
@@ -148,22 +148,42 @@ Alle belegt über FRITZ01. Sie sind die Grenzfälle für `impact` und `wave` (Ab
 
 ### 2.8 NDM-Funktionsprobe (Phase 3)
 
-Vor dem ersten Netz wird gegen die installierte Datenbank geprüft, je mit einer Zeile SQL oder Java, Ergebnis in diese Tabelle:
+Vor dem ersten Netz wird gegen die installierte Datenbank geprüft, je mit einem Block SQL (`db/netz/03_probe.sql`) oder Java (`netz.NdmProbeKern` mit LOD im eigenen Klassenlader), Ergebnis in die Tabelle `LB_NDM_PROBE` (Sicht `LB_V_NDM_PROBE`) und hierher. `ant netzdb` legt dafür Probenetze `LB_PROBE_*` an und räumt sie danach weg (`98_probe_abbau.sql`). Probenetz `LB_PROBE_RAUM` (UTM 8 N, mit Höhe): Quadrat 1–2–3–4 mit Kanten zu 1000 m, Diagonale 1–3 (Kante 5) zu 1414,2 m, getrennt davon 6–7 zu 500 m, alle in beide Richtungen. Die Erwartungswerte prüft `ant pruefung` vorab an demselben Netz im Speicher (LOD ohne Datenbank: alle zwölf Analysen wie erwartet).
 
-| Fähigkeit | Prüfung | Ergebnis |
-|---|---|---|
-| Version | `select banner from v$version` | |
-| räumliches Netz mit Höhe | `SDO_NET.CREATE_SDO_NETWORK` + `VALIDATE_NETWORK` auf 3001/3002 | |
-| logisches Netz | `CREATE_LOGICAL_NETWORK` | |
-| LRS-Netz | `CREATE_LRS_NETWORK`, `SDO_LRS.LOCATE_PT` | |
-| hierarchisch | `no_of_hierarchy_levels = 2`, Elternknoten | |
-| Feature-Layer | `SDO_NET.ADD_FEATURE_LAYER` | |
-| Partitionen, LOD | `SPATIAL_PARTITION`, `GENERATE_PARTITION_BLOBS`, `LODNetworkManager` | |
-| `withinCost`, `nearestNeighbors`, `kShortestPaths`, `tsp`, `mcst`, `traceIn`/`traceOut` | `NetworkAnalyst` | |
-| `LinkCostCalculator`, `NetworkConstraint` | eigene Klasse | |
-| Network Buffer | `networkBuffer` | |
-| Zusammenhangskomponenten | `FIND_CONNECTED_COMPONENTS` | |
-| Property Graph, SQL/PGQ | nur 23ai: `CREATE PROPERTY GRAPH`, `GRAPH_TABLE` | |
+| Nr | Fähigkeit | Prüfung | Weg | Ergebnis |
+|---|---|---|---|---|
+| 1 | Version | `select banner_full from v$version` | SQL | **ja**: 21c Enterprise Edition 21.3.0.0.0 |
+| 2 | räumliches Netz mit Höhe | `SDO_NET.CREATE_SDO_NETWORK` + `VALIDATE_NETWORK` auf 3001/3002, SRID 26908 | SQL | **ja**: 6 Knoten, 6 Kanten, `VALIDATE_NETWORK` = TRUE |
+| 3 | logisches Netz | `CREATE_LOGICAL_NETWORK`, gerichtet | SQL | **ja**: TRUE |
+| 4 | LRS-Netz | `CREATE_LRS_NETWORK`; `SDO_LRS.LOCATE_PT` (750 m auf 1000 m) | SQL | **ja**: TRUE; `LOCATE_PT(750)` = 350 750 / 6 500 000. Braucht Raum-Metadaten auch für `_PATH$` |
+| 5 | hierarchisch | `no_of_hierarchy_levels = 2`, `PARENT_NODE_ID`, `LINK_LEVEL` | SQL | **ja**: TRUE |
+| 6 | Feature-Layer | `SDO_NET.ADD_FEATURE_LAYER` (`FEAT_TYPE_MPOINT`) | SQL | **ja**: Layer angelegt |
+| 7 | Partitionen | `SPATIAL_PARTITION` (3D), `LOGICAL_PARTITION`, `GENERATE_PARTITION_BLOBS` | SQL | **ja**: räumlich (3D) und logisch, BLOBs erzeugt. Nur mit `LINK_LEVEL` = 1 in `LINK$`, sonst ORA-06502 in MDSYS.SDO_NET |
+| 8 | Zusammenhangskomponenten | `FIND_CONNECTED_COMPONENTS` (erwartet 2) | SQL | **ja**: 2 Komponenten (ohne `LINK_LEVEL` hält SDO_NET das Netz für mehrstufig) |
+| 9 | Property Graph, SQL/PGQ | nur ab 23ai: `CREATE PROPERTY GRAPH`, `GRAPH_TABLE` | SQL | **nein**: 21c; Wunsch für 23ai (F39) |
+| 10 | LOD-Zugang | `LODNetworkManager.getCachedNetworkIO` aus den Partition-BLOBs, Treiber 21 | Java | **ja**: aus den Partition-BLOBs, Treiber 21 im eigenen Lader |
+| 11 | Dijkstra | `shortestPathDijkstra` 1 → 3 (1414,2) | Java | **ja**: 1414,2 über [1, 3] |
+| 12 | `NetworkConstraint` | eigene Klasse sperrt Kante 5 (2000) | Java | **ja**: 2000 über Kanten [1, 2] |
+| 13 | `LinkCostCalculator` | eigene Klasse, doppelte Kosten (2828,4) | Java | **ja**: 2828,4 |
+| 14 | `withinCost` | von 1 bis 1100 (2 und 4) | Java | **ja**: [2, 4] |
+| 15 | `nearestNeighbors` | von 1, drei (2, 4, dann 3) | Java | **ja**: 2 und 4 zu 1000, 3 zu 1414,2 |
+| 16 | *k* kürzeste Wege | `kShortestPaths` 1 → 3, k = 3 | Java | **ja**: 1414,2 / 2000 / 2000 |
+| 17 | TSP | `tsp` über 1–4, geschlossen (4000) | Java | **ja**: 4000 |
+| 18 | MCST | `mcst` (Spannbaum einer Komponente; LOD 21 spannt keinen Wald) | Java | **ja**, mit Befund: Kanten [1, 4, 2]; `mcst` spannt nur eine Komponente, keinen Wald |
+| 19 | `traceOut` | von 1 bis 1500 (2, 3, 4) | Java | **ja**: [2, 3, 4] |
+| 20 | `traceIn` | nach 3 bis 1100 (2, 4) | Java | **ja**: [2, 4] |
+| 21 | Network Buffer | `networkBuffer` um 1, 1100 | Java | **ja**: 3 Knoten, 5 Kanten |
+| 22 | Zusammenhangskomponenten | `findConnectedComponents` | Java | **ja**: [1, 2, 3, 4] und [6, 7] |
+| 23 | Partition `LB_NET_HERKUNFT` | `LOGICAL_PARTITION`, `GENERATE_PARTITION_BLOBS` | SQL | **ja**: 1 Partition, BLOBs erzeugt |
+| 24 | Partition `LB_NET_WELLE` (Phase 7a) | `SPATIAL_PARTITION` (5 000), `GENERATE_PARTITION_BLOBS` mit Benutzerdaten | SQL | **ja**: 16 Partitionen, BLOBs mit Benutzerdaten |
+| 25 | Partition `LB_NET_UFER` (Phase 7a) | `LOGICAL_PARTITION` eines LRS-Netzes, BLOBs | SQL | **ja** |
+| 26 | `LinkCostCalculator` mit Benutzerdaten (Phase 7a) | vier Kosten `T_*` aus den Benutzerdaten der Kanten, `withinCost` von `QUELLE` | Java | **nein**: LOD liefert die Benutzerdaten nicht (`getUserData(0)` leer, beim Laden 3,8 Mio. `NullPointerException` in LOD, auch mit `CATEGORY_ID` 0); der Kostenrechner nimmt die Kosten aus der Datei, Ergebnis gleich [zu prüfen in Phase 19] |
+| 27 | `withinCost` gegen `route` (Phase 7a) | Ankunft aller Knoten je Kostenart gegen `ankunft.tsv` (≤ 0,01 s) | Java | **ja**: 74 483 Knoten, größte Abweichung 0,0016 bis 0,0031 s je Kostenart |
+| 28 | `fastWithinCostPolygon` (Phase 7a, F23) | Isochronen-Flächen nach 60 … 360 s | Java | **nein**: `LODNetworkException: Invalid number of nodes`; Isochronen als Konturen (256 in `LB_ISOCHRONE`, F23 „sonst Konturen“) |
+| 29 | `kShortestPaths` auf `LB_NET_WELLE` (Phase 7a) | Wellenstrahlen `QUELLE` → Orte, k = 3 | Java | **ja**: Cenotaph 139,9 s, Anchorage 320,2 s, Eingang 364,7 s wie `route` (im Protokoll noch N, weil der Sporn keinen Knoten hat; seit Phase 8 zählt er nicht mehr) |
+| 30 | Dynamische Segmentierung (Phase 7a) | `LOCATE_PT`, `PROJECT_PT`, `CLIP_GEOM_SEGMENT` auf `LB_NET_UFER` gegen `route.Measure` (≤ 5 cm) | SQL | **ja**: `LOCATE_PT` 4,8 mm, `PROJECT_PT` 0,0 mm, `CLIP` 2 000,000 m |
+
+Geprüft am 01.11.2026 mit `ant netzdb` (`docs/status/netzdb_Phase3.txt`): 22 von 23 ja; es fehlt nur Property Graph (21c). Befunde: `LINK_LEVEL` muss auch in einstufigen Netzen gefüllt sein. `Db` aus `Renderer.jar` wartet sonst 30 s auf eine Antwort; `NetzDb` hebt die Grenze auf. `mcst` spannt keinen Wald.
 
 Was fehlt, wird nicht geplant, sondern als Wunsch notiert (F39).
 
@@ -239,13 +259,18 @@ Verbindlich, Abnahme-Bedingung (Prompt 2.3):
 | `klassen` | Sentinel-2 (klarste Szenen), WorldCover, IfSAR-Radarbild | `klassen/kern_10m.u8` (Wald, Gebüsch, Fels, Schutt, Eis, Schnee, Wasser, Strand), Makrofarbe `farbe/*.rgb` | Klassenbild |
 | `wald` | DSM 2012 − DTM, Lidar (Boden), ArcticDEM-Streifen | Kronenhöhe 5 m, Waldalter aus der Spurlinie [G außerhalb des Bands] | Kronenhöhe |
 | `spurlinie` | Miller-Karte 1:50 000 (georef., digitalisiert), NCEI-Auflaufhöhen, Lidar-Kante | `ereignis/spurlinie_1958.geojson` (Linie mit Höhe je Stützpunkt), `auflauf.csv` | Spurlinie über Lidar |
+| `stoerung` (Phase 8) | Qfaults 2020 (`geologie/stoerungen/Qfaults_GIS.zip`), ComCat (`ereignis/usgs_erdbeben/`) | `ereignis/stoerung.tsv` (Spur der Fairweather-Störung, 10 km), `stoerung_abschnitte.tsv`, `beben.txt` (Herd, M) | `Beben.png` (`ant bebenbild`) |
 | `netz` | alle obigen | `netz/<netz>/knoten.tsv`, `kanten.tsv`, `pruefwege.tsv` (Abschnitt 7) | Netzbilder |
 | `namen` | GNIS, Tlingit | `namen.tsv` mit UTM | |
 | `gletscher` | RGI 7, GLIMS, ITS_LIVE, Fronten 1958 | Umrisse je Zeitstand, Geschwindigkeit | |
 | `ereignis` (Phase 13) | — | `ereignis/<lauf>/…` (Höhenfelder, Strom, Zustände je Zeitschritt), vorgerechnet | Bildfolge |
 | `inhalt` | — | `INHALT.txt` | |
 
-Höhenbezug: Lidar und USACE sind NAVD88; BlueTopo NAVD88; NOS-Lotungen beziehen sich auf MLLW und werden mit der Bezugshöhe der Station Elfin Cove (`bezugshoehen_elfin_cove.json`) umgerechnet; GEBCO und Copernicus (Ellipsoid bzw. EGM) nur im Fern, dort reicht ein Versatz [G].
+Höhenbezug: Lidar und USACE sind NAVD88; BlueTopo NAVD88 (VDatum, GEOID17B); NOS-Lotungen beziehen sich auf MLLW und werden mit der Bezugshöhe der Station Elfin Cove (`bezugshoehen_elfin_cove.json`) umgerechnet; GEBCO und Copernicus (Ellipsoid bzw. EGM) nur im Fern, dort reicht ein Versatz [G].
+
+**Befund Phase 2:** `bezugshoehen_elfin_cove.json` nennt MSL − MLLW = 1,747 m, aber keinen Wert für NAVD88. Der Volllauf zeigt: In der tiefen Bucht ist BlueTopo genau die Vermessung von 1940 (alle 25 602 Zellen −0,59 m gegen die Umrechnung mit Elfin Cove). BlueTopo hat sie mit VDatum (GEOID17B) nach NAVD88 gebracht, also liegt MLLW in der Bucht 1,157 m unter NAVD88 (gemessen); das gilt jetzt für alle Vermessungen. Folge für F5: „heute“ ist in der tiefen Bucht der Grund von 1940, nicht neu vermessen. 1926 und 1940 stimmen an gemeinsamen Lotpunkten auf 1,8 m überein (Einheit Meter bestätigt).
+
+**Mischung von Land und Grund [G]:** Liegt der Grund mehr als 1 m unter dem Land und das Land unter 3 m, hat das Landmodell Wasser flach gelegt (Lidar und IfSAR „hydroflattened“), und der Grund gilt; sonst das Land. Wasser in `grund/wasser_4m.u8` heißt außerdem Grund unter 3 m (BlueTopo trägt Landwerte, etwa auf dem Schwemmfächer vor dem Lituya-Gletscher; dort sagt BlueTopo noch −80 bis −98 m aus alten Lotungen, das Lidar 14 bis 32 m: das Lidar gilt).
 
 ---
 
@@ -311,6 +336,11 @@ Kein Package ruft ein anderes direkt: Die Pfeile sind Schnittstellen (`Landslide
 - **Presets:** `fairweather1958()`, `magnitude(M, Abstand)`.
 - **Check:** $t_S - t_P = D\,(1/v_S - 1/v_P)$ gegen Handrechnung; Abminderung gegen Tabelle; Newmark-Block auf schiefer Ebene gegen geschlossene Lösung für Rechteckimpuls.
 - **Später für:** Geiranger (Åkerneset), Glacier, jede Gebirgsszene.
+- **Umgesetzt in Phase 8** (Renderer, Branch `lituya-phase-8`; Entscheidungen: BSSA14, Package und Schritt `stoerung`, alles aus 5.1, Demo als Karte mit Zeitreihen):
+  - **Kern:** `Fault` (Spur, Herd, WELLS94, Bruch mit `vr` und Anteil nach vorn, Rjb), `Bssa14` (PGA, PGV, SA 0,2 s und 1,0 s, Boden linear und nichtlinear, σ), `Quake` (Laufzeiten, Stärke, synthetische Zeitreihe aus Teilflächen, Arias, D5–95, Presets `fairweather1958()` und `magnitude(M, Abstand)`), `Slope` (FS, pseudo-statisch, a_c, Newmark, JIBSON93), `Basin` (Merian, Anregung), `Shake`, `Rumble` (PCM, WAV).
+  - **Demo und Prüfung:** `demo/QuakeDemo` (Karte mit PGA-Feld, Störung, Bruchfront, P- und S-Front; Zeitreihen an fünf Orten; Newmark; Seiche; `--bild`, `--wav`), `demo/QuakeCheck`.
+  - **Prüfung:** tS − tP = D (1/vS − 1/vP); WELLS94 166,7 km und 10,1 m; BSSA14 gegen die Formel von Hand (0,308 g Fels, 0,391 g bei Vs30 400 m/s); Newmark-Rechteckimpuls gleich der geschlossenen Lösung; Merian 11,2 min; Zeitreihe still vor P, Spitze = BSSA14.
+  - **App-Daten:** Schritt `stoerung` (`tools.Stoerung`): Spur aus Qfaults 2020 (228 Punkte der Abschnitte „Fairweather fault“ 1:500 000 → 345 km, gemittelt alle 10 km), Herd aus ComCat (`daten/ereignis/stoerung.tsv`, `beben.txt`); `tools.Bebenbild` (`ant bebenbild`).
 
 ### 5.2 `com.dan.landslide` — Fels-, Eis- und Schneelawinen *(Prunkstück)*
 
@@ -322,6 +352,11 @@ Kein Package ruft ein anderes direkt: Die Pfeile sind Schnittstellen (`Landslide
 - **Presets:** `gilbertInlet1958()` (Prisma 823 × 970 × 92 m, 40°, ρ = 2 700, Schwerpunkt 610 m), `vajont1963()`, `spiritLake1980()` als Grenzfälle.
 - **Check:** Block auf schiefer Ebene gegen $v = \sqrt{2 g L (\sin\alpha - \mu\cos\alpha)}$; Fahrböschung (HEIM32) gegen Literaturwerte; Volumen erhalten; Aufschlaggeschwindigkeit des Lituya-Presets im Bereich 96–110 m/s (9.2).
 - **Später für:** Geiranger, Glacier, Brocken (Lawinen im Winter).
+- **Umgesetzt in Phase 9** (Renderer, Branch `lituya-phase-9`; Entscheidungen: Kern jetzt in Java, Compute Shader mit der Welle in Phase 11; Newmark mit Entfestigung; Übergabe aus `fracture` mit Demo; Preset auf gerechnetem Gelände, Demo in Java2D):
+  - **Kern:** `Landslide` (Gitter über der Gleitbahn, waagerecht projiziert mit g′ = g cos²α; Masse und Impuls nach HLL mit trockenen Zuständen; Erddruck nach Savage-Hutter aktiv/passiv aus der Divergenz; Hangabtrieb zentral; Turbulenz nach Voellmy implizit, Coulomb als Bremse bis zum Halt; Wasser mit Auftrieb und Formwiderstand; Uferlinie mit `Entry` je Schritt: Rate, Volumen, Geschwindigkeit, Mächtigkeit senkrecht und normal, Breite; `addPlate`, `scaleTo`, `inject` auch auf einen Kreis; Fahrböschung mit Abrisskante, `scheidegger(V)`; `settled()`; Qualität 8/4/2 m; parallel über die Zeilen, wiederholbar), `Material` (ρ, μ, ξ, φ; Fels, Eis, Schnee, Schutt), `Presets` (`gilbertInlet1958`, `gilbertInlet1958Terrain`, `vajont1963`, `spiritLake1980`).
+  - **Gilbert Inlet auf gerechnetem Gelände:** Hang 40° bis zur Sohle −122 m, flacher Grund, Gegenhang 45° mit der Uferlinie bei 1 342 m; quer eine Rinne (±480 m, Flanken 30°, unter Wasser ±620 m) [G]; Platte 823 × 970 m, bis 92 m, Form (1 − |ũ|^1,82)(1 − |ṽ|^1,82) (Mittel 38,3 m), 30,6 Mio. m³, Fels ρ 2 700, μ 0,06, ξ 8 000 m/s², φ 35° [G, auf FRITZ01 gerechnet].
+  - **Demo und Prüfung:** `demo/LandslideDemo` (Draufsicht mit Mächtigkeit, Schnitt mit Geschwindigkeit, Zufluss s(t) mit dem Band 96–110 m/s; Fenster mit Fall und Qualität; `--bild`), `demo/LandslideCheck` (siehe 9.2).
+  - **Grenzen:** keine Blöcke, keine Auflockerung (siehe 9.2); dicke Schollen (Vajont) fallen zusammen wie ein Damm.
 
 ### 5.3 `com.dan.impact` — das Nahfeld des Eintauchens
 
@@ -330,6 +365,14 @@ Kein Package ruft ein anderes direkt: Die Pfeile sind Schnittstellen (`Landslide
 - Übergabe an `wave` am Rand des Würfels: Wasserstand und Durchfluss je Randzelle (`Impact.Far`).
 - **Check:** Lituya im Modell 1:675 (FRITZ01): Amplitude 152 m bei 885 m nach 16 s, über 200 m bei 600 m nach 11 s, Höhe 162 m; Energieanteil der Welle an der Gleitenergie zwischen 2 und 30 % (9.3); Volumen erhalten.
 - **Später für:** Glacier (Kalbung), Edersee, Stapellauf.
+- **Umgesetzt in Phase 10** (Renderer, Quellbaum, Branch `lituya-phase-10` anzulegen; Entscheidungen: Schnitt (2D, je Meter Breite) in Java, Würfel und Compute mit der Welle; Laborfall FRITZ01 und Strom aus `landslide`; `Impact.Far` mit HLL-Kanal im Check; Demo in Java2D; **Abnahme mit Hinweis**, Poren im Inneren als Phase 10b):
+  - **Kern `Impact`:** schwach kompressibles SPH, Wendland C2 (h = √2 dx), Kontinuität in Volumenform, Tait je Teilchen mit eigener Ruhedichte, Zug abgeschnitten (Hohlraum), Druckkraft nach Hu-Adams, Monaghan-Zähigkeit, δ-SPH nach Fourtakis nur in einer Phase; Zeitschritt Dichte → Druck → Geschwindigkeit → Ort; Wände nach Adami mit hartem Schutz am Linienzug; parallel, zwei Läufe gleich. Qualität 8/5/4/2 m.
+  - **Granulat (`Granulate`):** Mohr-Coulomb viskoplastisch, implizit (16 Jacobi-Schritte, ε = 1e-5), Druck des Gerüsts = SPH-Druck ohne Wasserdruck; **Poren** (FRITZ01 39 %): Wasser, das Körner berührt, geht ganz in deren Poren (Masse, Impuls), die Körner werden schwerer, ihr Volumen bleibt; Schalter `capLoad`, `dynamicBed`, `grainAlpha`, `poreTime`.
+  - **Zulauf (`Inflow`, `feed`):** der ganze Gleitkörper frei auf einer Rampe hangauf (Hangabtrieb aufgehoben, solange er mit der Zuflussgeschwindigkeit fährt, keine Reibung), Profil so, dass durch die Uferlinie genau s(t)·v(t) geht; `Inflow.fritz01()` (98,5 · 10³ t je Meter, 1,61 t/m³, bis 134 m, 110 m/s, 6,8 s).
+  - **Messen:** Pegel als Säule aus Wasser und Granulat, Kamm im geglätteten Profil, Kaverne (Luft unter dem Ruhespiegel unter Wasser oder Granulat), Energie der führenden Welle ρ g ∫ η² dx, Auflauf, Rand `Far` (Wasserstand, Durchfluss).
+  - **`Channel`:** 1D-Flachwasser mit HLL hinter `Impact.Far`; `fromEta` setzt den Durchfluss der rechtslaufenden Welle (der gemessene enthält die überkippende Wand).
+  - **Demo und Prüfung:** `demo/ImpactDemo` (Schnitt, Pegel mit FRITZ01 und Kanal, Zufluss und Kaverne, Energiebalken; `--bild`), `demo/ImpactCheck` (siehe 9.3).
+  - **Grenzen:** nur der Schnitt; Wasser füllt nur die Poren am Rand des Gleitkörpers; Phasenmischung nach dem Zusammenbruch der Kaverne fehlt; die Höhe im Laborfall liegt rund 30 % über FRITZ01.
 
 ### 5.4 `com.dan.dustcloud` — Staubwolke
 
@@ -354,6 +397,12 @@ Kein Package ruft ein anderes direkt: Die Pfeile sind Schnittstellen (`Landslide
 
 - Moospolster auf Boden, Stämmen, Ästen; Bartflechten; Farne; Teufelskeule; Beerensträucher; Totholz mit Moos; Nadelstreu. Dichte aus Licht unter dem Kronendach (Beer-Lambert mit Blattflächenindex) und Feuchte.
 - **Später für:** Brocken, Haithabu, jede Waldszene.
+- **Umgesetzt in Phase 6** (Renderer, Branch `lituya-phase-6`):
+  - **Kern:** `Kind` (sieben Arten mit Licht- und Feuchteanspruch, Eignung als Glocke in ln(Licht) und Feuchte, Beer-Lambert mit k = 0,45 [G]), `PlantMesh` (prozedurale Netze, zwei Stufen, vier Varianten), `Understory` (Kacheln zu 16 m, Gitter je Art mit Wahrscheinlichkeit, Bartflechten an Ankern der App, Reichweite, Stufen, Ausblenden).
+  - **GPU:** `gl/UnderstoryGl` mit Wind, Licht unter dem Kronendach als Textur, Schatten, Laubfall der Teufelskeule und Beeren.
+  - **Demo und Prüfung:** `demo/UnderstoryDemo` (Waldboden 200 × 200 m mit Lichtung, Bach und Rücken; `--bild`), `demo/UnderstoryCheck`.
+  - **Prüfung:** gepflanzte Dichte gleich der erwarteten (Moos 5 753 erwartet, 5 757 gepflanzt), Ansprüche in der richtigen Reihenfolge, Bartflechten 3 606 an Ankern (erwartet 3 612).
+  - **Offen für 6a:** Blattflächenindex aus der Dichte des Walds und Anker an den Ästen aus `ForestCulture`, Feuchte aus Bächen und Hang.
 
 ### 5.8 `com.dan.scree` — Geröll, Blöcke, Moränen
 
@@ -370,16 +419,40 @@ Kein Package ruft ein anderes direkt: Die Pfeile sind Schnittstellen (`Landslide
 
 - Materialbibliothek: Albedo, Normale, Rauheit, Umgebungsverdeckung, Höhe; stochastische Kachelung (Hex-Tiling), triplanar an Wänden, Makrovariation aus Luftbild; Mischen über die Höhe; Nässe, Schnee, Staub als Auflage; BC7/BC5, Mipmaps, Budget; Werkzeug zum Backen aus Asset-Paketen (Verallgemeinerung von `tools/beach/SandAsset.java`).
 - **Check:** Kontaktbogen, „1 km Kiesstrand ohne Wiederholung“ (Autokorrelation der Textur unter einer Schwelle).
+- **Umgesetzt in Phase 5** (Renderer, Branch `lituya-phase-5` auf `lituya-phase-4`):
+  - **Kern:** `Material` (Herkunft, offene Werte), `Katalog.fjord()` (14 Materialien, Tabelle 8), `Bake` (Backen aus Zip oder Ordner, Ableiten), `MaterialSet`, `HexTiling` (CPU-Spiegel des Shaders).
+  - **Karten je Material:** `a.png` (Farbe sRGB + Höhe), `n.png` (Normale xy, OpenGL; DirectX wird umgedreht), `r.png` (Rauheit, Verdeckung), `material.txt` (Mittelwerte, Herkunft, Lizenz).
+  - **GPU:** `gl/SurfaceGl` lädt drei `sampler2DArray` mit Mip-Stufen. Der Treiber packt beim ersten Laden BC7 (Farbe + Höhe, sRGB) und zweimal BC5; das Ergebnis liegt als `gpu_*.bin` neben dem Material und wird beim nächsten Start direkt geladen. Ohne BPTC/RGTC ungepackt.
+  - **Baustein `gl/surface.glsl`:** Hex-Kachelung nach Mikkelsen 2022 (PCG-Hash, in Java gleich), dreiseitig für Fels und Eis (|n|⁴, Whiteout), sonst Ebene der größten Achse; Höhenmischung von bis zu drei Materialien; `surfWet`, `surfSnow`, `surfDust`; in der Ferne nur der Mittelwert.
+  - **Backwerkzeug in der App:** Schritt `texturen` der Aufbereitung (`tools.Texturen`) aus `download/texturen` (geladen mit `kartenmaterial.py laden --gruppe texturen`) nach `daten/texturen`, mit `LIZENZEN.txt`; `herkunft` verknüpft Zip → Material, Seetang ← Moos.
+  - **Prüfung:** `SurfaceCheck` auf gerechneten Probesätzen: 1 km Kiesstrand mit Autokorrelation bei 1 bis 10 Kacheln Abstand **hex 0,02, einfach gekachelt 0,71** (Schwelle 0,3; das Maß wurde in Phase 6 berichtigt, siehe 19); Budget 14 × 2048² gepackt 235 MB, × 1024² 59 MB. Mit Mesa: 14 Schichten 512² gepackt in 0,5 s geladen, Kontaktbogen wie erwartet.
 
 ### 5.11 `com.dan.clipmap` — Gelände bis zum Horizont
 
 - Geometrie-Clipmaps um das Auge (z. B. 8 Stufen à 256², Zellweite ab 0,5 m), Kacheln aus `daten/gelaende/` in einem eigenen Faden nachgeladen; virtuelle Textur für Material und Farbe; Erdkrümmung und Refraktion (9.11), Nähte ohne Risse, Höhen NAVD88.
 - **Check:** Höhe an 1 000 Stichproben gleich der Kachel; Nahtprüfung; Zeit je Bild.
+- **Umgesetzt in Phase 4** (Renderer, Branch `lituya-phase-4`):
+  - **Kern:** `Clipmap`, `Source`, `TileFolder` (`.r32` + `STUFE.txt`, Ursprung e0/n0), `TileStack` (fein vor grob).
+  - **GPU:** `gl/ClipmapGl` und der Baustein `gl/clipmap.glsl`.
+  - **Demo und Prüfung:** `demo/ClipmapDemo`, `demo/ClipmapCheck` (`--daten`, `--gpu`).
+  - **Stufen:** Qualität Niedrig/Mittel/Hoch/Ultra = 129²/193²/257²/385² Punkte je Stufe. Bei 0,5 m und 140 km Reichweite sind das 12 bis 14 Stufen bis 1 024 bzw. 4 096 m Zellweite.
+  - **Übergang:** im Band eines Zehntels am Rand, nach Losasso und Hoppe; die grobe Stufe verwirft, was die feine zeichnet.
+  - **Laden und Zeichnen:** Streifen werden ringförmig nachgeladen; je Stufe 8 × 8 Blöcke, ausgewählt nach dem Sichtfeld.
+  - **Erdkrümmung:** mit Refraktion k = 0,13, wie das Wasser.
+  - **App:** `scene.Land` legt die Stufen von `daten/gelaende` mit dem Ursprung E0/N0 auf die Zellmitten des Kerns.
+  - **Prüfung:** Gegen die Kachel (eigener Leser `Stufe.lesen`) waren 1 000 Stichproben genau, Abweichung 0. Die Naht ist dicht: Ränder auf den Kanten der gröberen Stufe, größte Abweichung 7,6e-6 m.
+  - **Befund:** `%` mit negativen Zahlen ist in GLSL undefiniert; Mesa verschob dadurch Zeilen. Der Baustein rechnet den Rest jetzt selbst (`clipMod`), auf Mesa gegen Java auf 1,2e-4 m geprüft.
 
 ### 5.12 `com.dan.netview` — Netze und Felder zeichnen
 
 - Graphen, Wege, Pfeile, Isolinien, laufende Isochronen, Strahlen, Messstrecken mit Werten, in der Ferne ausgedünnt; kennt keine Datenbank, bekommt Knoten, Kanten, Werte.
 - **Check:** Konturen eines bekannten Feldes (Kreis) treffen den Kreis.
+- **Umgesetzt in Phase 7** (Renderer, Branch `lituya-phase-7`):
+  - **Kern:** `NetLayer` (Ebene mit Stücken: Linie, Pfeil, Punkte, Isolinie mit Wert, Strahl mit Zeit je Punkt, Band mit Werten, Graph; `isolines` aus einem Rasterfeld), `Contour` (Marching Squares, NaN ausgelassen), `Simplify` (Douglas-Peucker, geschlossene Züge bleiben Ringe), `Ramp` (`TIME`, `HEIGHT`). Drei Stufen je Stück beim Einfügen (0, 4, 25 m), Wechsel bei 800 m und 4 km ab dem Rand der Hülle.
+  - **GPU:** `gl/NetviewGl`, jede Strecke ein Viereck in Bildpunkten (Breite unabhängig vom Abstand), Pfeilspitzen, runde Punkte; Isolinien erscheinen, wenn die Zeit ihren Wert erreicht (die vorderste leuchtet), Strahlen wachsen mit der Front; je Ebene ein `glMultiDrawArraysIndirect`. Tiefentest gegen die Szene mit kleinem Versatz, Mischung an.
+  - **Demo und Prüfung:** `demo/NetviewDemo` (gerechnete Bucht mit Insel, eigene Laufzeit über 16 Nachbarn, alle Arten; Fenster mit Zeit, Abstand und Ebenen; `--bild`), `demo/NetviewCheck`.
+  - **Prüfung:** Isolinien eines Kreisfelds auf 10 m liegen höchstens step²/(8 r) neben dem Kreis (r = 250 m: 0,035 m) und sind geschlossen; Douglas-Peucker hält Enden und Toleranz; Stufen, Rampe und Instanzen stimmen.
+  - **Offen für 7a:** Netzblick als Bild im Bild in der App, Ebenen aus `LB_NET_WELLE` und `LB_NET_UFER`; Beschriftung macht die App.
 
 ### 5.13 `com.dan.aurora` — Polarlicht (Zugabe)
 
@@ -400,19 +473,45 @@ Nach Paketvertrag 14: messen, vergleichen, alle Szenen gleich, alter Weg als Rü
 | 6.1 | `wave` | Kern 24 × 18 km; H/h = 1,33; Auflauf an 45°-Hängen; CPU zu langsam (9.4) | Compute-Shader neben der CPU-Rechnung (gleiche Gleichungen, Arakawa C, Flussform); **drei Gitter** (16 m Kern, 4 m Mitte, 2 m Inlet) mit Durchfluss am Rand; **Impulsquelle** aus `impact`/`landslide` (Wasserstand und Durchfluss am Rand, nicht nur Volumen); Nass-trocken-Rand an Steilhängen (dünne Schichten nicht abschneiden, Reibung begrenzt); Stoßerfassung (HLL-Flüsse statt zentraler Differenzen, F12); Front als Bore an `spray`; Pegel und `runupAt` wie bisher | Sekunden Welle je Sekunde Rechenzeit, CPU gegen GPU, je Gitter | `WaveCheck` alt = neu (CPU = GPU auf 1 mm); Laborfall Lituya (FRITZ01) mit Auflauf 526 ± 50 m; Rungholt und Edersee-Demo pixelgleich |
 | 6.2 | `fracture` | Millionen Tonnen, nicht Tausende Stücke | nach dem Bruch Übergabe der Zellen als Masse und Geschwindigkeit an `landslide`; mehr Zellen in der Ablösezone | Zeit bis zum Bruch, Zellen | Glacier-Kalbung und Sylt-Abbruch unverändert |
 | 6.3 | `ice` | Fronten 1958, Kalben durch Beben und Welle; Eis bis 400 m abgeschert | Spalten und Seracs als Feinform, Schuttbänder, blaues Eis in Spalten (Absorption im Roten), Kalben über `fracture`, Abscheren durch `impact` (Druck auf die Front) | Dreiecke, Zeit | Glacier unverändert |
-| 6.4 | `forest`, `tree` | Millionen Bäume im Kern mit Zustand je Baum | GPU-Kultur (Verteilung auf der GPU aus Dichte und Startwert), Oktaeder-Impostors (Richtungen aus 8 × 8 Ansichten), Zustände aus `succession` (stehend, gebrochen, entrindet, umgelegt mit Richtung, fort), Arten Sitka-Fichte und Hemlock | Bäume je Bild, Zeit, VRAM | fps-Tabelle; Haithabu, Timmendorf, Brocken unverändert |
+| 6.4 | `forest`, `tree` | Millionen Bäume im Kern mit Zustand je Baum | GPU-Kultur (Verteilung auf der GPU aus Dichte und Startwert), Oktaeder-Impostors (Richtungen aus 8 × 8 Ansichten), Zustände aus `succession` (stehend, gebrochen, entrindet, umgelegt mit Richtung, fort), Arten Sitka-Fichte und Hemlock. **Umgesetzt in Phase 6** (siehe unten) | Bäume je Bild, Zeit, VRAM | fps-Tabelle; Haithabu, Timmendorf, Brocken unverändert |
 | 6.5 | `ocean` | Gletschermilch | Trübung und Farbe aus Schwebstoffkonzentration (9.9), Übergang `ocean` ↔ `wave` am Eingang (gemeinsame Höhe, `Sea`), Gezeitenstrom im Eingang | | Farbe gegen Sentinel-2; andere Szenen mit Trübung 0 unverändert |
 | 6.6 | `sky`, `cloud`, `fog` | 58,6° N, Juli, Sonne 1° unter dem Horizont, Berge bis 4 671 m | Dämmerung nach Sonnentiefe (bürgerlich, nautisch), Alpenglühen (Rot der tiefen Sonne auf Schnee), atmosphärische Perspektive über 60 km mit Höhenabhängigkeit der Dichte, Wolkenkappe und Wolkenbank an der Kette | | Sonnenstand gegen Abschnitt 9.10; andere Szenen unverändert |
 | 6.7 | `soundscape` | Beben, Sturz, Welle, Wald | tiefe Frequenzen, Laufzeit des Schalls (340 m/s) über Kilometer, Echo an den Wänden der Bucht, Doppler der Front | | Hörproben |
 | 6.8 | `kino` | episch | Zeitlupe bis 1:20 mit Zwischenbildern, Zeitleiste der Ereignisse, Bild im Bild (Netzblick), Kamerafahrten mit Trägheit | | Kino läuft durch |
-| 6.9 | `route` | Zweitrechnung zu NDM | Gitternetze (4/8/16/32 Nachbarn), Laufzeitbaum mit mehreren Quellen und Startzeiten, Isochronen als Linien, Messstrecke (m entlang einer Linie, Abschnitte mit Werten) | Knoten je Sekunde | `RouteCheck`: $T = L/\sqrt{gh}$ auf konstantem Grund; Fehler des Gitters gegen den Kreis: 16 Nachbarn ≤ 2,75 %, 32 Nachbarn ≤ 0,76 % (9.4) |
+| 6.9 | `route` | Zweitrechnung zu NDM | Gitternetze (4/8/16/32 Nachbarn), Laufzeitbaum mit mehreren Quellen und Startzeiten, Isochronen als Linien, Messstrecke (m entlang einer Linie, Abschnitte mit Werten) | Knoten je Sekunde | `RouteCheck`: $T = L/\sqrt{gh}$ auf konstantem Grund; Fehler des Gitters gegen den Kreis: 16 Nachbarn ≤ 2,75 %, 32 Nachbarn ≤ 0,76 % (9.4). **Umgesetzt in Phase 7** (siehe unten) |
 | 6.10 | GL-Engine | Fernsicht, große Schatten | Kaskadenschatten bis 60 km, Gelände über `clipmap`, Materialien über `surface`, HDR mit Belichtung wie das Auge aus Sylt | fps je Stufe | Tabelle in Abschnitt 15 gefüllt |
+
+**6.4 umgesetzt in Phase 6** (Renderer, Branch `lituya-phase-6` auf `lituya-phase-5`; `ForestGl`, `ForestField`, `TreeMesh`, alle alten Shader und `com.dan.tree` unverändert):
+- **Arten** [G]:
+  - Sitka-Fichte (28–50 m) und Westliche Hemlocktanne (24–44 m, nickender Leittrieb), beide auch jung.
+  - Roterle (Ufer).
+  - Schäden je Art mit `Species.damaged`: gebrochen (Stumpf 20–40 %), entrindet (helles Holz, wenige Stummel), umgelegt.
+- **Zustand je Baum:** `TreeStates`, ein Byte je Platz des Pflanzgitters (6 m): Zustand und Fallrichtung in 11,25°-Schritten. Die Welle (Phase 13) und `succession` (Phase 14) schreiben hinein.
+- **Kultur:** `ForestCulture` auf dem Prozessor, `forestgpu_cull.comp` auf der Grafikkarte, beide mit demselben PCG-Hash und derselben Rechnung in float. Je Bild wird jeder Platz in Reichweite neu ausgewürfelt (Qualität LOW 2 km … ULTRA 6 km). Es gibt weder Kacheln noch einen Speicher je Baum, und es wird nichts hochgeladen.
+- **Zeichnen:** drei `glMultiDrawElementsIndirect`, für die Netze der Stufen 0–2, für die Gerippe geschädigter Bäume und für die Impostors.
+- **Oktaeder-Impostors:** 8 × 8 Ansichten der oberen Halbkugel, Farbe und Normale, 64 bis 160 Bildpunkte je Ansicht. Vier Ansichten werden gemischt, das Licht ist wie bei den nahen Bäumen.
+- **Prüfung:** `ForestGpuCheck` vergleicht in vier Ansichten jede Instanz der Grafikkarte mit dem Spiegel auf dem Prozessor. Mit Mesa waren das 12 687 bis 58 166 Bäume ohne Abweichung (größte 1e-6). Gefunden wurde damit ein Fehler: Die Zähler wurden zwischen zwei Bildern nicht genullt.
+- **Unverändert:** `ant waldvergleich` vergleicht das alte und das neue Jar Byte für Byte sowie die Netze aller 26 alten Arten. Hier gleich mit gleichem Startwert.
+- **Demo:** gerechnete Bucht 16 × 12 km mit 2 038 471 Bäumen (1 914 834 stehend) und dem Band der Welle am Nordufer: 102 581 Plätze fort, 84 693 umgelegt, 33 196 gebrochen, 31 376 entrindet.
+
+**6.9 umgesetzt in Phase 7** (Renderer, Branch `lituya-phase-7` auf `lituya-phase-6`; `Route`, `Crowd`, `Line` und `RouteGl` unverändert):
+- **`TravelGrid`:** Ankunftszeit nach Fermat als kürzester Weg über die Zellmitten (Dijkstra mit Haufen). Sterne `N4`, `N8`, `N16`, `N32`; Kosten einer Kante = Länge × mittlere Langsamkeit der überquerten Zellen (Trapez), gesperrt, wenn eine davon Land ist. Mehrere Quellen mit eigener Startzeit, Laufzeitbaum (`parent`), Strahlen, Isochronen als Linienzüge, `arrivalAt` bilinear, `edges` gibt dieselben Knoten und Kanten mit Länge und Kosten für `LB_NET_WELLE` aus (7a: NDM = `route`). `waveSpeed(h, a)` = √(g (h + a)).
+- **`Measure`:** Messstrecke wie LRS: `locate`, `project` (Maß und Abstand mit Seite), `clip`, Abschnitte mit Werten an Stützstellen, `valueAt`, `sample`.
+- **`RouteCheck`:** Lücke und Fehler der Sterne: 16 Nachbarn 26,6° und 2,75 %, 32 Nachbarn 14,0° und 0,75 % (gerechnet 1/cos(7,0°) − 1 = 0,751 %; die 0,76 % im Werkbuch sind aufgerundet). Konstante Tiefe 100 m: größter Fehler je Stern gleich der Theorie (41,42 / 8,24 / 2,75 / 0,75 %), entlang der Achse 0,000 %; 16 Nachbarn über 160 801 Zellen in 182 ms (hier). Isochrone 60 s geschlossen, Radius 1 829–1 879 m (innen, da das Gitter nie schneller ist). Zwei Quellen mit Startzeit, Insel (Umweg 82,7 s statt 76,6 s), Kanten, Messstrecke.
+- **`IsochroneDemo`:** gerechnete Fjordbucht 14 × 6 km mit T-Kopf, Insel und Schwelle; 16 und 32 Nachbarn, linear und nichtlinear (a = 30 m), Strahlen zu drei Booten (Eingang 337 s linear, 292 s nichtlinear).
+- **Über dem echten Grund** (`tools.Isochronenbild`, `ant isochronenbild`): 20 m, 16 Nachbarn, Wasserstand Mittelwasser +0,59 m NAVD88 [G], Einschlaglinie 198 Wasserzellen am Ufer bis 412 m um den Wasserpunkt am Gilbert Inlet (E 354 810, N 6 505 710; der Punkt aus GNIS liegt heute unter dem Gletscher). Ankunft (heute linear / nichtlinear; 1940 linear / nichtlinear): Cenotaph Island 140 / 110; 135 / 108 s, Anchorage Cove 321 / 268; 316 / 266 s, **Eingang 365 / 292; 356 / 289 s**. Der Handwert aus 9.5 (350 s linear, 300 s nichtlinear) liegt 4 % und 3 % daneben. Rechenzeit je Lauf 0,4–0,5 s für 1,08 Mio. Zellen. Die Zahlen sind hier aus dem auf 20 m gemittelten Grund heute gerechnet; der Lauf auf dem Rechner liest `heute_4m.r32` selbst.
+
+**6.2 umgesetzt in Phase 9** (Renderer, Branch `lituya-phase-9`; Eis, Fels, Beton, Klei und Lockergestein rechnen wie zuvor):
+- **Übergabe:** `Fracture.handOver(piece)` nimmt das Stück heraus (mit seinen Lasten auf dem Körper) und gibt `Piece.cellsInWorld()`: je Zelle x, y, z, Volumen, Masse, vx, vy, vz aus Lage und Drehung; `handedOverVolume()` zählt. Das Package kennt `landslide` nicht, die App verdrahtet.
+- **Ablösezone:** `Fracture.releaseZone(Punkt, Normale, Breite, Grundwert)` als `Density`: feine Zellen um die Abrissfläche.
+- **Prüfung:** `FractureCheck` mit neuem Abschnitt (Volumen, Masse, Impuls und Schwerpunkt der Zellen gleich dem Stück auf 1e-15; Ablösezone). Alle alten Zeilen gleich, die Gletscherfront der Vorführung Stück für Stück wie vor Phase 11 (Glacier), Lockergestein wie in Sylt; das Bild von `FractureDemo --bild` Byte für Byte gleich (nur die Zeiten je Schritt ändern sich).
+- **Messung:** Platte des Gilbert Inlet mit 400 Zellen: löst sich mit dem Rest der Kohäsion sofort in 342 Stücke, übergeben von 1,3 bis 3,0 s, 5 s Rechenzeit (MEDIUM).
 
 ---
 
 ## 7. Die Netze (Oracle Network Data Model)
 
-Schema `LITUYA` (F40), Präfix `LB_`, Netze `LB_NET_*`, SRID 26908 mit Höhe (3001/3002), Toleranz 5 mm, Index `SPATIAL_INDEX_V2`, Raum-Metadaten auch für `_PATH$` (Lehre aus Timmendorf). Jedes Netz hat ein Datei-Abbild in `daten/netz/<netz>/` (`knoten.tsv`, `kanten.tsv`, `pruefwege.tsv`), ein Ladeskript `db/netz/NN_<netz>.sql`, Prüfwege, eine Zweitrechnung in `route`, eine Prüfsumme in `LB_NETZ_STAND`, und mindestens eine Frage, die es für die Szene beantwortet.
+Schema `LITUYABAY1958` (F40 B, Entscheidung Phase 3: der vorhandene Benutzer aus `db/info/USER.sql`), Präfix `LB_`, Netze `LB_NET_*`, SRID 26908 mit Höhe (3001/3002), Toleranz 5 mm, Index `SPATIAL_INDEX_V2`, Raum-Metadaten auch für `_PATH$` (Lehre aus Timmendorf). Jedes Netz hat ein Datei-Abbild in `daten/netz/<netz>/` (`knoten.tsv`, `kanten.tsv`, `pruefwege.tsv`), ein Ladeskript `db/netz/NN_<netz>.sql`, Prüfwege, eine Zweitrechnung in `route`, eine Prüfsumme in `LB_NETZ_STAND`, und mindestens eine Frage, die es für die Szene beantwortet.
 
 ### 7.1 `LB_NET_WELLE` — Laufzeit der Welle *(Herzstück)*
 
@@ -434,6 +533,15 @@ Schema `LITUYA` (F40), Präfix `LB_`, Netze `LB_NET_*`, SRID 26908 mit Höhe (30
 
 Abweichungen zwischen Eikonal und `wave` sind kein Fehler, sondern das Ergebnis: Die Eikonalgleichung kennt keine Amplitudenabhängigkeit außer über `T_NICHTLINEAR`, keine Reflexion und kein Brechen. Die Tabelle in Phase 13a zeigt, wo das zählt.
 
+**Umgesetzt in Phase 7a** (Entscheidung: Bucht und 1 km See):
+- **Datei** (`ant aufbereitung "-Dschritte=welle,ufer"`, `tools.Welle`, gelesen von `scene.WellenNetz`): `daten/netz/welle/` mit `knoten.tsv`, `kanten.tsv`, `ankunft.tsv`, `pruefwege.tsv`, `WELLE.txt`. Fläche: die Bucht innerhalb des Eingangs (Strecke La Chaussee Spit – Harbor Point, je 300 m verlängert, als Tor) und das Wasser bis 1 km vor dem Tor. **75 695 Knoten** (Bucht 67 403, See 8 292) und `QUELLE`, **594 689 Kanten** und 198 von `QUELLE` (Einschlaglinie). Tiefen unter Mittelwasser (+0,59 m NAVD88 [G]), mindestens 0,5 m; 1940 und 1959 aus den Lotungen, wo sie dicht liegen, sonst heute. `AMPLITUDE` = 30 + 122·e^(−d/1 500) m [G], bis `wave` (Phase 11) sie liefert.
+- **Oracle** (`ant netzdb`): `LB_NET_WELLE` räumlich, ungerichtet, 3001/3002 in der Höhe des Mittelwassers; die vier Kosten als Spalten und als Benutzerdaten (Kategorie 0); `SPATIAL_PARTITION` mit 5 000 Knoten, BLOBs mit Benutzerdaten (Probe 24). Linien der Kanten auf dem Server aus den Punkten der Knoten.
+- **LOD** (`netz.WelleLod`): je Kostenart ein `LinkCostCalculator`, der die Kosten aus den Benutzerdaten liest (Index aus den Metadaten; fehlen sie, aus der Datei, und das Protokoll sagt es); `withinCost(QUELLE)` gibt die Ankunft aller Knoten. Ergebnis `LB_ANKUNFT` (`T_LOD` und `T_ROUTE` je Knoten und Kostenart, Sicht `LB_V_ANKUNFT_VERGLEICH`). Im Speicher (ohne Oracle) stimmt LOD mit `route` auf 0,003 s überein (Rundung der Datei).
+- **Isochronen** (F23): `LB_ISOCHRONE` mit Konturen alle 30 s bis 10 min je Kostenart aus der Ankunft von LOD (Marching Squares, `route.Contour`) und Flächen aus `fastWithinCostPolygon` (Network Buffer) jede Minute bis 6 min.
+- **Wellenstrahlen:** `kShortestPaths(QUELLE → Ort, 3)`; in der App der Baum aus `ankunft.tsv` (Vorgänger).
+- **Ankunft** (Datei, heute / 1940 / 1959 linear / heute nichtlinear): Cenotaph Island 140 / 135 / 128 / 110 s, Anchorage Cove 321 / 316 / 304 / 268 s, **Eingang 365 / 356 / 345 / 292 s**.
+- **Befund:** Der Sporn (524 m) und der Gilbert Inlet selbst liegen heute hinter der Gletscherfront; im Netz heute gibt es dort kein Wasser. Die Fläche von 1958 (Inlet, T-Kopf mit Crillon Inlet) kommt mit dem Schritt `rueckbau1958` (F32); bis dahin startet die Front an der heutigen Gletscherfront, rund 700 m südlich des GNIS-Punkts.
+
 ### 7.2 `LB_NET_UFER` — das Ufer als Messstrecke (LRS)
 
 **Frage:** Wie hoch lief die Welle an jedem Ufermeter auf? Wo fehlt der Wald, und seit wann?
@@ -446,6 +554,12 @@ Abweichungen zwischen Eikonal und `wave` sind kein Fehler, sondern das Ergebnis:
 | Feature-Layer | Auflaufpunkte und Fotos als Features auf den Kanten (wenn 2.8 es erlaubt) |
 | Für die Szene | `succession` fragt je Ufermeter die belegte Höhe; Vergleich belegt gegen `wave.runupAt` als Band um das Ufer |
 | Zweitrechnung | `route.measure` entlang der Uferlinie |
+
+**Umgesetzt in Phase 7a** (Entscheidung: Netz jetzt, Werte später):
+- **Datei** (`tools.Ufer`, gelesen von `scene.UferNetz`): `daten/netz/ufer/` mit `straenge.tsv`, `punkte.tsv`, `knoten.tsv`, `kanten.tsv`, `auflauf.tsv`, `UFER.txt`. **Ufer heute**: der Rand von `grund/wasser_4m.u8` um die Bucht ohne den Eingang (Marching Squares auf 4 m, Douglas-Peucker 2 m), 36,8 km, Maß ab La Chaussee Spit im Uhrzeigersinn bis Harbor Point. **Cenotaph Island** als Ring, 4,9 km, ab dem nördlichsten Punkt. Knoten alle 500 m (85), Kanten mit Maß von–bis (84); der Ring hat Anfang und Ende als zwei Knoten am selben Ort.
+- **Oracle**: `LB_NET_UFER` mit `CREATE_LRS_NETWORK` auf `LB_UFER_GEOM` (Linien mit Maß aus `LB_UFER_PUNKT` über `CONVERT_TO_LRS_GEOM`, `06_ufer.sql`), Ereignisse `LB_AUFLAUF` (Lage aus `LOCATE_PT`), `LB_SPURLINIE_LRS` mit `LB_SPURLINIE_STUETZ` (noch leer). Prüfung: `LOCATE_PT`, `PROJECT_PT`, `CLIP_GEOM_SEGMENT` gegen `route.Measure` auf 5 cm (Probe 30).
+- **Auflauf (belegt, Lage [G]):** 524 m (1958, Sporn), 208 m (1958, Südufer bei Mudslide Creek), 120 m (1853/54, Nordufer gegenüber), 150 m (1936, NE-Wand des Crillon Inlet), auf das Ufer heute projiziert.
+- **Noch nicht:** der Strang **Ufer 1958**. Die Lotungen 1940 liegen in der Bucht nur in Flecken; ihr Rand ist kein Ufer. Er kommt mit `rueckbau1958` (Karte 1951/C-5), die Spurlinie je Ufermeter mit `spurlinie`.
 
 ### 7.3 `LB_NET_SEE` — Fahrwasser 1958 mit Gezeiten
 
@@ -496,6 +610,8 @@ Abweichungen zwischen Eikonal und `wave` sind kein Fehler, sondern das Ergebnis:
 
 Quelle → Rohdatei → Aufbereitung → Befund → Szenenobjekt, gerichtet, ohne Geometrie. `traceIn(Szenenobjekt)` zeigt die Quellen; Befunde ohne Weg zu einer Quelle sind [G]; nach Abschluss der Nachweis, welche Datei auf der Wechselfestplatte wofür gebraucht wurde. Erstes Netz in Phase 3, weil klein.
 
+Umsetzung Phase 3: Schritt `herkunft` der Aufbereitung (`tools.Herkunft`) schreibt `daten/netz/herkunft/` (`knoten.tsv`, `kanten.tsv`, `pruefwege.tsv`, `HERKUNFT.txt`). Knoten: je Quelle des Kartenmaterials (34), je Rohdatei aus `download/inventar.csv` (Entscheidung Phase 3: je Datei, nicht je Quelle), je Schritt, je Ausgabe in `daten/` (mit SHA-256), je Szenenobjekt, je Befund. Kanten: Quelle enthält Rohdatei; Rohdatei liefert Ausgabe (welche Datei unter welcher Kachel lag, mit denselben Quellen und derselben Überdeckung wie die Aufbereitung, ohne den Vorrang); Schritt erzeugt Ausgabe; gröbere Stufe → feinere (`GROB`), Wassermaske → Lotungsraster (`MASKE`); Rohdatei belegt Befund, Befund gilt für Ausgabe; Ausgabe zeigt Szenenobjekt. Kosten 1 je Kante. `ant netzdb` lädt, partitioniert logisch, prüft mit `VALIDATE_NETWORK`, CONNECT BY (alle Ausgaben) und `traceIn` mit LOD (Auswahl) gegen `pruefwege.tsv` und trägt die Prüfsumme in `LB_NETZ_STAND` ein.
+
 ### 7.8 Abnahme-Matrix
 
 | Fähigkeit | Netz |
@@ -518,11 +634,13 @@ Quelle → Rohdatei → Aufbereitung → Befund → Szenenobjekt, gerichtet, ohn
 
 ### 7.9 Ladeablauf (wie Timmendorf)
 
-`db/netz/00_sys.sql` (Rechte direkt, `DATA_PUMP_DIR`), `01_tabellen.sql`, `02_netze.sql` (`CREATE_*_NETWORK`, Zusatzspalten, Raum-Metadaten inkl. `_PATH$`), Laden aus `daten/netz/` über `tools.NetzDb` (JDBC, Batches), `04_nach_dem_laden.sql` (Indizes, Partitionen, BLOBs), `05_sichten.sql` (QGIS), `99_abbau.sql`. `ant netzdb`, `ant netzvergleich` (Prüfwege LOD gegen `route`), `ant dbpruefung`.
+`db/netz/00_sys.sql` (Rechte direkt, `DATA_PUMP_DIR`; einmal als SYS in SQL Developer), `01_tabellen.sql`, `02_netze.sql` (`CREATE_*_NETWORK`, Zusatzspalten, Raum-Metadaten inkl. `_PATH$`), Laden aus `daten/netz/` über `tools.NetzDb` (JDBC, Batches), `04_nach_dem_laden.sql` (Indizes, Partitionen, BLOBs), `05_sichten.sql` (QGIS), `99_abbau.sql`; dazu `03_probe.sql` und `98_probe_abbau.sql` für die Funktionsprobe (2.8). Jede Anweisung endet mit einer Zeile `/` (SQL Developer, SQL*Plus und `NetzDb` lesen dasselbe). `ant netzdb` (Phase 3: 99, 01, 02, Laden, 03, Java-Probe, 98, 04, 05, Prüfungen, `LB_NETZ_STAND`), `ant netzvergleich` (Prüfwege LOD gegen `route`, mit Phase 7a), `ant dbpruefung`. Seit Phase 7a lädt `ant netzdb` nach dem Herkunftsnetz auch `LB_NET_WELLE` und `LB_NET_UFER` (`tools.WelleDb`), baut die Linien des Ufers mit `06_ufer.sql`, partitioniert in `04` und rechnet nach (LOD gegen `route`, `SDO_LRS` gegen `Measure`); `ant netzvergleich` rechnet nur nach.
 
 ### 7.10 Netzblick
 
 Bedienfeld NETZE: Ebenen Isochronen (laufen mit der Welle), Wellenstrahlen, Ufer mit Spurlinien und Auflaufhöhen, Gewässer, Wege, Sicht, Herkunft einer angeklickten Zahl; gezeichnet mit `netview`, im Kino als Bild im Bild.
+
+**Umgesetzt in Phase 7a** (Entscheidungen: Bild im Bild und in der Szene; die App liest die Dateien, Oracle wahlweise): `gl.Netzblick` mit `netview.gl.NetviewGl`. Bild im Bild unten rechts (30 % der Breite, Taste N): Draufsicht der Bucht mit dem Grund, Isochronen alle 10 s (jede Minute kräftig), Wellenstrahlen zu Cenotaph Island, Anchorage Cove und Eingang, Einschlaglinie, Ufer und Aufläufe in der Farbe ihrer Höhe, Zeit und Ankunftszeiten. In der Szene dieselben Ebenen 1,5 m über dem Pegel, mit Tiefe gegen das Gelände, im HDR-Puffer mit `gain` = 1/Belichtung (neu in `netview`). Die Zeit kommt aus der Simulationsuhr: die Welle startet 105 s nach dem ersten Stoß [G] (`WellenNetz.START_S`). Bedienfeld NETZE: Bild im Bild, in der Szene, Kostenart (heute, 1940, 1959, nichtlinear), alle Isochronen ohne Zeit, Ebenen, „Welle: Einschlag“ und „+ 6 min“. Die Werte aus Oracle (`LB_ANKUNFT`) zeigt die App erst mit Phase 19 (Fragenblock II).
 
 ---
 
@@ -550,6 +668,8 @@ Grundsatz: echte Texturen, wo das Auge nah ist; Luftbild und Klassen in der Fern
 
 Budget: VRAM 2 GB; Texturen ≤ 600 MB (F19), gestreamt über `clipmap`; Kontaktbogen `docs/status/Texturen.png`.
 
+**Sätze (Phase 5, geprüft 01.11.2026 über die ambientCG-API, alle CC0 1.0, je 2K-JPG):** Strandkies `Gravel041`, Sand `Ground054`, Schiefer verwittert `Rock063`, Schiefer frisch `Rock058`, Moräne `Ground108`, Waldboden `Ground037`, Moos `Moss002`, Firn `Snow014`, Gletschereis `Ice003` (blau getönt [G]), Rinde `Bark014`, entrindetes Holz `Wood035` (silbergrau [G]), Kutter Holz `PaintedWood009C`, Kutter Tau `Rope001`. **Seetang:** kein CC0-Satz gefunden; aus Moos abgeleitet, olivbraun getönt [G]. Kutter-Metall und -Farbe folgen mit `vessel` (Phase 15). Quelle `tex_<kurzname>` in `tools/kartenmaterial` (Gruppe `texturen`), Lizenzliste `daten/texturen/LIZENZEN.txt`.
+
 ---
 
 ## 9. Physik in Kurzform
@@ -570,6 +690,8 @@ Formeln mit Quelle; Zahlen aus 2.1; Annahmen [G]. Die Kette folgt der Zeitleiste
 $$\text{FS} = \frac{c' + \gamma z \cos^2\alpha\,\tan\varphi'}{\gamma z \sin\alpha\cos\alpha}, \qquad \frac{\tan\varphi'}{\tan\alpha} = 0{,}83 < 1$$
 Ohne Kohäsion wäre die Platte schon in Ruhe instabil; die Kohäsion der Klüfte hält sie, das Beben nimmt sie ihr (pseudo-statisch mit $k$: Zähler um $k\sin\alpha\cos\alpha$ vermindert, Nenner um $k\cos^2\alpha$ vermehrt). Dass der Sturz erst 1–2½ min nach dem ersten Stoß kam, passt zur Newmark-Verschiebung, die sich über die Dauer aufsummiert.
 
+**Befund Phase 8 (`quake`):** Mit dem Bruch nach WELLS94 (167 km, ¾ nach Nordwesten [G]) läuft die Bruchfront nach 24 s am Gilbert Inlet vorbei: PGA 0,51 g (Rjb 0,5 km), Arias 4,8 m/s, starkes Schütteln (D5–95) von 22 bis 51 s. Ein Newmark-Block mit FS 1,05 bis 1,15 versagt schon nach 23 bis 27 s, mit FS ≥ 1,20 gar nicht. Die 1 bis 2½ min der Zeugen erklärt das Modell so nicht: Das Schütteln ist zu kurz (Zeugen 1 bis 4 min). Möglich sind ein längerer Bruch (für 1958 werden auch rund 260 km genannt [zu prüfen]), Abnahme der Festigkeit beim Gleiten (progressives Versagen) oder Wasser in den Klüften; das bleibt für Phase 9 (`landslide`, Auslösung) offen. **Phase 9:** auch mit Entfestigung nicht (Befund in 9.2).
+
 **Seiche der Bucht** (Merian): $T_n = \frac{2L}{n\sqrt{g\bar h}}$; mit $L = 12$ km, $\bar h \approx 130$ m: $T_1 \approx 11$ min [G]. Das Beben regt sie schwach an, die Welle stark; sie ist das lange Nachschwingen nach t = 600 s.
 
 ### 9.2 Der Felssturz bis zum Wasser (`landslide`)
@@ -586,6 +708,15 @@ mit Erddruckbeiwert $k_{a/p}$ (aktiv bei Dehnung, passiv bei Stauchung) und Reib
 
 **Profil am Wasser.** Im Modell (FRITZ01) wächst die Dicke des Stroms am Ufer langsam auf 134 m (1,4 × Plattendicke 92 m, Auflockerung 39 %) und fällt schnell ab; Länge 748 m, Dauer 6,8 s. `landslide` liefert genau dieses Profil $s(t)$ an `impact`.
 
+**Befund Phase 9 (`landslide`, Werte auf gerechnetem Gelände, 4 m):**
+- **Prüfung (`LandslideCheck`, 16 Prüfungen):** starrer Block auf 30° und 40° gegen $\sqrt{2gL(\sin\alpha - \mu\cos\alpha)}$ auf 0,2 %; eine Schicht steht am 10°-Hang bei δ 14° und beschleunigt am 20°-Hang wie von Hand; `inject` bringt Volumen und Impuls genau; Erddruck bei φ = δ gleich (1 + sin²φ)/cos²φ; Volumen bleibt auf 1e-9; zwei Läufe gleich.
+- **Fahrböschung:** die Platte der Lituya trocken über 35° in die Ebene mit Fels (μ 0,15, ξ 1 000) 16,2° gegen SCHEIDEGGER73 15,8° und HEIM32 15–20°.
+- **Aufprall:** 105 m/s im Mittel nach Rate über die Uferlinie, höchstens 112 m/s (FRITZ01 96–110 m/s); bei 8 m 102 m/s. Dafür braucht es wenig Reibung (μ 0,06, ξ 8 000 [G]); mit μ 0,10 und ξ 2 000 waren es bei 8 m rund 86 m/s.
+- **Profil am Wasser:** 90 % des Volumens in 15,7 s (12 bis 27 s nach dem Abbruch), Mächtigkeit am Ufer bis 31 m senkrecht (24 m normal), Rate bis 2,2 Mio. m³/s, Breite bis 1,5 km. FRITZ01: 6,8 s, bis 134 m. Der tiefengemittelte Strom läuft länger und dünner ein als der kompakte Körper im Versuch: Die Platte ist 970 m lang und braucht bei rund 100 m/s schon 10 s über die Uferlinie; dazu verbreitert sie sich auf dem Hang (Erddruck), und Auflockerung (39 % bei FRITZ01) fehlt. Für die Welle (Phase 11) zählen Impuls und Rate; ob das Profil gestaucht werden muss, entscheidet der Laborfall in 6.1. **Phase 10 (`tools.Eintauchen`):** Je Meter Breite bringt der Strom 25 480 m² über 20 s statt 61 090 m² über 5 s; im Schnitt gibt das bei 885 m 69 m statt rund 200 m. Ohne Stauchung trägt die Kette die Welle nicht.
+- **Vajont, Spirit Lake:** laufen, Volumen bleibt; Vajont rund 56 m/s gegen 20–30 m/s (die 250 m dicke Scholle fällt als Strom zusammen), Spirit Lake 88 m/s gegen 50–70 m/s. Grenzfälle, keine Rückrechnung.
+- **Auslösung:** Newmark mit Entfestigung (`Slope.residual`, `softening`): die NE-Wand geht mit FS 1,10, Rest 20 %, 0,3 m nach 24 s durch. Über 3 226 versagende Fälle (FS 1,02–1,60, Rest 0–95 %, Weg 0,02–3 m) kommen nur 2 nach 60 s (spätestens 62 s, auf einer Messerschneide). Newmark ist starr-plastisch und endet mit dem Schütteln (D95 bei 51 s); 60–150 s brauchen Zeit im Stoff (Porenwasser, Kriechen). Die Szene löst darum von Hand aus (`tools.Sturz`, Modus `zeuge`): Auslösung bei 93 s, Zufluss ab 105 s = Start des Wellennetzes (7.1).
+- **Bruch und Strom (`tools.Sturz`):** Platte als Körper in `fracture` (400 Zellen, feiner an der Abrissfläche), die Anker der Gleitfläche tragen 50 % × c(D)/c′ der Festigkeit des Gebirges [G]: mit voller Kohäsion hält die Platte, mit dem Rest 20 % bricht sie in 342 Stücke; jedes Stück über 2 m/s geht als Zellen (Kreis mit 0,62 ∛V) an `landslide`. 3,074e7 m³ übergeben, im Strom auf 1e-14 wieder; Aufprall 105 m/s wie die Platte des Presets.
+
 **Staub** (`dustcloud`): Schwerestrom mit $g' = g\,\Delta\rho/\rho_{\text{Luft}}$, Frontgeschwindigkeit $u_f \approx 0{,}5\sqrt{g' h_{\text{Wolke}}}$ (Benjamin); Sinkgeschwindigkeit der Körner nach Stokes $w = \frac{(\rho_s - \rho)\,g\,d^2}{18\,\eta}$, für $d = 50$ µm rund 0,2 m/s, für 5 µm 2 mm/s: Die Wolke bleibt Stunden [G].
 
 ### 9.3 Das Eintauchen (`impact`)
@@ -601,6 +732,13 @@ Mit $S = 0{,}75$: $P = 3{,}9$, $a_M = 162$ m. **Gemessen 152 m (Amplitude) bzw. 
 **Zwei Stufen** (FRITZ01, PIV): (a) Aufschlag und Eindringen, Strömungsabriss an der Schulter des Stroms, **Luftkaverne** hinter dem Strom, weil die Eindringgeschwindigkeit die Wellengeschwindigkeit übersteigt; die Welle läuft aus dem Aufschlagbereich, bevor die Kaverne zusammenbricht; (b) Zusammenbruch der Kaverne, Auslauf des Gesteins am Grund, Lufteinschluss, Blasen, Phasenmischung. Die führende Welle bleibt davon unberührt: Das ist der Grund, warum das Fernfeld (`wave`) sauber am Rand des Würfels abgeholt werden kann.
 
 **Modellgesetz.** Froude-Ähnlichkeit 1:675: Längen $\lambda$, Zeiten $\sqrt\lambda$, Geschwindigkeiten $\sqrt\lambda$. Maßstabseffekte durch Zähigkeit und Oberflächenspannung unter 5 % bei $H_{\text{Modell}} = 0{,}24$ m (FRITZ01). `ImpactCheck` rechnet in Naturmaßen und vergleicht mit den auf Natur skalierten Messwerten.
+
+**Befund Phase 10 (`impact`, Schnitt, Laborfall in Naturmaßen):**
+- **Wasser:** Becken 40 m: Druck am Grund im Mittel 405 gegen 402 kPa. Einzelwelle 8 m auf 40 m läuft mit 21,7 m/s = √(g(h + H)); Höhe bei 2 m Abstand 70 % nach 24 s, bei 1 m 92 % (Auflösung).
+- **Granulat:** Schüttung 25° steht (φ 35°), 55° sackt auf 34,5°.
+- **Laborfall (5 m):** bei 600 m über 200 m ab 9,6 s (FRITZ01 11,1 s); **bei 885 m 205 m nach 15,8 s (FRITZ01 152 m nach 16 s)**; Kaverne bis 2 900 m² je Meter; Energie der führenden Welle 13,6 % der Gleitenergie an der Uferlinie (4,2e11 J/m; ungebremst wären es 6,0e11, das Wasser bremst schon auf der Rampe), im Band 2–30 %; Masse genau.
+- **Höhe bei 885 m über die Läufe:** ohne Poren 229 / 206 / 221 m (8 / 5 / 4 m, konvergiert); mit Poren 167–210 m je nach Einstellung. Kleine Änderungen verschieben ±20 %; im Mittel rund 30 % über FRITZ01. **Abnahme mit Hinweis** (Nutzer, 02.11.2026): Ankunft ±2 s, Höhe −20 % bis +50 %. Vermutete Ursache: Nur ein Zehntel des Porenraums füllt sich (nur Körner am Rand berühren Wasser); Phase 10b.
+- **Übergabe:** am Schnitt 885 m an einen HLL-Kanal: bei 1 100 m 190 m gegen 180 m im SPH. Der gemessene Durchfluss enthält am Rand noch die überkippende Wand; für `wave` (Phase 11) entweder den Rand hinter die Wand legen oder den Durchfluss aus der Welle nehmen.
 
 ### 9.4 Die Welle in der Bucht (`wave`)
 
@@ -760,19 +898,20 @@ Sequence + Trigger, nie IDENTITY; SRID 26908, Sichten in 4326.
 |---|---|---|---|
 | 0 | L | **erledigt:** Gebiete, Kartenmaterial (48 Quellen), `tools/kartenmaterial`; Werkbuch-Prompt; dieses Werkbuch | `Kartenmaterial.md`, `INVENTAR.md` (zweiter Lauf 1 227 Dateien, 13,5 GB) |
 | 0b | L | Recherche 2.1–2.7 vervollständigen (Miller S. 51–86 lesen, Zeugen, Boote, Tide, Zeitzone), Texturquellen und Lizenzen, `docs/QUELLEN.md` anlegen | alle [zu prüfen] in Abschnitt 2 und 9 aufgelöst oder als [G] erklärt |
-| 1 | L | Grundgerüst: FFrame, GL-Engine aus Timmendorf, Kamera, HUD, `wiring`, Startbild mit DB-Anmeldung, `sdonm.jar`, `lib/lod/`, Git | leere Szene mit Horizont |
-| 2 | L | Aufbereitung nach 3.4 | Prüfbilder; **Start mit umbenanntem `download/`** |
+| 1 | L | **erledigt:** Grundgerüst: FFrame, GL-Engine aus Timmendorf, Kamera, HUD, `wiring`, Startbild mit DB-Anmeldung, `sdonm.jar`, `lib/lod/`, Git | leere Szene mit Horizont |
+| 2 | L | Aufbereitung nach 3.4 (**Werkzeuge fertig:** `gelaende`, `grund`, `namen`, `bilder`, `inhalt`; offen `rueckbau1958`, `spurlinie`, `klassen`, `wald`, `gletscher`) | Prüfbilder; **Start mit umbenanntem `download/`** |
 | 3 | D | Schema, Rechte, **NDM-Funktionsprobe (2.8)**, Ladeskripte, `LB_NET_HERKUNFT` | Tabelle 2.8 gefüllt, `VALIDATE_NETWORK` grün |
-| 4 | R | `clipmap` | Demo Lidar bis zum Horizont, Nahtprüfung, Zeit je Bild |
-| 5 | R | `surface` + Backwerkzeug | Kontaktbogen, Kiesstrand ohne Wiederholung |
+| 4 | R | **gebaut:** `clipmap`; in der App das Gelände vor dem Wasser | Demo Lidar bis zum Horizont, Nahtprüfung, Zeit je Bild |
+| 5 | R | **gebaut:** `surface` + Backwerkzeug (Schritt `texturen`) | Kontaktbogen, Kiesstrand ohne Wiederholung |
 | 5a | L | Grundbild: Gelände, Texturen, Himmel (6.6), Wasser mit Gletschermilch (6.5) | „Abend vor Anker“ ohne Wald, Sonne nach 9.10 |
-| 6 | R | `forest`/`tree` optimieren (6.4), `understory` | Millionen Bäume, fps-Tabelle, andere Szenen unverändert |
+| 6 | R | **gebaut:** `forest` mit `ForestGpu` (6.4), `understory` (5.7) | Millionen Bäume, fps-Tabelle, andere Szenen unverändert |
 | 6a | L | Regenwald, Unterwuchs, Gletscher (6.3), `scree` (R) | „Abend vor Anker“ vollständig |
-| 7 | R | `route` erweitern (6.9), `netview` | `RouteCheck` (Gitterfehler 2,75 % / 0,76 %), Demo Isochronen |
-| 7a | L+D | **`LB_NET_WELLE`**, **`LB_NET_UFER`**, Netzblick | NDM = `route`; Isochronen 1940 und heute; Spurlinie je Ufermeter |
-| 8 | R | `quake` | `QuakeCheck`, Demo |
-| 9 | R | `landslide` (+ `fracture` 6.2) | `LandslideCheck`: Block, Fahrböschung, Lituya-Preset 96–110 m/s |
-| 10 | R | `impact` | Laborfall FRITZ01: 152 m bei 885 m nach 16 s, Energieanteil 2–30 % |
+| 7 | R | **gebaut:** `route` erweitern (6.9), `netview` (5.12) | `RouteCheck` (Gitterfehler 2,75 % / 0,76 %), Demo Isochronen |
+| 7a | L+D | **gebaut:** **`LB_NET_WELLE`**, **`LB_NET_UFER`**, Netzblick | NDM = `route`; Isochronen 1940 und heute; Spurlinie je Ufermeter |
+| 8 | R | **gebaut:** `quake` | `QuakeCheck`, Demo |
+| 9 | R | **gebaut:** `landslide` (+ `fracture` 6.2) | `LandslideCheck`: Block, Fahrböschung, Lituya-Preset 96–110 m/s |
+| 10 | R | **gebaut (Abnahme mit Hinweis):** `impact` | Laborfall FRITZ01: 152 m bei 885 m nach 16 s, Energieanteil 2–30 % (Höhe rund 30 % darüber, siehe 9.3) |
+| 10b | R | `impact`: Wasser durch den ganzen Gleitkörper (Poren im Inneren, Sickern), Phasenmischung nach der Kaverne | Laborfall 885 m im Spielraum ±20 %, über mehrere Läufe |
 | 11 | R | `wave` optimieren (6.1) | `WaveCheck` CPU = GPU, Auflauf 526 ± 50 m, Rungholt unverändert |
 | 12 | R | `dustcloud`, `debris` | je Check und Demo |
 | 13 | L | **Das Ereignis:** Kette verdrahtet, Vorrechnung, Abspielen, Echtzeit | Schaustücke 2–7 |
@@ -812,25 +951,40 @@ Speicher der Vorrechnung: Höhenfelder grob als 16-Bit je 0,5 s → 1,7 M × 2 B
 
 | Netz | Knoten | Kanten | Partitionen | Ladezeit | Analyse (ms) | Speicher LOD |
 |---|---|---|---|---|---|---|
-| WELLE | ≈ 75 000 | ≈ 600 000 | ≈ 15 | | | |
-| UFER | ≈ 5 000 | | | | | |
+| WELLE | 74 484 (mit `QUELLE`) | 585 257 (mit 187 von `QUELLE`) | 16 (`SPATIAL_PARTITION`) | Knoten 1,0 s, Kanten 5,7 s, Linien 19,6 s; Partitionen und BLOBs in `04` 80 s | `withinCost` je Kostenart 1,3 bis 5,7 s; LOD laden 174 s (mit den Meldungen aus 26) | |
+| UFER | 85 | 84 | 1 | | | |
 | SEE | ≈ 10 000 | | | | | |
 | WASSER | ≈ 50 000 | | | | | |
 | WEG | ≈ 4,9 M | ≈ 39 M | ≈ 1 000 | | | |
 | SICHT | ≈ 200 | | | | | |
 | HERKUNFT | ≈ 2 000 | | | | | |
 
+Befund Phase 7: Auf 20 m hat der Kern 305 305 Wasserzellen, davon der größte Teil vor der Küste. Die ≈ 75 000 Knoten von WELLE gelten nur für die Bucht innerhalb des Eingangs (mit einem Streifen See davor); das Netz in 7a wird auf diese Fläche beschnitten. Ein Lauf von `TravelGrid` über alle 1,08 Mio. Zellen dauert 0,4–0,5 s.
+
 ### 15.4 Risiken
 
 | Risiko | Folge | Gegenmittel |
 |---|---|---|
-| `impact` mit Partikeln zu teuer oder instabil | kein Nahfeld | Rückfall: Volumen-Impuls-Quelle in `wave` nach dem Modellprofil (F13 B), kalibriert auf 152 m bei 885 m |
+| `impact` mit Partikeln zu teuer oder instabil | kein Nahfeld | Rückfall: Volumen-Impuls-Quelle in `wave` nach dem Modellprofil (F13 B), kalibriert auf 152 m bei 885 m. **Stand Phase 10:** stabil, im Schnitt 8 m rund 2 min, 5 m rund 10 min für 24 s; Höhe rund 30 % zu hoch (10b), F13 B bleibt Reserve |
 | `wave` auf 45° instabil (dünne Schichten) | Auflauf falsch | Schichtschwelle, Reibungsbegrenzung, Vergleich mit Hall & Watts |
 | NDM-Funktionen fehlen in der installierten Version | Netze schrumpfen | Funktionsprobe zuerst (2.8); PL/SQL-Ersatz; `route` rechnet alles ohnehin |
 | `sdonm.jar` gegen Treiber 23 | LOD läuft nicht | Klassenlader wie Timmendorf (F26) |
 | VRAM 2 GB | Texturen und Bäume | Budget 600 MB, Impostors, Clipmap-Streaming |
 | Belege zu Booten und Zeugen dünn | [G] statt belegt | Phase 0b: Miller vollständig lesen; was fehlt, bleibt [G] und wird gesagt |
 | Zeitzone 1958 | Sonnenstand um 1 h falsch | in 0b prüfen; die Rechnung 9.10 ist parametrisiert |
+
+### 15.5 Wald (Phase 6, gemessen auf der Radeon 680M, `ant waldzeiten`)
+
+Gesamtzeit auf der Grafikkarte je Bild (ms, Full HD: Boden, Wald, Rest), in Klammern die fps daraus:
+
+| Qualität | Waldrand | Bucht | Weitblick | Im Wald | Grafikspeicher |
+|---|---|---|---|---|---|
+| LOW | 2,08 | 0,97 | 3,73 | 10,18 (98) | 129 MB |
+| MEDIUM | 3,60 | 2,13 | 8,42 | 16,79 (60) | 177 MB |
+| HIGH | 5,91 | 4,55 | 13,99 | 29,91 (33) | 243 MB |
+| ULTRA | 7,22 | 6,61 | 18,14 (283 336 Bäume) | 49,74 (20) | 328 MB |
+
+Die Kultur (Compute) kostet überall ≤ 1,7 ms. Teuer ist „Im Wald“: viele Bäume in Stufe 0 und 1 nah an der Kamera. Für Hoch ≥ 30 fps im Wald in 6a die Reichweite der nahen Stufen senken oder die Netze der Stufe 0 leichter machen.
 
 ---
 
@@ -894,7 +1048,7 @@ A ist gewählt (Entscheidung vom 01.11.2026).
 | F37 | Leistungsziel | Hoch ≥ 30, Mittel 60, Ereignis ≥ 30 | nur 30 | frei | 15.1 |
 | F38 | Netzblick | alle Ebenen, Bild im Bild | nur Isochronen | keiner | Säule 2 muss sichtbar sein |
 | F39 | Property Graph | nur bei 23ai | nicht | Upgrade | 2.8 |
-| F40 | Schema | `LITUYA`, `LB_` | `LITUYABAY1958` | DEMO | kurz, wie `SY_`, `TD_` |
+| F40 | Schema | `LITUYA`, `LB_` | **`LITUYABAY1958`** | DEMO | kurz, wie `SY_`, `TD_`; **Phase 3: B**, der vorhandene Benutzer, Präfix `LB_` bleibt |
 | F41 | SRID | 26908, Sichten 4326 | 32608 | — | NAD83 wie die Daten |
 | F42 | Rückfluss | Wünsche als Liste | Phase | keiner | Abschnitt 18 |
 | F43 | Programmsymbol | Goldkante, Spurlinie über der Bucht | Welle | — | wie `heidelberg.ico` |
@@ -913,7 +1067,7 @@ Fragenblock II (Oberfläche, Datenbank) kommt in Phase 19 und wird hier als 16.3
 - **Frühere Wellen** als Ereignisse auf dem Ufer-LRS, wie Miller sie am Wald gelesen hat.
 - **Der Wald als Kalender:** Nachwuchs aus ArcticDEM 2013–2022.
 - **Maßstabsfiguren:** Kölner Dom (157 m), Freiheitsstatue, Kampener Leuchtturm neben der Welle.
-- **Energiebilanz als Fenster:** Gleitenergie, Wellenenergie, Reibung, Kaverne, als Balken live aus `impact`.
+- **Energiebilanz als Fenster:** Gleitenergie, Wellenenergie, Reibung, Kaverne, als Balken live aus `impact`. *(Anfang in `ImpactDemo`: Gleitkörper gegen führende Welle.)*
 - **Wege der Tlingit**, wenn belegt.
 - **Herkunft im Bild:** Klick auf eine Wassertiefe zeigt den Weg bis zur Vermessung von 1940.
 
@@ -941,7 +1095,36 @@ Fragenblock II (Oberfläche, Datenbank) kommt in Phase 19 und wird hier als 16.3
 |---|---|---|---|---|
 | 01.11.2026 | 0 | Gebiete festgelegt; Kartenmaterial-Werkzeug mit 48 Quellen; erster Lauf 1 170 Dateien, zweiter Lauf 1 227 Dateien (13,5 GB); Fehler berichtigt (Fortsetzen, Verzeichnisse, ENC-Katalog, USGS-Publikationen); Werkbuch-Prompt; **dieses Werkbuch als Entwurf** | `images/Gebiete_Szene.jpg`, `images/Gebiete_Fern.jpg`, `images/Kern_BlueTopo.png` | — |
 | 01.11.2026 | — | **Fragen F1–F43 beantwortet: alle A** (Abschnitt 16.1) | | |
-| | 0b | nächster Schritt: Recherche vervollständigen (Miller S. 51–86, Zeugen, Boote, Tide, Zeitzone), Texturquellen und Lizenzen, `docs/QUELLEN.md` | | |
-| | 1 | wartet auf die Freigabe | | |
+| 01.11.2026 | 1 | **Gerüst** (Freigabe „Phase1, los“): `com.dan.lituya` mit `app`, `camera`, `gl`, `scene`, `wiring`, `ui`, `data`, `netz`, `tools`; GL-Engine aus Timmendorf entschlackt (Himmel, Wasser mit Erdkrümmung bis zur Kimm, Nachbearbeitung, HUD; Zeitmessung je Durchgang, Qualitätsstufen, Foto, Shader neu laden, Physik-Faden, Kino als Anschluss); Raum UTM 8 N mit Ursprung E 352 000, N 6 503 000 [G]; Gebiete und 25 Orte aus GNIS als Marken, der Sporn [G]; drei Uhren (Ortszeit `America/Juneau`: 1958 PST = UTC−8, Simulationszeit ab 06:16 UTC, Zeitstand vor/Welle/danach/heute); neun Ansichten; Startbild mit Anmeldung; Bedienfeld mit allen Blöcken aus 12; `lib/sdonm.jar`, `lib/lod/` mit Klassenlader `netz.Lod` und `ant lod`; `ant pruefung` (64 Prüfungen, alles in Ordnung), `ant statusbild`, `check-packages`. Befunde: Sonnenuntergang 22:14 statt 22:04 (2.1 berichtigt); Sichtstrahl und Schnitt mit der gekrümmten Wasserfläche in float neu gelöst (aus 1,9 km Höhe zitterten Raster und Marken); `db/db.properties` aus Git genommen | `docs/status/Vorschau_Phase1_Mesa.png` (Mesa, ohne HUD); `Status_Phase1.png` mit `ant statusbild` auf der Radeon | Stand 31.10.2026, 55,7 MB, unverändert |
+| 01.11.2026 | 1 | Nachtrag: `ant lod` sucht ORACLE_HOME auch in der Registry, im PATH und unter `C:\app` | | |
+| 01.11.2026 | 2 | **Aufbereitung, Werkzeuge** (Freigabe „Phase2, los“): `com.dan.lituya.tools` mit `GeoTiff` (TIFF und BigTIFF, LZW, Deflate, Prädiktor 2 und 3, Kacheln, GeoKeys mit Albers), `Abbildung` (UTM 8 N, geographisch, Alaska Albers), `Quelle`, `Gitter`, `Gelaende` (Fern 30 m, Szene 5 m, Kern 0,5 m, Kacheln 2000² als `.r32`, Format in `scene.Stufe`), `Grund` (heute 4 m mit Wassermaske; 1926, 1940, 1959 zu 20 m aus den Lotungen über `Delaunay`), `Namen`, `Pruefbilder`, `Aufbereitung` (`ant aufbereitung`, `daten/INHALT.txt` mit SHA-256). Probelauf hier an 21 Dateien des Kartenmaterials (Lidar um den Gilbert Inlet und am Eingang, BlueTopo, USACE, 3DEP 1″, Copernicus, GEBCO, IfSAR GB-336, NOS): alle Formate gelesen, 0,6 s je Kern-Kachel; Befunde Höhenbezug und Mischung in 3.4. `ant pruefung` 77 Prüfungen. Offen aus 3.4: `rueckbau1958` und `spurlinie` (brauchen die von Hand eingepassten Karten 1951/C-5 und Millers Karte), `klassen` (Sentinel-2, WorldCover), `wald` (DSM 2012 nicht geladen, Stufe „gross“), `gletscher` (RGI, GLIMS; Fronten 1958 aus der Karte); `netz` mit Phase 7a, `ereignis` mit Phase 13 | Prüfbilder des Probelaufs; die echten schreibt `ant aufbereitung` nach `docs/status/Phase2_*.png` | unverändert |
+| 01.11.2026 | 2 | **Volllauf und Abnahme:** `ant aufbereitung` in 3,7 min (Kern 432 Kacheln in 124 s: Lidar 55,9 %, IfSAR 16,1 %, USACE 0,3 %, BlueTopo 27,8 %, ohne Wert 0 %; Naht Kern–Szene Median 0,01 m, 95 % 16,5 m; Szene–Fern Median 0,21 m, 95 % 59 m an steilen Hängen), 504 Dateien, 8,05 GB; Wasser im Kern 121,4 km². `ant pruefung` 78 Prüfungen, alles in Ordnung; App und Prüfung mit umbenanntem `download/` gelaufen. **Befund:** In der tiefen Bucht ist BlueTopo die Vermessung von 1940 (25 602 Zellen alle −0,59 m); daraus MLLW 1,157 m unter NAVD88 (gemessen, VDatum), gilt jetzt in `grund` statt Elfin Cove | `docs/status/Phase2_*.png`, `aufbereitung_Phase2.txt`, `pruefung_Phase2.txt` | unverändert |
+| 01.11.2026 | 3 | **Schema, Rechte, Funktionsprobe, Herkunft** (Freigabe „Phase3, los?“; Entscheidungen: Schema `LITUYABAY1958` (F40 B), Probenetze im Schema und danach weg, Herkunft je Rohdatei, `00_sys.sql` als SYS in SQL Developer): `db/netz/00`–`05`, `98`, `99`; `LB_NETZ_STAND`, `LB_NDM_PROBE` mit `LB_PROBE_SETZEN`; Schritt `herkunft` (`tools.Herkunft`), `tools.NetzDb` mit `ant netzdb` und `ant dbpruefung`; `netz.NdmProbeKern` (LOD im eigenen Lader: Dijkstra, eigene Netzbedingung und Kostenfunktion, `withinCost`, `nearestNeighbors`, *k* kürzeste Wege, TSP, MCST, `traceIn`/`traceOut`, Network Buffer, Komponenten). Hier geprüft: LOD im Speicher alle zwölf wie erwartet (Befund: `mcst` spannt nur eine Komponente, keinen Wald); Herkunft an einem Ausschnitt (15 Rohdateien) 1 781 Knoten, 3 035 Kanten, kreisfrei; `ant pruefung` 84 Prüfungen. **Ausstehend auf dem Rechner:** `00_sys.sql`, `ant aufbereitung "-Dschritte=grund,herkunft,bilder,inhalt"`, `ant netzdb`; dann Tabelle 2.8 füllen | `docs/status/netzdb_Phase3.txt` | unverändert |
+| 01.11.2026 | 3 | **Abnahme:** `ant netzdb` grün: `VALIDATE_NETWORK(LB_NET_HERKUNFT)` = TRUE. Das Netz hat 1 781 Knoten und 8 062 Kanten, davon 5 294 von einer Rohdatei zu einer Kachel; 554 Rohdateien werden genutzt. Gegenrechnung: CONNECT BY 504 Ausgaben ohne Abweichung, `traceIn` mit LOD 32 Ausgaben ohne Abweichung. Funktionsprobe 22 von 23 ja (Tabelle 2.8). Befunde: `LINK_LEVEL` = 1 nötig (sonst ORA-06502 beim Partitionieren und „inconsistent link_level“ bei `VALIDATE`); Antwortgrenze von 30 s in `Db`; unter Windows `"-Dschritte=…"` in Anführungszeichen | `docs/status/netzdb_Phase3.txt` | unverändert |
+| 01.11.2026 | 4 | **Clipmap** (Freigabe „Phase4, los!“; Entscheidungen: Gelände schon in der App, Package mit Schnittstelle und Kachelordner, im Renderer auf einem eigenen Branch).<br>• **Package `com.dan.clipmap`** im Renderer (Branch `lituya-phase-4`): siehe 5.11. `ClipmapCheck` ist auf einem gerechneten Gelände grün (Schachtelung, Streifen gleich vollem Laden, Naht 7,6e-6 m, Kachelordner zur Probe).<br>• **Hier mit Mesa geprüft:** Baustein gegen Java auf 1,2e-4 m; Bilder des Gilbert Inlet aus vier Kern-, zwei Szene- und zwei Fern-Kacheln.<br>• **App:** Durchgang „Gelände“ vor dem Wasser. Das Wasser schreibt seine Tiefe (`gl_FragDepth`); `groundHeight` kommt aus der Clipmap, damit stehen Kamera und Ansichten auf dem Boden. Farben nach Höhe und Hang [G] bis `surface`; die Qualität der App wählt die Gittergröße. Dazu `scene.Land`, Bedienfeld „Gelände zeigen“, HUD-Zeilen. `Tempo` wartet auf das Gelände. `ant pruefung`: 1 000 Stichproben an Zellmitten gleich der Kachel, Naht.<br>• **Neu in `build.xml`:** `ant clipmapcheck`, `ant clipmapdemo`, `ant clipmapbild`.<br>• **Ausstehend auf dem Rechner:** `Renderer.jar` bauen und kopieren; `ant pruefung`, `ant clipmapcheck`, `ant clipmapbild`, `ant statusbild`; Zeit je Bild auf der Radeon | `docs/status/Vorschau_Phase4_Mesa.png`, `Vorschau_Phase4_Clipmap_Mesa.png` (Mesa, Ausschnitt) | neu zu bauen (mit `clipmap`) |
+| 01.11.2026 | 4 | **Abnahme** auf der Radeon: `ant pruefung` 90 Prüfungen, alles in Ordnung. `ant clipmapcheck` grün, mit Grafikkarte (Baustein gegen Java auf 1,2e-4 m) und 1 000 Stichproben gleich der Kachel. `ant clipmapbild` 1,03–1,70 ms je Ansicht auf der Grafikkarte. `ant statusbild` (1920 × 1080, Mittel): bestes Bild 8,14 ms, Mittel 12,61 ms (79 fps); Himmel 0,59, Gelände 6,37, Wasser 2,81, Nachbearbeitung 0,18, HUD 2,18 ms; Gelände in 7,0 s geladen. **Befunde:** Der Durchgang Gelände kostet in der App 6 ms gegen rund 1 ms in der Demo (vermutlich Marken und Luftperspektive in `gelaende.frag`; mit Phase 5a ansehen). Im Bogen von `clipmapbild` ist die untere Hälfte leer (Höhe doppelt). Der Kachelspeicher hält im Kern 50 Kacheln (762 MB) | `docs/status/*_Phase4.*`, `Status_Phase4.png` | mit `clipmap` |
+| 01.11.2026 | 5 | **Materialien** (Freigabe „Phase5, los!“; Entscheidungen: Ladeschritt im Werkzeug, alle 13 aus Tabelle 8, der Treiber packt und das Ergebnis wird gemerkt, Renderer-Branch `lituya-phase-5` auf `lituya-phase-4`).<br>• **Package `com.dan.surface`** im Renderer: siehe 5.10. `SurfaceCheck` grün; `check-packages` grün.<br>• **Kartenmaterial:** Gruppe `texturen` mit 13 Quellen `tex_*` (ambientCG, CC0), zusammen rund 330 MB.<br>• **Aufbereitung:** Schritt `texturen` (`tools.Texturen`, Kante `-Dlituya.textur.kante`, Vorgabe 2048) vor `herkunft`; `inhalt` ohne `gpu_*.bin`.<br>• **Neu in `build.xml`:** `ant surfacecheck`, `ant texturbild` (Kontaktbogen `docs/status/Texturen.png`), `ant surfacedemo`. `ant pruefung` mit Abschnitt Materialien (Katalog, gebackene Sätze, Lizenzliste, Budget).<br>• **Hier mit Mesa geprüft:** Kontaktbogen aus Probesätzen, gepackt geladen.<br>• **Ausstehend auf dem Rechner:** `Renderer.jar` bauen und kopieren; Texturen laden und backen; `ant pruefung`, `ant surfacecheck`, `ant texturbild` | `docs/status/Vorschau_Phase5_Mesa.png` (Mesa, Probesätze) | neu zu bauen (mit `surface`) |
+| 01.11.2026 | 5 | **Abnahme** auf dem Rechner:<br>• **Laden und Backen:** 13 Sätze geladen. `ant aufbereitung "-Dschritte=texturen,herkunft,inhalt"` in 0,9 min: 14 Materialien gebacken (je rund 3 s bei 2048²), dazu `LIZENZEN.txt`. Herkunft 1 866 Knoten, 8 243 Kanten; `INHALT.txt` 565 Dateien, 8,40 GB.<br>• **`ant pruefung`:** 94 Prüfungen, alles in Ordnung; Budget gepackt bei 2048² 234 MB.<br>• **`ant texturbild`:** 42 Karten vom Treiber in 14,6 s gepackt (1024², 59 MB); Bogen 2,92 ms auf der Grafikkarte.<br>• **Befund 1:** Mit dem echten Strandkies gab `SurfaceCheck` auch der einfach gekachelten Fläche nur 0,02. Das Maß war wertlos: Die schräge Messlinie trifft nie dieselbe Stelle der Kachel, und das feine Korn ist Rauschen. In Phase 6 berichtigt: Linien, auf denen sich die Kachel genau wiederholt, Helligkeit auf 64² und 8² je Kachel gemittelt. Mit dem echten Strandkies (Gravel041) jetzt hex 0,01 / 0,03 gegen einfach 1,00 / 1,00 (hier mit der gebackenen `a.png` gerechnet).<br>• **Befund 2:** Im Bogen zeigten die Strandstreifen fast nur Himmel; die Kamera steht jetzt 4 m hoch, und Platz für die Zeile ist da.<br>• **Befund 3:** Schiefer, verwittert (Rock063) ist sehr gelb (Flechten); mit 5a tönen | `docs/status/*_Phase5.*`, `Texturen.png` | mit `surface` |
+| 01.11.2026 | 6 | **Wald und Unterwuchs** (Freigabe „Phase6, los!“; Entscheidungen: Arten prozedural in `forest`; der GPU-Weg neu als `forest/gl/ForestGpu` neben dem alten; Prüfung der anderen Szenen mit Demos und Vergleich vorher/nachher; `understory` voll nach 5.7).<br>• **`com.dan.forest`:** siehe 6.4 (unter der Tabelle). Neu: `TreeStates`, `ForestCulture`, `Octahedral`, `gl/ForestGpu` mit fünf Shadern, `demo/BayScene`, `demo/ForestGpuDemo`, `demo/ForestGpuCheck`. `ForestCheck` hat neue Prüfungen.<br>• **`com.dan.understory`** (neu): siehe 5.7.<br>• **`com.dan.surface`:** das Maß des Kiesstrands berichtigt (Befund 1 aus Phase 5) und der Bogen.<br>• **Hier geprüft:** `ForestCheck`, `UnderstoryCheck` und `SurfaceCheck` grün; `ForestGpuCheck` und beide Demos über eine Brücke zu Mesa (die Java-Klassen selbst, die GL-Aufrufe an llvmpipe); `check-packages` grün.<br>• **LituyaBay:** `PHASE` 6. `ant pruefung` hat einen Abschnitt Wald und Unterwuchs. Die Phase von `scree` ist jetzt „6a“ (`Bibliothek.NEU_PHASE` und `tools/JarPruefung` als Text).<br>• **Neu in `build.xml`:** `ant waldcheck`, `ant waldbild`, `ant waldzeiten`, `ant walddemo`, `ant waldvergleich` (`tools/WaldVergleich.java`), `ant unterwuchscheck`, `ant unterwuchsbild`, `ant unterwuchsdemo`.<br>• **Ausstehend auf dem Rechner:** das alte Jar sichern, das neue bauen und kopieren; `ant waldvergleich`, `ant waldcheck`, `ant waldzeiten` (fps-Tabelle), `ant waldbild`, `ant unterwuchscheck`, `ant unterwuchsbild`, `ant surfacecheck`, `ant pruefung` | `docs/status/Vorschau_Phase6_Wald_Mesa.png`, `Vorschau_Phase6_Unterwuchs_Mesa.png` (Mesa) | neu zu bauen (mit `understory`) |
+| 01.11.2026 | 6 | **Abnahme** auf der Radeon: `ant pruefung` 98 Prüfungen, alles in Ordnung. `ant waldcheck` grün (ForestCheck und ForestGpuCheck), `ant unterwuchscheck` und `ant surfacecheck` grün, `ant waldvergleich` 26 von 26 alten Arten unverändert. `ant waldzeiten`: Tabelle 15.5 (LOW „Im Wald“ 10,2 ms, ULTRA 49,7 ms; Kultur ≤ 1,7 ms; 129–328 MB).<br>• **Befund 1:** `lib/FStyle.jar` bringt alte Kopien von `com.dan.forest`, `ground`, `river` und `road` mit. Steht es im Klassenpfad vor `Renderer.jar`, fehlen neue Felder (`NoSuchFieldError: Species.lying`). Die Ziele der Phase 6 legen `Renderer.jar` jetzt zuerst; in NetBeans steht `Renderer.jar` über `FStyle.jar` (Project Properties → Libraries).<br>• **Befund 2:** Auf der Radeon wichen 0,1–1,3 % der Bäume der Grafikkarte im letzten Bit vom Prozessor ab (FMA und `atan`, größte Abweichung 0,017). `ForestGpuCheck` vergleicht jetzt je Platz mit Toleranz (Lage 5 cm, Winkel 0,05 rad, sonst 1e-3).<br>• **Befund 3:** `Unterwuchs.png` war auf der Radeon schwarz (gelesen wurde der nicht getauschte Puffer), die Zahlen in `Wald.png` gehörten zur vorigen Ansicht. Beides in Phase 7 berichtigt.<br>• **Befund 4:** „Im Wald“ kostet die nahe Stufe viel (HIGH 33 fps); Gegenmittel in 6a (15.5) | `docs/status/Wald.png`, `waldzeiten_Phase6.txt` | neu gebaut |
+| 01.11.2026 | 7 | **Laufzeit und Netzblick** (Freigabe „Phase7, los!“; Entscheidungen: eigene Gitterklasse `route.TravelGrid`, die dieselben Knoten und Kanten für NDM ausgeben kann; Demo im Renderer mit gerechneter Bucht und dazu ein Ziel über dem echten Grund heute und 1940, linear und nichtlinear; `netview` ganz nach 5.12 als Package mit Demo, in die App mit 7a).<br>• **`com.dan.route`:** siehe 6.9 (unter der Tabelle). Neu: `TravelGrid`, `Contour`, `Measure`, `demo/IsochroneDemo`; `RouteCheck` mit neuen Prüfungen.<br>• **`com.dan.netview`** (neu): siehe 5.12.<br>• **Berichtigt aus Phase 6:** `UnderstoryDemo --bild` einfach gepuffert und liest den gezeichneten Puffer; `ForestGpuDemo --bild` liest die Zahlen je Ansicht.<br>• **Hier geprüft:** `RouteCheck` und `NetviewCheck` grün, `check-packages` grün (netview kennt nur sich und JOGL); `NetviewDemo` über die Brücke zu Mesa gezeichnet; `Isochronenbild` über dem Grund heute (auf 20 m gemittelt) und 1940.<br>• **LituyaBay:** `PHASE` 7. `tools.Isochronenbild`. `ant pruefung` hat einen Abschnitt Laufzeit und Netzblick (Sterne, konstante Tiefe 130 m, Messstrecke, Isolinien, Front über dem Grund heute gegen den Handwert). Packages einer a-Phase (`scree` in 6a) sind bis zu ihrer Phase ein Hinweis statt eines Fehlers (`Bibliothek.nachzuholen`, `tools/JarPruefung`), weil die Phasen der App nach den Renderer-Phasen nachgeholt werden.<br>• **Neu in `build.xml`:** `ant routecheck`, `ant isochronendemo`, `ant isochronenfenster`, `ant isochronenbild`, `ant netviewcheck`, `ant netviewbild`, `ant netviewdemo`.<br>• **Ausstehend auf dem Rechner:** Renderer bauen und kopieren; `ant routecheck`, `ant netviewcheck`, `ant isochronenbild`, `ant isochronendemo`, `ant netviewbild`, `ant unterwuchsbild`, `ant pruefung` | `docs/status/Vorschau_Phase7_Netzblick_Mesa.png` (Mesa), `Vorschau_Phase7_Isochronen.png`, `Vorschau_Phase7_Isochronen_Demo.png` | neu zu bauen (mit `netview`) |
+| 01.11.2026 | 7 | **Abnahme** auf der Radeon: `ant pruefung` 103 Prüfungen, alles in Ordnung (ein Hinweis: `scree` aus 6a nachzuholen). `ant routecheck` und `ant netviewcheck` grün: Gitterfehler 2,75 % / 0,75 % wie die Theorie, 16 Nachbarn über 160 801 Zellen in 72 ms. `ant isochronenbild` (Grund heute auf 4 m gelesen): Eingang 365 s linear, 291 s nichtlinear; 1940 355 / 288 s; 0,2 s je Lauf. `ant netviewbild` zeigt auf der Radeon dasselbe wie mit Mesa; `Unterwuchs.png` ist nicht mehr schwarz.<br>• **Befund:** Am Sporn gibt es heute in 500 m kein Wasser (NaN): Der Gilbert Inlet ist vom Gletscher gefüllt (siehe 7.1, Phase 7a) | `docs/status/Isochronen.png`, `Netzblick.png`, `routecheck_Phase7.txt` | neu gebaut |
+| 01.11.2026 | 7a | **Netz der Welle, Ufer, Netzblick** (Freigabe „Phase7a, los!“; Entscheidungen: Bucht und 1 km See; Ufer als Netz jetzt, Werte später; Netzblick als Bild im Bild und in der Szene; die App liest die Dateien, Oracle wahlweise).<br>• **Aufbereitung:** Schritte `welle` (`tools.Welle`) und `ufer` (`tools.Ufer`), siehe 7.1 und 7.2; Leser `scene.WellenNetz`, `scene.UferNetz`.<br>• **Oracle:** `01` mit `LB_ANKUNFT`, `LB_ISOCHRONE`, `LB_UFER_GEOM`, `LB_UFER_PUNKT`, `LB_AUFLAUF`, `LB_SPURLINIE_LRS`/`_STUETZ`; `02` mit `LB_NET_WELLE` (räumlich, Benutzerdaten) und `LB_NET_UFER` (LRS); `04` Partitionen und Raumindizes; `05` Sichten; neu `06_ufer.sql`; `99` räumt alles ab. `tools.WelleDb` lädt und rechnet nach; `netz.WelleLod` (LOD). Neu `ant netzvergleich`. Proben 24 bis 30 in 2.8.<br>• **App:** `gl.Netzblick`, Bedienfeld NETZE, Taste N, Zeile im vollen HUD.<br>• **Renderer** (Branch `lituya-phase-7a`): `NetviewGl.gain`.<br>• **Hier geprüft:** beide Schritte über dem Grund (heute auf 20 m gemittelt hochgerechnet); LOD im Speicher gegen `route` auf 0,003 s; `Pruefung` mit neuem Abschnitt grün; die App mit dem Netzblick über die Brücke zu Mesa gezeichnet. Oracle nicht (hier keine Datenbank).<br>• **Ausstehend auf dem Rechner:** Renderer bauen und kopieren; `ant aufbereitung "-Dschritte=welle,ufer"`, `ant netzdb`, `ant pruefung`, App starten (NETZE) | `docs/status/Vorschau_Phase7a_Netzblick_Mesa.png` (Mesa) | neu zu bauen (`gain`) |
+| 01.11.2026 | 7a | **Erster Lauf `ant netzdb`** (7 min): Welle und Ufer geladen, Partitionen ja (24: `SPATIAL_PARTITION` 16 Partitionen, BLOBs mit Benutzerdaten; 25 ja). LOD auf `LB_NET_WELLE` gegen `route`: alle 74 483 Knoten, größte Abweichung 0,0016 bis 0,0031 s je Kostenart; Wellenstrahlen (k = 3) mit denselben Zeiten wie `route` (Cenotaph 139,9 s, Anchorage 320,2 s, Eingang 364,7 s).<br>• **Befund 1:** `SDO_UTIL.FROM_WKTGEOMETRY` hat in 21c kein SRID-Argument (PLS-306); jetzt `SDO_GEOMETRY(CLOB, 26908)`.<br>• **Befund 2:** Die Kosten kamen aus der Tabelle, nicht aus den Benutzerdaten, und LOD schrieb beim Laden rund 9 000-mal `NullPointerException` (Laden 286 s). Vermutete Ursache: die Einträge in `USER_SDO_NETWORK_USER_DATA` ohne `CATEGORY_ID`; jetzt mit 0. LOD fragt nach einer Kostenart ohne Benutzerdaten nicht weiter danach, die Meldungen werden gezählt statt ausgegeben.<br>• **Befund 3:** Das Protokoll von `NetzDb` und die umgeleitete Konsole schrieben in dieselbe Datei; das Protokoll heißt jetzt `netzdb_protokoll_Phase7a.txt`.<br>• Der Sporn bekam mit 1 km Suchradius einen Knoten der Einschlaglinie (0 s); jetzt 400 m, also keiner | `netzdb_Phase7a.txt` | — |
+| 01.11.2026 | 7a | **Abnahme** auf der Radeon: `ant netzdb` „ok“ (Protokoll `netzdb_protokoll_Phase7a.txt`): `VALIDATE_NETWORK` TRUE für Herkunft, Welle und Ufer; LOD = `route` auf 0,003 s (Probe 27), Ufer `SDO_LRS` = `Measure` auf 5 mm (30), Partitionen ja (24, 25); `LB_ISOCHRONE` 256 Konturen. `ant pruefung` alles in Ordnung. App mit Netzblick (Fotos `Status_Phase7a1` bis `3`). Aufbereitung auf 4 m: 74 483 Knoten, 585 070 Kanten; Eingang 365 s linear, 291 s nichtlinear.<br>• **Befund 1:** Benutzerdaten in LOD gehen nicht (Probe 26, siehe 2.8).<br>• **Befund 2:** `fastWithinCostPolygon` geht nicht (28); Isochronen als Konturen.<br>• **Befund 3:** Laden von LOD dauert 174 s, wohl wegen der Meldungen aus 26 | `netzdb_protokoll_Phase7a.txt`, `Status_Phase7a1.png` | neu gebaut |
+| 01.11.2026 | 8 | **Erdbeben** (Freigabe „Phase8, los!“; Entscheidungen: BSSA14; Package und Aufbereitungsschritt `stoerung`; alles aus 5.1 mit Newmark, Seiche, Zittern und Grollen; Demo als Karte mit Zeitreihen).<br>• **`com.dan.quake`** (neu): siehe 5.1.<br>• **LituyaBay:** Schritt `stoerung`, `tools.Bebenbild`, `PHASE` 8, Abschnitt Beben in `ant pruefung`, `Herkunft` kennt `daten/ereignis`; Probe 29 zählt Orte ohne Knoten nicht.<br>• **Neu in `build.xml`:** `ant quakecheck`, `ant quakebild`, `ant quakedemo`, `ant grollen`, `ant bebenbild`.<br>• **Hier geprüft:** `QuakeCheck` grün, `check-packages` grün, Schritt `stoerung` an Qfaults und ComCat, `Bebenbild`.<br>• **Befund:** Newmark versagt nach 23 bis 27 s, nicht nach 60 bis 150 s (siehe 9.1).<br>• **Ausstehend auf dem Rechner:** Renderer bauen und kopieren; `ant aufbereitung -Dschritte=stoerung,herkunft,inhalt`, `ant quakecheck`, `ant quakebild`, `ant bebenbild`, `ant grollen`, `ant pruefung` | `docs/status/Vorschau_Phase8_Quake.png`, `Vorschau_Phase8_Beben.png` | neu zu bauen (mit `quake`) |
+| 01.11.2026 | 8 | **Abnahme** auf der Radeon: `ant pruefung` 109 Prüfungen, alles in Ordnung (ein Hinweis). `ant quakecheck` grün. `ant aufbereitung "-Dschritte=stoerung,herkunft,inhalt"`: Spur 345 km aus 228 Punkten, Herd 58,23° N 136,71° W, 10 km, M 7,8. `ant bebenbild`: am Gilbert Inlet Rjb 0,5 km, PGA 0,51 g, Arias 4,77 m/s, D5–95 22 bis 51 s; Newmark FS 1,05–1,15 versagt nach 23–27 s; Seiche 11,2 min. `ant quakebild`, `ant grollen` | `docs/status/Beben.png`, `Quake_Demo.png`, `Grollen.wav`, `*_Phase8.txt` | neu gebaut |
+| 01.11.2026 | 9 | **Felssturz** (Freigabe „Phase9, los!“; Entscheidungen: Kern jetzt in Java, Compute Shader mit der Welle in Phase 11; Newmark mit Entfestigung und Auslösung von Hand; Übergabe aus `fracture` mit Demo, Glacier und Sylt unverändert; Preset auf gerechnetem Gelände, Demo in Java2D).<br>• **`com.dan.landslide`** (neu): siehe 5.2.<br>• **`com.dan.fracture`:** Übergabe und Ablösezone, siehe 6.2 (unter der Tabelle).<br>• **`com.dan.quake`:** `Slope` mit Entfestigung (`residual`, `softening`, `cohesionAt`, `acAt`; `Result.runaway`, `acMin`); ohne Rest wie bisher.<br>• **LituyaBay:** `tools.Sturz` (Auslösung über `daten/ereignis`, Platte in `fracture`, Übergabe, Strom; Uhr der Szene), `PHASE` 9, Abschnitt Sturz in `ant pruefung`.<br>• **Neu in `build.xml`:** `ant landslidecheck`, `ant landslidebild`, `ant landslidedemo`, `ant fracturecheck`, `ant sturz`.<br>• **Hier geprüft:** `LandslideCheck` (16), `QuakeCheck` und `FractureCheck` grün (alt gegen neu verglichen), `check-packages` grün (vier Packages je für sich), `tools.Sturz` über den Testdaten, `Pruefung` mit dem neuen Abschnitt.<br>• **Befunde:** Aufprall 105 m/s, aber der Zufluss dauert 16 s statt 6,8 s und ist bis 31 m statt 134 m mächtig; Auslösung nach Newmark auch mit Entfestigung nach 22–35 s (9.2).<br>• **Ausstehend auf dem Rechner:** Renderer bauen und kopieren; `ant landslidecheck`, `ant fracturecheck`, `ant quakecheck`, `ant sturz`, `ant landslidebild`, `ant pruefung` | `docs/status/Vorschau_Phase9_Sturz.png`, `Vorschau_Phase9_Landslide.png` | neu zu bauen (mit `landslide`) |
+| 01.11.2026 | 9 | **Abnahme** auf der Radeon: `ant pruefung` 113 Prüfungen, alles in Ordnung (ein Hinweis: `scree` aus 6a). `ant landslidecheck` grün (16 Prüfungen): Aufprall 105,2 m/s im Mittel (FRITZ01 96–110 m/s), höchstens 112,3 m/s; Fahrböschung 16,2° gegen SCHEIDEGGER73 15,8°; Volumen auf 1e-9. `ant fracturecheck` grün (53 Prüfungen): alle alten Zeilen wie vorher, Gletscherfront wie vor Phase 11, Übergabe auf 3,6e-16, 1 000 Stücke 1,85 ms je Schritt. `ant quakecheck` grün (Entfestigung: Gilbert FS 1,10 geht mit Rest 20 % nach 25 s durch). `ant sturz`: 342 Stücke, 3,074e7 m³ übergeben (100,5 % der Platte), im Strom auf 1,4e-14 wieder; Zufluss 105 m/s, 90 % in 16,0 s, bis 30 m senkrecht; Uhr der Szene: Auslösung bei 93 s, Zufluss ab 105 s. `ant landslidebild` und `ant landslidedemo` gelaufen | `docs/status/Sturz.png`, `Landslide_Demo.png`, `*_Phase9.txt` | neu gebaut (mit `landslide`) |
+| 02.11.2026 | 10 | **Nahfeld, in Arbeit: 14 von 15 Prüfungen grün, Laborfall bei 885 m noch zu hoch** (Freigabe „Phase10, los!“; Entscheidungen: SPH im Schnitt (2D, je Meter Breite) in Java, Würfel und Compute mit der Welle; Laborfall FRITZ01 und Strom aus `landslide` als zweiter Fall; `Impact.Far` mit einem HLL-Kanal im Check, `wave` in Phase 11; Demo als Java2D-Schnitt. Danach „Einzelwelle zuerst, los!“).<br>• **`com.dan.impact`** (neu, in `Renderer/src`, noch kein Branch, kein Jar): `Impact` (WCSPH, Wendland C2, Hu-Adams, δ-SPH nach Fourtakis, Adami-Wände mit hartem Schutz am Linienzug, Gleitkörper frei auf einer Rampe, Pegel, Kaverne, Energie, Rand `Far`), `Granulate` (Mohr-Coulomb implizit, 16 Jacobi-Schritte), `Inflow` (`fritz01()`), `Channel` (1D HLL, `fromEta`), `Presets.gilbertInlet1958`, `demo/ImpactCheck`, `demo/ImpactDemo`, README. `check-packages` grün.<br>• **FRITZ01 nachgelesen:** Rinne 0,5 m (Schnitt), Granulat PP-BaSO₄, Korn 2,64 t/m³, **Schüttdichte 1,61 t/m³** (39 % Poren), 98,5 · 10³ t je Meter, bis 134 m, 748 m, 6,8 s; Gleitkörper läuft über den Grund aus; Reibungswinkel nicht genannt.<br>• **Prüfung (`impactcheck_Phase10_Zwischenstand.txt`, 8 m, 354 s):** Becken Druck am Grund 405 gegen 402 kPa; **Einzelwelle 21,7 m/s = √(g(h + H))**, Höhe 6,8 → 5,5 m (bei 1 m Abstand 7,4 m nach 12 s: Auflösung); Schüttung 25° steht, 55° sackt auf 34,5° (φ 35°); Kaverne 4 096 m² nach 13 s; Energieanteil 14,1 % (2–30 %); 600 m über 200 m ab 9,4 s; Übergabe an den Kanal 223 gegen 212 m bei 1 100 m; Masse genau; zwei Läufe gleich. **Rot: 885 m 229 m nach 14,8 s statt 152 m nach 16 s.** Über die Auflösung konvergiert (8 m 229, 5 m 206, 4 m 221 m): die Abweichung kommt aus dem Modell des Gleitkörpers.<br>• **Befunde und Berichtigungen:** (1) Der Zulauf als geführter Puffer war ein Stempel mit unbegrenzter Kraft (Körner bis 180 m/s); jetzt liegt der ganze Körper frei auf einer Rampe (Hangabtrieb aufgehoben, keine Reibung), an der Uferlinie kommen 3,9e11 statt 6,0e11 J/m an, weil das Wasser schon bremst. (2) Wandlagen ließen an einspringenden Ecken Wasser durch: harter Schutz am Linienzug. (3) Die Einzelwelle war nicht falsch, sondern die Messung (höchster Stand an zwei Pegeln); jetzt Kamm im geglätteten Profil. (4) Der Pegel zählte eingeschlossenes Wasser unter dem Schutt als Fuß der Säule (Sprünge auf −110 m, Energie 1,3 %); jetzt Säule aus Wasser und Granulat. (5) Mohr-Coulomb braucht den mittleren Druck: mit der senkrechten Auflast blieb die steile Schüttung bei 44° stehen; jetzt SPH-Druck ohne Wasserdruck (Auflast als Schalter `capLoad`). (6) Reibung am Grund mit dem Staudruck (`dynamicBed`) macht die Welle eher höher, Vorgabe aus. (7) Mit dem gemessenen Durchfluss am Rand (samt überkippender Wand) liefe der Kanal falsch; `fromEta`.<br>• **Offen (Vermutungen, nicht geprüft):** Poren füllen sich unter Wasser (39 % weniger Verdrängung) und Phasenmischung nach dem Zusammenbruch der Kaverne (FRITZ01, Stufe b) fehlen; der Körper bleibt eine geschlossene schwere Flüssigkeit.<br>• **Entwurf:** `docs/entwurf_phase10/Eintauchen.java` (Strom aus `landslide` je Meter Breite als `Inflow`, übersetzt, noch nicht gelaufen), kommt nach `tools/`, sobald `impact` im Jar ist | `docs/status/Vorschau_Phase10_Impact.png` | unverändert (`impact` noch nicht im Jar) |
+| 02.11.2026 | 10 | **Poren und Rampe** („1 versuchen, 3 als Rückfall, los!“): 14 von 15 Prüfungen grün (Laborfall mit 5 m, 858 s), **885 m: 205 m nach 15,8 s** (FRITZ01 152 m nach 16 s, ±20 %), Zeit stimmt.<br>• **Poren** (`Granulate.porosity`, FRITZ01 0,39; `Impact.poreTime`, Vorgabe sofort [G]): Wasser, das Körnern mit freiem Porenraum näher als 1,5 dx kommt, geht ganz in sie über (Masse, Impuls); die Körner werden schwerer (Ruhedichte je Teilchen), ihr Volumen bleibt. Masse genau (Wasser + 2,7e6 kg/m in den Poren = Anfang). Es füllt sich nur ein Zehntel des Porenraums: Nur Körner am Rand berühren Wasser.<br>• **Rampe:** Hangabtrieb nur aufgehoben, solange das Korn mit der Zuflussgeschwindigkeit fährt; gestaut rutscht es nach (vorher blieben 2 % der Masse liegen). **Pegelmessung:** Kamm im geglätteten Profil, Lücken bis 6 Spalten überbrückt (Energie bei 5 m war 1,3 %, jetzt 13,6 %). **Laborfall im Check mit 5 m** (MEDIUM, rund 10 min; LOW rund 2 min).<br>• **Läufe bei 885 m:** ohne Poren 229 / 206 / 221 m (8 / 5 / 4 m); mit Poren 188 m (8 m), 167 m nach 15,9 s (5 m, mit 2 % der Masse noch auf der Rampe, bestanden), 210 m (8 m, 1 s Füllzeit), **205 m (5 m, Rampe rutscht nach)**. Kleine Änderungen verschieben den Pegel um ±20 %: Das Ergebnis liegt im Mittel rund 30 % über FRITZ01.<br>• Grün: Becken, Einzelwelle (21,7 m/s), Mohr-Coulomb (steht / 34,5°), Kanal, 600 m (über 200 m ab 9,6 s), Kaverne, Energie 13,6 %, Masse, Übergabe (190 gegen 180 m), Wiederholbarkeit | `docs/status/Vorschau_Phase10_Impact.png` (5 m, 11,5 s) | unverändert (`impact` noch nicht im Jar) |
+| 02.11.2026 | 10 | **Abnahme mit Hinweis** (Nutzer: „2 nehmen, 1 als eigenen Schritt später“): `impact` gilt als gebaut; die Höhe im Laborfall liegt rund 30 % über FRITZ01 (5 m: 205 m nach 15,8 s gegen 152 m nach 16 s), die Ankunft stimmt. `ImpactCheck` prüft die Ankunft ±2 s und die Höhe −20 % bis +50 % und meldet die Abweichung als Hinweis; Wasser durch den ganzen Gleitkörper wird **Phase 10b** (Tabelle 14).<br>• **`Eintauchen` (zweiter Fall, Werkbuch 9.2):** Strom aus `landslide` (`Presets.gilbertInlet1958`, 8 m) je Meter Breite: 25 480 m² (Laborfall 61 090), 90 % in 20,4 s (5,2), bis 20 m (134), 101 m/s (110). Im Schnitt (8 m) bei 885 m **69 m nach 22,3 s** gegen 235 m nach 14,4 s im Laborfall; Energieanteil 6,1 % gegen 16,5 %. **Antwort auf 9.2:** Ohne Stauchung trägt die Kette Sturz → Eintauchen die Welle nicht; der tiefengemittelte Strom läuft 1,5 km breit und dünn ein. Zu klären mit Phase 13 (Breite der Rinne, Auflockerung, Profil) oder 10b.<br>• **App:** `tools/Eintauchen` (aus dem Entwurf; Strom jetzt aus `gilbertInlet1958`, nicht aus dem leeren Gelände), `PHASE` 10, `lituya.phase` 10, Abschnitt „Nahfeld (Phase 10)“ in `ant pruefung` (Zufluss FRITZ01, Masse samt Poren nach 3 s, Strom je Meter Breite), neue Ziele `ant impactcheck` (`-Dqualitaet=MEDIUM`, rund 10 min; `LOW` rund 2 min), `ant impactbild`, `ant impactdemo`, `ant eintauchen`. Hier übersetzt (ohne `WelleLod`, dafür fehlte `sdoapi.jar`), der neue Abschnitt hält.<br>• **Ausstehend auf dem Rechner:** Renderer-Branch `lituya-phase-10` anlegen und einchecken, Renderer bauen, `dist/Renderer.jar` nach `lib/`; `ant impactcheck`, `ant impactbild`, `ant eintauchen`, `ant pruefung` | `docs/status/Vorschau_Phase10_Impact.png`, `Vorschau_Phase10_Eintauchen.png`, `eintauchen_Phase10_Vorschau.txt` | neu zu bauen (mit `impact`) |
+| | 0b | parallel: Recherche vervollständigen (Miller S. 51–86, Zeugen, Boote, Tide, Zeitzone), Texturquellen und Lizenzen, `docs/QUELLEN.md` | | |
 
-**Nächster Schritt:** Phase 0b (Recherche, ohne Code) und danach die Freigabe von Phase 1. Bis dahin kein Code.
+**Nächster Schritt:** Phase 10 auf dem Rechner abschließen (Abnahme mit Hinweis ist entschieden):
+
+1. Im Renderer den Branch `lituya-phase-10` (von `lituya-phase-9`) anlegen, `src/com/dan/impact` einchecken, „Clean and Build“, `dist/Renderer.jar` nach `lib/` kopieren. Die zwölf Dateien in `beach`, `beachchair` und `tools/beach` mit geänderten Zeilenenden gehören nicht dazu.
+2. `ant impactcheck` (5 m, rund 10 min; schnell mit `-Dqualitaet=LOW`), `ant impactbild`, `ant impactdemo` (Fenster).
+3. `ant eintauchen` (Strom aus `landslide` gegen den Laborfall) und `ant pruefung`.
+
+Abnahme: `ImpactCheck` „Alles in Ordnung.“ mit dem Hinweis zur Höhe bei 885 m, Bogen `Impact_Demo.png`. Danach Phase 11 (`wave` optimieren, 6.1: Compute neben CPU, drei Gitter, HLL, Rand aus `Impact.Far`). Später 10b (Wasser durch den ganzen Gleitkörper, Phasenmischung); offen bleiben 6a und 5a (App), `rueckbau1958`, `spurlinie`, die Tide (0b).

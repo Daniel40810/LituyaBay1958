@@ -70,4 +70,416 @@
     nbproject/build-impl.xml file. 
 
     -->
+    <!--
+        Phase 1 (aus Sylt und Timmendorf): Prüfung von lib/Renderer.jar. Die Element-Packages liegen nicht im Projekt: ihre
+        Quelle ist das Projekt Renderer (Werkbuch 4.1). Hier prüft tools/JarPruefung.java nach jedem Übersetzen, ob
+        lib/Renderer.jar alles hat, was LituyaBay1958 braucht (jedes gebrauchte Package mit Klassen und README, Java 21,
+        von den 14 neuen die, deren Phase erreicht ist); abschalten mit -Dohne.paketpruefung=true.
+    -->
+    <property name="lituya.phase" value="10"/>
+    <target name="check-packages" description="Prüft lib/Renderer.jar: die gebrauchten Packages mit README, Java 21, die fälligen neuen." unless="ohne.paketpruefung">
+        <property name="platform.java" value="java"/>
+        <exec executable="${platform.java}" dir="${basedir}" failonerror="true">
+            <arg value="-Dstdout.encoding=UTF-8"/>
+            <arg value="-Dstderr.encoding=UTF-8"/>
+            <arg value="tools/JarPruefung.java"/>
+            <arg value="lib/Renderer.jar"/>
+            <arg value="${lituya.phase}"/>
+        </exec>
+    </target>
+    <target name="-post-compile" depends="check-packages"/>
+    <!-- Phase 1: Prüfprogramm der App ohne Grafikkarte und Datenbank (endet mit "ERGEBNIS: alles in Ordnung"). -->
+    <target name="pruefung" depends="compile-test" description="Startet die Prüfung com.dan.lituya.test.Pruefung.">
+        <property name="platform.java" value="java"/>
+        <java classname="com.dan.lituya.test.Pruefung" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="true">
+            <jvmarg value="-Dstdout.encoding=UTF-8"/>
+            <jvmarg value="-Djava.awt.headless=true"/>
+            <jvmarg value="-Xmx2g"/>
+            <classpath><pathelement path="${run.test.classpath}"/></classpath>
+        </java>
+    </target>
+    <!-- Phase 1: das Statusbild auf der Grafikkarte: docs/status/Status_Phase1.png (Grundansicht, 9.7.1958 22:00 PST,
+         Stufe Mittel, Full HD, volles HUD mit den Zeiten jedes Durchgangs). Auf der Radeon laufen lassen; die Zeiten
+         stehen auch in der Ausgabe. -Dansicht=Name wählt eine der neun Ansichten (etwa -Dansicht=AnchorageCove),
+         -Dbild=… einen anderen Dateinamen. -->
+    <target name="statusbild" depends="jar" description="docs/status/Status_Phase${lituya.phase}.png (Grundansicht, volles HUD; seit Phase 4 mit Gelände).">
+        <property name="platform.java" value="java"/>
+        <property name="ansicht" value=""/>
+        <property name="bild" value="docs/status/Status_Phase${lituya.phase}.png"/>
+        <java classname="com.dan.lituya.tools.Tempo" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="true">
+            <jvmarg value="-Dstdout.encoding=UTF-8"/>
+            <jvmarg value="--enable-native-access=ALL-UNNAMED"/>
+            <jvmarg value="-Xmx4g"/>
+            <jvmarg value="-Dhud=voll"/>
+            <jvmarg value="-Dansicht=${ansicht}"/>
+            <arg line="120 1920 1080 ${bild} MITTEL 22 1958-07-09"/>
+            <classpath><pathelement path="${run.classpath}"/></classpath>
+        </java>
+    </target>
+    <!-- Phase 1 (F26 A, wie Timmendorf): den JDBC-Treiber 21 für LOD aus ORACLE_HOME\jdbc\lib nach lib/lod/ holen und im
+         eigenen Klassenlader mit sdonm.jar probieren. Ohne ORACLE_HOME: ant lod -Dtreiber=C:\…\jdbc\lib\ojdbc11.jar -->
+    <target name="lod" depends="compile" description="Phase 1: Treiber 21 nach lib/lod holen und LOD im eigenen Klassenlader probieren.">
+        <property name="platform.java" value="java"/>
+        <property name="treiber" value=""/>
+        <java classname="com.dan.lituya.netz.Lod" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="true">
+            <jvmarg value="-Dstdout.encoding=UTF-8"/>
+            <arg value="${treiber}"/>
+            <classpath><pathelement path="${run.classpath}"/></classpath>
+        </java>
+    </target>
+    <!-- Phase 2 (Werkbuch 3.3, 3.4): die Aufbereitung liest das Kartenmaterial (Pfad in daten/rohdaten.properties, Vorgabe
+         download/) einmal und schreibt nach daten/. ant aufbereitung rechnet alle Schritte (gelaende, grund, namen, texturen,
+         herkunft, bilder, inhalt); -Dschritte=gelaende,grund nur diese; -Dneu=true rechnet fertige Kacheln neu; -Dausschnitt=OstMin,NordMin,OstMax,NordMax
+         nur die Kacheln dort; -Dfaeden=n. Prüfbilder nach docs/status/, Protokoll daten/aufbereitung.log. -->
+    <target name="aufbereitung" depends="compile" description="Phase 2: Kartenmaterial einmal nach daten/ aufbereiten (Gelände, Grund, Namen, Prüfbilder, INHALT.txt).">
+        <property name="platform.java" value="java"/>
+        <property name="schritte" value=""/>
+        <property name="neu" value="false"/>
+        <property name="ausschnitt" value=""/>
+        <property name="faeden" value="0"/>
+        <java classname="com.dan.lituya.tools.Aufbereitung" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="true">
+            <jvmarg value="-Dstdout.encoding=UTF-8"/>
+            <jvmarg value="-Djava.awt.headless=true"/>
+            <jvmarg value="-Xmx24g"/>
+            <jvmarg value="-Dneu=${neu}"/>
+            <jvmarg value="-Dlituya.ausschnitt=${ausschnitt}"/>
+            <jvmarg value="-Dlituya.cache.mb=4000"/>
+            <arg value="${schritte}"/>
+            <syspropertyset><propertyref name="faeden"/></syspropertyset>
+            <classpath><pathelement location="lib/Renderer.jar"/><pathelement path="${run.classpath}"/></classpath>
+        </java>
+    </target>
+    <!-- Phase 3 (Werkbuch 2.8, 7.7, 7.9): Schema LITUYABAY1958 neu aufbauen (db/netz/99, 01, 02), LB_NET_HERKUNFT aus
+         daten/netz/herkunft laden, NDM-Funktionsprobe (03_probe.sql und Java/LOD im eigenen Lader), Probenetze weg (98),
+         Partitionen und Sichten (04, 05), VALIDATE_NETWORK, Gegenrechnung (CONNECT BY und traceIn gegen pruefwege.tsv),
+         LB_NETZ_STAND. Vorher einmal als SYS: db/netz/00_sys.sql. Seit Phase 7a dazu LB_NET_WELLE und LB_NET_UFER aus
+         daten/netz/welle und daten/netz/ufer (vorher ant aufbereitung "-Dschritte=welle,ufer"), die Partitionen der Welle
+         und die Zweitrechnung wie ant netzvergleich. Protokoll docs/status/netzdb_Phase7a.txt. -->
+    <target name="netzdb" depends="compile" description="Phase 3/7a: Netze nach Oracle laden (Herkunft, Welle, Ufer), NDM-Funktionsprobe, Gegenrechnung.">
+        <property name="platform.java" value="java"/>
+        <java classname="com.dan.lituya.tools.NetzDb" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="true">
+            <jvmarg value="-Dstdout.encoding=UTF-8"/>
+            <jvmarg value="-Djava.awt.headless=true"/>
+            <jvmarg value="-Xmx3g"/>
+            <arg value="laden"/>
+            <classpath><pathelement location="lib/Renderer.jar"/><pathelement path="${run.classpath}"/></classpath>
+        </java>
+    </target>
+    <!-- Phase 3: nur prüfen, ob Oracle und daten/netz zusammenpassen (Prüfsumme, Zahlen, VALIDATE_NETWORK, LB_NDM_PROBE). -->
+    <target name="dbpruefung" depends="compile" description="Phase 3: prüfen, ob die Netze in Oracle zu daten/netz passen.">
+        <property name="platform.java" value="java"/>
+        <java classname="com.dan.lituya.tools.NetzDb" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="true">
+            <jvmarg value="-Dstdout.encoding=UTF-8"/>
+            <jvmarg value="-Djava.awt.headless=true"/>
+            <arg value="pruefen"/>
+            <classpath><pathelement path="${run.classpath}"/></classpath>
+        </java>
+    </target>
+    <!-- Phase 7a (Werkbuch 7.9): nur die Zweitrechnung, ohne neu zu laden: LOD auf LB_NET_WELLE gegen route (Ankunft je
+         Knoten und Kostenart aus daten/netz/welle/ankunft.tsv; schreibt LB_ANKUNFT und LB_ISOCHRONE neu) und SDO_LRS auf
+         LB_NET_UFER gegen route.Measure. Protokoll docs/status/netzvergleich_Phase7a.txt. -->
+    <target name="netzvergleich" depends="compile" description="Phase 7a: LOD gegen route (Welle) und SDO_LRS gegen Measure (Ufer), ohne neu zu laden.">
+        <property name="platform.java" value="java"/>
+        <java classname="com.dan.lituya.tools.NetzDb" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="true">
+            <jvmarg value="-Dstdout.encoding=UTF-8"/>
+            <jvmarg value="-Djava.awt.headless=true"/>
+            <jvmarg value="-Xmx3g"/>
+            <arg value="vergleich"/>
+            <classpath><pathelement location="lib/Renderer.jar"/><pathelement path="${run.classpath}"/></classpath>
+        </java>
+    </target>
+    <!-- Phase 4 (Werkbuch 5.11): das Package com.dan.clipmap aus lib/Renderer.jar über daten/gelaende (Ursprung E 352 000,
+         N 6 503 000). clipmapcheck: ClipmapCheck mit 1 000 Stichproben an den Kacheln und dem Baustein auf der Grafikkarte
+         gegen Java (Ausgabe auch nach docs/status/clipmapcheck_Phase4.txt); clipmapdemo: die Vorschau des Packages, Auge in
+         der Bucht vor dem Gilbert Inlet; clipmapbild: vier Ansichten mit der Zeit je Bild nach docs/status/Phase4_Clipmap.png. -->
+    <target name="clipmapcheck" depends="compile" description="Phase 4: ClipmapCheck über daten/gelaende, mit Grafikkarte.">
+        <property name="platform.java" value="java"/>
+        <java classname="com.dan.clipmap.demo.ClipmapCheck" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="true" output="docs/status/clipmapcheck_Phase4.txt" logError="true">
+            <jvmarg value="-Dstdout.encoding=UTF-8"/>
+            <jvmarg value="--enable-native-access=ALL-UNNAMED"/>
+            <jvmarg value="-Xmx4g"/>
+            <arg line="--gpu --daten daten/gelaende 352000 6503000"/>
+            <classpath><pathelement path="${run.classpath}"/></classpath>
+        </java>
+        <loadfile property="clipmapcheck.text" srcFile="docs/status/clipmapcheck_Phase4.txt" encoding="UTF-8"/>
+        <echo message="${clipmapcheck.text}"/>
+    </target>
+    <target name="clipmapdemo" depends="compile" description="Phase 4: die Vorschau von com.dan.clipmap über daten/gelaende.">
+        <property name="platform.java" value="java"/>
+        <java classname="com.dan.clipmap.demo.ClipmapDemo" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="true">
+            <jvmarg value="-Dstdout.encoding=UTF-8"/>
+            <jvmarg value="--enable-native-access=ALL-UNNAMED"/>
+            <jvmarg line="--add-opens java.desktop/sun.awt=ALL-UNNAMED --add-opens java.desktop/sun.awt.windows=ALL-UNNAMED --add-opens java.desktop/sun.java2d=ALL-UNNAMED"/>
+            <jvmarg value="-Xmx4g"/>
+            <arg line="--daten daten/gelaende 352000 6503000 --auge 2300 -1900 60 30"/>
+            <classpath><pathelement path="${run.classpath}"/></classpath>
+        </java>
+    </target>
+    <target name="clipmapbild" depends="compile" description="Phase 4: vier Ansichten der Clipmap mit der Zeit je Bild nach docs/status/Phase4_Clipmap.png.">
+        <property name="platform.java" value="java"/>
+        <java classname="com.dan.clipmap.demo.ClipmapDemo" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="true">
+            <jvmarg value="-Dstdout.encoding=UTF-8"/>
+            <jvmarg value="--enable-native-access=ALL-UNNAMED"/>
+            <jvmarg value="-Xmx4g"/>
+            <arg line="--daten daten/gelaende 352000 6503000 --auge 2300 -1900 60 30 --bild docs/status/Phase4_Clipmap.png"/>
+            <classpath><pathelement path="${run.classpath}"/></classpath>
+        </java>
+    </target>
+    <!-- Phase 5 (Werkbuch 5.10, 8): das Package com.dan.surface aus lib/Renderer.jar. Ablauf: python tools/kartenmaterial/
+         kartenmaterial.py laden, Gruppe texturen (13 CC0-Sätze von ambientCG nach download/texturen), dann
+         ant aufbereitung "-Dschritte=texturen,herkunft,inhalt" (gebacken nach daten/texturen). surfacecheck: SurfaceCheck mit
+         dem echten Strandkies (1 km ohne Wiederholung); texturbild: Kontaktbogen docs/status/Texturen.png (beim ersten Mal
+         packt der Treiber die Karten, das dauert); surfacedemo: die Vorschau mit Reglern. -->
+    <target name="surfacecheck" depends="compile" description="Phase 5: SurfaceCheck mit daten/texturen.">
+        <property name="platform.java" value="java"/>
+        <java classname="com.dan.surface.demo.SurfaceCheck" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="true" output="docs/status/surfacecheck_Phase${lituya.phase}.txt" logError="true">
+            <jvmarg value="-Dstdout.encoding=UTF-8"/>
+            <jvmarg value="-Xmx4g"/>
+            <arg line="--texturen daten/texturen"/>
+            <classpath><pathelement path="${run.classpath}"/></classpath>
+        </java>
+        <loadfile property="surfacecheck.text" srcFile="docs/status/surfacecheck_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${surfacecheck.text}"/>
+    </target>
+    <target name="texturbild" depends="compile" description="Phase 5: Kontaktbogen der Materialien nach docs/status/Texturen.png.">
+        <property name="platform.java" value="java"/>
+        <property name="kante" value="1024"/>
+        <java classname="com.dan.surface.demo.SurfaceDemo" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="true">
+            <jvmarg value="-Dstdout.encoding=UTF-8"/>
+            <jvmarg value="--enable-native-access=ALL-UNNAMED"/>
+            <jvmarg value="-Xmx6g"/>
+            <arg line="--texturen daten/texturen --kante ${kante} --bild docs/status/Texturen.png"/>
+            <classpath><pathelement path="${run.classpath}"/></classpath>
+        </java>
+    </target>
+    <target name="surfacedemo" depends="compile" description="Phase 5: die Vorschau von com.dan.surface über daten/texturen.">
+        <property name="platform.java" value="java"/>
+        <java classname="com.dan.surface.demo.SurfaceDemo" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="true">
+            <jvmarg value="-Dstdout.encoding=UTF-8"/>
+            <jvmarg value="--enable-native-access=ALL-UNNAMED"/>
+            <jvmarg line="--add-opens java.desktop/sun.awt=ALL-UNNAMED --add-opens java.desktop/sun.awt.windows=ALL-UNNAMED --add-opens java.desktop/sun.java2d=ALL-UNNAMED"/>
+            <jvmarg value="-Xmx6g"/>
+            <arg line="--texturen daten/texturen"/>
+            <classpath><pathelement path="${run.classpath}"/></classpath>
+        </java>
+    </target>
+    <!-- Phase 6 (Werkbuch 6.4, 5.7): com.dan.forest mit ForestGpu (Kultur auf der Grafikkarte, Oktaeder-Impostors, Zustand je
+         Baum, Sitka-Fichte und Hemlocktanne) und das neue Package com.dan.understory, beide aus lib/Renderer.jar.
+         waldcheck: ForestCheck (ohne Grafikkarte) und ForestGpuCheck (Grafikkarte = Prozessor) nach docs/status/waldcheck_Phase6.txt;
+         waldbild: vier Ansichten der gerechneten Bucht nach docs/status/Wald.png (-Dqualitaet=HIGH); waldzeiten: die fps-Tabelle je
+         Qualität und Ansicht nach docs/status/waldzeiten_Phase6.txt; walddemo: Fenster. waldvergleich: Paketvertrag 14, die Wälder
+         der anderen Szenen unverändert (vorher das alte Jar als lib/Renderer_phase5.jar sichern). unterwuchscheck,
+         unterwuchsbild (docs/status/Unterwuchs.png), unterwuchsdemo. -->
+    <macrodef name="renderer-java">
+        <attribute name="klasse"/>
+        <attribute name="args" default=""/>
+        <attribute name="ausgabe"/>
+        <attribute name="speicher" default="-Xmx6g"/>
+        <sequential>
+            <property name="platform.java" value="java"/>
+            <java classname="@{klasse}" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="true" output="@{ausgabe}" logError="true">
+                <jvmarg value="-Dstdout.encoding=UTF-8"/>
+                <jvmarg value="--enable-native-access=ALL-UNNAMED"/>
+                <jvmarg line="--add-opens java.desktop/sun.awt=ALL-UNNAMED --add-opens java.desktop/sun.awt.windows=ALL-UNNAMED --add-opens java.desktop/sun.java2d=ALL-UNNAMED"/>
+                <jvmarg value="@{speicher}"/>
+                <arg line="@{args}"/>
+                <!-- Renderer.jar zuerst: FStyle.jar bringt ältere Kopien von com.dan.forest, ground, river und road mit -->
+                <classpath><pathelement location="lib/Renderer.jar"/><pathelement path="${run.classpath}"/></classpath>
+            </java>
+        </sequential>
+    </macrodef>
+    <macrodef name="renderer-fenster">
+        <attribute name="klasse"/>
+        <attribute name="speicher" default="-Xmx6g"/>
+        <sequential>
+            <property name="platform.java" value="java"/>
+            <java classname="@{klasse}" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="true">
+                <jvmarg value="-Dstdout.encoding=UTF-8"/>
+                <jvmarg value="--enable-native-access=ALL-UNNAMED"/>
+                <jvmarg line="--add-opens java.desktop/sun.awt=ALL-UNNAMED --add-opens java.desktop/sun.awt.windows=ALL-UNNAMED --add-opens java.desktop/sun.java2d=ALL-UNNAMED"/>
+                <jvmarg value="@{speicher}"/>
+                <!-- Renderer.jar zuerst: FStyle.jar bringt ältere Kopien von com.dan.forest, ground, river und road mit -->
+                <classpath><pathelement location="lib/Renderer.jar"/><pathelement path="${run.classpath}"/></classpath>
+            </java>
+        </sequential>
+    </macrodef>
+    <target name="waldcheck" depends="compile" description="Phase 6: ForestCheck und ForestGpuCheck nach docs/status/waldcheck_Phase6.txt.">
+        <renderer-java klasse="com.dan.forest.demo.ForestCheck" ausgabe="docs/status/waldcheck_Phase${lituya.phase}.txt"/>
+        <renderer-java klasse="com.dan.forest.demo.ForestGpuCheck" ausgabe="docs/status/waldcheck_gpu_Phase${lituya.phase}.txt"/>
+        <concat destfile="docs/status/waldcheck_Phase${lituya.phase}.txt" append="true" encoding="UTF-8" outputencoding="UTF-8">
+            <header>&#10;--- ForestGpuCheck (Grafikkarte)&#10;</header>
+            <fileset file="docs/status/waldcheck_gpu_Phase${lituya.phase}.txt"/>
+        </concat>
+        <delete file="docs/status/waldcheck_gpu_Phase${lituya.phase}.txt"/>
+        <loadfile property="waldcheck.text" srcFile="docs/status/waldcheck_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${waldcheck.text}"/>
+    </target>
+    <target name="waldbild" depends="compile" description="Phase 6: vier Ansichten der gerechneten Bucht nach docs/status/Wald.png.">
+        <property name="qualitaet" value="HIGH"/>
+        <renderer-java klasse="com.dan.forest.demo.ForestGpuDemo" args="--bild docs/status/Wald.png ${qualitaet}" ausgabe="docs/status/waldbild_Phase${lituya.phase}.txt"/>
+        <loadfile property="waldbild.text" srcFile="docs/status/waldbild_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${waldbild.text}"/>
+    </target>
+    <target name="waldzeiten" depends="compile" description="Phase 6: fps-Tabelle des Walds nach docs/status/waldzeiten_Phase6.txt.">
+        <renderer-java klasse="com.dan.forest.demo.ForestGpuDemo" args="--zeiten" ausgabe="docs/status/waldzeiten_Phase${lituya.phase}.txt"/>
+        <loadfile property="waldzeiten.text" srcFile="docs/status/waldzeiten_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${waldzeiten.text}"/>
+    </target>
+    <target name="walddemo" depends="compile" description="Phase 6: ForestGpuDemo im Fenster.">
+        <renderer-fenster klasse="com.dan.forest.demo.ForestGpuDemo"/>
+    </target>
+    <target name="waldvergleich" description="Phase 6: die Wälder der anderen Szenen unverändert (lib/Renderer_phase5.jar gegen lib/Renderer.jar).">
+        <property name="platform.java" value="java"/>
+        <property name="alt" value="lib/Renderer_phase5.jar"/>
+        <exec executable="${platform.java}" dir="${basedir}" failonerror="true" output="docs/status/waldvergleich_Phase${lituya.phase}.txt">
+            <arg value="-Dstdout.encoding=UTF-8"/>
+            <arg value="tools/WaldVergleich.java"/>
+            <arg value="${alt}"/>
+            <arg value="lib/Renderer.jar"/>
+        </exec>
+        <loadfile property="waldvergleich.text" srcFile="docs/status/waldvergleich_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${waldvergleich.text}"/>
+    </target>
+    <target name="unterwuchscheck" depends="compile" description="Phase 6: UnderstoryCheck nach docs/status/unterwuchscheck_Phase6.txt.">
+        <renderer-java klasse="com.dan.understory.demo.UnderstoryCheck" ausgabe="docs/status/unterwuchscheck_Phase${lituya.phase}.txt" speicher="-Xmx2g"/>
+        <loadfile property="unterwuchscheck.text" srcFile="docs/status/unterwuchscheck_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${unterwuchscheck.text}"/>
+    </target>
+    <target name="unterwuchsbild" depends="compile" description="Phase 6: die sieben Arten und der Waldboden nach docs/status/Unterwuchs.png.">
+        <renderer-java klasse="com.dan.understory.demo.UnderstoryDemo" args="--bild docs/status/Unterwuchs.png" ausgabe="docs/status/unterwuchsbild_Phase${lituya.phase}.txt" speicher="-Xmx2g"/>
+        <loadfile property="unterwuchsbild.text" srcFile="docs/status/unterwuchsbild_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${unterwuchsbild.text}"/>
+    </target>
+    <target name="unterwuchsdemo" depends="compile" description="Phase 6: UnderstoryDemo im Fenster.">
+        <renderer-fenster klasse="com.dan.understory.demo.UnderstoryDemo" speicher="-Xmx2g"/>
+    </target>
+    <!-- Phase 7 (Werkbuch 6.9, 5.12): com.dan.route mit TravelGrid (Laufzeitgitter 4/8/16/32 Nachbarn, Isochronen, Messstrecke)
+         und das neue Package com.dan.netview, beide aus lib/Renderer.jar. routecheck: RouteCheck (Gitterfehler 2,75 % / 0,75 %,
+         T = L/√(g h) auf konstantem Grund) nach docs/status/routecheck_Phase7.txt; isochronendemo: gerechnete Fjordbucht nach
+         docs/status/Isochronen_Demo.png (Fenster: -Dfenster=ja); isochronenbild: die Front über dem echten Grund heute und 1940,
+         linear und nichtlinear, nach docs/status/Isochronen.png mit Ankunftszeiten; netviewcheck, netviewbild
+         (docs/status/Netzblick.png), netviewdemo. -->
+    <target name="routecheck" depends="compile" description="Phase 7: RouteCheck nach docs/status/routecheck_Phase7.txt.">
+        <renderer-java klasse="com.dan.route.demo.RouteCheck" ausgabe="docs/status/routecheck_Phase${lituya.phase}.txt" speicher="-Xmx2g"/>
+        <loadfile property="routecheck.text" srcFile="docs/status/routecheck_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${routecheck.text}"/>
+    </target>
+    <target name="isochronendemo" depends="compile" description="Phase 7: IsochroneDemo (gerechnete Bucht) nach docs/status/Isochronen_Demo.png.">
+        <renderer-java klasse="com.dan.route.demo.IsochroneDemo" args="--bild docs/status/Isochronen_Demo.png" ausgabe="docs/status/isochronendemo_Phase${lituya.phase}.txt" speicher="-Xmx2g"/>
+        <loadfile property="isochronendemo.text" srcFile="docs/status/isochronendemo_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${isochronendemo.text}"/>
+    </target>
+    <target name="isochronenfenster" depends="compile" description="Phase 7: IsochroneDemo im Fenster (Front mit Regler).">
+        <renderer-fenster klasse="com.dan.route.demo.IsochroneDemo" speicher="-Xmx2g"/>
+    </target>
+    <target name="isochronenbild" depends="compile" description="Phase 7: die Front über dem Grund heute und 1940 nach docs/status/Isochronen.png.">
+        <renderer-java klasse="com.dan.lituya.tools.Isochronenbild" args="daten docs/status/Isochronen.png" ausgabe="docs/status/isochronenbild_Phase${lituya.phase}.txt" speicher="-Xmx3g"/>
+        <loadfile property="isochronenbild.text" srcFile="docs/status/isochronenbild_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${isochronenbild.text}"/>
+    </target>
+    <target name="netviewcheck" depends="compile" description="Phase 7: NetviewCheck nach docs/status/netviewcheck_Phase7.txt.">
+        <renderer-java klasse="com.dan.netview.demo.NetviewCheck" ausgabe="docs/status/netviewcheck_Phase${lituya.phase}.txt" speicher="-Xmx1g"/>
+        <loadfile property="netviewcheck.text" srcFile="docs/status/netviewcheck_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${netviewcheck.text}"/>
+    </target>
+    <target name="netviewbild" depends="compile" description="Phase 7: vier Ansichten des Netzblicks nach docs/status/Netzblick.png.">
+        <renderer-java klasse="com.dan.netview.demo.NetviewDemo" args="--bild docs/status/Netzblick.png" ausgabe="docs/status/netviewbild_Phase${lituya.phase}.txt" speicher="-Xmx2g"/>
+        <loadfile property="netviewbild.text" srcFile="docs/status/netviewbild_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${netviewbild.text}"/>
+    </target>
+    <target name="netviewdemo" depends="compile" description="Phase 7: NetviewDemo im Fenster.">
+        <renderer-fenster klasse="com.dan.netview.demo.NetviewDemo" speicher="-Xmx2g"/>
+    </target>
+    <!-- Phase 8 (Werkbuch 5.1, 9.1): das neue Package com.dan.quake aus lib/Renderer.jar. quakecheck: QuakeCheck (Laufzeiten,
+         WELLS94, BSSA14 von Hand, Newmark-Rechteckimpuls, Merian) nach docs/status/quakecheck_Phase8.txt; quakebild: der Bogen
+         von QuakeDemo (Preset fairweather1958) nach docs/status/Quake_Demo.png; quakedemo: Fenster; grollen: das Grollen am
+         Gilbert Inlet als docs/status/Grollen.wav; bebenbild: das Beben über daten/ereignis (Schritt stoerung) nach
+         docs/status/Beben.png mit Newmark je Sicherheitsfaktor. -->
+    <target name="quakecheck" depends="compile" description="Phase 8: QuakeCheck nach docs/status/quakecheck_Phase8.txt.">
+        <renderer-java klasse="com.dan.quake.demo.QuakeCheck" ausgabe="docs/status/quakecheck_Phase${lituya.phase}.txt" speicher="-Xmx1g"/>
+        <loadfile property="quakecheck.text" srcFile="docs/status/quakecheck_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${quakecheck.text}"/>
+    </target>
+    <target name="quakebild" depends="compile" description="Phase 8: QuakeDemo (fairweather1958) nach docs/status/Quake_Demo.png.">
+        <property name="zeit" value="30"/>
+        <renderer-java klasse="com.dan.quake.demo.QuakeDemo" args="--bild docs/status/Quake_Demo.png ${zeit}" ausgabe="docs/status/quakebild_Phase${lituya.phase}.txt" speicher="-Xmx2g"/>
+        <loadfile property="quakebild.text" srcFile="docs/status/quakebild_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${quakebild.text}"/>
+    </target>
+    <target name="quakedemo" depends="compile" description="Phase 8: QuakeDemo im Fenster.">
+        <renderer-fenster klasse="com.dan.quake.demo.QuakeDemo" speicher="-Xmx2g"/>
+    </target>
+    <target name="grollen" depends="compile" description="Phase 8: das Grollen am Gilbert Inlet nach docs/status/Grollen.wav.">
+        <renderer-java klasse="com.dan.quake.demo.QuakeDemo" args="--wav docs/status/Grollen.wav" ausgabe="docs/status/grollen_Phase${lituya.phase}.txt" speicher="-Xmx1g"/>
+    </target>
+    <target name="bebenbild" depends="compile" description="Phase 8: das Beben über daten/ereignis nach docs/status/Beben.png.">
+        <property name="zeit" value="30"/>
+        <renderer-java klasse="com.dan.lituya.tools.Bebenbild" args="daten docs/status/Beben.png ${zeit}" ausgabe="docs/status/bebenbild_Phase${lituya.phase}.txt" speicher="-Xmx2g"/>
+        <loadfile property="bebenbild.text" srcFile="docs/status/bebenbild_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${bebenbild.text}"/>
+    </target>
+    <!-- Phase 9 (Werkbuch 6.2, 9.2): das neue Package com.dan.landslide aus lib/Renderer.jar. landslidecheck: LandslideCheck
+         (Block, Coulomb, Fahrböschung, Volumen, Lituya 96–110 m/s) nach docs/status/landslidecheck_Phase9.txt; landslidebild:
+         der Bogen von LandslideDemo (-Dfall=gilbertInlet1958|vajont1963|spiritLake1980, -Dzeit, -Dqualitaet) nach
+         docs/status/Landslide_Demo.png; landslidedemo: Fenster; fracturecheck: FractureCheck mit der Übergabe (Glacier und Sylt
+         unverändert) nach docs/status/fracturecheck_Phase9.txt; sturz: Auslösung (Newmark mit Entfestigung über daten/ereignis),
+         Abbruch (fracture) und Strom (landslide) nach docs/status/Sturz.png (-Dzeit nach der Auslösung, -Dmodus=zeuge|newmark). -->
+    <target name="landslidecheck" depends="compile" description="Phase 9: LandslideCheck nach docs/status/landslidecheck_Phase9.txt.">
+        <renderer-java klasse="com.dan.landslide.demo.LandslideCheck" ausgabe="docs/status/landslidecheck_Phase${lituya.phase}.txt" speicher="-Xmx3g"/>
+        <loadfile property="landslidecheck.text" srcFile="docs/status/landslidecheck_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${landslidecheck.text}"/>
+    </target>
+    <target name="landslidebild" depends="compile" description="Phase 9: LandslideDemo nach docs/status/Landslide_Demo.png.">
+        <property name="zeit" value="18"/>
+        <property name="fall" value="gilbertInlet1958"/>
+        <property name="qualitaet" value="MEDIUM"/>
+        <renderer-java klasse="com.dan.landslide.demo.LandslideDemo" args="--bild docs/status/Landslide_Demo.png ${zeit} ${fall} ${qualitaet}" ausgabe="docs/status/landslidebild_Phase${lituya.phase}.txt" speicher="-Xmx3g"/>
+        <loadfile property="landslidebild.text" srcFile="docs/status/landslidebild_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${landslidebild.text}"/>
+    </target>
+    <target name="landslidedemo" depends="compile" description="Phase 9: LandslideDemo im Fenster.">
+        <renderer-fenster klasse="com.dan.landslide.demo.LandslideDemo" speicher="-Xmx4g"/>
+    </target>
+    <target name="fracturecheck" depends="compile" description="Phase 9: FractureCheck (mit Übergabe) nach docs/status/fracturecheck_Phase9.txt.">
+        <renderer-java klasse="com.dan.fracture.demo.FractureCheck" ausgabe="docs/status/fracturecheck_Phase${lituya.phase}.txt" speicher="-Xmx2g"/>
+        <loadfile property="fracturecheck.text" srcFile="docs/status/fracturecheck_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${fracturecheck.text}"/>
+    </target>
+    <target name="sturz" depends="compile" description="Phase 9: Auslösung, Abbruch und Strom nach docs/status/Sturz.png.">
+        <property name="zeit" value="18"/>
+        <property name="qualitaet" value="MEDIUM"/>
+        <property name="modus" value="zeuge"/>
+        <renderer-java klasse="com.dan.lituya.tools.Sturz" args="daten docs/status/Sturz.png ${zeit} ${qualitaet} ${modus}" ausgabe="docs/status/sturz_Phase${lituya.phase}.txt" speicher="-Xmx4g"/>
+        <loadfile property="sturz.text" srcFile="docs/status/sturz_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${sturz.text}"/>
+    </target>
+    <!-- Phase 10 (Werkbuch 5.3, 9.3): das neue Package com.dan.impact aus lib/Renderer.jar. impactcheck: ImpactCheck (Becken,
+         Einzelwelle, Mohr-Coulomb, Kanal, Laborfall FRITZ01, -Dqualitaet=MEDIUM rund 10 min, LOW rund 2 min) nach
+         docs/status/impactcheck_Phase10.txt; impactbild: der Bogen von ImpactDemo nach docs/status/Impact_Demo.png (-Dzeit,
+         -Dqualitaet); impactdemo: Fenster; eintauchen: der Strom aus landslide je Meter Breite in den Schnitt, gegen den
+         Laborfall, nach docs/status/Eintauchen.png. -->
+    <target name="impactcheck" depends="compile" description="Phase 10: ImpactCheck nach docs/status/impactcheck_Phase10.txt.">
+        <property name="qualitaet" value="MEDIUM"/>
+        <renderer-java klasse="com.dan.impact.demo.ImpactCheck" args="${qualitaet}" ausgabe="docs/status/impactcheck_Phase${lituya.phase}.txt" speicher="-Xmx3g"/>
+        <loadfile property="impactcheck.text" srcFile="docs/status/impactcheck_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${impactcheck.text}"/>
+    </target>
+    <target name="impactbild" depends="compile" description="Phase 10: ImpactDemo nach docs/status/Impact_Demo.png.">
+        <property name="zeit" value="12"/>
+        <property name="qualitaet" value="MEDIUM"/>
+        <renderer-java klasse="com.dan.impact.demo.ImpactDemo" args="--bild docs/status/Impact_Demo.png ${zeit} ${qualitaet}" ausgabe="docs/status/impactbild_Phase${lituya.phase}.txt" speicher="-Xmx3g"/>
+        <loadfile property="impactbild.text" srcFile="docs/status/impactbild_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${impactbild.text}"/>
+    </target>
+    <target name="impactdemo" depends="compile" description="Phase 10: ImpactDemo im Fenster.">
+        <renderer-fenster klasse="com.dan.impact.demo.ImpactDemo" speicher="-Xmx4g"/>
+    </target>
+    <target name="eintauchen" depends="compile" description="Phase 10: Strom aus landslide in den Schnitt nach docs/status/Eintauchen.png.">
+        <property name="zeit" value="12"/>
+        <property name="qualitaet" value="LOW"/>
+        <property name="strom" value="MEDIUM"/>
+        <renderer-java klasse="com.dan.lituya.tools.Eintauchen" args="docs/status/Eintauchen.png ${zeit} ${qualitaet} ${strom}" ausgabe="docs/status/eintauchen_Phase${lituya.phase}.txt" speicher="-Xmx4g"/>
+        <loadfile property="eintauchen.text" srcFile="docs/status/eintauchen_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${eintauchen.text}"/>
+    </target>
 </project>

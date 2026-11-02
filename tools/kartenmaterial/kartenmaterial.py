@@ -37,11 +37,12 @@ import tiff  # noqa: E402
 
 PROJEKT = os.path.dirname(os.path.dirname(HIER))
 GRUPPEN = ["hoehe", "bathymetrie", "karten", "luftbild", "vegetation", "gletscher", "geologie", "vektor",
-           "namen", "ereignis", "dokumente", "fotos", "klima"]
+           "namen", "ereignis", "dokumente", "fotos", "klima", "texturen"]
 GRUPPEN_TITEL = {"hoehe": "Höhe", "bathymetrie": "Wassertiefe", "karten": "Karten", "luftbild": "Luft- und Satellitenbild",
                  "vegetation": "Bewuchs", "gletscher": "Gletscher", "geologie": "Geologie", "vektor": "Vektordaten",
                  "namen": "Namen und Grenzen", "ereignis": "Ereignis 1958", "dokumente": "Berichte",
-                 "fotos": "Fotos", "klima": "Gezeiten und Klima"}
+                 "fotos": "Fotos", "klima": "Gezeiten und Klima",
+                 "texturen": "Texturen (Phase 5)"}
 
 
 def mb(n):

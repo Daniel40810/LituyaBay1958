@@ -11,3 +11,10 @@
 !/download/INVENTAR.md
 __pycache__/
 *.pyc
+# Phase 1
+# Aufbereitete Daten (ab Phase 2, Werkbuch 3.4): nicht in Git, beschrieben in daten/INHALT.txt
+/daten/
+# Treiber 21 für LOD aus der eigenen Oracle-Installation (ant lod, F26 A)
+/lib/lod/*.jar
+# Austausch mit Claude (Archive, Zwischenstände)
+/_transfer/

@@ -1,0 +1,13 @@
+lib/lod – der JDBC-Treiber für das Network Data Model (F26 A, wie Timmendorf)
+
+sdonm.jar (oracle.spatial.network.lod, Stand 2021) bindet in seinen Abfragen Platzhalter mit Namen
+und mit Nummern zugleich. Der Treiber in lib/ojdbc11.jar weist das ab (ORA-17090, Befund aus
+Timmendorf Phase 4). Darum rechnet LOD mit dem Treiber der eigenen Oracle-21c-Installation in einem
+eigenen Klassenlader (com.dan.lituya.netz.Lod), der nur diesen Treiber und lib/sdo*.jar kennt.
+
+Hier hinein gehört: ojdbc11.jar aus %ORACLE_HOME%\jdbc\lib
+  ant lod                                   (sucht ORACLE_HOME und die üblichen Orte unter C:\app)
+  ant lod -Dtreiber=C:\...\jdbc\lib\ojdbc11.jar
+
+Der Treiber kommt nicht ins Git (.gitignore: /lib/lod/*.jar); er stammt aus der Installation.
+Gebraucht wird er ab Phase 3 (NDM-Funktionsprobe, Netze LB_NET_...).
