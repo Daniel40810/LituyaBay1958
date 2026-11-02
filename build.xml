@@ -76,7 +76,7 @@
         lib/Renderer.jar alles hat, was LituyaBay1958 braucht (jedes gebrauchte Package mit Klassen und README, Java 21,
         von den 14 neuen die, deren Phase erreicht ist); abschalten mit -Dohne.paketpruefung=true.
     -->
-    <property name="lituya.phase" value="11"/>
+    <property name="lituya.phase" value="11b"/>
     <target name="check-packages" description="Prüft lib/Renderer.jar: die gebrauchten Packages mit README, Java 21, die fälligen neuen." unless="ohne.paketpruefung">
         <property name="platform.java" value="java"/>
         <exec executable="${platform.java}" dir="${basedir}" failonerror="true">
@@ -506,5 +506,14 @@
         <renderer-java klasse="com.dan.lituya.tools.Auflauf" args="${qualitaet}" ausgabe="docs/status/auflauf_Phase${lituya.phase}.txt" speicher="-Xmx3g"/>
         <loadfile property="auflauf.text" srcFile="docs/status/auflauf_Phase${lituya.phase}.txt" encoding="UTF-8"/>
         <echo message="${auflauf.text}"/>
+    </target>
+    <!-- Phase 11b (Werkbuch 6.1, 15.2): wave.Bay auf der Grafikkarte (com.dan.wave.gl.BayGpu, Compute Shader bay_*.comp)
+         aus lib/Renderer.jar. baygpucheck: BayGpuCheck, Prozessor (double) gegen Grafikkarte (float) mit denselben Schritten:
+         ruhender See mit Insel, Dammbruch nach Stoker, Fjordbucht in drei Gittern, Laborfall bis 50 s (auch mit eigenem
+         Zeitschritt), dazu die Rechenzeiten je Gitter (Tabelle 15.2) nach docs/status/baygpucheck_Phase11b.txt. -->
+    <target name="baygpucheck" depends="compile" description="Phase 11b: BayGpuCheck nach docs/status/baygpucheck_Phase11b.txt.">
+        <renderer-java klasse="com.dan.wave.demo.BayGpuCheck" ausgabe="docs/status/baygpucheck_Phase${lituya.phase}.txt" speicher="-Xmx3g"/>
+        <loadfile property="baygpucheck.text" srcFile="docs/status/baygpucheck_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${baygpucheck.text}"/>
     </target>
 </project>
