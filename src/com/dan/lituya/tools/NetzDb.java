@@ -39,6 +39,10 @@ import java.util.Properties;
  * ({@link WelleDb}): laden nach dem Herkunftsnetz, Partitionen in 04, danach VALIDATE, die Zweitrechnung LOD gegen
  * {@code route} ({@code LB_ANKUNFT}, {@code LB_ISOCHRONE}) und {@code SDO_LRS} gegen {@code Measure}; {@code ant netzvergleich}
  * macht nur die Zweitrechnung.
+ * <p>
+ * Seit Phase 15a dazu {@code LB_NET_SEE} (gerichtet) und {@code LB_FLUCHT} aus {@code daten/netz/see} ({@link SeeDb},
+ * {@code 07_see.sql}, {@code 08_see_nach_dem_laden.sql}); Zweitrechnung LOD mit Kosten nach der Zeit und Frontbedingung
+ * gegen den eigenen Dijkstra.
  */
 public final class NetzDb {
     private NetzDb() { }
@@ -132,6 +136,9 @@ public final class NetzDb {
         boolean welle = new File(daten, com.dan.lituya.scene.WellenNetz.ORDNER + "/kanten.tsv").isFile(), ufer = new File(daten, com.dan.lituya.scene.UferNetz.ORDNER + "/punkte.tsv").isFile();
         if (welle) WelleDb.ladeWelle(c, daten, NetzDb::log); else log("FEHLER: daten/netz/welle fehlt (ant aufbereitung \"-Dschritte=welle,ufer\")");
         if (ufer) WelleDb.ladeUfer(c, daten, sql, NetzDb::log); else log("FEHLER: daten/netz/ufer fehlt (ant aufbereitung \"-Dschritte=welle,ufer\")");
+        // Phase 15a: See (Fahrwasser, gerichtet) und LB_FLUCHT
+        boolean see = com.dan.lituya.scene.SeeNetz.da(daten);
+        if (see) SeeDb.laden(c, daten, sql, NetzDb::log); else log("Hinweis: daten/netz/see fehlt (ant aufbereitung -Dschritte=see), LB_NET_SEE nicht geladen");
         // NDM-Funktionsprobe
         skript(c, new File(sql, "03_probe.sql"), true);
         boolean javaOk = javaProbe(c, k);
@@ -183,6 +190,8 @@ public final class NetzDb {
                 "VALIDATE " + vw + "; LOD = route " + (v ? "ok" : "FEHLER"));
         WelleDb.stand(c, WelleDb.UFER, "Ufer (Werkbuch 7.2): LRS, Ufer heute und Cenotaph Island; Auflauf", u.knoten, u.kanten, WelleDb.summeUfer(daten), "daten/" + com.dan.lituya.scene.UferNetz.ORDNER,
                 "VALIDATE " + vu);
+        // Phase 15a: LB_NET_SEE, LOD gegen den eigenen Dijkstra in Oracle
+        if (com.dan.lituya.scene.SeeNetz.da(daten)) gut &= SeeDb.pruefen(c, daten, k.url, k.user, passwort(k), NetzDb::log);
         return gut;
     }
 
@@ -210,6 +219,8 @@ public final class NetzDb {
         File wd = new File(daten, com.dan.lituya.scene.WellenNetz.ORDNER);
         if (new File(wd, "kanten.tsv").isFile()) {
             String[][] netze = {{WelleDb.WELLE, com.dan.lituya.scene.WellenNetz.pruefsumme(wd)}, {WelleDb.UFER, WelleDb.summeUfer(daten)}};
+            if (com.dan.lituya.scene.SeeNetz.da(daten))
+                netze = new String[][]{netze[0], netze[1], {SeeDb.SEE, com.dan.lituya.scene.WellenNetz.pruefsumme(new File(daten, com.dan.lituya.scene.SeeNetz.ORDNER))}};
             for (String[] n : netze) {
                 String sDb = Db.einWert(c, "SELECT PRUEFSUMME FROM LB_NETZ_STAND WHERE NETZ = '" + n[0] + "'");
                 String vn = WelleDb.validate(c, n[0]);

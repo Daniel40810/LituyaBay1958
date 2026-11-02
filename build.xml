@@ -76,7 +76,7 @@
         lib/Renderer.jar alles hat, was LituyaBay1958 braucht (jedes gebrauchte Package mit Klassen und README, Java 21,
         von den 14 neuen die, deren Phase erreicht ist); abschalten mit -Dohne.paketpruefung=true.
     -->
-    <property name="lituya.phase" value="15"/>
+    <property name="lituya.phase" value="15a"/>
     <target name="check-packages" description="Prüft lib/Renderer.jar: die gebrauchten Packages mit README, Java 21, die fälligen neuen." unless="ohne.paketpruefung">
         <property name="platform.java" value="java"/>
         <exec executable="${platform.java}" dir="${basedir}" failonerror="true">
@@ -726,5 +726,21 @@
     </target>
     <target name="vesseldemo" depends="compile" description="Phase 15: VesselDemo im Fenster.">
         <renderer-fenster klasse="com.dan.vessel.demo.VesselDemo" speicher="-Xmx2g"/>
+    </target>
+    <!-- Phase 15a (Werkbuch 7.3, 10.3): die Boote in der Szene und LB_NET_SEE.
+         Vorher ant ereignis -Dlauf=kette (und messwelle) neu: seit 15a schreibt die Vorrechnung die Strömung mit.
+         boote1958: Edrie, Badger, Sunmore mit vessel über der Vorrechnung nach daten/ereignis/boote/<lauf> (-Dlauf=kette).
+         ant aufbereitung -Dschritte=see: LB_NET_SEE als Datei nach daten/netz/see mit der Flucht (flucht.tsv, wege.tsv).
+         fluchtkarte: „Wer hätte entkommen können?“ nach docs/status/Flucht.png. ant netzdb lädt LB_NET_SEE und LB_FLUCHT. -->
+    <target name="boote1958" depends="compile" description="Phase 15a: die drei Troller in der vorgerechneten Welle nach daten/ereignis/boote.">
+        <property name="lauf" value="kette"/>
+        <renderer-java klasse="com.dan.lituya.tools.Boote1958" args="daten ${lauf}" ausgabe="docs/status/boote1958_Phase${lituya.phase}_${lauf}.txt" speicher="-Xmx6g"/>
+        <loadfile property="boote1958.text" srcFile="docs/status/boote1958_Phase${lituya.phase}_${lauf}.txt" encoding="UTF-8"/>
+        <echo message="${boote1958.text}"/>
+    </target>
+    <target name="fluchtkarte" depends="compile" description="Phase 15a: Flucht vor der Front (daten/netz/see) nach docs/status/Flucht.png.">
+        <renderer-java klasse="com.dan.lituya.tools.Fluchtkarte" args="daten docs/status/Flucht.png" ausgabe="docs/status/fluchtkarte_Phase${lituya.phase}.txt" speicher="-Xmx2g"/>
+        <loadfile property="fluchtkarte.text" srcFile="docs/status/fluchtkarte_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${fluchtkarte.text}"/>
     </target>
 </project>

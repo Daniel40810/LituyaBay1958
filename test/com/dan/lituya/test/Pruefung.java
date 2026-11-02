@@ -539,7 +539,7 @@ public final class Pruefung {
                 vorher = sk.t();
                 imKern &= Site.KERN.contains(sk.x(), sk.z());
             }
-            check(com.dan.lituya.camera.Schaustuecke.ALLE.size() == 9 && folge && imKern, "Schaustücke 1 bis 7, 10 und 11 im Kern, in der Folge der Zeitleiste");
+            check(com.dan.lituya.camera.Schaustuecke.ALLE.size() == 11 && folge && imKern, "Schaustücke 1 bis 11 im Kern, in der Folge der Zeitleiste");
             com.dan.lituya.camera.Schaustuecke.Stueck s7 = com.dan.lituya.camera.Schaustuecke.byNr(7), s4 = com.dan.lituya.camera.Schaustuecke.byName("Die Wand aus Wasser");
             Camera c7 = new Camera();
             c7.waterLevel = 0;
@@ -548,7 +548,7 @@ public final class Pruefung {
             c7.snap();
             check(c7.diving && c7.eye[1] < 0 && Math.abs(k7.simSeconds() - s7.t()) < 1e-6 && k7.lapse == s7.lapse(), f("„Unter Wasser“: Auge %.1f m, t = %.0f s, %s", c7.eye[1], k7.simSeconds(), s7.tempo()));
             check(s4 != null && s4.lapse() == 0.05 && s4.tempo().equals("Zeitlupe 1:20"), "„Die Wand aus Wasser“ in Zeitlupe 1:20");
-            check(Renderer.PASSES.length == 8 && List.of(Renderer.PASSES).contains("Wald") && List.of(Renderer.PASSES).contains("Welle") && List.of(Renderer.PASSES).contains("Staub"), "Durchgänge: " + String.join(", ", Renderer.PASSES));
+            check(Renderer.PASSES.length == 9 && List.of(Renderer.PASSES).contains("Boote") && List.of(Renderer.PASSES).contains("Wald") && List.of(Renderer.PASSES).contains("Welle") && List.of(Renderer.PASSES).contains("Staub"), "Durchgänge: " + String.join(", ", Renderer.PASSES));
             File ec = new File("daten/ereignis");
             if (ec.isDirectory()) {
                 com.dan.lituya.scene.Wiedergabe echt = new com.dan.lituya.scene.Wiedergabe(new File("daten"));
@@ -715,6 +715,76 @@ public final class Pruefung {
             check(Bibliothek.pakete().contains("vessel"), "vessel in Renderer.jar");
         }
 
+        teil("Boote in der Szene und LB_NET_SEE (Phase 15a): Gezeiten, Bahnen, Flucht");
+        {
+            // Gezeiten gegen die Vorausrechnung der NOAA für Elfin Cove am 2.11.2026 (AKST, m über MLLW; MLLW = NAVD88 − 1,157)
+            long tg0 = java.time.Instant.parse("2026-11-02T09:00:00Z").toEpochMilli();
+            List<double[]> ex = com.dan.lituya.scene.Gezeiten.extreme(tg0, tg0 + 86_400_000.0);
+            double[][] noaa = {{0 * 60 + 22, 0.235, -1}, {7 * 60 + 15, 2.745, 1}, {13 * 60 + 1, 1.396, -1}, {18 * 60 + 47, 2.842, 1}};
+            double dtMax = 0, dhMax = 0;
+            boolean art = ex.size() == 4;
+            for (int i = 0; i < Math.min(4, ex.size()); i++) {
+                double min = (ex.get(i)[0] - tg0) / 60_000.0;
+                dtMax = Math.max(dtMax, Math.abs(min - noaa[i][0]));
+                dhMax = Math.max(dhMax, Math.abs(ex.get(i)[1] + com.dan.lituya.tools.Grund.MLLW_UNTER_NAVD88 - noaa[i][1]));
+                art &= ex.get(i)[2] == noaa[i][2];
+            }
+            check(art && dtMax <= 25 && dhMax <= 0.25, f("Gezeiten (8 Tiden Elfin Cove) gegen NOAA 2.11.2026: 4 Extreme, bis %.0f min und %.2f m daneben", dtMax, dhMax));
+            long q = SceneClock.BEBEN.toEpochMilli();
+            double[] hw = null;
+            for (double[] x : com.dan.lituya.scene.Gezeiten.extreme(q - 6 * 3_600_000.0, q)) if (x[2] > 0) hw = x;
+            double hwMin = hw == null ? 1e9 : (hw[0] - (q - (22 * 60 + 16 - 20 * 60) * 60_000.0)) / 60_000.0;
+            check(hw != null && Math.abs(hwMin) <= 30 && com.dan.lituya.scene.Gezeiten.rate(q) < 0,
+                    f("Hochwasser am 9.7.1958 %+.0f min von 20:00 PST („last of the flood at 8 pm“, MILLER60); beim Stoß %s", hwMin, new com.dan.lituya.scene.Gezeiten().zeile(q)));
+            // Bahn: schreiben, lesen, zwischen den Bildern
+            File tb = File.createTempFile("bahn", ".bin");
+            tb.deleteOnExit();
+            com.dan.lituya.scene.BootBahn.Schreiber bsw = new com.dan.lituya.scene.BootBahn.Schreiber(2);
+            bsw.bild(0, new double[]{0, 0, 0}, new double[]{1, 0, 0, 0}, 0, 0, -1, new double[][]{{0, 0, 0}, {1, 0, 0}});
+            bsw.bild(1, new double[]{2, 4, 0}, new double[]{Math.cos(0.5), 0, Math.sin(0.5), 0}, 100, com.dan.lituya.scene.BootBahn.GERISSEN, 0, new double[][]{{2, 0, 0}, {3, 0, 0}});
+            bsw.schreiben(tb);
+            com.dan.lituya.scene.BootBahn bb = com.dan.lituya.scene.BootBahn.lesen(tb, "Probe");
+            double[] zm = bb.zustand(0.5);
+            check(bb.bilder() == 2 && Math.abs(zm[1] - 2) < 1e-6 && Math.abs(zm[5] - Math.sin(0.25)) < 1e-3 && bb.kette(0.5)[1][0] == 2,
+                    f("BootBahn: schreiben, lesen, Lage und Drehung zwischen zwei Bildern (Hub %.1f m, Drehung %.1f°)", zm[1], Math.toDegrees(2 * Math.asin(zm[5]))));
+            // die vorgerechneten Bahnen
+            File bd = new File(new File(new File(daten, "ereignis"), "boote"), "kette");
+            if (!new File(bd, "BOOTE.txt").isFile()) hinweis("keine Bahnen in daten/ereignis/boote/kette: ant boote1958 (vorher ant ereignis -Dlauf=kette neu, mit Strömung)");
+            else {
+                java.util.Properties bp = new java.util.Properties();
+                try (var in = Files.newBufferedReader(new File(bd, "BOOTE.txt").toPath(), StandardCharsets.UTF_8)) { bp.load(in); }
+                if (!"true".equals(bp.getProperty("stroemung"))) hinweis("Bahnen über einem Lauf ohne Strömung (vor 15a gerechnet): ant ereignis -Dlauf=kette, dann ant boote1958");
+                String ek = bp.getProperty("edrie.kette", "");
+                double eh = Double.parseDouble(bp.getProperty("edrie.hub_m", "0 0").split(" ")[0]), bh = Double.parseDouble(bp.getProperty("badger.hub_m", "0 0").split(" ")[0]);
+                double bg = Double.parseDouble(bp.getProperty("badger.ueber_grund_m", "-1"));
+                check(eh > 1 && bh > 1 && Double.isFinite(bg), f("die Welle erreicht die Ankerplätze: Edrie hebt sich %.1f m, Badger %.1f m", eh, bh));
+                // gegen MILLER60 (Befund, keine Bedingung: die Welle der Vorrechnung ist am Eingang niedriger als 1958, Werkbuch 7.2)
+                hinweis(f("gegen MILLER60: Edrie Kette %s – belegt: gerissen, als das Boot stieg: %s", ek, ek.contains("gerissen") ? "wie belegt" : "ANDERS"));
+                hinweis(f("gegen MILLER60: Badger über Land %s – belegt: über La Chaussee Spit, mehr als 80 Fuß über den Bäumen", bg > 0 ? f("bis %.1f m über Grund", bg) : "nicht getragen (ANDERS)"));
+                hinweis("Sunmore: " + bp.getProperty("sunmore.ende", "?") + ", 1 km draußen: " + bp.getProperty("sunmore.draussen", "?") + " (MILLER60: verloren)");
+                int nb = 0;
+                for (String nm : com.dan.lituya.gl.BooteGl.NAMEN) if (new File(bd, "bahn_" + nm.toLowerCase(Locale.ROOT) + ".bin").isFile()) nb++;
+                check(nb == 3, f("drei Bahnen in %s", bd));
+            }
+            check(com.dan.lituya.camera.Schaustuecke.boot(com.dan.lituya.camera.Schaustuecke.byNr(8)) == 0 && com.dan.lituya.camera.Schaustuecke.boot(com.dan.lituya.camera.Schaustuecke.byNr(9)) == 1
+                    && com.dan.lituya.camera.Schaustuecke.blick(com.dan.lituya.camera.Schaustuecke.byNr(9)) == -90, "Schaustück 8 an Bord der Edrie, 9 neben der Badger (Blick nach Backbord)");
+            // LB_NET_SEE
+            if (!com.dan.lituya.scene.SeeNetz.da(daten)) hinweis("daten/netz/see fehlt: ant aufbereitung -Dschritte=see");
+            else {
+                com.dan.lituya.scene.SeeNetz sn = com.dan.lituya.scene.SeeNetz.lesen(daten);
+                boolean gerichtet = true;
+                for (int e = 0; e + 1 < sn.m; e += 2) gerichtet &= sn.von[e] == sn.nach[e + 1] && sn.nach[e] == sn.von[e + 1];
+                double[] st = com.dan.lituya.scene.SeeNetz.stromTabelle();
+                int e0 = 0;
+                for (int e = 0; e < sn.m; e++) if (sn.faktor[e] > sn.faktor[e0]) e0 = e;
+                double hin = sn.kosten(e0, 0, st), her = sn.kosten(e0 % 2 == 0 ? e0 + 1 : e0 - 1, 0, st);
+                check(sn.n > 1000 && gerichtet && Math.abs(hin - her) > 0.01, f("%s; am Tor ist eine Kante je Richtung verschieden lang (%.1f s gegen %.1f s im Ebbstrom)", sn, hin, her));
+                com.dan.lituya.tools.SeeDb.Vergleich vg = com.dan.lituya.tools.SeeDb.lodImSpeicher(sn);
+                check(vg.ok(), "Flucht: LOD (LinkCostCalculator nach der Zeit, Frontbedingung) = eigener Dijkstra: " + vg.text());
+                System.out.println("    " + com.dan.lituya.scene.SeeNetz.fluchtZeile(daten));
+            }
+        }
+
         teil("Staub und Treibgut (Phase 12): dustcloud, debris");
         {
             com.dan.dustcloud.DustCloud dc = new com.dan.dustcloud.DustCloud(0, 0, 40, 20, 50, com.dan.dustcloud.DustCloud.rockDust());
@@ -790,7 +860,7 @@ public final class Pruefung {
                     while (m.find()) if (!m.group(1).toUpperCase(Locale.ROOT).startsWith("LB_")) { fremd++; System.out.println("    ohne LB_: " + m.group(1) + " in " + x.getName()); }
                 }
             }
-            check(sk.length == 9 && anw > 40, f("db/netz: %d Skripte, %d Anweisungen, jede mit „/“ abgeschlossen", sk.length, anw));
+            check(sk.length == 11 && anw > 40, f("db/netz: %d Skripte, %d Anweisungen, jede mit „/“ abgeschlossen", sk.length, anw));
             check(fremd == 0, "alle Objekte mit Präfix LB_ (F40 B: Schema LITUYABAY1958)");
         }
         {

@@ -198,14 +198,14 @@ public final class ControlPanel extends JPanel implements javax.swing.Scrollable
         put(tempoBox);
         put(ereignisLbl);
         sub("Schaustücke");
-        JPanel s1 = grid(2), s2 = grid(2), s3 = grid(2), s4 = grid(1), s5 = grid(2);
+        JPanel s1 = grid(2), s2 = grid(2), s3 = grid(2), s4 = grid(1), s6 = grid(2), s5 = grid(2);
         for (com.dan.lituya.camera.Schaustuecke.Stueck st : com.dan.lituya.camera.Schaustuecke.ALLE) {
             FButton b = new FButton(st.nr() + " " + st.name());
             b.setToolTipText(com.dan.lituya.camera.Schaustuecke.describe(st));
             b.addActionListener(e -> stueck(st, spielen));
-            (st.nr() >= 10 ? s5 : st.nr() == 7 ? s4 : st.nr() <= 2 ? s1 : st.nr() <= 4 ? s2 : s3).add(b);
+            (st.nr() >= 10 ? s5 : st.nr() >= 8 ? s6 : st.nr() == 7 ? s4 : st.nr() <= 2 ? s1 : st.nr() <= 4 ? s2 : s3).add(b);
         }
-        put(s1); put(s2); put(s3); put(s4); put(s5);
+        put(s1); put(s2); put(s3); put(s4); put(s6); put(s5);
         // Phase 13c: „Was wäre wenn“ in Echtzeit (wave.Bay auf der Grafikkarte, LOW)
         sub("Was wäre wenn (Echtzeit)");
         com.dan.lituya.gl.Echtzeit ez = r.echtzeit;

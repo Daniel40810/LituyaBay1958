@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * Die Schaustücke 1 bis 7 (Werkbuch 10.3) als Vorgaben aus Kamera und Uhr (Phase 13b): Ort, Blick, Ereigniszeit und
+ * Die Schaustücke 1 bis 11 (Werkbuch 10.3; 8 und 9 auf den Booten seit Phase 15a) als Vorgaben aus Kamera und Uhr (Phase 13b): Ort, Blick, Ereigniszeit und
  * Tempo. Fahrten kommen mit Phase 17 (Regiebücher); bis dahin steht die Kamera, und die Uhr läuft. Zeiten in Sekunden seit
  * dem ersten Stoß (Zeitleiste 2.2): Auslösung des Sturzes bei 93 s, Rechnung der Welle ab 105 s [G]. Lagen [G] aus den
  * GNIS-Orten in {@link Site}:
@@ -66,8 +66,23 @@ public final class Schaustuecke {
             at(5, "524 m", Ansichten.versetzt(Site.SPORN, 135, 1800), 315, -8, 200, 106, 0.2, false, false),
             at(6, "Die Front", Ansichten.versetzt(Site.CENOTAPH, 60, 2500), 50, 2, 60, 112, 1, false, true),
             at(7, "Unter Wasser", Ansichten.versetzt(Site.CENOTAPH, 60, 1500), 50, -35, 3, 115, 0.5, true, false),
+            at(8, "An Bord der Edrie", new double[]{347_545 - Site.E0, -(6_500_506 - Site.N0)}, 90, 6, 4, 200, 1, false, false),
+            at(9, "Neben der Badger", xz(Site.ANCHORAGE), 90, 6, 4, 200, 1, false, false),
             new Stueck(10, "Der Morgen danach", 1000, -1300, 2, 4, 20, MORGEN, 1, false, false, false),
             new Stueck(11, "68 Jahre", -600, -400, 62, -6, 160, MORGEN, 1, false, false, true));
+
+    /**
+     * Phase 15a: Schaustücke auf einem Boot (Mitfahrt auf der vorgerechneten Bahn): Index in {@code gl.BooteGl.NAMEN}
+     * (0 Edrie, 1 Badger) oder −1. 8: im Steuerhaus der Edrie, Blick voraus, mit Stampfen und Rollen; 9: nebenher, 25 m
+     * an Steuerbord der Badger, Blick nach Backbord auf das Boot.
+     */
+    public static int boot(Stueck s) { return s.nr() == 8 ? 0 : s.nr() == 9 ? 1 : -1; }
+
+    /** Blick der Mitfahrt zur Seite (Grad, negativ nach Backbord). */
+    public static double blick(Stueck s) { return s.nr() == 9 ? -90 : 0; }
+
+    /** Abstand des Auges an Steuerbord (m) und Höhe über dem Schwerpunkt bei „nebenher“. */
+    public static final double NEBENHER = 25, NEBENHER_HOCH = 4;
 
     public static Stueck byNr(int nr) {
         for (Stueck s : ALLE) if (s.nr() == nr) return s;
