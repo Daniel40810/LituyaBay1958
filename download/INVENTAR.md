@@ -1,8 +1,8 @@
 # Kartenmaterial Lituya Bay – Inventar
 
-Stand 01.11.2026 08:03, Ordner `download/`. Erzeugt von `tools/kartenmaterial/kartenmaterial.py inventar`.
+Stand 01.11.2026 13:41, Ordner `download/`. Erzeugt von `tools/kartenmaterial/kartenmaterial.py inventar`.
 
-**1227 Dateien, 13.45 GB.** Jede Datei mit Größe in `inventar.csv`, Adressen und Fehler je Quelle in `_status/<quelle>.json`.
+**1240 Dateien, 13.80 GB.** Jede Datei mit Größe in `inventar.csv`, Adressen und Fehler je Quelle in `_status/<quelle>.json`.
 
 ## Gebiete
 
@@ -49,7 +49,7 @@ Stand 01.11.2026 08:03, Ordner `download/`. Erzeugt von `tools/kartenmaterial/ka
 | `usgs_topo_historisch` | USGS historische topographische Karten (HTMC) | standard | fern | 129/129 | 668.2 MB | 668.2 MB | vollständig |
 | `usgs_ustopo` | USGS US Topo (aktuell, GeoPDF) | standard | szene | 32/32 | 550.5 MB | 550.5 MB | vollständig |
 | `noaa_enc` | NOAA Seekarten ENC (S-57) um Lituya Bay | standard | szene | 23/23 | 5.8 MB | 23 ohne Angabe | vollständig |
-| `noaa_karte_16760` | NOAA Seekarten 16760 und 16762 als Bild (NOAA Custom Chart) | manuell | fern | 0/2 | 0 kB | 2 ohne Angabe | manuell |
+| `noaa_karte_16760` | NOAA Seekarten 16760 und 16762 als Bild (NOAA Custom Chart) | manuell | fern | 0/0 | 0 kB | – | manuell |
 | `noaa_karten_historisch` | Historische Seekarten C&GS 8505 „Lituya Bay“ (1910–1942) | manuell | kern | 0/0 | 0 kB | – | manuell |
 | `nps_karten` | NPS-Karten Glacier Bay (Faltblatt, Seekarte 1:80 000) | manuell | fern | 0/0 | 0 kB | – | manuell |
 
@@ -118,7 +118,7 @@ Stand 01.11.2026 08:03, Ordner `download/`. Erzeugt von `tools/kartenmaterial/ka
 
 | Quelle | Titel | Stufe | Gebiet | Dateien | geladen | geplant | Zustand |
 |---|---|---|---|---|---|---|---|
-| `fotos_miller` | Fotos von D. J. Miller 1958 (USGS Photographic Library) | manuell | kern | 0/7 | 0 kB | 7 ohne Angabe | manuell |
+| `fotos_miller` | Fotos von D. J. Miller 1958 (USGS Photographic Library) | manuell | kern | 0/0 | 0 kB | – | manuell |
 
 ### Gezeiten und Klima
 
@@ -127,17 +127,26 @@ Stand 01.11.2026 08:03, Ordner `download/`. Erzeugt von `tools/kartenmaterial/ka
 | `gezeiten` | Gezeiten Lituya Bay (9452928) und Elfin Cove (9452634), Boje Fairweather Ground | standard | kern | 4/4 | 612 kB | 4 ohne Angabe | vollständig |
 | `era5_juli1958` | ERA5 Reanalyse Juli 1958 (Wind, Luftdruck, Temperatur) | gross | fern | 0/0 | 0 kB | – | nicht geplant |
 
+### Texturen (Phase 5)
+
+| Quelle | Titel | Stufe | Gebiet | Dateien | geladen | geplant | Zustand |
+|---|---|---|---|---|---|---|---|
+| `tex_strandkies` | Textur Strandkies und Gerölle (ambientCG Gravel041) | standard | kern | 1/1 | 32.0 MB | 1 ohne Angabe | vollständig |
+| `tex_sand` | Textur Sand und Gletschermehl (ambientCG Ground054) | standard | kern | 1/1 | 33.0 MB | 1 ohne Angabe | vollständig |
+| `tex_schiefer_verwittert` | Textur Schiefer, verwittert (geschichtet, Flechten) (ambientCG Rock063) | standard | kern | 1/1 | 14.9 MB | 1 ohne Angabe | vollständig |
+| `tex_schiefer_frisch` | Textur Fels, frischer Bruch (ambientCG Rock058) | standard | kern | 1/1 | 27.1 MB | 1 ohne Angabe | vollständig |
+| `tex_moraene` | Textur Moräne, Schutt, Geröll (ambientCG Ground108) | standard | kern | 1/1 | 32.5 MB | 1 ohne Angabe | vollständig |
+| `tex_waldboden` | Textur Waldboden mit Moos (ambientCG Ground037) | standard | kern | 1/1 | 37.9 MB | 1 ohne Angabe | vollständig |
+| `tex_moos` | Textur Moos und Bartflechte (ambientCG Moss002) | standard | kern | 1/1 | 39.6 MB | 1 ohne Angabe | vollständig |
+| `tex_firn` | Textur Firn und Schnee (ambientCG Snow014) | standard | kern | 1/1 | 25.2 MB | 1 ohne Angabe | vollständig |
+| `tex_eis` | Textur Gletschereis (ambientCG Ice003) | standard | kern | 1/1 | 15.6 MB | 1 ohne Angabe | vollständig |
+| `tex_rinde` | Textur Rinde (Tanne, für Sitka-Fichte und Hemlock) (ambientCG Bark014) | standard | kern | 1/1 | 29.8 MB | 1 ohne Angabe | vollständig |
+| `tex_holz_entrindet` | Textur Holz, alt und rau (für entrindetes Holz, Treibholz) (ambientCG Wood035) | standard | kern | 1/1 | 29.0 MB | 1 ohne Angabe | vollständig |
+| `tex_kutter_holz` | Textur Lackiertes Holz, hell und alt (ambientCG PaintedWood009C) | standard | kern | 1/1 | 28.0 MB | 1 ohne Angabe | vollständig |
+| `tex_kutter_tau` | Textur Tau (ambientCG Rope001) | standard | kern | 1/1 | 12.2 MB | 1 ohne Angabe | vollständig |
+
 ## Fehlgeschlagen
 
 | Quelle | Adresse | Fehler |
 |---|---|---|
-| `noaa_karte_16760` | https://www.charts.noaa.gov/PDFs/16762.pdf | HTTPError: HTTP Error 404: Not Found |
-| `noaa_karte_16760` | https://www.charts.noaa.gov/PDFs/16760.pdf | HTTPError: HTTP Error 404: Not Found |
 | `dokumente` | https://corpora.tika.apache.org/base/docs/govdocs1/423/423993.pdf | URLError: <urlopen error [Errno 11001] getaddrinfo failed> |
-| `fotos_miller` | https://www.sciencebase.gov/catalog/item/51dd9142e4b0f72b4471cccf?format=json | HTTPError: HTTP Error 403: Forbidden |
-| `fotos_miller` | https://www.sciencebase.gov/catalog/item/51dd90fbe4b0f72b4471cc9d?format=json | HTTPError: HTTP Error 403: Forbidden |
-| `fotos_miller` | https://www.sciencebase.gov/catalog/item/51dd90e2e4b0f72b4471cc8b?format=json | HTTPError: HTTP Error 403: Forbidden |
-| `fotos_miller` | https://www.sciencebase.gov/catalog/item/51dd90b9e4b0f72b4471cc6f?format=json | HTTPError: HTTP Error 403: Forbidden |
-| `fotos_miller` | https://www.sciencebase.gov/catalog/item/51dd90cae4b0f72b4471cc7b?format=json | HTTPError: HTTP Error 403: Forbidden |
-| `fotos_miller` | https://www.sciencebase.gov/catalog/item/51dd90b2e4b0f72b4471cc69?format=json | HTTPError: HTTP Error 403: Forbidden |
-| `fotos_miller` | https://www.sciencebase.gov/catalog/item/51dd9147e4b0f72b4471ccd5?format=json | HTTPError: HTTP Error 403: Forbidden |

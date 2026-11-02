@@ -381,6 +381,23 @@ public final class Pruefung {
             }
         }
 
+        teil("Nahfeld (Phase 10): impact, Zufluss aus landslide");
+        {
+            com.dan.impact.Inflow lab = com.dan.impact.Inflow.fritz01();
+            check(com.dan.impact.Impact.STAGE == 10 && Math.abs(lab.volume() / (98.5e6 / 1610) - 1) < 0.005 && Math.abs(lab.peak() - 134) < 1e-9,
+                    f("impact aus Renderer.jar: Zufluss FRITZ01 %.0f m² je Meter, bis %.0f m, %.1f s", lab.volume(), lab.peak(), lab.end()));
+            com.dan.impact.Impact s = com.dan.impact.Presets.gilbertInlet1958(com.dan.impact.Impact.Quality.LOW);
+            s.run(3);
+            double m = s.waterMass() + s.poreMass() + s.lostVolume() * 1000;
+            check(Math.abs(m / s.initialWaterMass() - 1) < 1e-12 && s.releasedMass() > 0,
+                    f("Laborfall im Schnitt (8 m) nach 3 s: Masse des Wassers samt Poren genau, %.2e kg/m durch die Uferlinie", s.releasedMass()));
+            com.dan.landslide.Landslide st = com.dan.landslide.Presets.gilbertInlet1958(com.dan.landslide.Landslide.Quality.LOW);
+            st.runToRest(120);
+            com.dan.impact.Inflow in = com.dan.lituya.tools.Eintauchen.zufluss(st.entries(), "Strom");
+            check(in.volume() > 5000 && in.meanSpeed() > 80 && in.meanSpeed() < 120,
+                    f("Strom aus landslide je Meter Breite: %.0f m² in %.1f s, %.0f m/s, bis %.0f m (Laborfall %.0f m², %.1f s)", in.volume(), in.duration90(), in.meanSpeed(), in.peak(), lab.volume(), lab.duration90()));
+        }
+
         teil("Netze der Welle und des Ufers (Phase 7a): daten/netz/welle und daten/netz/ufer");
         {
             File wd = new File(daten, com.dan.lituya.scene.WellenNetz.ORDNER), ud = new File(daten, com.dan.lituya.scene.UferNetz.ORDNER);
