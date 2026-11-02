@@ -181,6 +181,50 @@ public final class WelleDb {
         c.commit();
         NetzDb.skript(c, new File(sql, "06_ufer.sql"), true);
         log.log("geladen: %s, %d Punkte, Stränge mit Maß, Aufläufe (%.1f s)", UFER, np, (System.nanoTime() - t0) / 1e9);
+        ladeSpurlinie(c, dir, log);
+    }
+
+    /**
+     * Phase 13a: die gerechneten Spurlinien ({@code spurlinie_<lauf>.tsv} von {@code tools.Vergleich}) als Rechnung in
+     * {@code LB_SPURLINIE_LRS} (je Strang ein Linien-Ereignis, Jahr 1958) mit den Höhen als Stützstellen; danach je belegtem
+     * Auflauf 1958 der höchste gerechnete Wert bis 300 m entlang des Ufers, in SQL.
+     */
+    static void ladeSpurlinie(Connection c, File dir, Welle.Log log) throws Exception {
+        File[] f = dir.listFiles((d, n) -> n.startsWith("spurlinie_") && n.endsWith(".tsv"));
+        if (f == null || f.length == 0) { log.log("HINWEIS: keine gerechnete Spurlinie in %s (ant vergleich)", dir); return; }
+        Arrays.sort(f);
+        for (File x : f) {
+            String lauf = x.getName().substring(10, x.getName().length() - 4);
+            java.util.Map<Integer, List<double[]>> je = new java.util.TreeMap<>();
+            for (String[] z : WellenNetz.tsv(x)) {
+                if (z.length < 5 || z[4].isEmpty()) continue;
+                je.computeIfAbsent(Integer.parseInt(z[0]), k -> new ArrayList<>()).add(new double[]{Double.parseDouble(z[1]), Double.parseDouble(z[4])});
+            }
+            int stuetzen = 0;
+            for (var e : je.entrySet()) {
+                List<double[]> v = e.getValue();
+                long id;
+                try (Statement st = c.createStatement(); ResultSet rs = st.executeQuery("SELECT LB_SPURLINIE_LRS_SEQ.NEXTVAL FROM DUAL")) { rs.next(); id = rs.getLong(1); }
+                try (PreparedStatement p = c.prepareStatement("INSERT INTO LB_SPURLINIE_LRS (SPUR_ID, GEOM_ID, M1, M2, JAHR, QUELLE) VALUES (?, ?, ?, ?, 1958, ?)")) {
+                    p.setLong(1, id); p.setInt(2, e.getKey()); p.setDouble(3, v.get(0)[0]); p.setDouble(4, v.get(v.size() - 1)[0]);
+                    p.setString(5, "Rechnung wave.Bay, Lauf " + lauf + " (Phase 13a)");
+                    p.executeUpdate();
+                }
+                try (PreparedStatement p = c.prepareStatement("INSERT INTO LB_SPURLINIE_STUETZ (SPUR_ID, M, HOEHE) VALUES (?, ?, ?)")) {
+                    for (double[] w : v) { p.setLong(1, id); p.setDouble(2, w[0]); p.setDouble(3, w[1]); p.addBatch(); stuetzen++; }
+                    p.executeBatch();
+                }
+            }
+            c.commit();
+            log.log("geladen: Spurlinie %s, %d Stützstellen in LB_SPURLINIE_LRS / LB_SPURLINIE_STUETZ", lauf, stuetzen);
+            try (PreparedStatement p = c.prepareStatement("SELECT a.NAME, a.HOEHE, (SELECT MAX(s.HOEHE) FROM LB_SPURLINIE_STUETZ s JOIN LB_SPURLINIE_LRS l ON l.SPUR_ID = s.SPUR_ID "
+                    + "WHERE l.GEOM_ID = a.GEOM_ID AND l.QUELLE LIKE ? AND s.M BETWEEN a.M - 300 AND a.M + 300) FROM LB_AUFLAUF a WHERE a.JAHR = 1958 ORDER BY a.M")) {
+                p.setString(1, "%Lauf " + lauf + " %");
+                try (ResultSet rs = p.executeQuery()) {
+                    while (rs.next()) log.log("  %s: belegt %.0f m, gerechnet (%s, ±300 m) %s", rs.getString(1), rs.getDouble(2), lauf, rs.getObject(3) == null ? "–" : String.format(Locale.GERMAN, "%.0f m", rs.getDouble(3)));
+                }
+            }
+        }
     }
 
     // ------------------------------------------------------------------ Zweitrechnung

@@ -76,7 +76,7 @@
         lib/Renderer.jar alles hat, was LituyaBay1958 braucht (jedes gebrauchte Package mit Klassen und README, Java 21,
         von den 14 neuen die, deren Phase erreicht ist); abschalten mit -Dohne.paketpruefung=true.
     -->
-    <property name="lituya.phase" value="12"/>
+    <property name="lituya.phase" value="13a"/>
     <target name="check-packages" description="Prüft lib/Renderer.jar: die gebrauchten Packages mit README, Java 21, die fälligen neuen." unless="ohne.paketpruefung">
         <property name="platform.java" value="java"/>
         <exec executable="${platform.java}" dir="${basedir}" failonerror="true">
@@ -562,5 +562,29 @@
         <renderer-java klasse="com.dan.lituya.tools.Staubwolke" args="docs/status/Staubwolke.png ${zeit} ${qualitaet}" ausgabe="docs/status/staubwolke_Phase${lituya.phase}.txt" speicher="-Xmx3g"/>
         <loadfile property="staubwolke.text" srcFile="docs/status/staubwolke_Phase${lituya.phase}.txt" encoding="UTF-8"/>
         <echo message="${staubwolke.text}"/>
+    </target>
+    <!-- Phase 13 (Werkbuch 4.4, 6.1, 9.4, 9.5): das Ereignis vorgerechnet. ereignis: impact (Laborfall) gibt bei 885 m an
+         eine Linie quer über den Gilbert Inlet, wave.Bay rechnet in drei Gittern über den Kern auf dem Grund von 1958
+         (Lauf kette), dasselbe mit der Messwelle FRITZ01 (Lauf messwelle), dazu der Felssturz und seine Staubwolke (Lauf
+         staub); nach daten/ereignis/<lauf>/ und docs/status/Ereignis_<lauf>.png. -Dlauf=alle|beide|kette|messwelle|staub,
+         -Dqualitaet=LOW|MEDIUM (32/8/4 oder 16/4/2 m), -Dzeit (s Welle), -Drechner=gpu|cpu, -Dpegel (m NAVD88). -->
+    <target name="ereignis" depends="compile" description="Phase 13: Vorrechnung des Ereignisses nach daten/ereignis und docs/status/Ereignis_*.png.">
+        <property name="lauf" value="alle"/>
+        <property name="qualitaet" value="MEDIUM"/>
+        <property name="zeit" value="600"/>
+        <property name="rechner" value="gpu"/>
+        <property name="pegel" value="0"/>
+        <renderer-java klasse="com.dan.lituya.tools.Ereignis" args="daten ${lauf} ${qualitaet} ${zeit} ${rechner} ${pegel}" ausgabe="docs/status/ereignis_Phase${lituya.phase}_${lauf}_${qualitaet}.txt" speicher="-Xmx6g"/>
+        <loadfile property="ereignis.text" srcFile="docs/status/ereignis_Phase${lituya.phase}_${lauf}_${qualitaet}.txt" encoding="UTF-8"/>
+        <echo message="${ereignis.text}"/>
+    </target>
+    <!-- Phase 13a (Werkbuch 7.2, 9.5, 9.6, 2.2): vergleich: die vorgerechneten Läufe (daten/ereignis/kette, messwelle)
+         gegen LB_NET_UFER (belegte Aufläufe), LB_NET_WELLE (Ankunft) und die Zeitleiste; schreibt
+         daten/netz/ufer/spurlinie_<lauf>.tsv (ant netzdb lädt sie nach LB_SPURLINIE_LRS) und docs/status/Vergleich.png. -->
+    <target name="vergleich" depends="compile" description="Phase 13a: Spurlinie gerechnet gegen belegt, Ankunft gegen LB_NET_WELLE.">
+        <property name="laeufe" value="kette,messwelle"/>
+        <renderer-java klasse="com.dan.lituya.tools.Vergleich" args="daten ${laeufe}" ausgabe="docs/status/vergleich_Phase${lituya.phase}.txt" speicher="-Xmx4g"/>
+        <loadfile property="vergleich.text" srcFile="docs/status/vergleich_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${vergleich.text}"/>
     </target>
 </project>
