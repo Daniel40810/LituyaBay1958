@@ -23,8 +23,12 @@ public final class JarPruefung {
             "succession", "vessel", "aurora", "bear"};
     static final String[] NEU_PHASE = {"4", "5", "6", "6a", "7", "8", "9", "10", "12", "12", "14", "15", "18", "18"};
 
-    /** „6“ = 6, „6a“ = 6,5. */
-    static double rang(String p) { p = p.trim().toLowerCase(); return p.endsWith("a") ? Double.parseDouble(p.substring(0, p.length() - 1)) + 0.5 : Double.parseDouble(p); }
+    /** „6“ = 6, „6a“ = 6,5, „11b“ = 11,6 (Buchstabe hinten: Teilphase nach der Hauptphase). */
+    static double rang(String p) {
+        p = p.trim().toLowerCase();
+        char c = p.isEmpty() ? '0' : p.charAt(p.length() - 1);
+        return c >= 'a' && c <= 'z' ? Double.parseDouble(p.substring(0, p.length() - 1)) + 0.5 + 0.1 * (c - 'a') : Double.parseDouble(p);
+    }
 
     public static void main(String[] a) throws Exception {
         File jar = new File(a.length > 0 ? a[0] : "lib/Renderer.jar");
