@@ -156,13 +156,30 @@ public final class EreignisDaten {
         /** Ereigniszeiten der Bilder von Gitter k. */
         public double[] zeiten(int k) { return zeiten.get(k).clone(); }
 
+        /** Zahl der Bilder von Gitter k. */
+        public int bilder(int k) { return zeiten.get(k).length; }
+
+        /** Ereigniszeit von Bild b des Gitters k. */
+        public double zeit(int k, int b) { return zeiten.get(k)[b]; }
+
         /** Bild b von Gitter k als Wasserstand (NaN trocken). */
-        public synchronized float[] bild(int k, int b) throws IOException {
+        public float[] bild(int k, int b) throws IOException {
+            short[] r = roh(k, b);
+            float[] v = new float[r.length];
+            for (int c = 0; c < v.length; c++) v[c] = r[c] == TROCKEN ? Float.NaN : (float) (r[c] * STUFE);
+            return v;
+        }
+
+        /** Bild b von Gitter k roh: Stufen zu {@link #STUFE} m, {@link #TROCKEN} trocken (Phase 13b, für die Grafikkarte). */
+        public short[] roh(int k, int b) throws IOException {
             Gitter g = gitter.get(k);
-            in[k].seek(lagen.get(k)[b] + 8);
-            int size = in[k].readInt();
-            byte[] z = new byte[size];
-            in[k].readFully(z);
+            byte[] z;
+            synchronized (this) {
+                in[k].seek(lagen.get(k)[b] + 8);
+                int size = in[k].readInt();
+                z = new byte[size];
+                in[k].readFully(z);
+            }
             Inflater inf = new Inflater();
             inf.setInput(z);
             byte[] raw = new byte[g.nx() * g.nz() * 2];
@@ -174,9 +191,8 @@ public final class EreignisDaten {
             } finally {
                 inf.end();
             }
-            ByteBuffer bb = ByteBuffer.wrap(raw).order(ByteOrder.LITTLE_ENDIAN);
-            float[] v = new float[g.nx() * g.nz()];
-            for (int c = 0; c < v.length; c++) { short s = bb.getShort(); v[c] = s == TROCKEN ? Float.NaN : (float) (s * STUFE); }
+            short[] v = new short[g.nx() * g.nz()];
+            ByteBuffer.wrap(raw).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(v);
             return v;
         }
 

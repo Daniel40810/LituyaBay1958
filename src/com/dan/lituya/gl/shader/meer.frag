@@ -8,6 +8,9 @@
 #include "marken.glsl"
 in vec2 vUV;
 out vec4 frag;
+// ab Phase 13b: im Rechteck des gröbsten Gitters der Welle zeichnet die Welle (welle.frag), hier nichts
+uniform int uWelle;
+uniform vec4 uWelleRect;   // x0, z0, x1, z1 (Szene)
 
 float h2(vec2 i) { return fract(sin(dot(i, vec2(127.1, 311.7))) * 43758.5453); }
 float vn(vec2 x) {
@@ -16,26 +19,40 @@ float vn(vec2 x) {
     return mix(mix(h2(i), h2(i + vec2(1, 0)), f.x), mix(h2(i + vec2(0, 1)), h2(i + vec2(1, 1)), f.x), f.y);
 }
 
-void main() {
-    vec3 d = viewRay(vUV);
-    // Strahl gegen die gekrümmte Wasserfläche y = uLevel − r²/2R' (r waagerecht vom Auge): a t² + b t + c = 0
+// Strahl gegen die gekrümmte Wasserfläche y = level − r²/2R' (r waagerecht vom Auge): a t² + b t + c = 0; −1: kein Treffer
+float hit(vec3 d, float level) {
     float R = EARTH_R / 0.87;
     float hh = dot(d.xz, d.xz);
-    float a = hh / (2.0 * R), b = d.y, c = uCam.y - uLevel;
+    float a = hh / (2.0 * R), b = d.y, c = uCam.y - level;
+    if (c < 0.0) return -1.0;
     // stabil gelöst (Befund Phase 1): mit (−b − √D)/2a löschen sich bei kleinem a zwei fast gleiche Zahlen aus, und aus
     // 1,9 km Höhe zitterten Raster und Marken; q = −(b + sign(b)·√D)/2 gibt beide Wurzeln ohne Auslöschung (q/a und c/q)
     float t;
     if (a < 1e-12) t = b < 0.0 ? -c / b : -1.0;
     else {
         float disc = b * b - 4.0 * a * c;
-        if (disc < 0.0) discard;
+        if (disc < 0.0) return -1.0;
         float q = -0.5 * (b + (b < 0.0 ? -1.0 : 1.0) * sqrt(disc));
         float t1 = q / a, t2 = abs(q) > 1e-20 ? c / q : -1.0;
         t = min(t1 > 0.0 ? t1 : 1e30, t2 > 0.0 ? t2 : 1e30);
-        if (t > 1e29) discard;
+        if (t > 1e29) return -1.0;
     }
-    if (!(t > 0.0) || c < 0.0) discard;
+    return t > 0.0 ? t : -1.0;
+}
+
+void main() {
+    vec3 d = viewRay(vUV);
+    float t = hit(d, uLevel);
+    if (t < 0.0) discard;
     vec3 w = uCam + d * t;
+    // ab Phase 13b: im Rechteck der Welle zeichnet welle.frag; hier nur ein Boden 40 m unter dem Pegel, der Lücken
+    // füllt, wo die Welle trocken ist, das Gelände von heute aber tiefer liegt als der Grund von 1958
+    if (uWelle == 1 && w.x > min(uWelleRect.x, uWelleRect.z) && w.x < max(uWelleRect.x, uWelleRect.z)
+            && w.z > min(uWelleRect.y, uWelleRect.w) && w.z < max(uWelleRect.y, uWelleRect.w)) {
+        t = hit(d, uLevel - 40.0);
+        if (t < 0.0) discard;
+        w = uCam + d * t;
+    }
     float dist = t;
 
     // Normale: zwei Rauschlagen, in der Ferne glatt; je Bildpunkt gemittelt, damit nichts körnig glitzert [G]

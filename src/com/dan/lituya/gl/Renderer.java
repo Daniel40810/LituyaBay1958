@@ -37,6 +37,9 @@ import java.util.function.Consumer;
  * <li><b>Wasser</b>: die Fläche im Pegel mit Erdkrümmung bis zur Kimm ({@code meer.frag}, Platzhalter bis {@code ocean}
  * in Phase 5a), darauf die Marken: UTM-Raster, Kern, Szene und Fern, die Orte aus GNIS ({@code marken.glsl}).
  * Ab Phase 4 kommt das Gelände aus {@code clipmap} davor.</li>
+ * <li><b>Welle</b> (ab Phase 13b): Welle und Felssturz der Vorrechnung als Höhenfelder ({@link EreignisGl}); im Rechteck
+ * der Welle zeichnet das Wasser darunter nur einen Boden 40 m unter dem Pegel.</li>
+ * <li><b>Staub</b> (ab Phase 13b): die Wolke des Felssturzes als Volumen und die Trübe, wenn das Auge unter Wasser ist.</li>
  * <li><b>Nachbearbeitung</b>: Belichtung nach der Sonnenhöhe, Filmkurve, Gamma.</li>
  * <li><b>HUD</b>: Tempo (Bilder/s, Zeit der Grafikkarte je Durchgang, Prozessor), die drei Uhren (Weltzeit,
  * Simulationszeit, Zeitstand), Sonne, Kamera, Ort in UTM 8 N, Gebiet, Kimm.</li>
@@ -52,7 +55,7 @@ public final class Renderer implements GLEventListener {
     public static final String VERSION = "Phase 9";
     /** Phase des Stands (für Ansichten und Bedienfeld). */
     public static final int PHASE = 13;
-    public static final String[] PASSES = {"Himmel", "Gelände", "Wasser", "Nachbearbeitung", "HUD"};
+    public static final String[] PASSES = {"Himmel", "Gelände", "Welle", "Wasser", "Staub", "Nachbearbeitung", "HUD"};
     private static final int MARKS = PASSES.length + 1;
     /** Nah- und Fernebene (m): vom Kutter bis über die Kimm des Mount Fairweather (264 km). */
     static final double NEAR = 0.3, FAR = 400_000;
@@ -74,6 +77,11 @@ public final class Renderer implements GLEventListener {
     public final Netzblick netzblick = new Netzblick();
     /** Das Gelände zeigen (G … im Bedienfeld TECHNIK). */
     public volatile boolean showGelaende = true;
+    /** Phase 13b: das Abspielen der Vorrechnung (daten/ereignis) mit Vorrat und die Durchgänge dazu. */
+    public final com.dan.lituya.scene.Wiedergabe wiedergabe = new com.dan.lituya.scene.Wiedergabe();
+    final EreignisGl ereignisGl = new EreignisGl();
+    /** Der Rückbau des Gilbert Inlet auf 1958 im Gelände (an, solange der Zeitstand nicht „heute“ ist). */
+    public volatile boolean rueckbau = true;
     /** Texturstelle der Höhen der Clipmap. */
     static final int UNIT_CLIP = 3;
 
@@ -107,7 +115,7 @@ public final class Renderer implements GLEventListener {
             gelaendeShader = new Shader("Gelände", null, "gelaende.vert", "gelaende.frag"),
             post = new Shader("Nachbearbeitung", null, "fullscreen.vert", "post.frag"),
             overlay = new Shader("Überlagerung", null, "fullscreen.vert", "overlay.frag");
-    private final Shader[] all = {skyShader, gelaendeShader, meerShader, post, overlay};
+    private final Shader[] all = {skyShader, gelaendeShader, meerShader, post, overlay, ereignisGl.welle, ereignisGl.strom, ereignisGl.medien};
     private final HudOverlay hud = new HudOverlay();
     private int emptyVao, hdrTex, depthTex, hdrFbo, hdrColorFbo, hdrW, hdrH, surfW = 1, surfH = 1, defaultFbo;
     private boolean reversedZ, ready;
@@ -184,6 +192,36 @@ public final class Renderer implements GLEventListener {
         return ok;
     }
 
+    /** Stellt Kamera und Uhr auf ein Schaustück (Phase 13b) und schaltet das Abspielen an. */
+    public void placeStueck(com.dan.lituya.camera.Schaustuecke.Stueck st) {
+        camera.waterLevel = wiring.pegel;
+        com.dan.lituya.camera.Schaustuecke.apply(st, camera, clock, this::groundHeight);
+        wiedergabe.an(true);
+        netzblick.inSzene = st.netze();
+        wiedergabe.setzen(clock.simSeconds(), clock.lapse);
+        hudMeldung("Schaustück " + com.dan.lituya.camera.Schaustuecke.describe(st));
+    }
+
+    /** „Zeitlupe 1:20 rückwärts“, „Echtzeit“, „steht“ */
+    public String tempoText() {
+        double l = clock.lapse;
+        if (l == 0) return "Uhr steht";
+        double a = Math.abs(l);
+        String t = a == 1 ? "Echtzeit" : a < 1 ? String.format(Locale.GERMAN, "Zeitlupe 1:%.0f", 1 / a) : String.format(Locale.GERMAN, "%.0f-fach", a);
+        return l < 0 ? t + " rückwärts" : t;
+    }
+
+    /** Die Zeile des Ereignisses für das HUD (leer außerhalb der zehn Minuten). */
+    public String ereignisZeile() {
+        double t = clock.simSeconds();
+        if (!wiedergabe.an() || t < -60 || t > 1800) return "";
+        String was = (ereignisGl.zeigtWelle ? "Welle " + wiedergabe.welle() : "") + (ereignisGl.zeigtStrom ? (ereignisGl.zeigtWelle ? ", " : "") + "Strom" : "")
+                + (ereignisGl.zeigtStaub ? (ereignisGl.zeigtWelle || ereignisGl.zeigtStrom ? ", " : "") + "Staub" : "");
+        double u = ereignisGl.ueberAuge;
+        return String.format(Locale.GERMAN, "Ereignis t = %.1f s · %s · %s%s", t, tempoText(), was.isEmpty() ? (t < 93 ? "vor dem Sturz" : "lädt …") : was,
+                u > 0 ? String.format(Locale.GERMAN, " · Auge %.1f m unter Wasser", u) : "");
+    }
+
     /** Eine Meldung für 5 s im HUD (und in der Statuszeile). */
     public void hudMeldung(String text) {
         meldung = text;
@@ -237,6 +275,7 @@ public final class Renderer implements GLEventListener {
         compute = ComputeProbe.run(gl);
         try {
             netzblick.init(gl);
+            wiedergabe.start();
             netzblick.laden(new java.io.File(System.getProperty("lituya.daten", "daten")));
         } catch (RuntimeException e) {
             System.err.println("LituyaBay1958: Netzblick: " + e.getMessage());
@@ -351,12 +390,25 @@ public final class Renderer implements GLEventListener {
             gl.glFrontFace(GL.GL_CCW);
             common(gl, gelaendeShader, vp, inv, sun);
             bindMarks(gl, gelaendeShader);
+            boolean rb = rueckbau && clock.zeitstand != SceneClock.Zeitstand.HEUTE;
+            gelaendeShader.set(gl, "uRueckbauAn", rb ? 1 : 0);
+            double[] r0 = Site.fromUtm(com.dan.lituya.scene.Boden1958.RUECKBAU_E0, com.dan.lituya.scene.Boden1958.RUECKBAU_N0),
+                    r1 = Site.fromUtm(com.dan.lituya.scene.Boden1958.RUECKBAU_E1, com.dan.lituya.scene.Boden1958.RUECKBAU_N1);
+            gelaendeShader.set(gl, "uRueckbauRect", (float) r0[0], (float) r0[1], (float) r1[0], (float) r1[1]);
+            gelaendeShader.set(gl, "uRueckbau", (float) com.dan.lituya.scene.Boden1958.RUECKBAU_UNTER, (float) com.dan.lituya.scene.Boden1958.RUECKBAU_TIEFE);
             clipGl.draw(gl, gelaendeShader.id(), cm, vp, camera.eye, UNIT_CLIP);
             gl.glDisable(GL.GL_CULL_FACE);
             gl.glDisable(GL.GL_DEPTH_TEST);
             gl.glBindVertexArray(emptyVao);
         }
         mark(gl, 2);
+
+        // 2b Welle und Strom der Vorrechnung (Phase 13b) mit Tiefe; im Rechteck der Welle zeichnet das Meer nicht
+        double tE = clock.simSeconds();
+        wiedergabe.setzen(tE, clock.lapse);
+        double[] welleRect = ereignisGl.zeichnen(gl, wiedergabe, tE, vp, camera.eye, h, wiring.pegel, sh -> common(gl, sh, vp, inv, sun), reversedZ);
+        gl.glBindVertexArray(emptyVao);
+        mark(gl, 3);
 
         // 3 Wasser: die Fläche im Pegel mit Erdkrümmung bis zur Kimm (Platzhalter bis ocean in Phase 5a), mit den Marken;
         //   seit Phase 4 mit Tiefe gegen das Gelände
@@ -366,6 +418,8 @@ public final class Renderer implements GLEventListener {
             gl.glDepthMask(false);
             common(gl, meerShader, vp, inv, sun);
             bindMarks(gl, meerShader);
+            meerShader.set(gl, "uWelle", welleRect != null ? 1 : 0);
+            if (welleRect != null) meerShader.set(gl, "uWelleRect", (float) welleRect[0], (float) welleRect[1], (float) welleRect[2], (float) welleRect[3]);
             gl.glDrawArrays(GL.GL_TRIANGLES, 0, 3);
             gl.glDepthMask(true);
             gl.glDisable(GL.GL_DEPTH_TEST);
@@ -373,7 +427,13 @@ public final class Renderer implements GLEventListener {
         // 3b Netze auf dem Wasser (Phase 7a, Netzblick „in der Szene“): Linien in Bildpunkten, Tiefe gegen das Gelände
         netzblick.szene(gl, vp, camera.eye, w, h, reversedZ, exposure());
         gl.glBindVertexArray(emptyVao);
-        mark(gl, 3);
+        mark(gl, 4);
+
+        // 3c Staub und Trübe unter Wasser (Phase 13b): über das HDR-Bild, die Tiefe als Textur
+        gl.glBindFramebuffer(GL.GL_FRAMEBUFFER, hdrColorFbo);
+        ereignisGl.medien(gl, wiedergabe, tE, depthTex, sh -> common(gl, sh, vp, inv, sun), forward(camera.view()), reversedZ);
+        gl.glBindVertexArray(emptyVao);
+        mark(gl, 5);
 
         // 4 Nachbearbeitung ins Fenster
         gl.glBindFramebuffer(GL.GL_FRAMEBUFFER, defaultFbo);
@@ -386,7 +446,7 @@ public final class Renderer implements GLEventListener {
         post.set(gl, "uScotopic", 0f);
         gl.glBindVertexArray(emptyVao);
         gl.glDrawArrays(GL.GL_TRIANGLES, 0, 3);
-        mark(gl, 4);
+        mark(gl, 6);
 
         // 4b Netzblick als Bild im Bild unten rechts (Phase 7a)
         if (!kino.laeuft()) netzblick.bildImBild(gl, overlay, emptyVao, surfW, surfH, netzZeit());
@@ -400,8 +460,11 @@ public final class Renderer implements GLEventListener {
         }
         gl.glBindVertexArray(0);
         gl.glUseProgram(0);
-        mark(gl, 5);
+        mark(gl, 7);
     }
+
+    /** Blickrichtung aus der Blickmatrix (Spalten): die dritte Zeile, umgedreht. */
+    static float[] forward(float[] v) { return new float[]{-v[2], -v[6], -v[10]}; }
 
     private void bindMarks(GL4 gl, Shader s) {
         s.set(gl, "uMarks", showMarks ? 1 : 0);
@@ -578,6 +641,8 @@ public final class Renderer implements GLEventListener {
         l.add(String.format(Locale.GERMAN, "%.0f Bilder/s · Grafikkarte %.1f ms · Prozessor %.1f ms · %s %d×%d", fps, gpuMs, cpuMs, q, hdrW, hdrH));
         l.add(passTimes());
         l.add(uhrenZeile());
+        String ez = ereignisZeile();
+        if (!ez.isEmpty()) l.add(ez);
         l.add(cameraLine() + " · H: volles HUD, F1: Tasten");
         if (System.currentTimeMillis() < meldungUntil) l.add(meldung);
         if (error != null) l.add("!" + error.split("\n")[0]);
@@ -615,6 +680,7 @@ public final class Renderer implements GLEventListener {
                 physik.describe(),
                 land.zeile(),
                 netzblick.info(),
+                "Abspielen: " + wiedergabe.zeile() + " · " + ereignisGl.info(),
                 clipGl.info(),
                 cameraLine(),
                 String.format(Locale.GERMAN, "UTM 8 N  E %.0f  N %.0f · %s · Kimm %.1f km", utm[0], utm[1], Site.dms(ll[0], ll[1]), kimm / 1000),
@@ -698,6 +764,8 @@ public final class Renderer implements GLEventListener {
         if (cm != null) cm.stop();
         hud.dispose(gl);
         netzblick.dispose(gl);
+        ereignisGl.dispose(gl);
+        wiedergabe.close();
         Gpu.deleteFbos(gl, hdrFbo, hdrColorFbo);
         Gpu.deleteTextures(gl, hdrTex, depthTex);
         if (emptyVao != 0) gl.glDeleteVertexArrays(1, new int[]{emptyVao}, 0);

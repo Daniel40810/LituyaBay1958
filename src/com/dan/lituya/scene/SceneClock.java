@@ -59,7 +59,7 @@ public final class SceneClock implements Clock {
 
     /** Szenenzeit in ms seit 1970 (UTC), als double, damit kleine Schritte nicht verloren gehen. */
     private volatile double epochMs;
-    /** Zeitraffer: Szenensekunden je echter Sekunde (0 = Uhr steht). */
+    /** Zeitraffer: Szenensekunden je echter Sekunde (0 = Uhr steht; ab Phase 13b negativ = rückwärts, 0,05 = Zeitlupe 1:20). */
     public volatile double lapse = 1;
     /** Der Zeitstand, den die Szene zeigt (Phase 1: nur Uhr und Anzeige; Gelände und Wasser je Stand ab Phase 5a). */
     public volatile Zeitstand zeitstand = START;
@@ -92,7 +92,7 @@ public final class SceneClock implements Clock {
     public synchronized void step(double realDt) {
         dt = realDt;
         t += realDt;
-        epochMs += realDt * Math.max(0, Math.min(MAX_LAPSE, lapse)) * 1000;
+        epochMs += realDt * Math.max(-MAX_LAPSE, Math.min(MAX_LAPSE, lapse)) * 1000;
     }
 
     public synchronized void shiftDays(int days) { epochMs += days * 86_400_000.0; }

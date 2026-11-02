@@ -25,7 +25,9 @@ import java.util.Locale;
  * Schalter (als -D… aus Ant oder als Umgebungsvariable in Großbuchstaben): {@code ansicht} = Name oder Taste einer
  * Ansicht (AnchorageCove, Eingang, CenotaphIsland, GilbertInlet, Sporn, MudslideCreek, Draufsicht, VonSee, Fern; leer:
  * die Grundansicht), {@code kamera} = x,z,Richtung,Neigung,Höhe über Wasser (frei stehend), {@code hud} = kurz|voll|aus,
- * {@code marken} = an|aus (in Phase 1 an), {@code meer} = aus, {@code pegel} = m über NAVD88 (von Hand).
+ * {@code marken} = an|aus (in Phase 1 an), {@code meer} = aus, {@code pegel} = m über NAVD88 (von Hand); ab Phase 13b
+ * {@code schaustueck} = Nummer oder Name (1 bis 7, Kamera und Uhr), {@code ereignis} = Sekunden nach dem ersten Stoß,
+ * {@code lauf} = Lauf der Welle (kette, messwelle), {@code abspielen} = aus.
  */
 public final class Tempo {
     private Tempo() { }
@@ -65,8 +67,21 @@ public final class Tempo {
         if ("aus".equals(opt("meer"))) r.showMeer = false;
         String pg = opt("pegel");
         if (pg != null && !pg.isBlank()) r.wiring.pegel = Double.parseDouble(pg.replace(',', '.'));
-        String an = opt("ansicht"), ka = opt("kamera");
+        String an = opt("ansicht"), ka = opt("kamera"), sst = opt("schaustueck"), ez = opt("ereignis"), lauf = opt("lauf");
+        if (lauf != null && !lauf.isBlank()) r.wiedergabe.welle(lauf);
+        if ("aus".equals(opt("abspielen"))) r.wiedergabe.an(false);
+        com.dan.lituya.camera.Schaustuecke.Stueck stueck = com.dan.lituya.camera.Schaustuecke.byName(sst);
+        if (sst != null && !sst.isBlank() && stueck == null) System.err.println("FEHLER: kein Schaustück „" + sst + "“");
         Runnable stellen = () -> {
+            if (stueck != null) {
+                r.placeStueck(stueck);
+                clock.lapse = 0;
+            }
+            if (ez != null && !ez.isBlank()) {
+                clock.setEpochMillis(SceneClock.BEBEN.toEpochMilli() + Double.parseDouble(ez.replace(',', '.')) * 1000);
+                clock.zeitstand = SceneClock.Zeitstand.WELLE;
+            }
+            if (stueck != null) return;
             if (ka != null && !ka.isBlank()) {
                 String[] p = ka.split(",");
                 double x = Double.parseDouble(p[0]), z = Double.parseDouble(p[1]);
@@ -91,6 +106,12 @@ public final class Tempo {
             r.land.auge(r.camera.eye[0], r.camera.eye[2]);
             ok &= r.land.warten(300_000);
             System.out.printf(Locale.GERMAN, "Gelände %s in %.1f s%n", ok ? "geladen" : "NICHT geladen", (System.nanoTime() - t0) / 1e9);
+        }
+        // Phase 13b: die Bilder der Vorrechnung um die Zeit abwarten
+        if (r.wiedergabe.an() && clock.simSeconds() > -60 && clock.simSeconds() < 3600) {
+            long t0 = System.nanoTime();
+            boolean ok = r.wiedergabe.warten(clock.simSeconds(), 300_000);
+            System.out.printf(Locale.GERMAN, "Vorrechnung um t = %.1f s %s in %.1f s: %s%n", clock.simSeconds(), ok ? "geladen" : "NICHT geladen", (System.nanoTime() - t0) / 1e9, r.wiedergabe.zeile());
         }
         for (int i = 0; i < 20; i++) { r.step(1 / 60.0); d.display(); }
         double best = Double.MAX_VALUE, sum = 0;
