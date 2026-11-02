@@ -27,7 +27,8 @@ import java.util.Locale;
  * die Grundansicht), {@code kamera} = x,z,Richtung,Neigung,Höhe über Wasser (frei stehend), {@code hud} = kurz|voll|aus,
  * {@code marken} = an|aus (in Phase 1 an), {@code meer} = aus, {@code pegel} = m über NAVD88 (von Hand); ab Phase 13b
  * {@code schaustueck} = Nummer oder Name (1 bis 7, Kamera und Uhr), {@code ereignis} = Sekunden nach dem ersten Stoß,
- * {@code lauf} = Lauf der Welle (kette, messwelle), {@code abspielen} = aus.
+ * {@code lauf} = Lauf der Welle (kette, messwelle), {@code abspielen} = aus; ab Phase 14a {@code schaustueck} auch 10 und 11,
+ * {@code wald} = aus.
  */
 public final class Tempo {
     private Tempo() { }
@@ -55,6 +56,7 @@ public final class Tempo {
         d.setAutoSwapBufferMode(false);
         SceneClock clock = new SceneClock(day, hour);
         clock.lapse = 0;
+        if ("aus".equals(opt("wald"))) System.setProperty("lituya.ohneWald", "true");
         Renderer r = new Renderer(clock);
         r.frozen = true;
         r.setQuality(q);
@@ -107,6 +109,12 @@ public final class Tempo {
             ok &= r.land.warten(300_000);
             System.out.printf(Locale.GERMAN, "Gelände %s in %.1f s%n", ok ? "geladen" : "NICHT geladen", (System.nanoTime() - t0) / 1e9);
         }
+        // Phase 14a: den Wald abwarten (Rechnung im Hintergrund, dann Backen der Netze)
+        if (!Boolean.getBoolean("lituya.ohneWald") && !"aus".equals(opt("wald"))) {
+            long t0 = System.nanoTime();
+            while (!r.wald.bereit() && System.nanoTime() - t0 < 300e9) { d.display(); Thread.sleep(100); }
+            System.out.printf(Locale.GERMAN, "Wald %s in %.1f s: %s%n", r.wald.bereit() ? "bereit" : "NICHT bereit", (System.nanoTime() - t0) / 1e9, r.wald.status());
+        } else r.wald.an = false;
         // Phase 13b: die Bilder der Vorrechnung um die Zeit abwarten
         if (r.wiedergabe.an() && clock.simSeconds() > -60 && clock.simSeconds() < 3600) {
             long t0 = System.nanoTime();

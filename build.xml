@@ -76,7 +76,7 @@
         lib/Renderer.jar alles hat, was LituyaBay1958 braucht (jedes gebrauchte Package mit Klassen und README, Java 21,
         von den 14 neuen die, deren Phase erreicht ist); abschalten mit -Dohne.paketpruefung=true.
     -->
-    <property name="lituya.phase" value="14"/>
+    <property name="lituya.phase" value="14a"/>
     <target name="check-packages" description="Prüft lib/Renderer.jar: die gebrauchten Packages mit README, Java 21, die fälligen neuen." unless="ohne.paketpruefung">
         <property name="platform.java" value="java"/>
         <exec executable="${platform.java}" dir="${basedir}" failonerror="true">
@@ -94,7 +94,7 @@
         <java classname="com.dan.lituya.test.Pruefung" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="true">
             <jvmarg value="-Dstdout.encoding=UTF-8"/>
             <jvmarg value="-Djava.awt.headless=true"/>
-            <jvmarg value="-Xmx2g"/>
+            <jvmarg value="-Xmx4g"/>
             <classpath><pathelement path="${run.test.classpath}"/></classpath>
         </java>
     </target>
@@ -593,8 +593,9 @@
          -Dereignis=<s> eine andere Zeit für alle. Auf der Radeon laufen lassen. -->
     <macrodef name="schaustueck">
         <attribute name="nr"/>
+        <attribute name="liste" default="schaustuecke"/>
         <sequential>
-            <java classname="com.dan.lituya.tools.Tempo" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="false" output="docs/status/schaustuecke_Phase${lituya.phase}.txt" append="true" logError="true">
+            <java classname="com.dan.lituya.tools.Tempo" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="false" output="docs/status/@{liste}_Phase${lituya.phase}.txt" append="true" logError="true">
                 <jvmarg value="-Dstdout.encoding=UTF-8"/>
                 <jvmarg value="--enable-native-access=ALL-UNNAMED"/>
                 <jvmarg value="-Xmx6g"/>
@@ -607,7 +608,7 @@
             </java>
         </sequential>
     </macrodef>
-    <target name="schaustuecke" depends="jar" description="Phase 13b: Standbilder der Schaustücke 2 bis 7 aus der Vorrechnung (docs/status/Schaustueck_*.png).">
+    <target name="schaustuecke" depends="jar" description="Phase 13b/14a: Standbilder und Zeiten der Schaustücke 2 bis 7, 10 und 11 (docs/status/Schaustueck_*.png).">
         <property name="platform.java" value="java"/>
         <property name="lauf" value="kette"/>
         <property name="ereignis" value=""/>
@@ -618,6 +619,8 @@
         <schaustueck nr="5"/>
         <schaustueck nr="6"/>
         <schaustueck nr="7"/>
+        <schaustueck nr="10"/>
+        <schaustueck nr="11"/>
         <loadfile property="schaustuecke.text" srcFile="docs/status/schaustuecke_Phase${lituya.phase}.txt" encoding="UTF-8"/>
         <echo message="${schaustuecke.text}"/>
     </target>
@@ -677,5 +680,35 @@
     </target>
     <target name="wiederbewaldung" depends="compile" description="Phase 14: Wiederbewaldung im Fenster (succession + forest).">
         <renderer-fenster klasse="com.dan.lituya.tools.Wiederbewaldung" speicher="-Xmx4g"/>
+    </target>
+    <!-- Phase 14a (Werkbuch 3.4, 5.5, 5.6, 9.7, 10.3): der Wald in der Szene.
+         ant aufbereitung -Dschritte=wald: Kronenhöhe ArcticDEM − Gelände nach daten/wald (braucht download/hoehe/arcticdem_10m).
+         treibgut1958: das Treibgut der Welle bis zum Morgen nach daten/ereignis/treibgut (rund 2 min).
+         waldkarte: Karte des Bands 1958 mit den Folgen der Welle und dem Treibgut (docs/status/Wald1958.png) und heute.
+         waldszene: Schaustücke 10 und 11 mit Zeiten (docs/status/waldszene_Phase14a.txt, Schaustueck_10/11_*.png). -->
+    <target name="treibgut1958" depends="compile" description="Phase 14a: Treibgut der Welle 1958 bis zum Morgen nach daten/ereignis/treibgut.">
+        <renderer-java klasse="com.dan.lituya.tools.Treibgut1958" args="daten" ausgabe="docs/status/treibgut1958_Phase${lituya.phase}.txt" speicher="-Xmx6g"/>
+        <loadfile property="treibgut1958.text" srcFile="docs/status/treibgut1958_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${treibgut1958.text}"/>
+    </target>
+    <target name="waldkarte" depends="compile" description="Phase 14a: Karte des Walds (Band 1958, Folgen, Treibgut; heute) nach docs/status/Wald1958*.png.">
+        <renderer-java klasse="com.dan.lituya.tools.Waldkarte" args="daten docs/status/Wald1958.png 0" ausgabe="docs/status/waldkarte_Phase${lituya.phase}.txt" speicher="-Xmx6g"/>
+        <renderer-java klasse="com.dan.lituya.tools.Waldkarte" args="daten docs/status/Wald1958_2025.png 67" ausgabe="docs/status/waldkarte_heute_Phase${lituya.phase}.txt" speicher="-Xmx6g"/>
+        <concat destfile="docs/status/waldkarte_Phase${lituya.phase}.txt" append="true" encoding="UTF-8" outputencoding="UTF-8">
+            <fileset file="docs/status/waldkarte_heute_Phase${lituya.phase}.txt"/>
+        </concat>
+        <delete file="docs/status/waldkarte_heute_Phase${lituya.phase}.txt"/>
+        <loadfile property="waldkarte.text" srcFile="docs/status/waldkarte_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${waldkarte.text}"/>
+    </target>
+    <target name="waldszene" depends="jar" description="Phase 14a: Schaustücke 10 und 11 (Wald, Treibgut, 68 Jahre) mit Zeiten.">
+        <property name="platform.java" value="java"/>
+        <property name="lauf" value="kette"/>
+        <property name="ereignis" value=""/>
+        <delete file="docs/status/waldszene_Phase${lituya.phase}.txt" quiet="true"/>
+        <schaustueck nr="10" liste="waldszene"/>
+        <schaustueck nr="11" liste="waldszene"/>
+        <loadfile property="waldszene.text" srcFile="docs/status/waldszene_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${waldszene.text}"/>
     </target>
 </project>

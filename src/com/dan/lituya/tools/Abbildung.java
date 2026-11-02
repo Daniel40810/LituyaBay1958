@@ -28,6 +28,7 @@ public interface Abbildung {
             case 26908, 6337, 32608, 3715 -> UTM;
             case 4269, 6318, 4326, 4019, 4617, 4759 -> GEO;
             case 3338 -> new Albers(50, -154, 55, 65, 0, 0);
+            case 3413 -> new Polar(70, -45);
             default -> throw new IllegalArgumentException(t.file.getName() + ": Abbildung EPSG " + t.epsg + " unbekannt");
         };
     }
@@ -59,6 +60,36 @@ public interface Abbildung {
         public double[] vor(double lon, double lat) {
             double rho = A * Math.sqrt(c - n * q(Math.toRadians(lat))) / n, th = n * Math.toRadians(lon - lon0);
             return new double[]{x0 + rho * Math.sin(th), y0 + rho0 - rho * Math.cos(th)};
+        }
+
+        @Override public void vonUtm(double e, double nn, double[] o) {
+            double[] ll = Geo.UTM8N.inverse(e, nn);
+            double[] xy = vor(ll[1], ll[0]);
+            o[0] = xy[0];
+            o[1] = xy[1];
+        }
+    }
+
+    /** Polarstereographisch Nord auf WGS84 mit Bezugsbreite (EPSG 3413: 70°, −45°; ArcticDEM), Snyder 1987, S. 160 ff. */
+    final class Polar implements Abbildung {
+        static final double A = Geo.A_AXIS, E2 = 1 / 298.257223563 * (2 - 1 / 298.257223563), E = Math.sqrt(E2);
+        final double lon0, amc;
+
+        public Polar(double latTs, double lon0) {
+            double p = Math.toRadians(latTs), s = Math.sin(p);
+            this.lon0 = lon0;
+            amc = A * Math.cos(p) / Math.sqrt(1 - E2 * s * s) / t(p);
+        }
+
+        static double t(double p) {
+            double s = Math.sin(p);
+            return Math.tan(Math.PI / 4 - p / 2) / Math.pow((1 - E * s) / (1 + E * s), E / 2);
+        }
+
+        /** Länge, Breite (Grad) → x, y. */
+        public double[] vor(double lon, double lat) {
+            double rho = amc * t(Math.toRadians(lat)), l = Math.toRadians(lon - lon0);
+            return new double[]{rho * Math.sin(l), -rho * Math.cos(l)};
         }
 
         @Override public void vonUtm(double e, double nn, double[] o) {

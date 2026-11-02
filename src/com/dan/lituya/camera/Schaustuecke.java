@@ -22,6 +22,13 @@ import java.util.Locale;
  * <li><b>Unter Wasser</b>: 1,5 km nordöstlich von Cenotaph Island, 3 m unter dem Pegel, Blick der Front entgegen und 35° hinauf zur Fläche (seit 13c; mit 15° lag das Snellsche Fenster über dem Bildrand), 115 s,
  * Zeitlupe 1:2 (bis Phase 17 knapp unter der Fläche, ohne Geröll und Stämme).</li>
  * </ol>
+ * Seit Phase 14a (8 und 9 kommen mit späteren Phasen):
+ * <ol start="10">
+ * <li><b>Der Morgen danach</b>: 10.7.1958, 6:00 Uhr, vom Wasser 1,2 km vor dem Nordufer östlich von Cenotaph Island, Auge 20 m,
+ * Blick nach Norden auf das Band: Fels, entrindete Stämme an der Spurlinie, der Holzteppich auf dem Wasser.</li>
+ * <li><b>68 Jahre</b>: über der Bucht nordöstlich von Cenotaph Island, Auge 160 m, Blick die Bucht hinauf (062°), vom Morgen
+ * danach im Jahres-Zeitraffer (68 Jahre je Minute) bis heute: Roterle zuerst, dann Fichte und Hemlock.</li>
+ * </ol>
  */
 public final class Schaustuecke {
     /**
@@ -30,11 +37,12 @@ public final class Schaustuecke {
      * Netze in der Szene.
      */
     public record Stueck(int nr, String name, double x, double z, double heading, double pitch, double auge, double t, double lapse,
-                         boolean unter, boolean netze) {
+                         boolean unter, boolean netze, boolean jahre) {
         @Override public String toString() { return nr + " " + name; }
 
         /** „1:20“, „Echtzeit“ */
         public String tempo() {
+            if (jahre) return "68 Jahre je Minute";
             if (lapse == 1) return "Echtzeit";
             if (lapse < 1 && lapse > 0) return String.format(Locale.GERMAN, "Zeitlupe 1:%.0f", 1 / lapse);
             return String.format(Locale.GERMAN, "%.0f-fach", lapse);
@@ -42,10 +50,13 @@ public final class Schaustuecke {
     }
 
     private static Stueck at(int nr, String name, double[] xz, double heading, double pitch, double auge, double t, double lapse, boolean unter, boolean netze) {
-        return new Stueck(nr, name, xz[0], xz[1], heading, pitch, auge, t, lapse, unter, netze);
+        return new Stueck(nr, name, xz[0], xz[1], heading, pitch, auge, t, lapse, unter, netze, false);
     }
 
     private static double[] xz(Site.Ort o) { return new double[]{o.x(), o.z()}; }
+
+    /** Der Morgen danach: 10.7.1958, 6:00 Uhr Ortszeit, in Sekunden nach dem ersten Stoß (22:16). */
+    public static final double MORGEN = (7 * 60 + 44) * 60;
 
     public static final List<Stueck> ALLE = List.of(
             at(1, "Abend vor Anker", xz(Site.ANCHORAGE), 62, 1, 3, -16 * 60, 1, false, false),
@@ -54,7 +65,9 @@ public final class Schaustuecke {
             at(4, "Die Wand aus Wasser", Ansichten.versetzt(Site.GILBERT, 215, 1000), 35, -4, 80, 104.5, 0.05, false, false),
             at(5, "524 m", Ansichten.versetzt(Site.SPORN, 135, 1800), 315, -8, 200, 106, 0.2, false, false),
             at(6, "Die Front", Ansichten.versetzt(Site.CENOTAPH, 60, 2500), 50, 2, 60, 112, 1, false, true),
-            at(7, "Unter Wasser", Ansichten.versetzt(Site.CENOTAPH, 60, 1500), 50, -35, 3, 115, 0.5, true, false));
+            at(7, "Unter Wasser", Ansichten.versetzt(Site.CENOTAPH, 60, 1500), 50, -35, 3, 115, 0.5, true, false),
+            new Stueck(10, "Der Morgen danach", 1000, -1300, 2, 4, 20, MORGEN, 1, false, false, false),
+            new Stueck(11, "68 Jahre", -600, -400, 62, -6, 160, MORGEN, 1, false, false, true));
 
     public static Stueck byNr(int nr) {
         for (Stueck s : ALLE) if (s.nr() == nr) return s;
@@ -85,12 +98,13 @@ public final class Schaustuecke {
         }
         c.place(s.x(), y, s.z(), s.heading(), s.pitch());
         clock.setEpochMillis(SceneClock.BEBEN.toEpochMilli() + s.t() * 1000);
-        clock.zeitstand = s.t() < 0 && s.nr() == 1 ? SceneClock.Zeitstand.VOR : SceneClock.Zeitstand.WELLE;
+        clock.zeitstand = s.t() < 0 && s.nr() == 1 ? SceneClock.Zeitstand.VOR : s.t() >= 3600 ? SceneClock.Zeitstand.DANACH : SceneClock.Zeitstand.WELLE;
         clock.lapse = s.lapse();
     }
 
     /** „4 Die Wand aus Wasser (t = 104,5 s, Zeitlupe 1:20)“ */
     public static String describe(Stueck s) {
+        if (s.t() >= 3600) return String.format(Locale.GERMAN, "%s (10.7.1958 6:00, %s)", s, s.tempo());
         return String.format(Locale.GERMAN, "%s (t = %s s, %s%s)", s, s.t() % 1 == 0 ? String.format(Locale.GERMAN, "%.0f", s.t()) : String.format(Locale.GERMAN, "%.1f", s.t()),
                 s.tempo(), s.unter() ? ", unter Wasser" : "");
     }

@@ -10,6 +10,11 @@ in vec3 vW;
 in vec3 vN;
 in float vH;
 out vec4 frag;
+// ab Phase 14a: der Boden im Band der Welle 1958 (Fels, Mineralboden, Waldboden des gezeigten Jahrs, linear) aus WaldGl;
+// Deckel 1 im Band. Rechteck x0, z0, Breite, Tiefe (Szene).
+uniform int uBandAn;
+uniform sampler2D uBand;
+uniform vec4 uBandRect;
 
 void main() {
     if (clipmapHidden(vW.xz)) discard;
@@ -22,6 +27,13 @@ void main() {
     alb = mix(alb, fels, smoothstep(0.30, 0.45, slope));
     alb = mix(kies, alb, smoothstep(2.0, 8.0, h));
     alb = mix(alb, schnee, smoothstep(900.0, 1300.0, h) * (1.0 - smoothstep(0.40, 0.60, slope)));
+    if (uBandAn == 1) {
+        vec2 bu = (vW.xz - uBandRect.xy) / uBandRect.zw;
+        if (bu.x > 0.0 && bu.y > 0.0 && bu.x < 1.0 && bu.y < 1.0) {
+            vec4 b = texture(uBand, bu);
+            alb = mix(alb, b.rgb, b.a * smoothstep(0.5, 2.0, h));
+        }
+    }
     alb = mix(grund, alb, smoothstep(-1.0, 0.5, h));
     float B = skyBrightness(sunElevDeg());
     vec3 sky = skyColor(vec3(0.0, 1.0, 0.0));
