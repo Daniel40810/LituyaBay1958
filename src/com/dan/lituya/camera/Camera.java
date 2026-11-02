@@ -206,6 +206,7 @@ public final class Camera {
         java.util.function.Supplier<double[]> mf = mitfahrt;
         if (mf != null) {
             double[] q = mf.get();
+            if (q == null) { mitfahrt = null; return; }   // Fahrzeug fort (keine Bahn mehr)
             mode = Mode.FREI;
             autoOrbit = false;
             mitYawS += (mitYaw - mitYawS) * (1 - Math.exp(-dt * 8));

@@ -32,7 +32,7 @@ import java.util.Set;
 public final class Aufbereitung {
     private Aufbereitung() { }
 
-    public static final String[] SCHRITTE = {"gelaende", "grund", "namen", "welle", "ufer", "stoerung", "texturen", "herkunft", "wald", "bilder", "inhalt"};
+    public static final String[] SCHRITTE = {"gelaende", "grund", "namen", "welle", "ufer", "see", "stoerung", "texturen", "herkunft", "wald", "bilder", "inhalt"};
 
     public static void main(String[] a) throws Exception {
         File daten = new File(System.getProperty("lituya.daten", "daten"));
@@ -60,6 +60,7 @@ public final class Aufbereitung {
             if (s.contains("namen")) { r.log("--- namen"); Namen.rechnen(r, new File("geodaten/namen_szene.geojson")); }
             if (s.contains("welle")) { r.log("--- welle"); Welle.rechnen(r); }
             if (s.contains("ufer")) { r.log("--- ufer"); Ufer.rechnen(r); }
+            if (s.contains("see")) { r.log("--- see"); See.rechnen(r); }
             if (s.contains("stoerung")) { r.log("--- stoerung"); Stoerung.rechnen(r); }
             if (s.contains("texturen")) { r.log("--- texturen"); Texturen.rechnen(r, neu); }
             if (s.contains("herkunft")) { r.log("--- herkunft"); Herkunft.rechnen(r); }

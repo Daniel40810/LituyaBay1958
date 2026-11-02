@@ -264,13 +264,17 @@ public final class Ereignis {
         r.rechner = "Grafikkarte: " + BayGpu.renderer(gl);
         int n = b.grids().size();
         double[] next = new double[n];
-        for (int k = 0; k < n; k++) { bild(w, r, k, 0, g.surface(gl, k), pegel); next[k] = naechstesBild(k, 0, n); }
+        for (int k = 0; k < n; k++) { bild(w, r, k, 0, g.surface(gl, k), pegel); w.geschw(k, START, g.velocities(gl, k)); next[k] = naechstesBild(k, 0, n); }
         long w0 = System.nanoTime();
         double melde = 10;
         while (g.time() < zeit) {
             g.step(gl);
             if (g.time() >= melde) { fortschritt(g.time(), g.steps(), w0); melde += 10; }
-            for (int k = 0; k < n; k++) if (g.time() >= next[k]) { bild(w, r, k, g.time(), g.surface(gl, k), pegel); next[k] = naechstesBild(k, g.time(), n); }
+            for (int k = 0; k < n; k++) if (g.time() >= next[k]) {
+                bild(w, r, k, g.time(), g.surface(gl, k), pegel);
+                w.geschw(k, START + g.time(), g.velocities(gl, k));   // seit 15a: die Strömung für Boote und Treibgut
+                next[k] = naechstesBild(k, g.time(), n);
+            }
         }
         for (int k = 0; k < n; k++) r.max.add(g.maxSurface(gl, k));
         g.sync(gl);
@@ -282,13 +286,17 @@ public final class Ereignis {
         r.rechner = "Prozessor";
         int n = b.grids().size();
         double[] next = new double[n];
-        for (int k = 0; k < n; k++) { bild(w, r, k, 0, surface(b.grids().get(k)), pegel); next[k] = naechstesBild(k, 0, n); }
+        for (int k = 0; k < n; k++) { bild(w, r, k, 0, surface(b.grids().get(k)), pegel); w.geschw(k, START, velocities(b.grids().get(k))); next[k] = naechstesBild(k, 0, n); }
         long w0 = System.nanoTime();
         double melde = 10;
         while (b.time() < zeit) {
             b.step();
             if (b.time() >= melde) { fortschritt(b.time(), b.steps(), w0); melde += 10; }
-            for (int k = 0; k < n; k++) if (b.time() >= next[k]) { bild(w, r, k, b.time(), surface(b.grids().get(k)), pegel); next[k] = naechstesBild(k, b.time(), n); }
+            for (int k = 0; k < n; k++) if (b.time() >= next[k]) {
+                bild(w, r, k, b.time(), surface(b.grids().get(k)), pegel);
+                w.geschw(k, START + b.time(), velocities(b.grids().get(k)));
+                next[k] = naechstesBild(k, b.time(), n);
+            }
         }
         for (BayGrid g : b.grids()) {
             float[] m = new float[g.nx * g.nz];
@@ -308,6 +316,18 @@ public final class Ereignis {
         float[] v = new float[g.nx * g.nz];
         for (int j = 0; j < g.nz; j++) for (int i = 0; i < g.nx; i++) { double h = g.depth(i, j); v[j * g.nx + i] = h > 0.01 ? (float) g.eta(i, j) : Float.NaN; }
         return v;
+    }
+
+    static float[][] velocities(BayGrid g) {
+        float[] u = new float[g.nx * g.nz], v = new float[g.nx * g.nz];
+        for (int j = 0; j < g.nz; j++)
+            for (int i = 0; i < g.nx; i++) {
+                if (g.depth(i, j) <= 0.05) continue;
+                double[] q = g.velocity(i, j);
+                u[j * g.nx + i] = (float) q[0];
+                v[j * g.nx + i] = (float) q[1];
+            }
+        return new float[][]{u, v};
     }
 
     static void bild(EreignisDaten.Schreiber w, Ergebnis r, int k, double t, float[] eta, double pegel) throws Exception {
