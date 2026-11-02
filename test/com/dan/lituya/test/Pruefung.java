@@ -559,6 +559,68 @@ public final class Pruefung {
             } else hinweis("daten/ereignis fehlt (ant ereignis)");
         }
 
+        teil("Was wäre wenn (Phase 13c): Echtzeit, Quellen, Rückspulpuffer");
+        {
+            // ein gerader Fjord: Wasser 150 m tief nördlich von N 6 504 000, Hang nach Süden mit 0,9
+            java.util.function.DoubleBinaryOperator fj = (e, n) -> n > 6_504_000 ? -150 : (6_504_000 - n) * 0.9 - 20;
+            com.dan.lituya.gl.Echtzeit.Ort o = new com.dan.lituya.gl.Echtzeit.Ort("Probe", 352_000, 6_503_000, Double.NaN, false);
+            double ri = com.dan.lituya.gl.Echtzeit.richtung(o.e(), o.n(), fj, 0);
+            com.dan.lituya.tools.Ereignis.Quelle qq = com.dan.lituya.gl.Echtzeit.linie(o, fj, 0, 30.6e6);
+            check(Math.abs(ri) < 1e-9 && Math.abs(qq.rn() - 1) < 1e-9 && fj.applyAsDouble(qq.e(), qq.n()) <= -20 && qq.n() < 6_504_100 && Math.abs(qq.halb() - 2 * Math.cbrt(30.6e6)) < 1,
+                    f("Ort am Hang: Richtung %.0f° (zum Wasser), Linie bei N %.0f in %.0f m Tiefe, halbe Länge %.0f m, Nahfeld %.0f m bis ans Ufer", ri, qq.n(), -fj.applyAsDouble(qq.e(), qq.n()), qq.halb(), qq.hinten()));
+            com.dan.lituya.gl.Echtzeit.Ort ow = new com.dan.lituya.gl.Echtzeit.Ort("Probe im Wasser", 352_000, 6_505_000, Double.NaN, false);
+            com.dan.lituya.tools.Ereignis.Quelle qw = com.dan.lituya.gl.Echtzeit.linie(ow, fj, 0, 30.6e6);
+            check(Math.abs(qw.n() - qq.n()) < 30, f("im Wasser gesetzt: zurück ans Ufer, Linie wieder bei N %.0f", qw.n()));
+            double[] hh = com.dan.lituya.gl.Echtzeit.heller(o, qq, fj, 0, 30.6e6), h2 = com.dan.lituya.gl.Echtzeit.heller(o, qq, fj, 0, 2 * 30.6e6);
+            check(hh[2] == 150 && hh[0] > 60 && hh[0] < 225 && hh[1] > 20 && hh[1] < 150 && h2[0] > hh[0],
+                    f("Heller/Hager bei 150 m Tiefe: P = %.2f, Wellenberg %.0f m über %.0f s; doppeltes Volumen %.0f m", hh[3], hh[0], hh[1], h2[0]));
+            com.dan.lituya.tools.Ereignis.Quelle g58 = com.dan.lituya.tools.Ereignis.Quelle.gilbert1958();
+            double[] l58 = com.dan.lituya.tools.Ereignis.linie();
+            check(g58.e() == l58[0] && g58.n() == l58[1] && com.dan.lituya.tools.Ereignis.nahfeld(l58[0] - 500 * g58.re(), l58[1] - 500 * g58.rn())
+                    && !com.dan.lituya.tools.Ereignis.nahfeld(l58[0] + 100 * g58.re(), l58[1] + 100 * g58.rn()), "Linie von 1958 als Quelle, Nahfeld dahinter wie bisher");
+            Renderer rt = new Renderer(new SceneClock());
+            rt.camera.place(1000, 100, -2000, 90, 45);
+            rt.camera.snap();
+            double[] tr = rt.treffer(400, 300, 800, 600);
+            check(tr != null && Math.abs(tr[0] - 1100) < 2 && Math.abs(tr[1] + 2000) < 2, f("Strg-Klick: Strahl aus 100 m Höhe unter 45° trifft das Wasser bei x = %.1f, z = %.1f", tr == null ? Double.NaN : tr[0], tr == null ? Double.NaN : tr[1]));
+            check(com.dan.lituya.gl.Echtzeit.ORTE.size() == 5 && com.dan.lituya.gl.Echtzeit.ORTE.get(0).wand1958(), "fünf feste Orte, zuerst die Wand von 1958");
+            check(com.dan.lituya.ui.ControlPanel.volWert(com.dan.lituya.ui.ControlPanel.volumen(60)) == 60 && Math.abs(com.dan.lituya.ui.ControlPanel.volumen(60) / 1e6 - 30.6) < 0.5,
+                    f("Regler Volumen 1 bis 300 Mio. m³, Stellung 60 = %.1f Mio. m³", com.dan.lituya.ui.ControlPanel.volumen(60) / 1e6));
+            // Rückspulpuffer: drei Bilder, gelesen wie eine Vorrechnung
+            com.dan.lituya.scene.EreignisDaten.Gitter gl = new com.dan.lituya.scene.EreignisDaten.Gitter(352_000, 6_503_000, 32, 100, 80);
+            com.dan.lituya.scene.LiveLauf lauf13c = new com.dan.lituya.scene.LiveLauf("Probe", List.of(gl));
+            File leer = Files.createTempDirectory("lb13c").toFile();
+            com.dan.lituya.scene.Wiedergabe wl = new com.dan.lituya.scene.Wiedergabe(leer);
+            lauf13c.wiedergabe(wl);
+            wl.live(lauf13c, false);
+            wl.start();
+            for (int bi = 0; bi < 3; bi++) {
+                float[] eta = new float[100 * 80];
+                for (int c = 0; c < eta.length; c++) eta[c] = c % 100 < 30 ? Float.NaN : bi * 3f;
+                lauf13c.bild(0, 105 + bi, eta);
+            }
+            short[] rr = lauf13c.roh(0, 2);
+            boolean geladen = wl.warten(106.5, 20_000);
+            double[] mx = Site.fromUtm(352_000 + 50 * 32, 6_503_000 + 40 * 32);
+            check(geladen && lauf13c.spuren.get(0).t.length == 3 && rr[50] == 120 && rr[0] == com.dan.lituya.scene.EreignisDaten.TROCKEN && Math.abs(wl.eta(mx[0], mx[1], 106.5) - 4.5) < 1e-6
+                    && Math.abs(lauf13c.spuren.get(0).kachelMax[1] - 6) < 1e-6 && Float.isNaN(lauf13c.spuren.get(0).kachelMax[0]) == false,
+                    f("Rückspulpuffer: 3 Bilder, %d Bytes gepackt, gemischt bei 106,5 s %.2f m, höchste Stände je Kachel wachsen mit", lauf13c.bytes(), wl.eta(mx[0], mx[1], 106.5)));
+            check(wl.welle().equals("Probe") && wl.spuren(com.dan.lituya.scene.Wiedergabe.Art.STROM).isEmpty(), "Wiedergabe spielt die Echtzeit, ohne Strom und Staub");
+            wl.close();
+            File dd = Files.createTempDirectory("lb13c-rand").toFile();
+            com.dan.lituya.tools.Ereignis.schreibeRand(dd, List.of(new double[]{0, 1, 2}, new double[]{1, 3, 4}));
+            List<double[]> rd2 = com.dan.lituya.tools.Ereignis.leseRand(dd);
+            check(rd2 != null && rd2.size() == 2 && rd2.get(1)[2] == 4, "Ganglinie der Kette als linie_kette.tsv geschrieben und gelesen");
+            File grund = new File("daten/grund/heute_4m.r32");
+            if (grund.isFile()) {
+                com.dan.lituya.scene.Boden1958 bd = new com.dan.lituya.scene.Boden1958(new File("daten"));
+                double a = bd.hoehe(l58[0], l58[1]), hz = bd.hoeheHeute(l58[0], l58[1]);
+                check(a < -50 && !(hz < a + 1), f("an der Linie von 1958: Grund 1940 %.0f m, heute %.0f m (Rückbau nur 1940)", a, hz));
+                if (new File("daten/ereignis/linie_kette.tsv").isFile()) check(com.dan.lituya.tools.Ereignis.leseRand(new File("daten")) != null, "daten/ereignis/linie_kette.tsv lesbar");
+                else hinweis("daten/ereignis/linie_kette.tsv fehlt (ant ereignis -Dlauf=linie, rund 1 min; sonst rechnet die App sie beim ersten Mal)");
+            } else hinweis("daten/grund fehlt: Grund 1940 gegen heute nicht geprüft");
+        }
+
         teil("Staub und Treibgut (Phase 12): dustcloud, debris");
         {
             com.dan.dustcloud.DustCloud dc = new com.dan.dustcloud.DustCloud(0, 0, 40, 20, 50, com.dan.dustcloud.DustCloud.rockDust());

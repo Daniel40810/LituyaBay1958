@@ -82,6 +82,20 @@ public final class Boden1958 {
         return h;
     }
 
+    /**
+     * Der Grund von heute (Phase 13c, „Was wäre wenn“): im Wasser BlueTopo/USACE (4 m), an Land die Stufe Szene, ohne
+     * Lotungen 1940 und ohne Rückbau (der Kopf des Gilbert Inlet ist heute Gletscher und Sander).
+     */
+    public double hoeheHeute(double e, double n) {
+        double w = heute.at(e, n);
+        if (!Double.isNaN(w)) return w;
+        for (Raster r : land) {
+            if (e < r.e0() || e >= r.e0() + r.w() * r.zelle() || n > r.n1() || n <= r.n1() - r.h() * r.zelle()) continue;
+            return r.at(e, n);
+        }
+        return Double.NaN;
+    }
+
     /** Ob der Ort heute Wasser ist (Grund heute vorhanden). */
     public boolean wasserHeute(double e, double n) { return !Double.isNaN(heute.at(e, n)); }
 }

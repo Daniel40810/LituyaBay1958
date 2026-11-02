@@ -80,8 +80,11 @@ public final class Renderer implements GLEventListener {
     /** Phase 13b: das Abspielen der Vorrechnung (daten/ereignis) mit Vorrat und die Durchgänge dazu. */
     public final com.dan.lituya.scene.Wiedergabe wiedergabe = new com.dan.lituya.scene.Wiedergabe();
     final EreignisGl ereignisGl = new EreignisGl();
+    /** Phase 13c: „Was wäre wenn“ in Echtzeit (wave.Bay auf der Grafikkarte, LOW). */
+    public final Echtzeit echtzeit = new Echtzeit();
     /** Der Rückbau des Gilbert Inlet auf 1958 im Gelände (an, solange der Zeitstand nicht „heute“ ist). */
     public volatile boolean rueckbau = true;
+    private boolean rueckbauJetzt = true;
     /** Texturstelle der Höhen der Clipmap. */
     static final int UNIT_CLIP = 3;
 
@@ -358,6 +361,14 @@ public final class Renderer implements GLEventListener {
 
     void renderFrame(GL4 gl, int w, int h) {
         mark(gl, 0);
+        // 0 Phase 13c: die Echtzeit rechnet hinter der Uhr her (Zeitbudget je Bild), bevor gezeichnet wird
+        try {
+            if (echtzeit.schritt(gl, clock.simSeconds(), wiedergabe) && echtzeit.grund == Echtzeit.Grund.HEUTE) rueckbauJetzt = false;
+            else rueckbauJetzt = rueckbau;
+        } catch (RuntimeException e) {
+            System.err.println("LituyaBay1958: Echtzeit: " + e);
+            echtzeit.aus();
+        }
         double[] sp = clock.sun();
         double[] sun = Sun.direction(sp[0], sp[1]);
         float[] proj = Mat4.perspective(fovy(), w / (double) h, NEAR, FAR, reversedZ);
@@ -390,7 +401,7 @@ public final class Renderer implements GLEventListener {
             gl.glFrontFace(GL.GL_CCW);
             common(gl, gelaendeShader, vp, inv, sun);
             bindMarks(gl, gelaendeShader);
-            boolean rb = rueckbau && clock.zeitstand != SceneClock.Zeitstand.HEUTE;
+            boolean rb = rueckbauJetzt && clock.zeitstand != SceneClock.Zeitstand.HEUTE;
             gelaendeShader.set(gl, "uRueckbauAn", rb ? 1 : 0);
             double[] r0 = Site.fromUtm(com.dan.lituya.scene.Boden1958.RUECKBAU_E0, com.dan.lituya.scene.Boden1958.RUECKBAU_N0),
                     r1 = Site.fromUtm(com.dan.lituya.scene.Boden1958.RUECKBAU_E1, com.dan.lituya.scene.Boden1958.RUECKBAU_N1);
@@ -461,6 +472,37 @@ public final class Renderer implements GLEventListener {
         gl.glBindVertexArray(0);
         gl.glUseProgram(0);
         mark(gl, 7);
+    }
+
+    /**
+     * Phase 13c: der Ort in der Szene unter dem Bildpunkt (x, y) eines Bilds w × h (Strg-Klick): Strahl vom Auge bis aufs
+     * Gelände oder Wasser, {x, z} oder null.
+     */
+    public double[] treffer(int x, int y, int w, int h) {
+        float[] v = camera.view();
+        double[] right = {v[0], v[4], v[8]}, up = {v[1], v[5], v[9]}, back = {v[2], v[6], v[10]};
+        double ty = Math.tan(Math.toRadians(fovy()) / 2), tx = ty * w / Math.max(1.0, h);
+        double sx = (2.0 * (x + 0.5) / w - 1) * tx, sy = (1 - 2.0 * (y + 0.5) / h) * ty;
+        double[] d = new double[3];
+        for (int i = 0; i < 3; i++) d[i] = right[i] * sx + up[i] * sy - back[i];
+        double l = Math.sqrt(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]);
+        for (int i = 0; i < 3; i++) d[i] /= l;
+        double t = 0, step = 2, prev = 0;
+        for (int i = 0; i < 4000 && t < 60_000; i++) {
+            double px = camera.eye[0] + d[0] * t, py = camera.eye[1] + d[1] * t, pz = camera.eye[2] + d[2] * t;
+            if (py <= Math.max(groundHeight(px, pz), wiring.pegel)) {
+                double a = prev, b = t;
+                for (int k = 0; k < 30; k++) {
+                    double m = (a + b) / 2, qx = camera.eye[0] + d[0] * m, qy = camera.eye[1] + d[1] * m, qz = camera.eye[2] + d[2] * m;
+                    if (qy <= Math.max(groundHeight(qx, qz), wiring.pegel)) b = m; else a = m;
+                }
+                return new double[]{camera.eye[0] + d[0] * b, camera.eye[2] + d[2] * b};
+            }
+            prev = t;
+            t += step;
+            step = Math.min(200, step * 1.02 + 0.5);
+        }
+        return null;
     }
 
     /** Blickrichtung aus der Blickmatrix (Spalten): die dritte Zeile, umgedreht. */
@@ -643,6 +685,7 @@ public final class Renderer implements GLEventListener {
         l.add(uhrenZeile());
         String ez = ereignisZeile();
         if (!ez.isEmpty()) l.add(ez);
+        if (echtzeit.an() || echtzeit.baut()) l.add(echtzeit.zeile());
         l.add(cameraLine() + " · H: volles HUD, F1: Tasten");
         if (System.currentTimeMillis() < meldungUntil) l.add(meldung);
         if (error != null) l.add("!" + error.split("\n")[0]);
@@ -681,6 +724,7 @@ public final class Renderer implements GLEventListener {
                 land.zeile(),
                 netzblick.info(),
                 "Abspielen: " + wiedergabe.zeile() + " · " + ereignisGl.info(),
+                echtzeit.zeile() + (echtzeit.an() ? " · " + echtzeit.messung() : ""),
                 clipGl.info(),
                 cameraLine(),
                 String.format(Locale.GERMAN, "UTM 8 N  E %.0f  N %.0f · %s · Kimm %.1f km", utm[0], utm[1], Site.dms(ll[0], ll[1]), kimm / 1000),
@@ -765,6 +809,7 @@ public final class Renderer implements GLEventListener {
         hud.dispose(gl);
         netzblick.dispose(gl);
         ereignisGl.dispose(gl);
+        echtzeit.dispose(gl);
         wiedergabe.close();
         Gpu.deleteFbos(gl, hdrFbo, hdrColorFbo);
         Gpu.deleteTextures(gl, hdrTex, depthTex);
