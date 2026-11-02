@@ -76,7 +76,7 @@
         lib/Renderer.jar alles hat, was LituyaBay1958 braucht (jedes gebrauchte Package mit Klassen und README, Java 21,
         von den 14 neuen die, deren Phase erreicht ist); abschalten mit -Dohne.paketpruefung=true.
     -->
-    <property name="lituya.phase" value="13a"/>
+    <property name="lituya.phase" value="13b"/>
     <target name="check-packages" description="Prüft lib/Renderer.jar: die gebrauchten Packages mit README, Java 21, die fälligen neuen." unless="ohne.paketpruefung">
         <property name="platform.java" value="java"/>
         <exec executable="${platform.java}" dir="${basedir}" failonerror="true">
@@ -586,5 +586,39 @@
         <renderer-java klasse="com.dan.lituya.tools.Vergleich" args="daten ${laeufe}" ausgabe="docs/status/vergleich_Phase${lituya.phase}.txt" speicher="-Xmx4g"/>
         <loadfile property="vergleich.text" srcFile="docs/status/vergleich_Phase${lituya.phase}.txt" encoding="UTF-8"/>
         <echo message="${vergleich.text}"/>
+    </target>
+    <!-- Phase 13b (Werkbuch 10.3, 4.4): schaustuecke: Standbilder der Schaustücke 2 bis 7 aus der Vorrechnung
+         (daten/ereignis) nach docs/status/Schaustueck_<n>_Phase13b.png, volles HUD mit den Zeiten jedes Durchgangs (Welle,
+         Staub); Ausgabe in docs/status/schaustuecke_Phase13b.txt. -Dlauf=messwelle wählt den Lauf der Welle,
+         -Dereignis=<s> eine andere Zeit für alle. Auf der Radeon laufen lassen. -->
+    <macrodef name="schaustueck">
+        <attribute name="nr"/>
+        <sequential>
+            <java classname="com.dan.lituya.tools.Tempo" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="false" output="docs/status/schaustuecke_Phase${lituya.phase}.txt" append="true" logError="true">
+                <jvmarg value="-Dstdout.encoding=UTF-8"/>
+                <jvmarg value="--enable-native-access=ALL-UNNAMED"/>
+                <jvmarg value="-Xmx6g"/>
+                <jvmarg value="-Dhud=voll"/>
+                <jvmarg value="-Dschaustueck=@{nr}"/>
+                <jvmarg value="-Dlauf=${lauf}"/>
+                <jvmarg value="-Dereignis=${ereignis}"/>
+                <arg line="60 1920 1080 docs/status/Schaustueck_@{nr}_Phase${lituya.phase}.png MITTEL"/>
+                <classpath><pathelement path="${run.classpath}"/></classpath>
+            </java>
+        </sequential>
+    </macrodef>
+    <target name="schaustuecke" depends="jar" description="Phase 13b: Standbilder der Schaustücke 2 bis 7 aus der Vorrechnung (docs/status/Schaustueck_*.png).">
+        <property name="platform.java" value="java"/>
+        <property name="lauf" value="kette"/>
+        <property name="ereignis" value=""/>
+        <delete file="docs/status/schaustuecke_Phase${lituya.phase}.txt" quiet="true"/>
+        <schaustueck nr="2"/>
+        <schaustueck nr="3"/>
+        <schaustueck nr="4"/>
+        <schaustueck nr="5"/>
+        <schaustueck nr="6"/>
+        <schaustueck nr="7"/>
+        <loadfile property="schaustuecke.text" srcFile="docs/status/schaustuecke_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${schaustuecke.text}"/>
     </target>
 </project>

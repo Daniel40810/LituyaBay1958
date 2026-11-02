@@ -348,6 +348,12 @@ public final class Ereignis {
                     nextD += 2;
                 }
             }
+            // ab Phase 13b: der Grund unter Strom und Staub für das Abspielen (Staub: Wasser auf 0 wie die Wolke)
+            float[] bs = new float[gs.nx() * gs.nz()], bd = new float[gd.nx() * gd.nz()];
+            for (int j = 0; j < gs.nz(); j++) for (int i = 0; i < gs.nx(); i++) { double h = hoehe.applyAsDouble(gs.e(i), gs.n(j)); bs[j * gs.nx() + i] = Double.isNaN(h) ? -200f : (float) h; }
+            for (int j = 0; j < gd.nz(); j++) for (int i = 0; i < gd.nx(); i++) { double h = hoehe.applyAsDouble(gd.e(i), gd.n(j)); bd[j * gd.nx() + i] = Double.isNaN(h) ? 0f : (float) Math.max(0, h); }
+            ws.raster("boden", 0, bs);
+            wd.raster("boden", 0, bd);
             Properties p = new Properties();
             p.setProperty("lauf", "strom");
             p.setProperty("quelle", "landslide Preset gilbertInlet1958 (LOW, gerechnetes Gelände [G]), an die Wand gelegt; g0 Mächtigkeit (m)");

@@ -53,7 +53,14 @@ public final class ControlPanel extends JPanel implements javax.swing.Scrollable
             marks = new FCheckBox("Marken (UTM-Raster, Kern, Szene, Fern, Orte)"), autoBox = new FCheckBox("Auflösung selbst regeln"),
             meerBox = new FCheckBox("Wasser zeigen (Platzhalter bis Phase 5a)"),
             gelaendeBox = new FCheckBox("Gelände zeigen (clipmap, Farben bis Phase 5)");
-    private FComboBox lapseBox, qualBox, hudBox, standBox;
+    private FComboBox lapseBox, qualBox, hudBox, standBox, laufBox, tempoBox;
+    private final JLabel ereignisLbl = small("");
+    /** Tempo des Abspielens (Phase 13b): Szenensekunden je Sekunde, Richtung extra. */
+    private static final double[] TEMPO = {1, 0.5, 0.2, 0.1, 0.05};
+    private static final Object[] TEMPO_NAME = {"Echtzeit", "Zeitlupe 1:2", "Zeitlupe 1:5", "Zeitlupe 1:10", "Zeitlupe 1:20"};
+    private int richtung = 1;
+    /** Der Zeitraffer vor dem Anhalten (Leertaste, K). */
+    private double letzte = 1;
     private boolean fromScene;
     private int ticks;
     private JPanel target = this;
@@ -145,14 +152,63 @@ public final class ControlPanel extends JPanel implements javax.swing.Scrollable
         put(lapseBox);
         put(sunLbl);
         put(small("<html><body style='width:215px'>Ortszeit: 1958 Pacific Standard Time (UTC−8), heute Alaska-Zeit (im Sommer UTC−8). "
-                + "Simulationszeit t ab dem ersten Stoß. Zeitlupe bis 1:20 kommt mit dem Ereignis (Phase 13), 68 Jahre im Zeitraffer mit Phase 14a; "
+                + "Simulationszeit t ab dem ersten Stoß. Zeitlupe bis 1:20 und rückwärts im Block EREIGNIS, 68 Jahre im Zeitraffer mit Phase 14a; "
                 + "Himmel und Dämmerung rechnet ab Phase 5a com.dan.sky.</body></html>"));
 
         // ============================================================== spätere Blöcke
         block("EREIGNIS", false);
-        put(small("<html><body style='width:215px'>Kommt mit Phase 13: die Kette Beben → Felssturz → Eintauchen → Welle → Auflauf, "
-                + "vorgerechnet abspielen (vorwärts, rückwärts, Zeitlupe) oder in Echtzeit mit Volumen, Ort, Tide und Grund 1940/heute (F10 A). "
-                + "Die Packages quake, landslide, impact und wave entstehen in den Phasen 8 bis 11.</body></html>"));
+        // Phase 13b: die Vorrechnung abspielen (daten/ereignis), Schaustücke 2 bis 7
+        com.dan.lituya.scene.Wiedergabe wg = r.wiedergabe;
+        FCheckBox spielen = new FCheckBox("Vorrechnung abspielen (Welle, Strom, Staub)");
+        spielen.setSelected(wg.an());
+        spielen.addActionListener(e -> { wg.an(spielen.isSelected()); view.requestFocusInWindow(); });
+        put(spielen);
+        put(label("Lauf der Welle"));
+        java.util.List<String> laeufe = wg.wellen();
+        if (laeufe.isEmpty()) laeufe = java.util.List.of(com.dan.lituya.scene.Wiedergabe.WELLEN);
+        laufBox = new FComboBox(laeufe.toArray());
+        laufBox.setSelectedItem(wg.welle());
+        laufBox.setToolTipText("kette: Nahfeld aus impact (Werkbuch 4.4); messwelle: die gemessene Welle am Einlass; _LOW: grobe Läufe");
+        laufBox.addActionListener(e -> { if (laufBox.getSelectedItem() != null) wg.welle(laufBox.getSelectedItem().toString()); view.requestFocusInWindow(); });
+        put(laufBox);
+        JPanel sp = grid(4);
+        FButton rueck = new FButton("◀ J"), halt = new FButton("■ K"), vor = new FButton("▶ L"), sturz = new FButton("93 s");
+        rueck.setToolTipText("Rückwärts (J)");
+        halt.setToolTipText("Anhalten (K)");
+        vor.setToolTipText("Vorwärts (L)");
+        sturz.setToolTipText("Uhr auf die Auslösung des Felssturzes: 93 s nach dem ersten Stoß [G]");
+        rueck.addActionListener(e -> richtung(-1));
+        halt.addActionListener(e -> richtung(0));
+        vor.addActionListener(e -> richtung(1));
+        sturz.addActionListener(e -> { clock.setEpochMillis(SceneClock.BEBEN.toEpochMilli() + 93_000L); clock.zeitstand = SceneClock.Zeitstand.WELLE;
+            wg.an(true); spielen.setSelected(true); syncFromScene(); view.requestFocusInWindow(); });
+        sp.add(rueck); sp.add(halt); sp.add(vor); sp.add(sturz);
+        put(sp);
+        put(label("Tempo (Z)"));
+        tempoBox = new FComboBox(TEMPO_NAME);
+        tempoBox.setSelectedIndex(0);
+        tempoBox.addActionListener(e -> { tempo(); view.requestFocusInWindow(); });
+        put(tempoBox);
+        put(ereignisLbl);
+        sub("Schaustücke");
+        JPanel s1 = grid(2), s2 = grid(2), s3 = grid(2), s4 = grid(1);
+        JPanel[] srow = {s1, s1, s2, s2, s3, s3, s4};
+        for (com.dan.lituya.camera.Schaustuecke.Stueck st : com.dan.lituya.camera.Schaustuecke.ALLE) {
+            FButton b = new FButton(st.nr() + " " + st.name());
+            b.setToolTipText(com.dan.lituya.camera.Schaustuecke.describe(st));
+            b.addActionListener(e -> stueck(st, spielen));
+            srow[st.nr() - 1].add(b);
+        }
+        put(s1); put(s2); put(s3); put(s4);
+        put(small("<html><body style='width:215px'>Die Vorrechnung aus Phase 13 (ant ereignis): Welle in drei Gittern (16, 4, 2 m), Felssturz "
+                + "und Staub über dem Grund von 1958; der Rückbau des Gilbert Inlet gilt im Gelände für alle Zeitstände außer „heute“. "
+                + "J/K/L: rückwärts, anhalten, vorwärts; Z: Zeitlupe 1:1, 1:2, 1:5, 1:10, 1:20. Fahrten kommen mit Phase 17, die Echtzeit "
+                + "„Was wäre wenn“ mit 13c, Geröll und Stämme mit 14.</body></html>"));
+        view.setKeyAction(java.awt.event.KeyEvent.VK_J, () -> javax.swing.SwingUtilities.invokeLater(() -> richtung(-1)));
+        view.setKeyAction(java.awt.event.KeyEvent.VK_K, () -> javax.swing.SwingUtilities.invokeLater(() -> richtung(0)));
+        view.setKeyAction(java.awt.event.KeyEvent.VK_L, () -> javax.swing.SwingUtilities.invokeLater(() -> richtung(1)));
+        view.setKeyAction(java.awt.event.KeyEvent.VK_Z, () -> javax.swing.SwingUtilities.invokeLater(() ->
+                tempoBox.setSelectedIndex((tempoBox.getSelectedIndex() + 1) % TEMPO.length)));
         block("NETZE", false);
         // Phase 7a: der Netzblick (Werkbuch 7.10)
         com.dan.lituya.gl.Netzblick nb = r.netzblick;
@@ -270,8 +326,10 @@ public final class ControlPanel extends JPanel implements javax.swing.Scrollable
         for (FCollapsiblePanel p : zu) p.setExpanded(false, false);
         add(Box.createVerticalGlue());
         view.setKeyAction(java.awt.event.KeyEvent.VK_F1, () -> javax.swing.SwingUtilities.invokeLater(this::tasten));
-        view.setKeyAction(java.awt.event.KeyEvent.VK_SPACE, () -> javax.swing.SwingUtilities.invokeLater(() ->
-                lapseBox.setSelectedIndex(clock.lapse == 0 ? 1 : 0)));
+        // seit Phase 13b: die Leertaste hält an und läuft mit dem vorigen Tempo weiter (auch Zeitlupe und rückwärts)
+        view.setKeyAction(java.awt.event.KeyEvent.VK_SPACE, () -> javax.swing.SwingUtilities.invokeLater(() -> {
+            if (clock.lapse != 0) { letzte = clock.lapse; clock.lapse = 0; } else clock.lapse = letzte == 0 ? 1 : letzte;
+        }));
         Thread probe = new Thread(() -> { Lod.Probe p = Lod.probe(); lodProbe = (p.ok() ? "" : "") + p.text(); }, "LituyaBay1958-LOD-Probe");
         probe.setDaemon(true);
         probe.start();
@@ -293,6 +351,29 @@ public final class ControlPanel extends JPanel implements javax.swing.Scrollable
         view.requestFocusInWindow();
     }
 
+    /** Richtung des Abspielens: −1 rückwärts, 0 halt, 1 vorwärts (J, K, L). */
+    private void richtung(int d) {
+        if (d != 0) richtung = d;
+        if (clock.lapse != 0) letzte = clock.lapse;
+        clock.lapse = d == 0 ? 0 : d * TEMPO[Math.max(0, tempoBox.getSelectedIndex())];
+        view.requestFocusInWindow();
+    }
+
+    private void tempo() {
+        if (clock.lapse != 0) clock.lapse = Math.signum(clock.lapse) * TEMPO[Math.max(0, tempoBox.getSelectedIndex())];
+    }
+
+    private void stueck(com.dan.lituya.camera.Schaustuecke.Stueck st, FCheckBox spielen) {
+        r.placeStueck(st);
+        spielen.setSelected(true);
+        free.setSelected(r.camera.mode == Camera.Mode.FREI);
+        orbit.setSelected(false);
+        for (int i = 0; i < TEMPO.length; i++) if (Math.abs(TEMPO[i] - st.lapse()) < 1e-9) tempoBox.setSelectedIndex(i);
+        richtung = 1;
+        syncFromScene();
+        view.requestFocusInWindow();
+    }
+
     private void tasten() {
         StringBuilder an = new StringBuilder();
         for (Ansichten.Ansicht a : Ansichten.ALLE) an.append(an.length() > 0 ? ", " : "").append(a.key()).append(' ').append(a.name());
@@ -301,6 +382,7 @@ public final class ControlPanel extends JPanel implements javax.swing.Scrollable
                 + "Pfeile: drehen · W A S D: gleiten · Q/E: ab und auf (frei) · Umschalt: schneller<br>"
                 + "F: frei fliegen · R: von selbst kreisen · Pos1: Grundansicht · H: HUD kurz, voll, aus<br>"
                 + "Leertaste: Uhr anhalten und weiter · N: Netzblick an und aus · F12: Foto nach docs/status · F5: Shader neu laden<br>"
+                + "Ereignis: J rückwärts · K anhalten · L vorwärts · Z Zeitlupe (1:1 bis 1:20); Schaustücke im Block EREIGNIS<br>"
                 + "Ansichten: " + an + "<br><br>"
                 + "<b>Fenster</b><br>F1: diese Übersicht · F11: nur die Szene (Bedienfeld und Statuszeile weg und wieder da)</body></html>",
                 "LituyaBay1958 · Tasten", com.dan.foptionpane.FOptionPane.INFORMATION_MESSAGE);
@@ -323,6 +405,8 @@ public final class ControlPanel extends JPanel implements javax.swing.Scrollable
         txt(timeLbl, "Ortszeit " + clock.timeLabelSec());
         txt(simLbl, "Simulationszeit " + clock.simLabel());
         txt(standLbl, "<html><body style='width:215px'>" + esc(clock.zeitstand.text) + "</body></html>");
+        String ez = r.ereignisZeile();
+        txt(ereignisLbl, "<html><body style='width:215px'>" + esc(ez.isEmpty() ? "Abspielen: " + r.tempoText() + " · " + r.wiedergabe.zeile() : ez + " · " + r.wiedergabe.zeile()) + "</body></html>");
         double[] s = clock.sun();
         double day = clock.local().toLocalDate().atStartOfDay(SceneClock.ZONE).toInstant().toEpochMilli();
         double up = Sun.crossing(day, clock.lat, clock.lon, true), down = Sun.crossing(day, clock.lat, clock.lon, false);

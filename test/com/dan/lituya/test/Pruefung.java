@@ -471,6 +471,94 @@ public final class Pruefung {
             }
         }
 
+        teil("Abspielen (Phase 13b): Wiedergabe mit Vorrat, Kacheln, Schaustücke");
+        {
+            // ein kleiner Lauf „kette“ mit zwei Gittern und vier Bildern
+            File tmp = Files.createTempDirectory("lb13b").toFile();
+            File dk = com.dan.lituya.scene.EreignisDaten.ordner(tmp, "kette");
+            com.dan.lituya.scene.EreignisDaten.Gitter g0 = new com.dan.lituya.scene.EreignisDaten.Gitter(352_000, 6_503_000, 16, 200, 140),
+                    g1 = new com.dan.lituya.scene.EreignisDaten.Gitter(353_000, 6_504_000, 4, 130, 100);
+            try (com.dan.lituya.scene.EreignisDaten.Schreiber sw = new com.dan.lituya.scene.EreignisDaten.Schreiber(dk, List.of(g0, g1))) {
+                for (int bi = 0; bi < 4; bi++)
+                    for (int kk = 0; kk < 2; kk++) {
+                        com.dan.lituya.scene.EreignisDaten.Gitter g = kk == 0 ? g0 : g1;
+                        float[] eta = new float[g.nx() * g.nz()];
+                        for (int c = 0; c < eta.length; c++) eta[c] = (c % g.nx()) >= g.nx() - 70 ? Float.NaN : bi * 2f;   // Osten trocken
+                        sw.bild(kk, 105 + bi * 10, eta);
+                    }
+                for (int kk = 0; kk < 2; kk++) {
+                    com.dan.lituya.scene.EreignisDaten.Gitter g = kk == 0 ? g0 : g1;
+                    float[] mx = new float[g.nx() * g.nz()];
+                    for (int c = 0; c < mx.length; c++) mx[c] = (c % g.nx()) >= g.nx() - 70 ? Float.NaN : 6f;
+                    sw.raster("max", kk, mx);
+                }
+                java.util.Properties pp = new java.util.Properties();
+                pp.setProperty("start_s", "105");
+                sw.beschreibung(pp);
+            }
+            com.dan.lituya.scene.Wiedergabe wg = new com.dan.lituya.scene.Wiedergabe(tmp);
+            check(wg.wellen().equals(List.of("kette")), "Läufe der Welle in daten/ereignis: " + wg.wellen());
+            wg.start();
+            boolean geladen = wg.warten(112, 20_000);
+            List<com.dan.lituya.scene.Wiedergabe.Spur> ws = wg.spuren(com.dan.lituya.scene.Wiedergabe.Art.WELLE);
+            check(geladen && ws.size() == 2, "Paar um t = 112 s geladen: " + wg.zeile());
+            com.dan.lituya.scene.Wiedergabe.Spur s0 = ws.get(0);
+            double[] kl = s0.klammer(112);
+            check(s0.klammer(104) == null && kl[0] == 0 && kl[1] == 1 && Math.abs(kl[2] - 0.7) < 1e-9 && s0.klammer(200)[0] == 3
+                    && s0.klammer(135 + com.dan.lituya.scene.Wiedergabe.NACHLAUF + 1) == null, "Klammer: vor dem Start keine, 112 s zwischen Bild 0 und 1 (0,7), danach das letzte, nach dem Nachlauf keine");
+            com.dan.lituya.scene.Wiedergabe.Paar pa = wg.paar(s0, 112);
+            check(pa != null && Math.abs(pa.wert(10, 10) - 1.4) < 1e-6 && Double.isNaN(pa.wert(g0.nx() - 1, 10)), f("gemischt 0 m und 2 m zu %.2f m, Osten trocken", pa == null ? Double.NaN : pa.wert(10, 10)));
+            double[] xz = Site.fromUtm(353_100, 6_504_100);
+            wg.warten(125, 20_000);
+            check(Math.abs(wg.eta(xz[0], xz[1], 125) - 4) < 1e-6, f("Wasserstand am Ort aus dem feinsten Gitter: %.2f m", wg.eta(xz[0], xz[1], 125)));
+            int nie = 0;
+            for (float m : s0.kachelMax) if (Float.isNaN(m)) nie++;
+            check(s0.ntx == 4 && s0.ntz == 3 && nie == 3 && s0.feiner != null, f("Kacheln zu %d Zellen: %d × %d, %d nie nass (Osten), Rechteck des feineren Gitters", com.dan.lituya.scene.Wiedergabe.KACHEL, s0.ntx, s0.ntz, nie));
+            // Stufen der Feinheit: Zweierpotenzen, nah fein, weit grob; hinter dem Auge weg
+            Camera kc = new Camera();
+            double[] mid = Site.fromUtm(352_500, 6_503_500);
+            kc.place(mid[0], 30, mid[1], 90, 5);
+            float[] vpk = Mat4.mul(Mat4.perspective(Camera.FOVY, 16 / 9.0, 0.3, 400_000, true), kc.view());
+            int[] st = com.dan.lituya.gl.EreignisGl.stufen(s0, vpk, kc.eye, 2 * Math.tan(Math.toRadians(Camera.FOVY) / 2) / 1080, 0);
+            boolean zwei = true;
+            int an = 0;
+            for (int v : st) { if (v != 0) an++; zwei &= v == 0 || (Integer.bitCount(v) == 1 && v <= com.dan.lituya.gl.EreignisGl.MAX_SCHRITT); }
+            check(zwei && an > 0 && an < s0.ntx * s0.ntz - nie, f("Stufen je Kachel Zweierpotenzen bis %d, %d von %d Kacheln im Blick", com.dan.lituya.gl.EreignisGl.MAX_SCHRITT, an, s0.ntx * s0.ntz));
+            check(!com.dan.lituya.gl.EreignisGl.sichtbar(vpk, mid[0] - 2000, mid[0] - 1000, -10, 10, mid[1] - 100, mid[1] + 100, kc.eye)
+                    && com.dan.lituya.gl.EreignisGl.sichtbar(vpk, mid[0] + 1000, mid[0] + 2000, -10, 10, mid[1] - 100, mid[1] + 100, kc.eye), "Kachel hinter dem Auge fällt weg, vor dem Auge bleibt sie");
+            wg.close();
+            SceneClock rk = new SceneClock();
+            rk.setEpochMillis(SceneClock.BEBEN.toEpochMilli() + 120_000);
+            rk.lapse = -0.05;
+            rk.step(2);
+            check(Math.abs(rk.simSeconds() - 119.9) < 1e-6, f("rückwärts in Zeitlupe 1:20: 2 s später t = %.2f s", rk.simSeconds()));
+            double vorher = -1e9;
+            boolean folge = true, imKern = true;
+            for (com.dan.lituya.camera.Schaustuecke.Stueck sk : com.dan.lituya.camera.Schaustuecke.ALLE) {
+                folge &= sk.t() >= vorher;
+                vorher = sk.t();
+                imKern &= Site.KERN.contains(sk.x(), sk.z());
+            }
+            check(com.dan.lituya.camera.Schaustuecke.ALLE.size() == 7 && folge && imKern, "Schaustücke 1 bis 7 im Kern, in der Folge der Zeitleiste");
+            com.dan.lituya.camera.Schaustuecke.Stueck s7 = com.dan.lituya.camera.Schaustuecke.byNr(7), s4 = com.dan.lituya.camera.Schaustuecke.byName("Die Wand aus Wasser");
+            Camera c7 = new Camera();
+            c7.waterLevel = 0;
+            SceneClock k7 = new SceneClock();
+            com.dan.lituya.camera.Schaustuecke.apply(s7, c7, k7, (x, zz) -> -60);
+            c7.snap();
+            check(c7.diving && c7.eye[1] < 0 && Math.abs(k7.simSeconds() - s7.t()) < 1e-6 && k7.lapse == s7.lapse(), f("„Unter Wasser“: Auge %.1f m, t = %.0f s, %s", c7.eye[1], k7.simSeconds(), s7.tempo()));
+            check(s4 != null && s4.lapse() == 0.05 && s4.tempo().equals("Zeitlupe 1:20"), "„Die Wand aus Wasser“ in Zeitlupe 1:20");
+            check(Renderer.PASSES.length == 7 && List.of(Renderer.PASSES).contains("Welle") && List.of(Renderer.PASSES).contains("Staub"), "Durchgänge: " + String.join(", ", Renderer.PASSES));
+            File ec = new File("daten/ereignis");
+            if (ec.isDirectory()) {
+                com.dan.lituya.scene.Wiedergabe echt = new com.dan.lituya.scene.Wiedergabe(new File("daten"));
+                List<String> l = echt.wellen();
+                check(l.contains("kette") || l.contains("messwelle"), "Vorrechnung in daten/ereignis: " + l);
+                boolean bs = new File(ec, "strom/boden_g0.r32").isFile(), bd = new File(ec, "staub/boden_g0.r32").isFile();
+                if (!bs || !bd) hinweis("Grund unter Strom und Staub fehlt noch (rechnet die App beim ersten Abspielen aus Boden1958, oder ant ereignis -Dlauf=staub)");
+            } else hinweis("daten/ereignis fehlt (ant ereignis)");
+        }
+
         teil("Staub und Treibgut (Phase 12): dustcloud, debris");
         {
             com.dan.dustcloud.DustCloud dc = new com.dan.dustcloud.DustCloud(0, 0, 40, 20, 50, com.dan.dustcloud.DustCloud.rockDust());
