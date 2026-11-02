@@ -410,6 +410,67 @@ public final class Pruefung {
             check(Math.abs(r[0] - 526) <= 50, f("Auflauf der Messwelle FRITZ01 am 45°-Gegenhang: %.0f m (526 ± 50 m), Pegel 1 100 m %.0f m nach %.1f s", r[0], r[1], r[2]));
         }
 
+        teil("Ereignis (Phase 13): Grund 1958, Linie aus dem Nahfeld, Daten der Vorrechnung");
+        {
+            // Bilder schreiben und lesen (Stufen zu 0,05 m, trocken bleibt trocken)
+            File et = java.nio.file.Files.createTempDirectory("ereignis").toFile();
+            com.dan.lituya.scene.EreignisDaten.Gitter eg = new com.dan.lituya.scene.EreignisDaten.Gitter(350_000, 6_500_000, 10, 30, 20);
+            float[] ev = new float[600];
+            for (int c = 0; c < ev.length; c++) ev[c] = c % 7 == 0 ? Float.NaN : (float) (Math.sin(c * 0.1) * 300);
+            try (com.dan.lituya.scene.EreignisDaten.Schreiber ew = new com.dan.lituya.scene.EreignisDaten.Schreiber(et, java.util.List.of(eg))) {
+                ew.bild(0, 105, ev);
+                ew.bild(0, 106, new float[600]);
+                ew.raster("max", 0, ev);
+                ew.beschreibung(new java.util.Properties());
+            }
+            double ef = 0;
+            int eb;
+            try (com.dan.lituya.scene.EreignisDaten.Leser er = new com.dan.lituya.scene.EreignisDaten.Leser(et)) {
+                float[] back = er.bild(0, 0);
+                eb = er.zeiten(0).length;
+                for (int c = 0; c < ev.length; c++) ef = Math.max(ef, Float.isNaN(ev[c]) != Float.isNaN(back[c]) ? 1e9 : Float.isNaN(ev[c]) ? 0 : Math.abs(ev[c] - back[c]));
+            }
+            check(eb == 2 && ef <= 0.025 + 1e-6, f("EreignisDaten: 2 Bilder geschrieben und gelesen, größte Abweichung %.3f m (Stufe 0,05 m), trocken bleibt trocken", ef));
+            // Lage der Linie: 885 m vor der Wand, Wand 1 640 m vom Sporn
+            double[] lwd = com.dan.lituya.tools.Ereignis.wand(), lnf = com.dan.lituya.tools.Ereignis.linie();
+            check(Math.abs(Math.hypot(lnf[0] - lwd[0], lnf[1] - lwd[1]) - 885) < 1e-6 && Math.abs(Math.hypot(lwd[0] - Site.SPORN.e(), lwd[1] - Site.SPORN.n()) - 1640) < 1e-6
+                            && com.dan.lituya.tools.Ereignis.nahfeld(lwd[0] + 0.5 * 885 * com.dan.lituya.tools.Ereignis.RICHTUNG[0], lwd[1] + 0.5 * 885 * com.dan.lituya.tools.Ereignis.RICHTUNG[1]),
+                    f("Linie aus dem Nahfeld bei E %.0f N %.0f, Wand bei E %.0f N %.0f [G]; dazwischen Fels", lnf[0], lnf[1], lwd[0], lwd[1]));
+            if (!new File(daten, "grund/heute_4m.r32").isFile()) hinweis("daten/grund fehlt: ohne Prüfung des Grundes 1958");
+            else {
+                com.dan.lituya.scene.Boden1958 bo = new com.dan.lituya.scene.Boden1958(daten);
+                double inBucht = bo.hoehe(350_641.9, 6_502_491.1), insel = bo.hoehe(Site.CENOTAPH.e(), Site.CENOTAPH.n()), inlet = bo.hoehe(lnf[0], lnf[1]), sporn = bo.hoehe(Site.SPORN.e(), Site.SPORN.n());
+                check(inBucht < -20 && insel > 0 && inlet <= -100 && sporn > 100,
+                        f("Grund 1958: Bucht %.0f m, Cenotaph Island %.0f m, an der Linie im Gilbert Inlet %.0f m (Rückbau [G]), Sporn %.0f m", inBucht, insel, inlet, sporn));
+            }
+            File em = new File(daten, "ereignis/messwelle/EREIGNIS.txt");
+            if (!em.isFile()) hinweis("daten/ereignis/messwelle fehlt: ant ereignis");
+            else try (com.dan.lituya.scene.EreignisDaten.Leser er = new com.dan.lituya.scene.EreignisDaten.Leser(em.getParentFile())) {
+                int n = er.gitter.size(), bilder = er.zeiten(n - 1).length;
+                check(n == 3 && bilder > 100, f("daten/ereignis/messwelle: %d Gitter, %d Bilder im feinen, %s", n, bilder, er.p.getProperty("bay")));
+            }
+        }
+
+        teil("Vergleich (Phase 13a): Spurlinie gerechnet gegen belegt");
+        {
+            File sk = new File(daten, "netz/ufer/spurlinie_kette.tsv");
+            if (!sk.isFile()) hinweis("daten/netz/ufer/spurlinie_kette.tsv fehlt: ant vergleich");
+            else {
+                List<String[]> sz = com.dan.lituya.scene.WellenNetz.tsv(sk);
+                double sporn = 0, sum = 0;
+                int mit = 0;
+                for (String[] sv : sz) {
+                    if (sv[4].isEmpty()) continue;
+                    double sh = Double.parseDouble(sv[4]);
+                    mit++;
+                    sum += sh;
+                    if (Math.hypot(Double.parseDouble(sv[2]) - Site.SPORN.e(), Double.parseDouble(sv[3]) - Site.SPORN.n()) < 1000) sporn = Math.max(sporn, sh);
+                }
+                check(sz.size() > 700 && mit > 0.5 * sz.size() && sporn > 100,
+                        f("Spurlinie der Kette: %d Uferpunkte, an %d Auflauf, im Mittel %.0f m, am Sporn (1 km) %.0f m (MILLER60 524 m)", sz.size(), mit, sum / Math.max(1, mit), sporn));
+            }
+        }
+
         teil("Staub und Treibgut (Phase 12): dustcloud, debris");
         {
             com.dan.dustcloud.DustCloud dc = new com.dan.dustcloud.DustCloud(0, 0, 40, 20, 50, com.dan.dustcloud.DustCloud.rockDust());
