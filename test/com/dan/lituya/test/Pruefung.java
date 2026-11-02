@@ -410,6 +410,27 @@ public final class Pruefung {
             check(Math.abs(r[0] - 526) <= 50, f("Auflauf der Messwelle FRITZ01 am 45°-Gegenhang: %.0f m (526 ± 50 m), Pegel 1 100 m %.0f m nach %.1f s", r[0], r[1], r[2]));
         }
 
+        teil("Staub und Treibgut (Phase 12): dustcloud, debris");
+        {
+            com.dan.dustcloud.DustCloud dc = new com.dan.dustcloud.DustCloud(0, 0, 40, 20, 50, com.dan.dustcloud.DustCloud.rockDust());
+            dc.build((dx2, dz2) -> Math.max(0, 300 - 0.3 * dx2));
+            dc.source(new com.dan.dustcloud.DustCloud.Source(300, 500, 100, 0, 10, 10, 1e5, 0, 0));
+            dc.run(60);
+            double[] du = dc.budget();
+            check(Math.abs((du[0] + du[1] + du[2] + du[3] + du[4]) / du[5] - 1) < 1e-9 && Math.abs(dc.stokes(50e-6) - 0.2) < 0.02,
+                    f("dustcloud aus Renderer.jar: Wolke am Hang 60 s, Staub genau verbucht (%.0f m³), Stokes 50 µm %.2f m/s", du[5], dc.stokes(50e-6)));
+            com.dan.debris.Debris dd = new com.dan.debris.Debris(new com.dan.debris.Debris.Water() {
+                public double depth(double dx2, double dz2) { return 30; }
+
+                public double[] current(double dx2, double dz2) { return new double[]{0.5, 0}; }
+            });
+            com.dan.debris.Debris.Log dl = dd.add(com.dan.debris.Debris.Kind.TRUNK, 20, 0.5, 0, 0, 1);
+            dd.run(1800);
+            double dw = dd.windage(dl);
+            check(Math.abs(dl.vx - 0.5 / (1 + dw)) < 0.01 && Math.abs(dl.draft(1000) - 0.23) < 0.005,
+                    f("debris aus Renderer.jar: Stamm 20 × 0,5 m treibt mit %.3f m/s (Strömung 0,5, ruhende Luft), Tiefgang %.3f m, Windanteil %.1f %%", dl.vx, dl.draft(1000), 100 * dw));
+        }
+
         teil("Netze der Welle und des Ufers (Phase 7a): daten/netz/welle und daten/netz/ufer");
         {
             File wd = new File(daten, com.dan.lituya.scene.WellenNetz.ORDNER), ud = new File(daten, com.dan.lituya.scene.UferNetz.ORDNER);

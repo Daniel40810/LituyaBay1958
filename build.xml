@@ -76,7 +76,7 @@
         lib/Renderer.jar alles hat, was LituyaBay1958 braucht (jedes gebrauchte Package mit Klassen und README, Java 21,
         von den 14 neuen die, deren Phase erreicht ist); abschalten mit -Dohne.paketpruefung=true.
     -->
-    <property name="lituya.phase" value="11b"/>
+    <property name="lituya.phase" value="12"/>
     <target name="check-packages" description="Prüft lib/Renderer.jar: die gebrauchten Packages mit README, Java 21, die fälligen neuen." unless="ohne.paketpruefung">
         <property name="platform.java" value="java"/>
         <exec executable="${platform.java}" dir="${basedir}" failonerror="true">
@@ -515,5 +515,52 @@
         <renderer-java klasse="com.dan.wave.demo.BayGpuCheck" ausgabe="docs/status/baygpucheck_Phase${lituya.phase}.txt" speicher="-Xmx3g"/>
         <loadfile property="baygpucheck.text" srcFile="docs/status/baygpucheck_Phase${lituya.phase}.txt" encoding="UTF-8"/>
         <echo message="${baygpucheck.text}"/>
+    </target>
+    <!-- Phase 12 (Werkbuch 5.4, 5.5, 9.2): die neuen Packages com.dan.dustcloud (Staubwolke als Schwerestrom) und
+         com.dan.debris (Treibgut: Stämme als Körper, Holzteppich als Feld) aus lib/Renderer.jar. staubcheck, treibgutcheck:
+         DustcloudCheck und DebrisCheck nach docs/status/…_Phase12.txt; staubbild, treibgutbild: die Bögen der Demos nach
+         docs/status/Staub_Demo.png und Treibgut_Demo.png; staubdemo, treibgutdemo: Fenster; treibgut: wave.Bay (Fjordbucht)
+         treibt 300 Stämme vom Hang (docs/status/Treibgut.png, -Dzeit); staubwolke: landslide (Gilbert Inlet) gibt Staub an
+         dustcloud (docs/status/Staubwolke.png, -Dzeit, -Dqualitaet). -->
+    <target name="staubcheck" depends="compile" description="Phase 12: DustcloudCheck nach docs/status/staubcheck_Phase12.txt.">
+        <renderer-java klasse="com.dan.dustcloud.demo.DustcloudCheck" ausgabe="docs/status/staubcheck_Phase${lituya.phase}.txt" speicher="-Xmx2g"/>
+        <loadfile property="staubcheck.text" srcFile="docs/status/staubcheck_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${staubcheck.text}"/>
+    </target>
+    <target name="treibgutcheck" depends="compile" description="Phase 12: DebrisCheck nach docs/status/treibgutcheck_Phase12.txt.">
+        <renderer-java klasse="com.dan.debris.demo.DebrisCheck" ausgabe="docs/status/treibgutcheck_Phase${lituya.phase}.txt" speicher="-Xmx2g"/>
+        <loadfile property="treibgutcheck.text" srcFile="docs/status/treibgutcheck_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${treibgutcheck.text}"/>
+    </target>
+    <target name="staubbild" depends="compile" description="Phase 12: DustcloudDemo nach docs/status/Staub_Demo.png.">
+        <property name="zeit" value="240"/>
+        <renderer-java klasse="com.dan.dustcloud.demo.DustcloudDemo" args="--bild docs/status/Staub_Demo.png ${zeit}" ausgabe="docs/status/staubbild_Phase${lituya.phase}.txt" speicher="-Xmx2g"/>
+        <loadfile property="staubbild.text" srcFile="docs/status/staubbild_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${staubbild.text}"/>
+    </target>
+    <target name="treibgutbild" depends="compile" description="Phase 12: DebrisDemo nach docs/status/Treibgut_Demo.png.">
+        <property name="zeit" value="1800"/>
+        <renderer-java klasse="com.dan.debris.demo.DebrisDemo" args="--bild docs/status/Treibgut_Demo.png ${zeit}" ausgabe="docs/status/treibgutbild_Phase${lituya.phase}.txt" speicher="-Xmx2g"/>
+        <loadfile property="treibgutbild.text" srcFile="docs/status/treibgutbild_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${treibgutbild.text}"/>
+    </target>
+    <target name="staubdemo" depends="compile" description="Phase 12: DustcloudDemo im Fenster.">
+        <renderer-fenster klasse="com.dan.dustcloud.demo.DustcloudDemo" speicher="-Xmx2g"/>
+    </target>
+    <target name="treibgutdemo" depends="compile" description="Phase 12: DebrisDemo im Fenster.">
+        <renderer-fenster klasse="com.dan.debris.demo.DebrisDemo" speicher="-Xmx2g"/>
+    </target>
+    <target name="treibgut" depends="compile" description="Phase 12: Fjordbucht (wave.Bay) treibt Stämme vom Hang, docs/status/Treibgut.png.">
+        <property name="zeit" value="60"/>
+        <renderer-java klasse="com.dan.lituya.tools.Treibgut" args="docs/status/Treibgut.png ${zeit}" ausgabe="docs/status/treibgut_Phase${lituya.phase}.txt" speicher="-Xmx3g"/>
+        <loadfile property="treibgut.text" srcFile="docs/status/treibgut_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${treibgut.text}"/>
+    </target>
+    <target name="staubwolke" depends="compile" description="Phase 12: Sturz (landslide) gibt Staub an dustcloud, docs/status/Staubwolke.png.">
+        <property name="zeit" value="300"/>
+        <property name="qualitaet" value="LOW"/>
+        <renderer-java klasse="com.dan.lituya.tools.Staubwolke" args="docs/status/Staubwolke.png ${zeit} ${qualitaet}" ausgabe="docs/status/staubwolke_Phase${lituya.phase}.txt" speicher="-Xmx3g"/>
+        <loadfile property="staubwolke.text" srcFile="docs/status/staubwolke_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${staubwolke.text}"/>
     </target>
 </project>
