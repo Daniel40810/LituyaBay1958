@@ -55,7 +55,7 @@ public final class Renderer implements GLEventListener {
     public static final String VERSION = "Phase 9";
     /** Phase des Stands (für Ansichten und Bedienfeld). */
     public static final int PHASE = 14;
-    public static final String[] PASSES = {"Himmel", "Gelände", "Welle", "Wasser", "Staub", "Nachbearbeitung", "HUD"};
+    public static final String[] PASSES = {"Himmel", "Gelände", "Wald", "Welle", "Wasser", "Staub", "Nachbearbeitung", "HUD"};
     private static final int MARKS = PASSES.length + 1;
     /** Nah- und Fernebene (m): vom Kutter bis über die Kimm des Mount Fairweather (264 km). */
     static final double NEAR = 0.3, FAR = 400_000;
@@ -82,6 +82,12 @@ public final class Renderer implements GLEventListener {
     final EreignisGl ereignisGl = new EreignisGl();
     /** Phase 13c: „Was wäre wenn“ in Echtzeit (wave.Bay auf der Grafikkarte, LOW). */
     public final Echtzeit echtzeit = new Echtzeit();
+    /** Phase 14a: der Wald (forest mit succession) über den Kern, Zustände nach dem Zeitstand, Treibgut am Morgen. */
+    public final WaldGl wald = new WaldGl();
+    /** Phase 14a: Jahres-Zeitraffer (Jahre je Minute; die Uhrzeit bleibt), hält am 9.7.2026. */
+    public volatile boolean jahresRaffer;
+    public volatile double jahreJeMinute = 68;
+    private double rafferTage;
     /** Der Rückbau des Gilbert Inlet auf 1958 im Gelände (an, solange der Zeitstand nicht „heute“ ist). */
     public volatile boolean rueckbau = true;
     private boolean rueckbauJetzt = true;
@@ -179,6 +185,7 @@ public final class Renderer implements GLEventListener {
         renderScale = q.renderScale;
         // Phase 4: die Clipmap folgt der Stufe eins zu eins (NIEDRIG 129², MITTEL 193², HOCH 257², ULTRA 385²)
         land.clipmap(com.dan.clipmap.Clipmap.Quality.values()[q.ordinal()]);
+        wald.stufe(q);
     }
 
     /** Höhe des Geländes (m über NAVD88) aus der Clipmap; {@link #KEIN_GRUND}, solange nichts geladen ist. */
@@ -199,6 +206,8 @@ public final class Renderer implements GLEventListener {
     public void placeStueck(com.dan.lituya.camera.Schaustuecke.Stueck st) {
         camera.waterLevel = wiring.pegel;
         com.dan.lituya.camera.Schaustuecke.apply(st, camera, clock, this::groundHeight);
+        jahresRaffer = st.jahre();
+        rafferTage = 0;
         wiedergabe.an(true);
         netzblick.inSzene = st.netze();
         wiedergabe.setzen(clock.simSeconds(), clock.lapse);
@@ -283,6 +292,7 @@ public final class Renderer implements GLEventListener {
         } catch (RuntimeException e) {
             System.err.println("LituyaBay1958: Netzblick: " + e.getMessage());
         }
+        if (!Boolean.getBoolean("lituya.ohneWald")) wald.aufbauen(new java.io.File(System.getProperty("lituya.daten", "daten")));
         System.out.println("LituyaBay1958: " + compute.line());
         physik.start();
         lastNanos = System.nanoTime();
@@ -303,6 +313,17 @@ public final class Renderer implements GLEventListener {
             try { r.run(); } catch (RuntimeException e) { System.err.println("LituyaBay1958: Arbeit im Bildlauf: " + e); }
         }
         clock.step(dt);
+        if (jahresRaffer) {
+            rafferTage += dt * jahreJeMinute / 60 * 365.25;
+            int tage = (int) rafferTage;
+            if (tage > 0) {
+                rafferTage -= tage;
+                java.time.LocalDate ende = SceneClock.Zeitstand.HEUTE.date;
+                long bis = java.time.temporal.ChronoUnit.DAYS.between(clock.date(), ende);
+                if (tage >= bis) { clock.shiftDays((int) Math.max(0, bis)); jahresRaffer = false; hudMeldung("Jahres-Zeitraffer: heute erreicht"); }
+                else clock.shiftDays(tage);
+            }
+        }
         kino.schritt(dt);
         land.auge(camera.eye[0], camera.eye[2]);
         physik.advance(dt);
@@ -374,6 +395,12 @@ public final class Renderer implements GLEventListener {
         float[] proj = Mat4.perspective(fovy(), w / (double) h, NEAR, FAR, reversedZ);
         float[] vp = Mat4.mul(proj, camera.view());
         float[] inv = Mat4.invert(vp);
+        try {
+            wald.vorbereiten(gl, clock);
+        } catch (RuntimeException e) {
+            System.err.println("LituyaBay1958: Wald: " + e);
+            wald.an = false;
+        }
 
         // 1 Himmel: der Verlauf nach der Sonnenhöhe (Platzhalter bis com.dan.sky in Phase 5a)
         gl.glBindFramebuffer(GL.GL_FRAMEBUFFER, hdrFbo);
@@ -401,6 +428,7 @@ public final class Renderer implements GLEventListener {
             gl.glFrontFace(GL.GL_CCW);
             common(gl, gelaendeShader, vp, inv, sun);
             bindMarks(gl, gelaendeShader);
+            wald.gelaende(gl, gelaendeShader);
             boolean rb = rueckbauJetzt && clock.zeitstand != SceneClock.Zeitstand.HEUTE;
             gelaendeShader.set(gl, "uRueckbauAn", rb ? 1 : 0);
             double[] r0 = Site.fromUtm(com.dan.lituya.scene.Boden1958.RUECKBAU_E0, com.dan.lituya.scene.Boden1958.RUECKBAU_N0),
@@ -414,12 +442,18 @@ public final class Renderer implements GLEventListener {
         }
         mark(gl, 2);
 
+        // 2a Wald (Phase 14a): forest über den Kern mit den Zuständen der Welle und der Wiederbewaldung
+        if (showGelaende) wald.zeichnen(gl, vp, camera.eye, reversedZ, sun, clock.t());
+        gl.glBindVertexArray(emptyVao);
+        gl.glUseProgram(0);
+        mark(gl, 3);
+
         // 2b Welle und Strom der Vorrechnung (Phase 13b) mit Tiefe; im Rechteck der Welle zeichnet das Meer nicht
         double tE = clock.simSeconds();
         wiedergabe.setzen(tE, clock.lapse);
         double[] welleRect = ereignisGl.zeichnen(gl, wiedergabe, tE, vp, camera.eye, h, wiring.pegel, sh -> common(gl, sh, vp, inv, sun), reversedZ);
         gl.glBindVertexArray(emptyVao);
-        mark(gl, 3);
+        mark(gl, 4);
 
         // 3 Wasser: die Fläche im Pegel mit Erdkrümmung bis zur Kimm (Platzhalter bis ocean in Phase 5a), mit den Marken;
         //   seit Phase 4 mit Tiefe gegen das Gelände
@@ -429,6 +463,7 @@ public final class Renderer implements GLEventListener {
             gl.glDepthMask(false);
             common(gl, meerShader, vp, inv, sun);
             bindMarks(gl, meerShader);
+            wald.meer(gl, meerShader);
             meerShader.set(gl, "uWelle", welleRect != null ? 1 : 0);
             if (welleRect != null) meerShader.set(gl, "uWelleRect", (float) welleRect[0], (float) welleRect[1], (float) welleRect[2], (float) welleRect[3]);
             gl.glDrawArrays(GL.GL_TRIANGLES, 0, 3);
@@ -438,13 +473,13 @@ public final class Renderer implements GLEventListener {
         // 3b Netze auf dem Wasser (Phase 7a, Netzblick „in der Szene“): Linien in Bildpunkten, Tiefe gegen das Gelände
         netzblick.szene(gl, vp, camera.eye, w, h, reversedZ, exposure());
         gl.glBindVertexArray(emptyVao);
-        mark(gl, 4);
+        mark(gl, 5);
 
         // 3c Staub und Trübe unter Wasser (Phase 13b): über das HDR-Bild, die Tiefe als Textur
         gl.glBindFramebuffer(GL.GL_FRAMEBUFFER, hdrColorFbo);
         ereignisGl.medien(gl, wiedergabe, tE, depthTex, sh -> common(gl, sh, vp, inv, sun), forward(camera.view()), reversedZ);
         gl.glBindVertexArray(emptyVao);
-        mark(gl, 5);
+        mark(gl, 6);
 
         // 4 Nachbearbeitung ins Fenster
         gl.glBindFramebuffer(GL.GL_FRAMEBUFFER, defaultFbo);
@@ -457,7 +492,7 @@ public final class Renderer implements GLEventListener {
         post.set(gl, "uScotopic", 0f);
         gl.glBindVertexArray(emptyVao);
         gl.glDrawArrays(GL.GL_TRIANGLES, 0, 3);
-        mark(gl, 6);
+        mark(gl, 7);
 
         // 4b Netzblick als Bild im Bild unten rechts (Phase 7a)
         if (!kino.laeuft()) netzblick.bildImBild(gl, overlay, emptyVao, surfW, surfH, netzZeit());
@@ -471,7 +506,7 @@ public final class Renderer implements GLEventListener {
         }
         gl.glBindVertexArray(0);
         gl.glUseProgram(0);
-        mark(gl, 7);
+        mark(gl, 8);
     }
 
     /**
@@ -725,6 +760,7 @@ public final class Renderer implements GLEventListener {
                 netzblick.info(),
                 "Abspielen: " + wiedergabe.zeile() + " · " + ereignisGl.info(),
                 echtzeit.zeile() + (echtzeit.an() ? " · " + echtzeit.messung() : ""),
+                waldZeile(),
                 clipGl.info(),
                 cameraLine(),
                 String.format(Locale.GERMAN, "UTM 8 N  E %.0f  N %.0f · %s · Kimm %.1f km", utm[0], utm[1], Site.dms(ll[0], ll[1]), kimm / 1000),
@@ -732,6 +768,13 @@ public final class Renderer implements GLEventListener {
                 "Neu für LituyaBay1958: " + Bibliothek.neuStand(),
                 String.format(Locale.GERMAN, "%s · %d×%d · %s", quality.label, hdrW, hdrH, reversedZ ? "umgekehrte Tiefe" : "klassische Tiefe"),
                 glInfo};
+    }
+
+    /** „Wald: Jahr 12 nach der Welle (1970) · …“ */
+    public String waldZeile() {
+        int g = wald.gezeigt();
+        String j = g == -1 ? "vor der Welle" : g == -2 ? "die Welle läuft" : g >= 0 ? String.format(Locale.GERMAN, "Jahr %d nach der Welle (%d)", g, 1958 + g) : "";
+        return "Wald: " + (wald.an ? "" : "aus · ") + j + (jahresRaffer ? String.format(Locale.GERMAN, " · Jahres-Zeitraffer %.0f Jahre/min", jahreJeMinute) : "") + " · " + wald.info();
     }
 
     /** Die Zeile mit der Zeit der Welle für das Bild im Bild. */
@@ -804,6 +847,7 @@ public final class Renderer implements GLEventListener {
         GL4 gl = d.getGL().getGL4();
         for (Shader s : all) s.dispose(gl);
         clipGl.dispose(gl);
+        wald.dispose(gl);
         com.dan.clipmap.Clipmap cm = land.clipmap();
         if (cm != null) cm.stop();
         hud.dispose(gl);

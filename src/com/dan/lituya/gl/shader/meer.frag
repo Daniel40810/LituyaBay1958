@@ -10,6 +10,10 @@ in vec2 vUV;
 out vec4 frag;
 // ab Phase 13b: im Rechteck des gröbsten Gitters der Welle zeichnet die Welle (welle.frag), hier nichts
 uniform int uWelle;
+// ab Phase 14a: der Holzteppich am Morgen danach (r schwimmend, g gestrandet, Bedeckung 0 … 1) aus WaldGl; x0, z0, Breite, Tiefe
+uniform int uTeppichAn;
+uniform sampler2D uTeppich;
+uniform vec4 uTeppichRect;
 uniform vec4 uWelleRect;   // x0, z0, x1, z1 (Szene)
 
 float h2(vec2 i) { return fract(sin(dot(i, vec2(127.1, 311.7))) * 43758.5453); }
@@ -73,6 +77,20 @@ void main() {
     vec3 hv = normalize(uSun + v);
     float shin = mix(400.0, 60.0, smoothstep(100.0, 8000.0, dist));
     col += sunLight() * pow(max(dot(n, hv), 0.0), shin) * (shin / 400.0) * 3.0;
+    if (uTeppichAn == 1) {
+        vec2 tu = (q - uTeppichRect.xy) / uTeppichRect.zw;
+        if (tu.x > 0.0 && tu.y > 0.0 && tu.x < 1.0 && tu.y < 1.0) {
+            vec2 tp = texture(uTeppich, tu).rg;
+            float c = clamp((tp.r + tp.g) * 2.5, 0.0, 1.0);
+            // Rinde, Äste und Splitter: zwei Rauschlagen, in der Ferne gemittelt [G]
+            float kf = 1.0 - smoothstep(200.0, 3000.0, dist);
+            float p = mix(0.5, vn(q / 2.3) * 0.6 + vn(q / 0.7 + 17.0) * 0.4, kf);
+            float cov = smoothstep(0.0, 0.35, c - (1.0 - p) * 0.6 + 0.15) * c;
+            vec3 holz = mix(vec3(0.10, 0.075, 0.05), vec3(0.20, 0.16, 0.11), p);
+            vec3 lit = holz * (sunLight() * max(dot(vec3(0.0, 1.0, 0.0), uSun), 0.0) + skyColor(vec3(0.0, 1.0, 0.0)) * 0.8);
+            col = mix(col, lit, clamp(cov, 0.0, 0.92));
+        }
+    }
     col = applyMarks(col, q, dist, B);
     col = aerial(col, d, dist);
     // ab Phase 4: die Tiefe der Wasserfläche, damit das Gelände davor und darüber das Wasser verdeckt

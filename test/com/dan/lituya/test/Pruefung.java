@@ -539,7 +539,7 @@ public final class Pruefung {
                 vorher = sk.t();
                 imKern &= Site.KERN.contains(sk.x(), sk.z());
             }
-            check(com.dan.lituya.camera.Schaustuecke.ALLE.size() == 7 && folge && imKern, "Schaustücke 1 bis 7 im Kern, in der Folge der Zeitleiste");
+            check(com.dan.lituya.camera.Schaustuecke.ALLE.size() == 9 && folge && imKern, "Schaustücke 1 bis 7, 10 und 11 im Kern, in der Folge der Zeitleiste");
             com.dan.lituya.camera.Schaustuecke.Stueck s7 = com.dan.lituya.camera.Schaustuecke.byNr(7), s4 = com.dan.lituya.camera.Schaustuecke.byName("Die Wand aus Wasser");
             Camera c7 = new Camera();
             c7.waterLevel = 0;
@@ -548,7 +548,7 @@ public final class Pruefung {
             c7.snap();
             check(c7.diving && c7.eye[1] < 0 && Math.abs(k7.simSeconds() - s7.t()) < 1e-6 && k7.lapse == s7.lapse(), f("„Unter Wasser“: Auge %.1f m, t = %.0f s, %s", c7.eye[1], k7.simSeconds(), s7.tempo()));
             check(s4 != null && s4.lapse() == 0.05 && s4.tempo().equals("Zeitlupe 1:20"), "„Die Wand aus Wasser“ in Zeitlupe 1:20");
-            check(Renderer.PASSES.length == 7 && List.of(Renderer.PASSES).contains("Welle") && List.of(Renderer.PASSES).contains("Staub"), "Durchgänge: " + String.join(", ", Renderer.PASSES));
+            check(Renderer.PASSES.length == 8 && List.of(Renderer.PASSES).contains("Wald") && List.of(Renderer.PASSES).contains("Welle") && List.of(Renderer.PASSES).contains("Staub"), "Durchgänge: " + String.join(", ", Renderer.PASSES));
             File ec = new File("daten/ereignis");
             if (ec.isDirectory()) {
                 com.dan.lituya.scene.Wiedergabe echt = new com.dan.lituya.scene.Wiedergabe(new File("daten"));
@@ -650,6 +650,56 @@ public final class Pruefung {
                 }
             check(n[0] > 0 && n[0] == n[1] && abw == 0, f("Nachwuchs in TreeStates: %,d junge Bäume, die Kultur von forest stellt jeden mit Art und Größe (%d Abweichungen)", n[1], abw));
             check(Bibliothek.pakete().contains("succession"), "succession in Renderer.jar");
+        }
+
+        teil("Wald in der Szene (Phase 14a): Kronenhöhe, Band 1958, Wiederbewaldung, Treibgut");
+        {
+            // EPSG 3413 an der Mitte der ArcticDEM-Kachel 42_06 (aus ihrem STAC-Eintrag): 58,879446° N, 137,489553° W
+            double[] ps = new com.dan.lituya.tools.Abbildung.Polar(70, -45).vor(-137.48955292199915, 58.87944616948069);
+            check(Math.abs(ps[0] + 3_450_000) < 30 && Math.abs(ps[1] - 150_000) < 30,
+                    f("Polarstereographisch EPSG 3413: Mitte der Kachel 42_06 bei %.1f / %.1f (soll −3 450 000 / 150 000)", ps[0], ps[1]));
+            check(com.dan.lituya.scene.Wald1958.jahr(java.time.LocalDate.of(1958, 7, 10)) == 0 && com.dan.lituya.scene.Wald1958.jahr(java.time.LocalDate.of(1959, 7, 9)) == 0
+                    && com.dan.lituya.scene.Wald1958.jahr(java.time.LocalDate.of(2026, 7, 9)) == 67, "Jahr der Wiederbewaldung zum Datum (10.7.1958: 0, 9.7.2026: 67)");
+            com.dan.lituya.scene.SceneClock ck = new com.dan.lituya.scene.SceneClock();
+            ck.setEpochMillis(com.dan.lituya.scene.SceneClock.BEBEN.toEpochMilli() + com.dan.lituya.camera.Schaustuecke.MORGEN * 1000);
+            com.dan.lituya.camera.Schaustuecke.Stueck s10 = com.dan.lituya.camera.Schaustuecke.byNr(10), s11 = com.dan.lituya.camera.Schaustuecke.byNr(11);
+            check(s10 != null && s11 != null && s11.jahre() && Math.abs(ck.hour() - 6) < 1e-6 && ck.date().getDayOfMonth() == 10,
+                    f("Schaustücke 10 „%s“ und 11 „%s“: Morgen danach %s, 11 im Jahres-Zeitraffer", s10, s11, ck.label()));
+            check(java.util.Arrays.asList(com.dan.lituya.gl.Renderer.PASSES).contains("Wald"), "Durchgang „Wald“ zwischen Gelände und Welle");
+            File uf = new File(daten, "netz/ufer/spurlinie_kette.tsv");
+            if (!uf.isFile() || !new File(daten, "grund/heute_4m.r32").isFile()) hinweis("daten/netz/ufer/spurlinie_kette.tsv oder daten/grund fehlt: Band 1958 übersprungen");
+            else {
+                com.dan.lituya.scene.Band1958 bg = new com.dan.lituya.scene.Band1958(daten, true), br = new com.dan.lituya.scene.Band1958(daten, false);
+                double sp = bg.spur(354_234, 6_505_536), md = bg.spur(354_602.58, 6_503_599.57);
+                check(bg.faktorSporn > 1 && bg.faktorSporn < 2.5 && bg.faktorMudslide > 1 && bg.faktorMudslide < 2.5 && br.faktorSporn == 1 && Math.abs(sp - 524) < 80 && Math.abs(md - 208) < 40,
+                        f("Band 1958 gezogen: Sporn ×%.2f, Spurlinie dort %.0f m (Beleg 524), Mudslide Creek ×%.2f, %.0f m (Beleg 208); rein gerechnet ×1", bg.faktorSporn, sp, bg.faktorMudslide, md));
+                File wt = new File(daten, "wald/WALD.txt");
+                if (!wt.isFile()) hinweis("daten/wald fehlt (ant aufbereitung -Dschritte=wald): Kronenhöhe und Abgleich übersprungen");
+                else {
+                    com.dan.lituya.scene.Wald1958 wd = new com.dan.lituya.scene.Wald1958(daten, true);
+                    java.util.Properties wp = new java.util.Properties();
+                    try (var wrd = java.nio.file.Files.newBufferedReader(wt.toPath())) { wp.load(wrd); }
+                    double vs = Double.parseDouble(wp.getProperty("versatz").trim().split("\\s")[0]), vh = Double.parseDouble(wp.getProperty("verhaeltnis").trim().split("\\s")[0]);
+                    check(wd.krone != null && wd.wuchs > 0.5 && wd.wuchs < 2.6 && Math.abs(vs) < 30 && vh > 0.2 && vh < 1,
+                            f("daten/wald: Kronenhöhe 10 m, Versatz Ellipsoid − NAVD88 %.2f m, im Band %.2f von außerhalb, Wuchs ×%.2f", vs, vh, wd.wuchs));
+                    long tw0 = System.nanoTime();
+                    com.dan.succession.Succession su = wd.succession();
+                    com.dan.succession.Succession.Statistik s0 = su.statistik(0), s67 = su.statistik(67);
+                    check(su.band() > 50_000 && s0.deckung() < 0.15 && s67.deckung() > 0.6,
+                            f("Wiederbewaldung über das Band: %,d Plätze (%.1f km²), Deckung %.0f %% → %.0f %% (2025), %.1f s", su.band(), su.band() * 36 / 1e6,
+                                    100 * s0.deckung(), 100 * s67.deckung(), (System.nanoTime() - tw0) / 1e9));
+                    double[] dd = new double[3];
+                    double[] hafen = com.dan.lituya.scene.Site.fromUtm(352_000, 6_503_000);
+                    wd.dichte(hafen[0], hafen[1], dd);
+                    check(dd[0] + dd[1] + dd[2] == 0, "Dichte des Walds: kein Baum im Wasser der Bucht");
+                }
+                File tg = new File(daten, "ereignis/treibgut/staemme.tsv");
+                if (!tg.isFile()) hinweis("daten/ereignis/treibgut fehlt (ant treibgut1958): Treibgut übersprungen");
+                else {
+                    long nst = java.nio.file.Files.lines(tg.toPath()).count() - 1;
+                    check(nst > 100 && new File(daten, "ereignis/treibgut/teppich_25m.r32").isFile(), f("Treibgut am Morgen: %,d Stämme und der Holzteppich", nst));
+                }
+            }
         }
 
         teil("Staub und Treibgut (Phase 12): dustcloud, debris");

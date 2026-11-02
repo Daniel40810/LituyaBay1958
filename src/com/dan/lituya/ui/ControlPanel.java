@@ -198,15 +198,14 @@ public final class ControlPanel extends JPanel implements javax.swing.Scrollable
         put(tempoBox);
         put(ereignisLbl);
         sub("Schaustücke");
-        JPanel s1 = grid(2), s2 = grid(2), s3 = grid(2), s4 = grid(1);
-        JPanel[] srow = {s1, s1, s2, s2, s3, s3, s4};
+        JPanel s1 = grid(2), s2 = grid(2), s3 = grid(2), s4 = grid(1), s5 = grid(2);
         for (com.dan.lituya.camera.Schaustuecke.Stueck st : com.dan.lituya.camera.Schaustuecke.ALLE) {
             FButton b = new FButton(st.nr() + " " + st.name());
             b.setToolTipText(com.dan.lituya.camera.Schaustuecke.describe(st));
             b.addActionListener(e -> stueck(st, spielen));
-            srow[st.nr() - 1].add(b);
+            (st.nr() >= 10 ? s5 : st.nr() == 7 ? s4 : st.nr() <= 2 ? s1 : st.nr() <= 4 ? s2 : s3).add(b);
         }
-        put(s1); put(s2); put(s3); put(s4);
+        put(s1); put(s2); put(s3); put(s4); put(s5);
         // Phase 13c: „Was wäre wenn“ in Echtzeit (wave.Bay auf der Grafikkarte, LOW)
         sub("Was wäre wenn (Echtzeit)");
         com.dan.lituya.gl.Echtzeit ez = r.echtzeit;
@@ -274,6 +273,36 @@ public final class ControlPanel extends JPanel implements javax.swing.Scrollable
         view.setKeyAction(java.awt.event.KeyEvent.VK_L, () -> javax.swing.SwingUtilities.invokeLater(() -> richtung(1)));
         view.setKeyAction(java.awt.event.KeyEvent.VK_Z, () -> javax.swing.SwingUtilities.invokeLater(() ->
                 tempoBox.setSelectedIndex((tempoBox.getSelectedIndex() + 1) % TEMPO.length)));
+        // Phase 14a: der Wald, die Folgen der Welle und die Wiederbewaldung bis heute
+        sub("Wald und Wiederbewaldung");
+        com.dan.lituya.gl.WaldGl wd = r.wald;
+        FCheckBox waldBox = new FCheckBox("Wald zeigen (forest, Zustände aus succession)"),
+                gezBox = new FCheckBox("Band auf die Belege 1958 gezogen (sonst rein gerechnet)"), tgBox = new FCheckBox("Treibgut am Morgen danach");
+        waldBox.setSelected(wd.an); gezBox.setSelected(wd.gezogen); tgBox.setSelected(wd.treibgut);
+        waldBox.addActionListener(e -> { wd.an = waldBox.isSelected(); view.requestFocusInWindow(); });
+        gezBox.addActionListener(e -> { wd.gezogen = gezBox.isSelected(); r.hudMeldung("Wald wird neu gerechnet (" + (wd.gezogen ? "gezogen" : "rein gerechnet") + ")"); view.requestFocusInWindow(); });
+        tgBox.addActionListener(e -> { wd.treibgut = tgBox.isSelected(); view.requestFocusInWindow(); });
+        put(waldBox); put(gezBox); put(tgBox);
+        put(label("Jahr nach der Welle"));
+        jahrSl = new FSlider(0, com.dan.lituya.scene.Wald1958.JAHRE - 1, 0);
+        jahrSl.setToolTipText("Springt auf den 10. Juli des Jahrs (Uhrzeit bleibt): 0 = Morgen danach 1958, 68 = 2026");
+        jahrSl.addChangeListener(e -> { if (!fromScene && !jahrSl.getValueIsAdjusting()) jahr(jahrSl.getValue()); });
+        put(jahrSl);
+        JPanel jr = grid(3);
+        FButton j58 = new FButton("Morgen danach"), raffer = new FButton("68 Jahre (Y)"), j26 = new FButton("heute");
+        j58.setToolTipText("10.7.1958, 6:00 Uhr: der Morgen nach der Welle mit dem Treibgut");
+        raffer.setToolTipText("Jahres-Zeitraffer: 68 Jahre in einer Minute, die Uhrzeit bleibt; hält am 9.7.2026 (noch einmal: anhalten)");
+        j26.setToolTipText("9.7.2026: der Wald heute");
+        j58.addActionListener(e -> { clock.set(SceneClock.Zeitstand.DANACH); r.jahresRaffer = false; syncFromScene(); view.requestFocusInWindow(); });
+        raffer.addActionListener(e -> { raffer(); view.requestFocusInWindow(); });
+        j26.addActionListener(e -> { clock.set(SceneClock.Zeitstand.HEUTE); r.jahresRaffer = false; syncFromScene(); view.requestFocusInWindow(); });
+        jr.add(j58); jr.add(raffer); jr.add(j26);
+        put(jr);
+        view.setKeyAction(java.awt.event.KeyEvent.VK_Y, () -> javax.swing.SwingUtilities.invokeLater(this::raffer));
+        put(small("<html><body style='width:215px'>Bestand heute aus der Kronenhöhe (ArcticDEM − Gelände, ant aufbereitung -Dschritte=wald), "
+                + "im Band 1958 aus dem Gelände [G]. Während der Welle bricht der Wald, wo sie ankommt; danach wächst er Jahr für Jahr nach "
+                + "(Roterle zuerst, Sitka-Fichte und Hemlocktanne), Wuchs abgeglichen an der Kronenhöhe im Band (WALD.txt). "
+                + "Treibgut: ant treibgut1958.</body></html>"));
         block("NETZE", false);
         // Phase 7a: der Netzblick (Werkbuch 7.10)
         com.dan.lituya.gl.Netzblick nb = r.netzblick;
@@ -455,6 +484,27 @@ public final class ControlPanel extends JPanel implements javax.swing.Scrollable
     }
 
     /** Regler nach der Szene stellen (alle 0,5 s). */
+    private FSlider jahrSl;
+
+    /** Springt auf den 10. Juli des Jahrs y nach der Welle (Uhrzeit bleibt). */
+    private void jahr(int y) {
+        double h = clock.hour();
+        clock.set(java.time.LocalDate.of(1958 + y, 7, 10), h);
+        clock.zeitstand = y >= com.dan.lituya.scene.Wald1958.JAHRE - 1 ? SceneClock.Zeitstand.HEUTE : SceneClock.Zeitstand.DANACH;
+        r.jahresRaffer = false;
+        syncFromScene();
+    }
+
+    /** Jahres-Zeitraffer an oder aus; vor dem Morgen danach erst dorthin. */
+    private void raffer() {
+        if (r.jahresRaffer) { r.jahresRaffer = false; r.hudMeldung("Jahres-Zeitraffer angehalten"); return; }
+        if (clock.simSeconds() < 8 * 3600 || clock.date().getYear() >= 2026) clock.set(SceneClock.Zeitstand.DANACH);
+        clock.zeitstand = SceneClock.Zeitstand.DANACH;
+        r.jahresRaffer = true;
+        r.hudMeldung(String.format(Locale.GERMAN, "Jahres-Zeitraffer: %.0f Jahre je Minute (Y hält an)", r.jahreJeMinute));
+        syncFromScene();
+    }
+
     private void syncFromScene() {
         fromScene = true;
         int m = (int) Math.round(clock.hour() * 60) % (24 * 60);
@@ -462,6 +512,7 @@ public final class ControlPanel extends JPanel implements javax.swing.Scrollable
         if (!scaleSl.getValueIsAdjusting()) scaleSl.setValue((int) Math.round(r.renderScale * 100));
         if (!expSl.getValueIsAdjusting()) expSl.setValue((int) Math.round(r.exposureBias * 10));
         if (standBox.getSelectedItem() != clock.zeitstand) standBox.setSelectedItem(clock.zeitstand);
+        if (jahrSl != null && !jahrSl.getValueIsAdjusting()) jahrSl.setValue(Math.min(jahrSl.getMaximum(), com.dan.lituya.scene.Wald1958.jahr(clock.date())));
         fromScene = false;
         labels();
     }
