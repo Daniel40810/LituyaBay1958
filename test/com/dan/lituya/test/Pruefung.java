@@ -398,6 +398,18 @@ public final class Pruefung {
                     f("Strom aus landslide je Meter Breite: %.0f m² in %.1f s, %.0f m/s, bis %.0f m (Laborfall %.0f m², %.1f s)", in.volume(), in.duration90(), in.meanSpeed(), in.peak(), lab.volume(), lab.duration90()));
         }
 
+        teil("Welle (Phase 11): wave.Bay, Einlass und Auflauf im Schnitt");
+        {
+            com.dan.wave.Bay wb = new com.dan.wave.Bay(0, 0, 60, 50, 8);
+            wb.nest(15, 12, 30, 25, 4);
+            wb.build((wx, wz) -> -30 + 0.05 * wx, 0, new com.dan.wave.Bay.Init() { public double eta(double wx, double wz) { return 4 * Math.exp(-((wx - 240) * (wx - 240) + (wz - 200) * (wz - 200)) / 2000.0); } });
+            wb.run(10);
+            check(Math.abs(wb.volume() / wb.initialVolume() - 1) < 1e-12,
+                    f("wave.Bay aus Renderer.jar: zwei Gitter (8 und 2 m), Volumen nach 10 s %.12f", wb.volume() / wb.initialVolume()));
+            double[] r = com.dan.lituya.tools.Auflauf.lauf(com.dan.lituya.tools.Auflauf.Messwelle.INSTANCE);
+            check(Math.abs(r[0] - 526) <= 50, f("Auflauf der Messwelle FRITZ01 am 45°-Gegenhang: %.0f m (526 ± 50 m), Pegel 1 100 m %.0f m nach %.1f s", r[0], r[1], r[2]));
+        }
+
         teil("Netze der Welle und des Ufers (Phase 7a): daten/netz/welle und daten/netz/ufer");
         {
             File wd = new File(daten, com.dan.lituya.scene.WellenNetz.ORDNER), ud = new File(daten, com.dan.lituya.scene.UferNetz.ORDNER);

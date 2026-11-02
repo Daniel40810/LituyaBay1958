@@ -76,7 +76,7 @@
         lib/Renderer.jar alles hat, was LituyaBay1958 braucht (jedes gebrauchte Package mit Klassen und README, Java 21,
         von den 14 neuen die, deren Phase erreicht ist); abschalten mit -Dohne.paketpruefung=true.
     -->
-    <property name="lituya.phase" value="10"/>
+    <property name="lituya.phase" value="11"/>
     <target name="check-packages" description="Prüft lib/Renderer.jar: die gebrauchten Packages mit README, Java 21, die fälligen neuen." unless="ohne.paketpruefung">
         <property name="platform.java" value="java"/>
         <exec executable="${platform.java}" dir="${basedir}" failonerror="true">
@@ -481,5 +481,30 @@
         <renderer-java klasse="com.dan.lituya.tools.Eintauchen" args="docs/status/Eintauchen.png ${zeit} ${qualitaet} ${strom}" ausgabe="docs/status/eintauchen_Phase${lituya.phase}.txt" speicher="-Xmx4g"/>
         <loadfile property="eintauchen.text" srcFile="docs/status/eintauchen_Phase${lituya.phase}.txt" encoding="UTF-8"/>
         <echo message="${eintauchen.text}"/>
+    </target>
+    <!-- Phase 11 (Werkbuch 6.1, 9.4, 9.5): der neue Löser com.dan.wave.Bay (HLL, geschachtelte Gitter) aus lib/Renderer.jar,
+         das alte Wave unverändert. wavecheck: WaveCheck (alte Zeilen wie vorher, dazu Bucht: Ruhe, Stoker, Synolakis,
+         drei Gitter, Einlass, Laborfall-Auflauf 526 ± 50 m) nach docs/status/wavecheck_Phase11.txt; baybild: der Bogen von
+         BayDemo nach docs/status/Bay_Demo.png (-Dzeit); baydemo: Fenster; auflauf: impact (Laborfall) über Impact.Far in
+         den Schnitt von Bay, gegen die Messwelle (-Dqualitaet=LOW|MEDIUM). -->
+    <target name="wavecheck" depends="compile" description="Phase 11: WaveCheck nach docs/status/wavecheck_Phase11.txt.">
+        <renderer-java klasse="com.dan.wave.demo.WaveCheck" ausgabe="docs/status/wavecheck_Phase${lituya.phase}.txt" speicher="-Xmx3g"/>
+        <loadfile property="wavecheck.text" srcFile="docs/status/wavecheck_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${wavecheck.text}"/>
+    </target>
+    <target name="baybild" depends="compile" description="Phase 11: BayDemo nach docs/status/Bay_Demo.png.">
+        <property name="zeit" value="24"/>
+        <renderer-java klasse="com.dan.wave.demo.BayDemo" args="--bild docs/status/Bay_Demo.png ${zeit}" ausgabe="docs/status/baybild_Phase${lituya.phase}.txt" speicher="-Xmx3g"/>
+        <loadfile property="baybild.text" srcFile="docs/status/baybild_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${baybild.text}"/>
+    </target>
+    <target name="baydemo" depends="compile" description="Phase 11: BayDemo im Fenster.">
+        <renderer-fenster klasse="com.dan.wave.demo.BayDemo" speicher="-Xmx4g"/>
+    </target>
+    <target name="auflauf" depends="compile" description="Phase 11: impact über Impact.Far in Bay, Auflauf am Gegenhang.">
+        <property name="qualitaet" value="LOW"/>
+        <renderer-java klasse="com.dan.lituya.tools.Auflauf" args="${qualitaet}" ausgabe="docs/status/auflauf_Phase${lituya.phase}.txt" speicher="-Xmx3g"/>
+        <loadfile property="auflauf.text" srcFile="docs/status/auflauf_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${auflauf.text}"/>
     </target>
 </project>
