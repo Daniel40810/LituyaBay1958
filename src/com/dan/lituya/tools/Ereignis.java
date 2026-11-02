@@ -51,7 +51,7 @@ import java.util.function.DoubleBinaryOperator;
  * Ankunft) und {@code docs/status/Ereignis_<lauf>.png}; auf die Konsole Auflauf am Sporn (MILLER60: 524 m), höchster
  * Auflauf, Ankunft an Cenotaph Island, Anchorage Cove und am Eingang gegen {@code LB_NET_WELLE}, Bilanz und Rechenzeit.
  * Dazu {@link #staub}: der Felssturz und seine Staubwolke als Bilder für das Abspielen (Lauf {@code staub}).
- * Argumente: daten, Lauf (kette, messwelle, staub, beide = die zwei Wellen, alle), Qualität (MEDIUM, LOW), Zeit (s Welle), Rechner (gpu, cpu), Pegel (m).
+ * Argumente: daten, Lauf (kette, messwelle, staub, linie = nur die Ganglinie der Kette für die Echtzeit, beide = die zwei Wellen, alle), Qualität (MEDIUM, LOW), Zeit (s Welle), Rechner (gpu, cpu), Pegel (m).
  * MEDIUM schreibt nach {@code daten/ereignis/<lauf>}, LOW nach {@code <lauf>_LOW} (seit 13a; vorher überschrieb ein LOW-Lauf MEDIUM).
  */
 public final class Ereignis {
@@ -83,41 +83,61 @@ public final class Ereignis {
     public static double[] linie() { double[] w = wand(); return new double[]{w[0] + LINIE_AB * RICHTUNG[0], w[1] + LINIE_AB * RICHTUNG[1]}; }
 
     /** Das Nahfeld hinter der Linie: bis {@link #NAHFELD} m zur Wand hin, {@link #LINIE_HALB} m zu jeder Seite. */
-    public static boolean nahfeld(double e, double n) {
-        double[] l = linie();
-        double qe = e - l[0], qn = n - l[1], along = qe * RICHTUNG[0] + qn * RICHTUNG[1], across = -qe * RICHTUNG[1] + qn * RICHTUNG[0];
-        return along < -40 && along > -NAHFELD && Math.abs(across) < LINIE_HALB;
+    public static boolean nahfeld(double e, double n) { return Quelle.gilbert1958().nahfeld(e, n); }
+
+    /**
+     * Wo die Welle in die Bucht kommt (seit Phase 13c auch anderswo, „Was wäre wenn“): Mitte der Linie (UTM), Richtung in
+     * die Bucht (Einheitsvektor Ost, Nord), halbe Länge, Tiefe des Nahfelds dahinter (dort Fels), frei nach (s Rechenzeit).
+     */
+    public record Quelle(double e, double n, double re, double rn, double halb, double hinten, double frei) {
+        /** Die Linie von 1958 vor der Wand des Gilbert Inlet. */
+        public static Quelle gilbert1958() { double[] l = linie(); return new Quelle(l[0], l[1], RICHTUNG[0], RICHTUNG[1], LINIE_HALB, NAHFELD, FREI); }
+
+        /** Liegt der Ort im Nahfeld hinter der Linie? */
+        public boolean nahfeld(double e2, double n2) {
+            double qe = e2 - e, qn = n2 - n, along = qe * re + qn * rn, across = -qe * rn + qn * re;
+            return along < -40 && along > -hinten && Math.abs(across) < halb;
+        }
     }
 
     /** Die Bucht in drei Gittern auf dem Grund hoehe(E, N), mit der Linie und der Quelle in (Wasserstand über dem Pegel, Durchfluss). */
-    public static Bay bucht(DoubleBinaryOperator hoehe, Q q, Bay.Inlet in, double pegel) {
+    public static Bay bucht(DoubleBinaryOperator hoehe, Q q, Bay.Inlet in, double pegel) { return bucht(hoehe, q, in, pegel, Quelle.gilbert1958()); }
+
+    /** Wie {@link #bucht(DoubleBinaryOperator, Q, Bay.Inlet, double)}, mit der Linie der Quelle s (Phase 13c). */
+    public static Bay bucht(DoubleBinaryOperator hoehe, Q q, Bay.Inlet in, double pegel, Quelle s) {
         Bay b = new Bay(0, 0, (int) Math.round(Site.KERN.breite() / q.grob), (int) Math.round(Site.KERN.hoehe() / q.grob), q.grob);
         b.name = "Lituya Bay 1958 (" + q + ")";
         b.nest(MITTE[0] - E0, MITTE[1] - N0, MITTE[2] - E0, MITTE[3] - N0, (int) Math.round(q.grob / q.mittel));
         b.nest(FEIN[0] - E0, FEIN[1] - N0, FEIN[2] - E0, FEIN[3] - N0, (int) Math.round(q.mittel / q.fein));
-        for (int s = 0; s < 4; s++) b.edge(s, BayGrid.Edge.OPEN);
-        double[] l = linie();
-        double te = -RICHTUNG[1], tn = RICHTUNG[0];
-        b.line(l[0] - LINIE_HALB * te - E0, l[1] - LINIE_HALB * tn - N0, l[0] + LINIE_HALB * te - E0, l[1] + LINIE_HALB * tn - N0, RICHTUNG[0], RICHTUNG[1],
-                (t, x, z) -> { if (t > FREI) return null; double[] v = in.at(t, x, z); return new double[]{pegel + v[0], v[1]}; });
+        for (int r = 0; r < 4; r++) b.edge(r, BayGrid.Edge.OPEN);
+        double te = -s.rn(), tn = s.re();
+        b.line(s.e() - s.halb() * te - E0, s.n() - s.halb() * tn - N0, s.e() + s.halb() * te - E0, s.n() + s.halb() * tn - N0, s.re(), s.rn(),
+                (t, x, z) -> { if (t > s.frei()) return null; double[] v = in.at(t, x, z); return new double[]{pegel + v[0], v[1]}; });
         b.gauge("Sporn", Site.SPORN.e() - E0, Site.SPORN.n() - N0);
         b.gauge("Cenotaph Island", Site.CENOTAPH.e() - E0, Site.CENOTAPH.n() - N0);
         b.gauge("Anchorage Cove", Site.ANCHORAGE.e() - E0, Site.ANCHORAGE.n() - N0);
         b.gauge("Eingang", Site.CHAUSSEE.e() - E0 + 300, Site.CHAUSSEE.n() - N0 + 200);
-        b.build((x, z) -> nahfeld(x + E0, z + N0) ? Double.NaN : hoehe.applyAsDouble(x + E0, z + N0), pegel, null);
+        b.build((x, z) -> s.nahfeld(x + E0, z + N0) ? Double.NaN : hoehe.applyAsDouble(x + E0, z + N0), pegel, null);
         return b;
     }
 
     /** Die Quelle aus {@code impact}: Laborfall in Naturmaßen, Rand bei 885 m; Durchfluss gemessen; nach dem Ende auf null in 5 s. */
-    public static Bay.Inlet kette(Impact.Quality iq, StringBuilder log) {
+    public static Bay.Inlet kette(Impact.Quality iq, StringBuilder log) { return kette(iq, log, new ArrayList<>()); }
+
+    /** Wie {@link #kette(Impact.Quality, StringBuilder)}; die Randwerte {t, η, q} landen in rand (Phase 13c: linie_kette.tsv). */
+    public static Bay.Inlet kette(Impact.Quality iq, StringBuilder log, List<double[]> rand) {
         Impact s = Presets.gilbertInlet1958(iq);
-        List<double[]> rand = new ArrayList<>();
         s.far(LINIE_AB, (t, cell, x, z, eta, qx, qz) -> rand.add(new double[]{t, eta, qx}));
         long t0 = System.nanoTime();
         s.run(40);
         Impact.Gauge g = s.gauges().get(1);
         log.append(String.format(Locale.GERMAN, "impact (%s, %.0f m): bei 885 m %.0f m nach %.1f s, %d Randwerte bis %.0f s, %.0f s Rechnung%n", iq, s.dx, g.max(), g.timeOfMax(), rand.size(),
                 rand.isEmpty() ? 0 : rand.get(rand.size() - 1)[0], (System.nanoTime() - t0) / 1e9));
+        return ausRand(rand);
+    }
+
+    /** Die Ganglinie der Kette aus den Randwerten {t, η, q}; nach dem Ende auf null in 5 s. */
+    public static Bay.Inlet ausRand(List<double[]> rand) {
         Bay.Inlet r = Auflauf.fromSeries(rand, false);
         double tEnd = rand.isEmpty() ? 0 : rand.get(rand.size() - 1)[0];
         return (t, x, z) -> {
@@ -141,8 +161,11 @@ public final class Ereignis {
         for (String l : lauf.equals("alle") ? new String[]{"kette", "messwelle", "staub"} : lauf.equals("beide") ? new String[]{"kette", "messwelle"} : new String[]{lauf}) {
             if (l.equals("staub")) { System.out.println(staub(boden::hoehe, daten, zeit)); continue; }
             StringBuilder log = new StringBuilder();
-            Bay.Inlet in = l.equals("kette") ? kette(Impact.Quality.LOW, log) : Auflauf.Messwelle.INSTANCE;
+            List<double[]> rand = new ArrayList<>();
+            Bay.Inlet in = l.equals("kette") || l.equals("linie") ? kette(Impact.Quality.LOW, log, rand) : Auflauf.Messwelle.INSTANCE;
             System.out.print(log);
+            if (!rand.isEmpty()) System.out.println("Ganglinie für die Echtzeit: " + schreibeRand(daten, rand));
+            if (l.equals("linie")) continue;
             Bay b = bucht(boden::hoehe, q, in, pegel);
             String name = ordner(l, q);
             Ergebnis r = rechnen(b, name, zeit, gpu, EreignisDaten.ordner(daten, name), pegel, l.equals("kette") ? "impact (Laborfall, Rand bei 885 m)" : "Messwelle FRITZ01");
@@ -151,6 +174,33 @@ public final class Ereignis {
             File png = new File("docs/status/Ereignis_" + name + ".png");
             bild(b, r, png, boden::hoehe);
             System.out.println("Bild: " + png);
+        }
+    }
+
+    /** Die Randwerte der Kette als daten/ereignis/linie_kette.tsv (t, η, q je Meter), für die Echtzeit (Phase 13c). */
+    public static File schreibeRand(File daten, List<double[]> rand) throws java.io.IOException {
+        File f = new File(new File(daten, "ereignis"), "linie_kette.tsv");
+        f.getParentFile().mkdirs();
+        StringBuilder sb = new StringBuilder("# Ganglinie der Kette an der Linie (impact LOW, Rand bei 885 m): t (s Rechenzeit), η (m über dem Pegel), q (m²/s)\n");
+        for (double[] r : rand) sb.append(String.format(Locale.ROOT, "%.4f\t%.4f\t%.4f%n", r[0], r[1], r[2]));
+        java.nio.file.Files.writeString(f.toPath(), sb.toString());
+        return f;
+    }
+
+    /** Liest daten/ereignis/linie_kette.tsv (oder null). */
+    public static List<double[]> leseRand(File daten) {
+        File f = new File(new File(daten, "ereignis"), "linie_kette.tsv");
+        if (!f.isFile()) return null;
+        try {
+            List<double[]> r = new ArrayList<>();
+            for (String z : java.nio.file.Files.readAllLines(f.toPath())) {
+                if (z.isBlank() || z.startsWith("#")) continue;
+                String[] p = z.split("\t");
+                r.add(new double[]{Double.parseDouble(p[0]), Double.parseDouble(p[1]), Double.parseDouble(p[2])});
+            }
+            return r.isEmpty() ? null : r;
+        } catch (java.io.IOException | RuntimeException e) {
+            return null;
         }
     }
 

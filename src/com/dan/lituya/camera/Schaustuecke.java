@@ -19,7 +19,7 @@ import java.util.Locale;
  * <li><b>524 m</b>: von Südost über den Kopf der Bucht auf den Sporn, Auge 200 m, 106 s, Zeitlupe 1:5.</li>
  * <li><b>Die Front</b>: 2,5 km nordöstlich von Cenotaph Island, Auge 60 m, Blick der Front entgegen, 112 s, Echtzeit, mit
  * den Netzen in der Szene (Isochronen).</li>
- * <li><b>Unter Wasser</b>: 1,5 km nordöstlich von Cenotaph Island, 3 m unter dem Pegel, Blick der Front entgegen und 15° hinauf zur Fläche, 115 s,
+ * <li><b>Unter Wasser</b>: 1,5 km nordöstlich von Cenotaph Island, 3 m unter dem Pegel, Blick der Front entgegen und 35° hinauf zur Fläche (seit 13c; mit 15° lag das Snellsche Fenster über dem Bildrand), 115 s,
  * Zeitlupe 1:2 (bis Phase 17 knapp unter der Fläche, ohne Geröll und Stämme).</li>
  * </ol>
  */
@@ -54,7 +54,7 @@ public final class Schaustuecke {
             at(4, "Die Wand aus Wasser", Ansichten.versetzt(Site.GILBERT, 215, 1000), 35, -4, 80, 104.5, 0.05, false, false),
             at(5, "524 m", Ansichten.versetzt(Site.SPORN, 135, 1800), 315, -8, 200, 106, 0.2, false, false),
             at(6, "Die Front", Ansichten.versetzt(Site.CENOTAPH, 60, 2500), 50, 2, 60, 112, 1, false, true),
-            at(7, "Unter Wasser", Ansichten.versetzt(Site.CENOTAPH, 60, 1500), 50, -15, 3, 115, 0.5, true, false));
+            at(7, "Unter Wasser", Ansichten.versetzt(Site.CENOTAPH, 60, 1500), 50, -35, 3, 115, 0.5, true, false));
 
     public static Stueck byNr(int nr) {
         for (Stueck s : ALLE) if (s.nr() == nr) return s;

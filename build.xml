@@ -76,7 +76,7 @@
         lib/Renderer.jar alles hat, was LituyaBay1958 braucht (jedes gebrauchte Package mit Klassen und README, Java 21,
         von den 14 neuen die, deren Phase erreicht ist); abschalten mit -Dohne.paketpruefung=true.
     -->
-    <property name="lituya.phase" value="13b"/>
+    <property name="lituya.phase" value="13c"/>
     <target name="check-packages" description="Prüft lib/Renderer.jar: die gebrauchten Packages mit README, Java 21, die fälligen neuen." unless="ohne.paketpruefung">
         <property name="platform.java" value="java"/>
         <exec executable="${platform.java}" dir="${basedir}" failonerror="true">
@@ -620,5 +620,34 @@
         <schaustueck nr="7"/>
         <loadfile property="schaustuecke.text" srcFile="docs/status/schaustuecke_Phase${lituya.phase}.txt" encoding="UTF-8"/>
         <echo message="${schaustuecke.text}"/>
+    </target>
+    <!-- Phase 13c (Werkbuch 4.4, 14): echtzeit: Abnahme „Was wäre wenn“ in Echtzeit (LOW) ohne Fenster in Full HD; die Uhr
+         läuft ab 93 s in Echtzeit, die Welle rechnet hinter ihr her. Zwei Läufe: die Wand von 1958 (Ganglinie der Kette,
+         Blick wie Schaustück 6) und der Nordhang des Crillon Inlet (Impuls-Quelle). Ausgabe docs/status/echtzeit_Phase13c.txt,
+         Bilder Echtzeit_Phase13c_<ort>_a/b.png. -Dsekunden=90, -Dvolumen=30.6, -Dgrund=1940|heute, -Dtide=0.
+         Vorher einmal ant ereignis -Dlauf=linie (Ganglinie der Kette, rund 1 min), sonst rechnet die App sie beim ersten Mal. -->
+    <macrodef name="echtzeitlauf">
+        <attribute name="ort"/>
+        <sequential>
+            <java classname="com.dan.lituya.tools.EchtzeitTempo" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="false" output="docs/status/echtzeit_Phase${lituya.phase}.txt" append="true" logError="true">
+                <jvmarg value="-Dstdout.encoding=UTF-8"/>
+                <jvmarg value="--enable-native-access=ALL-UNNAMED"/>
+                <jvmarg value="-Xmx8g"/>
+                <arg line="${sekunden} @{ort} ${volumen} ${grund} ${tide}"/>
+                <classpath><pathelement path="${run.classpath}"/></classpath>
+            </java>
+        </sequential>
+    </macrodef>
+    <target name="echtzeit" depends="jar" description="Phase 13c: Was wäre wenn in Echtzeit (LOW), Bilder je Sekunde und Rückstand der Rechnung.">
+        <property name="platform.java" value="java"/>
+        <property name="sekunden" value="90"/>
+        <property name="volumen" value="30.6"/>
+        <property name="grund" value="1940"/>
+        <property name="tide" value="0"/>
+        <delete file="docs/status/echtzeit_Phase${lituya.phase}.txt" quiet="true"/>
+        <echtzeitlauf ort="0"/>
+        <echtzeitlauf ort="2"/>
+        <loadfile property="echtzeit.text" srcFile="docs/status/echtzeit_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${echtzeit.text}"/>
     </target>
 </project>

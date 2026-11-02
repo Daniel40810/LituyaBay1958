@@ -40,38 +40,44 @@ public final class Wiedergabe implements AutoCloseable {
 
     public enum Art { WELLE, STROM, STAUB_OBEN, STAUB_DICHTE }
 
+    /** Woher eine Spur ihre Bilder hat: aus einer Datei ({@link EreignisDaten.Leser}) oder aus der Echtzeit ({@link LiveLauf}). */
+    public interface Bilder { short[] roh(int k, int b) throws IOException; }
+
     /** Ein Gitter eines Laufs mit seinen Bildzeiten. */
     public static final class Spur {
         public final Art art;
         public final String lauf;
         public final int k;
         public final EreignisDaten.Gitter g;
-        public final double[] t;
-        final EreignisDaten.Leser leser;
+        /** Ereigniszeiten der Bilder (in der Echtzeit wächst das Feld; ersetzt, nie verändert). */
+        public volatile double[] t;
+        final Bilder quelle;
         final int id;
         /** Grund (m über NAVD88) je Zelle für Strom und Staub, sonst null. */
         public volatile float[] boden;
         /** Je Kachel der höchste Stand (NaN: nie nass), nur für die Welle. */
-        public float[] kachelMax;
+        public volatile float[] kachelMax;
         public int ntx, ntz;
         /** Rechteck des nächstfeineren Gitters (Szene x0, z0, x1, z1) oder null. */
         public double[] feiner;
 
-        Spur(int id, Art art, String lauf, int k, EreignisDaten.Leser leser) {
+        Spur(int id, Art art, String lauf, int k, EreignisDaten.Leser leser) { this(id, art, lauf, k, leser.gitter.get(k), leser.zeiten(k), leser::roh); }
+
+        Spur(int id, Art art, String lauf, int k, EreignisDaten.Gitter g, double[] t, Bilder quelle) {
             this.id = id;
             this.art = art;
             this.lauf = lauf;
             this.k = k;
-            this.leser = leser;
-            this.g = leser.gitter.get(k);
-            this.t = leser.zeiten(k);
+            this.quelle = quelle;
+            this.g = g;
+            this.t = t;
             ntx = (g.nx() - 2) / KACHEL + 1;
             ntz = (g.nz() - 2) / KACHEL + 1;
         }
 
-        public double t0() { return t.length == 0 ? Double.NaN : t[0]; }
+        public double t0() { double[] t = this.t; return t.length == 0 ? Double.NaN : t[0]; }
 
-        public double t1() { return t.length == 0 ? Double.NaN : t[t.length - 1]; }
+        public double t1() { double[] t = this.t; return t.length == 0 ? Double.NaN : t[t.length - 1]; }
 
         /** Szenenrechteck der Zellmitten (x0, z0 im Süden, x1, z1 im Norden). */
         public double[] szene() {
@@ -84,6 +90,7 @@ public final class Wiedergabe implements AutoCloseable {
          * {@link #NACHLAUF} s das letzte, dann null.
          */
         public double[] klammer(double zeit) {
+            double[] t = this.t;
             if (t.length == 0 || !(zeit >= t[0]) || zeit > t[t.length - 1] + NACHLAUF) return null;
             if (zeit >= t[t.length - 1]) return new double[]{t.length - 1, t.length - 1, 0};
             int i = Arrays.binarySearch(t, zeit);
@@ -113,6 +120,10 @@ public final class Wiedergabe implements AutoCloseable {
     private final List<EreignisDaten.Leser> offen = new ArrayList<>();
     private volatile List<Spur> spuren = List.of();
     private volatile String welle = WELLEN[0], geladen, stand = "noch nichts geladen";
+    /** Phase 13c: der Lauf der Echtzeit statt einer Datei (null: aus daten/ereignis). */
+    private volatile LiveLauf live;
+    /** Ob Strom und Staub der Vorrechnung mitspielen (in der Echtzeit nur an der Wand von 1958). */
+    private volatile boolean sturz = true;
     private volatile double zeit = Double.NaN, richtung = 1;
     private volatile boolean an = true;
     private final Object lock = new Object();
@@ -150,7 +161,35 @@ public final class Wiedergabe implements AutoCloseable {
         wecken();
     }
 
-    public String welle() { return welle; }
+    public String welle() { LiveLauf l = live; return l != null ? l.name : welle; }
+
+    /** Phase 13c: die Welle aus der Echtzeit (null: zurück zur Vorrechnung); mitSturz: Strom und Staub der Vorrechnung zeigen. */
+    public void live(LiveLauf l, boolean mitSturz) {
+        live = l;
+        sturz = mitSturz;
+        wecken();
+    }
+
+    public LiveLauf live() { return live; }
+
+    /** Legt ein frisches Bild der Echtzeit gleich in den Vorrat (ohne Auspacken). */
+    void einlegen(Spur s, int b, short[] r) {
+        long k = key(s, b);
+        synchronized (lock) {
+            short[] alt = vorrat.put(k, r);
+            if (alt == null) bytes += r.length * 2L;
+            // das Älteste fliegt (der Vorrat ordnet nach Zugriff; das Paar im Bild wurde eben gelesen)
+            var it = vorrat.entrySet().iterator();
+            while (bytes > VORRAT && it.hasNext()) {
+                var e = it.next();
+                if (e.getKey() == k) continue;
+                bytes -= e.getValue().length * 2L;
+                it.remove();
+            }
+        }
+    }
+
+    private String schluessel() { LiveLauf l = live; return l != null ? "echtzeit#" + l.nummer + (sturz ? "+" : "") : welle; }
 
     /** Die Läufe der Welle, die in daten/ereignis liegen. */
     public List<String> wellen() {
@@ -224,7 +263,7 @@ public final class Wiedergabe implements AutoCloseable {
         setzen(t, 1);
         long bis = System.currentTimeMillis() + ms;
         while (System.currentTimeMillis() < bis) {
-            if (!welle.equals(geladen)) { schlafen(); continue; }
+            if (!schluessel().equals(geladen)) { schlafen(); continue; }
             boolean alle = true;
             for (Spur s : spuren) if (s.klammer(t) != null && (paar(s, t) == null || (s.art != Art.WELLE && s.boden == null))) alle = false;
             if (alle) return true;
@@ -252,7 +291,7 @@ public final class Wiedergabe implements AutoCloseable {
     private void arbeiten() {
         while (laeuft) {
             try {
-                if (!welle.equals(geladen)) oeffnen();
+                if (!schluessel().equals(geladen)) oeffnen();
                 if (!arbeit()) synchronized (lock) { lock.wait(200); }
             } catch (InterruptedException e) {
                 return;
@@ -266,7 +305,9 @@ public final class Wiedergabe implements AutoCloseable {
 
     /** Öffnet Welle, Strom und Staub neu. */
     private void oeffnen() throws IOException {
-        String w = welle;
+        String w = welle, key = schluessel();
+        LiveLauf lv = live;
+        boolean mitSturz = sturz;
         for (EreignisDaten.Leser l : offen) try { l.close(); } catch (IOException e) { /* zu */ }
         offen.clear();
         synchronized (lock) { vorrat.clear(); bytes = 0; }
@@ -274,7 +315,11 @@ public final class Wiedergabe implements AutoCloseable {
         StringBuilder sb = new StringBuilder();
         File dw = EreignisDaten.ordner(daten, w);
         int id = 0;
-        if (new File(dw, "EREIGNIS.txt").isFile()) {
+        if (lv != null) {
+            neu.addAll(lv.spuren);
+            sb.append(lv.name);
+            id = 100 + lv.spuren.size();
+        } else if (new File(dw, "EREIGNIS.txt").isFile()) {
             EreignisDaten.Leser l = new EreignisDaten.Leser(dw);
             offen.add(l);
             List<Spur> ws = new ArrayList<>();
@@ -289,14 +334,16 @@ public final class Wiedergabe implements AutoCloseable {
         } else sb.append(w).append(": fehlt (ant ereignis)");
         File ds = EreignisDaten.ordner(daten, "strom"), dd = EreignisDaten.ordner(daten, "staub");
         Spur strom = null, oben = null, dichte = null;
-        if (new File(ds, "EREIGNIS.txt").isFile()) {
+        if (!mitSturz) sb.append(" · ohne Strom und Staub");
+        else if (new File(ds, "EREIGNIS.txt").isFile()) {
             EreignisDaten.Leser l = new EreignisDaten.Leser(ds);
             offen.add(l);
             strom = new Spur(id++, Art.STROM, "strom", 0, l);
             neu.add(strom);
             sb.append(String.format(Locale.GERMAN, " · Strom %.0f–%.0f s", strom.t0(), strom.t1()));
         } else sb.append(" · Strom fehlt");
-        if (new File(dd, "EREIGNIS.txt").isFile()) {
+        if (!mitSturz) { /* ohne Staub */ }
+        else if (new File(dd, "EREIGNIS.txt").isFile()) {
             EreignisDaten.Leser l = new EreignisDaten.Leser(dd);
             offen.add(l);
             oben = new Spur(id++, Art.STAUB_OBEN, "staub", 0, l);
@@ -307,7 +354,7 @@ public final class Wiedergabe implements AutoCloseable {
         } else sb.append(" · Staub fehlt");
         spuren = List.copyOf(neu);
         stand = sb.toString();
-        geladen = w;
+        geladen = key;
         // der Grund unter Strom und Staub (einmal gerechnet, dann aus dem Ordner)
         if (strom != null) strom.boden = boden(ds, strom.g, false);
         if (oben != null) { float[] b = boden(dd, oben.g, true); oben.boden = b; dichte.boden = b; }
@@ -404,7 +451,7 @@ public final class Wiedergabe implements AutoCloseable {
             for (Spur y : ss) if (y.id == x[0]) s = y;
             if (s == null) continue;
             long t0 = System.nanoTime();
-            short[] r = s.leser.roh(s.k, (int) x[1]);
+            short[] r = s.quelle.roh(s.k, (int) x[1]);
             auspackNanos += System.nanoTime() - t0;
             ausgepackt++;
             if (spuren != ss) return true;

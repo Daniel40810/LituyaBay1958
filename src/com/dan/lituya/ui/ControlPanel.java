@@ -10,6 +10,7 @@ import com.dan.lituya.gl.Renderer;
 import com.dan.lituya.gl.SceneView;
 import com.dan.lituya.netz.Lod;
 import com.dan.lituya.scene.SceneClock;
+import com.dan.lituya.scene.Site;
 import com.dan.lituya.scene.Sun;
 import com.dan.fbutton.FButton;
 import com.dan.fcheckbox.FCheckBox;
@@ -54,7 +55,13 @@ public final class ControlPanel extends JPanel implements javax.swing.Scrollable
             meerBox = new FCheckBox("Wasser zeigen (Platzhalter bis Phase 5a)"),
             gelaendeBox = new FCheckBox("Gelände zeigen (clipmap, Farben bis Phase 5)");
     private FComboBox lapseBox, qualBox, hudBox, standBox, laufBox, tempoBox;
-    private final JLabel ereignisLbl = small("");
+    private final JLabel ereignisLbl = small(""), volLbl = small(""), tideLbl = small(""), echtzeitLbl = small("");
+    private FComboBox ortBox;
+
+    /** Regler 0 … 100 auf 1 … 300 Mio. m³ (logarithmisch). */
+    public static double volumen(int x) { return 1e6 * Math.pow(300, x / 100.0); }
+
+    public static int volWert(double v) { return (int) Math.round(100 * Math.log(v / 1e6) / Math.log(300)); }
     /** Tempo des Abspielens (Phase 13b): Szenensekunden je Sekunde, Richtung extra. */
     private static final double[] TEMPO = {1, 0.5, 0.2, 0.1, 0.05};
     private static final Object[] TEMPO_NAME = {"Echtzeit", "Zeitlupe 1:2", "Zeitlupe 1:5", "Zeitlupe 1:10", "Zeitlupe 1:20"};
@@ -200,10 +207,68 @@ public final class ControlPanel extends JPanel implements javax.swing.Scrollable
             srow[st.nr() - 1].add(b);
         }
         put(s1); put(s2); put(s3); put(s4);
+        // Phase 13c: „Was wäre wenn“ in Echtzeit (wave.Bay auf der Grafikkarte, LOW)
+        sub("Was wäre wenn (Echtzeit)");
+        com.dan.lituya.gl.Echtzeit ez = r.echtzeit;
+        ortBox = new FComboBox(com.dan.lituya.gl.Echtzeit.ORTE.toArray());
+        ortBox.setToolTipText("Wo der Hang ins Wasser stürzt; Strg + Klick in die Szene setzt einen eigenen Ort (Richtung aus dem Hang)");
+        ortBox.addActionListener(e -> { if (ortBox.getSelectedItem() instanceof com.dan.lituya.gl.Echtzeit.Ort o) ez.ort = o; view.requestFocusInWindow(); });
+        put(ortBox);
+        FSlider vol = new FSlider(0, 100, volWert(ez.volumen));
+        put(volLbl);
+        put(vol);
+        vol.addChangeListener(e -> { ez.volumen = volumen(vol.getValue()); txt(volLbl, String.format(Locale.GERMAN, "Volumen %.1f Mio. m³ (1958: 30,6)", ez.volumen / 1e6)); });
+        txt(volLbl, String.format(Locale.GERMAN, "Volumen %.1f Mio. m³ (1958: 30,6)", ez.volumen / 1e6));
+        FSlider tide = new FSlider(-30, 40, 0);
+        put(tideLbl);
+        put(tide);
+        tide.addChangeListener(e -> { ez.pegel = tide.getValue() / 10.0; txt(tideLbl, String.format(Locale.GERMAN, "Tide: Pegel %+.1f m über NAVD88", ez.pegel)); });
+        txt(tideLbl, "Tide: Pegel +0,0 m über NAVD88");
+        JPanel gz = grid(2);
+        FComboBox grundBox = new FComboBox(com.dan.lituya.gl.Echtzeit.Grund.values()), gangBox = new FComboBox(com.dan.lituya.gl.Echtzeit.Ganglinie.values());
+        grundBox.setToolTipText("1940: Lotungen und Rückbau des Gilbert Inlet (wie die Vorrechnung); heute: BlueTopo und Gelände von heute, auch in der Szene");
+        gangBox.setToolTipText("Nur an der Wand von 1958: die Ganglinie an der Linie, nach dem Volumen skaliert");
+        grundBox.addActionListener(e -> { ez.grund = (com.dan.lituya.gl.Echtzeit.Grund) grundBox.getSelectedItem(); view.requestFocusInWindow(); });
+        gangBox.addActionListener(e -> { ez.ganglinie = (com.dan.lituya.gl.Echtzeit.Ganglinie) gangBox.getSelectedItem(); view.requestFocusInWindow(); });
+        gz.add(grundBox); gz.add(gangBox);
+        put(gz);
+        JPanel eb = grid(2);
+        FButton rechnen = new FButton("Rechnen ab 93 s"), ezAus = new FButton("Zur Vorrechnung");
+        rechnen.setToolTipText("Baut die Bucht mit diesen Einstellungen (einige Sekunden), stellt die Uhr auf die Auslösung und rechnet mit der Uhr");
+        rechnen.addActionListener(e -> {
+            ez.neu();
+            r.wiring.pegel = ez.pegel;
+            clock.setEpochMillis(SceneClock.BEBEN.toEpochMilli() + 93_000L);
+            clock.zeitstand = SceneClock.Zeitstand.WELLE;
+            clock.lapse = TEMPO[Math.max(0, tempoBox.getSelectedIndex())];
+            wg.an(true);
+            spielen.setSelected(true);
+            syncFromScene();
+            view.requestFocusInWindow();
+        });
+        ezAus.addActionListener(e -> { ez.aus(); r.wiring.pegel = 0; view.requestFocusInWindow(); });
+        eb.add(rechnen); eb.add(ezAus);
+        put(eb);
+        put(echtzeitLbl);
+        view.setCtrlClickListener((x, y, w, h) -> {
+            double[] p = r.treffer(x, y, w, h);
+            if (p == null) return;
+            double[] u = Site.toUtm(p[0], p[1]);
+            com.dan.lituya.gl.Echtzeit.Ort o = new com.dan.lituya.gl.Echtzeit.Ort(String.format(Locale.GERMAN, "Strg-Klick E %.0f N %.0f", u[0], u[1]), u[0], u[1], Double.NaN, false);
+            ez.ort = o;
+            javax.swing.SwingUtilities.invokeLater(() -> {
+                javax.swing.DefaultComboBoxModel<Object> m = new javax.swing.DefaultComboBoxModel<>(com.dan.lituya.gl.Echtzeit.ORTE.toArray());
+                m.addElement(o);
+                ortBox.setModel(m);
+                ortBox.setSelectedItem(o);
+            });
+            r.hudMeldung("Ort des Sturzes: " + o.name() + " (Rechnen ab 93 s im Block EREIGNIS)");
+        });
         put(small("<html><body style='width:215px'>Die Vorrechnung aus Phase 13 (ant ereignis): Welle in drei Gittern (16, 4, 2 m), Felssturz "
                 + "und Staub über dem Grund von 1958; der Rückbau des Gilbert Inlet gilt im Gelände für alle Zeitstände außer „heute“. "
-                + "J/K/L: rückwärts, anhalten, vorwärts; Z: Zeitlupe 1:1, 1:2, 1:5, 1:10, 1:20. Fahrten kommen mit Phase 17, die Echtzeit "
-                + "„Was wäre wenn“ mit 13c, Geröll und Stämme mit 14.</body></html>"));
+                + "J/K/L: rückwärts, anhalten, vorwärts; Z: Zeitlupe 1:1, 1:2, 1:5, 1:10, 1:20. Fahrten kommen mit Phase 17, "
+                + "Geröll und Stämme mit 14. „Was wäre wenn“ (unten) rechnet die Welle in Echtzeit (LOW, 32/8/4 m) und hält sie im Rückspulpuffer: "
+                + "rückwärts geht, soweit gerechnet ist.</body></html>"));
         view.setKeyAction(java.awt.event.KeyEvent.VK_J, () -> javax.swing.SwingUtilities.invokeLater(() -> richtung(-1)));
         view.setKeyAction(java.awt.event.KeyEvent.VK_K, () -> javax.swing.SwingUtilities.invokeLater(() -> richtung(0)));
         view.setKeyAction(java.awt.event.KeyEvent.VK_L, () -> javax.swing.SwingUtilities.invokeLater(() -> richtung(1)));
@@ -383,6 +448,7 @@ public final class ControlPanel extends JPanel implements javax.swing.Scrollable
                 + "F: frei fliegen · R: von selbst kreisen · Pos1: Grundansicht · H: HUD kurz, voll, aus<br>"
                 + "Leertaste: Uhr anhalten und weiter · N: Netzblick an und aus · F12: Foto nach docs/status · F5: Shader neu laden<br>"
                 + "Ereignis: J rückwärts · K anhalten · L vorwärts · Z Zeitlupe (1:1 bis 1:20); Schaustücke im Block EREIGNIS<br>"
+                + "Strg + Klick: Ort des Sturzes für „Was wäre wenn“ (Echtzeit im Block EREIGNIS)<br>"
                 + "Ansichten: " + an + "<br><br>"
                 + "<b>Fenster</b><br>F1: diese Übersicht · F11: nur die Szene (Bedienfeld und Statuszeile weg und wieder da)</body></html>",
                 "LituyaBay1958 · Tasten", com.dan.foptionpane.FOptionPane.INFORMATION_MESSAGE);
@@ -405,6 +471,7 @@ public final class ControlPanel extends JPanel implements javax.swing.Scrollable
         txt(timeLbl, "Ortszeit " + clock.timeLabelSec());
         txt(simLbl, "Simulationszeit " + clock.simLabel());
         txt(standLbl, "<html><body style='width:215px'>" + esc(clock.zeitstand.text) + "</body></html>");
+        txt(echtzeitLbl, "<html><body style='width:215px'>" + esc(r.echtzeit.zeile()) + "</body></html>");
         String ez = r.ereignisZeile();
         txt(ereignisLbl, "<html><body style='width:215px'>" + esc(ez.isEmpty() ? "Abspielen: " + r.tempoText() + " · " + r.wiedergabe.zeile() : ez + " · " + r.wiedergabe.zeile()) + "</body></html>");
         double[] s = clock.sun();
