@@ -950,6 +950,55 @@ public final class Pruefung {
             }
         }
 
+        teil("Netzblick für Wasser und Weg, Bäche in der Szene (Phase 16c)");
+        {
+            double mw = com.dan.lituya.tools.Klassen.mittelwasser(10, 0.5), q0 = com.dan.lituya.scene.WasserNetz.abfluss(10, 0.5, 0),
+                    q10 = com.dan.lituya.scene.WasserNetz.abfluss(1, 0, 10);
+            check(Math.abs(q0 - mw) < 1e-12 && Math.abs(q10 - (com.dan.lituya.tools.Klassen.mittelwasser(1, 0) + 0.7 * 10 / 3.6)) < 1e-9
+                            && Math.abs(com.dan.lituya.scene.WasserNetz.breite(4) - 5) < 1e-9 && com.dan.lituya.scene.WasserNetz.breite(1e6) == 90,
+                    f("Abfluss: ohne Regen das Mittelwasser (%.3f m³/s aus 10 km² halb Eis), 1 km² Land bei 10 mm/h %.2f m³/s; Breite 2,5·Q^0,5 (4 m³/s → 5 m, höchstens 90 m)", q0, q10));
+            String vs = com.dan.lituya.gl.Shader.source("baeche.vert", null).text, fs = com.dan.lituya.gl.Shader.source("baeche.frag", null).text;
+            check(vs.contains("uRegen") && vs.contains("2.5 * sqrt") && vs.contains("0.045") && fs.contains("aerial(") && !vs.matches("(?s).*\\bhalf\\b.*"),
+                    "Shader baeche.vert/baeche.frag mit common.glsl: Breite und Manning wie WasserNetz und tools.Wasser, Dunst wie das Gelände");
+            if (!com.dan.lituya.scene.WasserNetz.da(daten)) hinweis("daten/netz/wasser fehlt: ant aufbereitung -Dschritte=wasser");
+            else {
+                com.dan.lituya.gl.Netzblick nb16 = new com.dan.lituya.gl.Netzblick();
+                nb16.bauenWasser(daten, null);
+                com.dan.lituya.scene.WasserNetz wn = com.dan.lituya.scene.WasserNetz.lesen(daten);
+                int nB = 0;
+                double lB = 0;
+                for (int e = 0; e < wn.m; e++)
+                    if (wn.kEbene[e] == 1 && (com.dan.lituya.scene.WasserNetz.BACH.equals(wn.kArt[e]) || com.dan.lituya.scene.WasserNetz.BACH_EIS.equals(wn.kArt[e]))) { nB++; lB += wn.laenge[e]; }
+                com.dan.netview.NetLayer bl = nb16.ebene("Bäche"), zl = nb16.ebene("Ziele"), ul = nb16.ebene("Einzugsgebiete");
+                double[] gi16 = nb16.zuflussZiel(0, 0), gi10 = nb16.zuflussZiel(0, 10);
+                String eg = wn.wert("einzug.gilbert_inlet");
+                double egKm = eg == null ? Double.NaN : Double.parseDouble(eg.replaceAll("^([0-9.,]+).*$", "$1").replace(".", "").replace(',', '.'));
+                check(bl.items.size() >= nB && zl.items.size() >= 3 && ul.items.size() > 10 && Math.abs(gi16[1] - egKm) < 0.02 * egKm && gi10[0] > 10 * gi16[0],
+                        f("Netzblick Wasser: %,d Bäche in %,d Stücken, %,d Umrissstücke, %d Ziele; Gilbert Inlet über die Bäche %.1f km² (WASSER.txt %.1f), %.0f m³/s ohne Regen, %.0f m³/s bei 10 mm/h",
+                                nB, bl.items.size(), ul.items.size(), zl.items.size(), gi16[1], egKm, gi16[0], gi10[0]));
+                com.dan.lituya.gl.BaecheGl bg = new com.dan.lituya.gl.BaecheGl();
+                bg.bauen(wn, com.dan.lituya.scene.WasserNetz.linien(daten), (xq, zq) -> 10);
+                float[] sv = bg.scheitel();
+                boolean seiten = true;
+                for (int q = 0; q + 2 * com.dan.lituya.gl.BaecheGl.FLOATS <= sv.length && q < 200_000; q += 2 * com.dan.lituya.gl.BaecheGl.FLOATS)
+                    seiten &= sv[q + 6] == -1 && sv[q + com.dan.lituya.gl.BaecheGl.FLOATS + 6] == 1 && Math.abs(Math.hypot(sv[q + 4], sv[q + 5]) - 1) < 1e-3;
+                check(bg.baender() == nB && Math.abs(bg.km() * 1000 - lB) < 0.02 * lB && seiten,
+                        f("Bäche als Bänder: %,d (alle BACH und BACH_EIS), %,.0f km (Kanten %,.0f km), %,d Scheitel, Seiten links und rechts", bg.baender(), bg.km(), lB / 1000, sv.length / com.dan.lituya.gl.BaecheGl.FLOATS));
+            }
+            if (!new File(new File(daten, com.dan.lituya.scene.WegNetz.ORDNER), "WEG.txt").isFile()) hinweis("daten/netz/weg fehlt: ant aufbereitung -Dschritte=klassen+weg+landflucht");
+            else {
+                com.dan.lituya.gl.Netzblick nw16 = new com.dan.lituya.gl.Netzblick();
+                nw16.bauenWeg(daten, null);
+                com.dan.netview.NetLayer sl = nw16.ebene("1 h vom Strand"), wl = nw16.ebene("Washburn 1934"), lw16 = nw16.ebene("Flucht an Land"), pl = nw16.ebene("Wegpunkte");
+                boolean steigt = true;
+                for (com.dan.netview.NetLayer.Item it : lw16.items) for (int q = 1; q < it.values.length; q++) steigt &= it.values[q] >= it.values[q - 1] - 1e-3;
+                int wpt = pl.items.isEmpty() ? 0 : pl.items.get(0).xyz.length / 3;
+                check(sl.items.size() > 0 && wl.segments() > 100 && wpt == 3 && lw16.items.size() >= 2 && steigt,
+                        f("Netzblick Weg: 1 h vom Strand %d Isolinienstücke, Washburn %,d Strecken mit %d Wegpunkten, Flucht an Land %d Strahlen (Zeit steigt längs des Wegs)",
+                                sl.items.size(), wl.segments(), wpt, lw16.items.size()));
+            }
+        }
+
         teil("Staub und Treibgut (Phase 12): dustcloud, debris");
         {
             com.dan.dustcloud.DustCloud dc = new com.dan.dustcloud.DustCloud(0, 0, 40, 20, 50, com.dan.dustcloud.DustCloud.rockDust());

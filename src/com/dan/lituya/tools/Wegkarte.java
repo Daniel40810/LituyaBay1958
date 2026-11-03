@@ -27,7 +27,7 @@ public final class Wegkarte {
 
     static final Color BG = new Color(11, 17, 24), INK = new Color(230, 234, 238), DIM = new Color(140, 156, 170);
     /** Farben der Klassen (wie Klassen.NAME). */
-    static final Color[] KF = {new Color(24, 52, 86), new Color(50, 100, 160), new Color(196, 180, 140), new Color(130, 150, 90), new Color(110, 120, 80),
+    public static final Color[] KF = {new Color(24, 52, 86), new Color(50, 100, 160), new Color(196, 180, 140), new Color(130, 150, 90), new Color(110, 120, 80),
             new Color(80, 120, 60), new Color(36, 84, 44), new Color(120, 112, 104), new Color(150, 140, 125), new Color(200, 225, 240), new Color(240, 244, 248),
             new Color(150, 120, 200), new Color(60, 140, 230)};
 
@@ -151,7 +151,7 @@ public final class Wegkarte {
         System.out.printf(Locale.GERMAN, "Wegkarte nach %s (%d × %d)%n", png.getPath(), im.getWidth(), im.getHeight());
     }
 
-    static Color schatten(Color b, float[] z, int W, int H, int i, int j, double d) {
+    public static Color schatten(Color b, float[] z, int W, int H, int i, int j, double d) {
         double dzx = (z[j * W + Math.min(W - 1, i + 1)] - z[j * W + Math.max(0, i - 1)]) / (2 * d), dzy = (z[Math.max(0, j - 1) * W + i] - z[Math.min(H - 1, j + 1) * W + i]) / (2 * d);
         double sh = Math.max(0.25, Math.min(1.15, 0.8 + (-dzx * 0.7 + dzy * 0.7) * 0.5 / Math.sqrt(1 + dzx * dzx + dzy * dzy)));
         return new Color(Math.min(255, (int) (b.getRed() * sh)), Math.min(255, (int) (b.getGreen() * sh)), Math.min(255, (int) (b.getBlue() * sh)));
