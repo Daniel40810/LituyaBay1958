@@ -54,7 +54,7 @@ public final class Renderer implements GLEventListener {
     public static final int MIN_MAJOR = 4, MIN_MINOR = 3;
     public static final String VERSION = "Phase 9";
     /** Phase des Stands (für Ansichten und Bedienfeld). */
-    public static final int PHASE = 15;
+    public static final int PHASE = 16;
     public static final String[] PASSES = {"Himmel", "Gelände", "Wald", "Boote", "Welle", "Wasser", "Staub", "Nachbearbeitung", "HUD"};
     private static final int MARKS = PASSES.length + 1;
     /** Nah- und Fernebene (m): vom Kutter bis über die Kimm des Mount Fairweather (264 km). */
@@ -796,6 +796,7 @@ public final class Renderer implements GLEventListener {
                 echtzeit.zeile() + (echtzeit.an() ? " · " + echtzeit.messung() : ""),
                 waldZeile(),
                 boote.info() + " · " + fluchtZeile(),
+                wasserZeile(),
                 clipGl.info(),
                 cameraLine(),
                 String.format(Locale.GERMAN, "UTM 8 N  E %.0f  N %.0f · %s · Kimm %.1f km", utm[0], utm[1], Site.dms(ll[0], ll[1]), kimm / 1000),
@@ -811,6 +812,14 @@ public final class Renderer implements GLEventListener {
     public String fluchtZeile() {
         if (flucht == null) flucht = com.dan.lituya.scene.SeeNetz.fluchtZeile(new java.io.File(System.getProperty("lituya.daten", "daten")));
         return flucht;
+    }
+
+    private String wasser;
+
+    /** Phase 16: die Einzugsgebiete aus LB_NET_WASSER (einmal aus daten/netz/wasser/WASSER.txt). */
+    public String wasserZeile() {
+        if (wasser == null) wasser = com.dan.lituya.scene.WasserNetz.zeile(new java.io.File(System.getProperty("lituya.daten", "daten")));
+        return wasser;
     }
 
     /** „Wald: Jahr 12 nach der Welle (1970) · …“ */

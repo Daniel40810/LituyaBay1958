@@ -43,6 +43,10 @@ import java.util.Properties;
  * Seit Phase 15a dazu {@code LB_NET_SEE} (gerichtet) und {@code LB_FLUCHT} aus {@code daten/netz/see} ({@link SeeDb},
  * {@code 07_see.sql}, {@code 08_see_nach_dem_laden.sql}); Zweitrechnung LOD mit Kosten nach der Zeit und Frontbedingung
  * gegen den eigenen Dijkstra.
+ * <p>
+ * Seit Phase 16 dazu {@code LB_NET_WASSER} (gerichtet, zwei Ebenen) mit {@code LB_EINZUG}, {@code LB_SEE} und
+ * {@code LB_SENKE} aus {@code daten/netz/wasser} ({@link WasserDb}, {@code 09_wasser.sql}, {@code 10_wasser_nach_dem_laden.sql});
+ * Zweitrechnung LOD (traceIn je Ziel, Komponenten) gegen die Dateien, Flächen über CONNECT BY auf der Ebene 2.
  */
 public final class NetzDb {
     private NetzDb() { }
@@ -139,6 +143,9 @@ public final class NetzDb {
         // Phase 15a: See (Fahrwasser, gerichtet) und LB_FLUCHT
         boolean see = com.dan.lituya.scene.SeeNetz.da(daten);
         if (see) SeeDb.laden(c, daten, sql, NetzDb::log); else log("Hinweis: daten/netz/see fehlt (ant aufbereitung -Dschritte=see), LB_NET_SEE nicht geladen");
+        // Phase 16: Wasser (hierarchisch) mit LB_EINZUG, LB_SEE, LB_SENKE
+        boolean wasser = com.dan.lituya.scene.WasserNetz.da(daten);
+        if (wasser) WasserDb.laden(c, daten, sql, NetzDb::log); else log("Hinweis: daten/netz/wasser fehlt (ant aufbereitung -Dschritte=wasser), LB_NET_WASSER nicht geladen");
         // NDM-Funktionsprobe
         skript(c, new File(sql, "03_probe.sql"), true);
         boolean javaOk = javaProbe(c, k);
@@ -192,6 +199,8 @@ public final class NetzDb {
                 "VALIDATE " + vu);
         // Phase 15a: LB_NET_SEE, LOD gegen den eigenen Dijkstra in Oracle
         if (com.dan.lituya.scene.SeeNetz.da(daten)) gut &= SeeDb.pruefen(c, daten, k.url, k.user, passwort(k), NetzDb::log);
+        // Phase 16: LB_NET_WASSER, LOD und CONNECT BY gegen die Dateien
+        if (com.dan.lituya.scene.WasserNetz.da(daten)) gut &= WasserDb.pruefen(c, daten, k.url, k.user, passwort(k), NetzDb::log);
         return gut;
     }
 

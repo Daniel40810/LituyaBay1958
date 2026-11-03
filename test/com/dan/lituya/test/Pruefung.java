@@ -785,6 +785,84 @@ public final class Pruefung {
             }
         }
 
+        teil("Gewässer und Gletscher (Phase 16): LB_NET_WASSER");
+        {
+            // Umrisse aus einem Raster: Gebiet 1 mit Loch (Gebiet 2), Gebiet 3 an der Ecke
+            int[] ur = {1, 1, 1, 1, 0,
+                        1, 2, 2, 1, 0,
+                        1, 2, 2, 1, 3,
+                        1, 1, 1, 1, 3};
+            java.util.Map<Integer, List<List<double[]>>> rg = com.dan.lituya.tools.Umriss.ringe(ur, 5, 4, 0, 40, 10);
+            double a1 = 0;
+            for (double[] r : rg.get(1).get(0)) a1 += com.dan.lituya.tools.Umriss.flaeche(r);
+            check(rg.get(1).size() == 1 && rg.get(1).get(0).size() == 2 && Math.abs(a1 - 1200) < 1e-6 && Math.abs(com.dan.lituya.tools.Umriss.flaeche(rg.get(2).get(0).get(0)) - 400) < 1e-6
+                    && Math.abs(com.dan.lituya.tools.Umriss.flaeche(rg.get(3).get(0).get(0)) - 200) < 1e-6,
+                    f("Umriss: Gebiet mit Loch außen gegen, innen mit dem Uhrzeigersinn, Fläche %.0f m² (16 Zellen − 4 = 12)", a1));
+            double q1 = com.dan.lituya.tools.Wasser.abfluss(10_000, 0);
+            check(Math.abs(q1 - 10.0 / 1000 / 3600 * 1e6 * 0.6) < 1e-9 && com.dan.lituya.tools.Wasser.geschw(q1, 0.05) > 0.5 && com.dan.lituya.tools.Wasser.geschw(q1, 0.05) < 6,
+                    f("Abfluss bei Regen 10 mm/h auf 1 km² Land %.2f m³/s, Manning bei 5 %% Gefälle %.2f m/s", q1, com.dan.lituya.tools.Wasser.geschw(q1, 0.05)));
+            if (!com.dan.lituya.scene.WasserNetz.da(daten)) hinweis("daten/netz/wasser fehlt: ant aufbereitung -Dschritte=wasser");
+            else {
+                com.dan.lituya.scene.WasserNetz wn = com.dan.lituya.scene.WasserNetz.lesen(daten);
+                File wd = new File(daten, com.dan.lituya.scene.WasserNetz.ORDNER);
+                String fe = wn.fehler();
+                check(fe == null && wn.n > 1000, wn + (fe == null ? "; Baum stromab, kreisfrei, jeder Knoten erreicht ein Ziel, jeder Knoten der Ebene 1 hat ein Gebiet" : "; " + fe));
+                check(com.dan.lituya.scene.WellenNetz.pruefsumme(wd).equals(wn.wert("pruefsumme")), "Prüfsumme in WASSER.txt passt");
+                // Flächen: Ebene 2 (Summe der Gebiete) gegen das Raster
+                java.util.Map<String, Double> f2 = new java.util.HashMap<>();
+                for (String[] pz : com.dan.lituya.scene.WellenNetz.tsv(new File(wd, "pruefwege.tsv"))) if (pz[1].equals("2")) f2.put(pz[0], Double.parseDouble(pz[3]));
+                double dmax = 0;
+                for (String zn : com.dan.lituya.scene.WasserNetz.ZIELE) {
+                    String v = wn.wert("einzug." + com.dan.lituya.scene.WasserNetz.schluessel(zn));
+                    double r = Double.parseDouble(v.split(" ")[0].replace(".", "").replace(',', '.'));
+                    dmax = Math.max(dmax, Math.abs(r - f2.getOrDefault(zn, Double.NaN)));
+                }
+                check(dmax <= 0.06, f("Fläche je Ziel: Summe der Teileinzugsgebiete (traceIn auf Ebene 2) = Fläche im Raster bis %.3f km²", dmax));
+                int gil = wn.ziel("Gilbert Inlet", 1);
+                double gf = wn.flaeche[gil], ge = wn.eisAnteil[gil];
+                String rand = wn.wert("rand.gilbert_inlet");
+                check(gf > 100 && ge > 0.3 && rand != null && rand.startsWith("0 "), f("Gilbert Inlet: %.1f km², %.0f %% Eis, ganz in der Szene (%s)", gf, ge * 100, rand));
+                // Ebenen passen zueinander: jedes Gebiet führt zum selben Ziel wie seine Knoten
+                int falsch = 0;
+                for (int i = 0; i < wn.n; i++) {
+                    if (wn.ebene[i] != 1 || wn.parent[i] < 0) continue;
+                    List<Integer> l1 = wn.traceOut(i, 1), l2 = wn.traceOut(wn.parent[i], 2);
+                    if (!wn.name[l1.get(l1.size() - 1)].equals(wn.name[l2.get(l2.size() - 1)])) falsch++;
+                }
+                check(falsch == 0, f("Ebene 1 und 2: jeder Knoten fließt zum selben Ziel wie sein Gebiet (%d anders)", falsch));
+                int[] k1 = new int[1], k2 = new int[1];
+                wn.komponenten(1, k1);
+                wn.komponenten(2, k2);
+                check(k1[0] == com.dan.lituya.scene.WasserNetz.ZIELE.length && k2[0] == k1[0], f("Zusammenhangskomponenten: %d in Ebene 1, %d in Ebene 2 (je Ziel eine)", k1[0], k2[0]));
+                String to = wn.wert("traceout.lituya_glacier");
+                check(to != null && to.contains("bis Gilbert Inlet"), "traceOut Lituya Glacier: " + to);
+                com.dan.lituya.tools.WasserDb.Vergleich vr = com.dan.lituya.tools.WasserDb.routeGegenDatei(wn);
+                check(vr.ok(), "Fließzeit zum Ziel: " + vr.text());
+                com.dan.lituya.tools.WasserDb.Vergleich vl = com.dan.lituya.tools.WasserDb.lodImSpeicher(wn);
+                check(vl.ok(), "traceIn: LOD = Datei: " + vl.text());
+                // Umrisse (50 m) gegen die Fläche aus 10 m
+                java.util.Map<Integer, Double> fu = new java.util.HashMap<>();
+                for (String[] uz : com.dan.lituya.scene.WellenNetz.tsv(new File(wd, "umrisse.tsv"))) {
+                    String[] p = uz[3].split(",");
+                    double[] r = new double[2 * p.length];
+                    for (int q = 0; q < p.length; q++) { String[] xy = p[q].split(" "); r[2 * q] = Double.parseDouble(xy[0]); r[2 * q + 1] = Double.parseDouble(xy[1]); }
+                    fu.merge(Integer.parseInt(uz[0]), com.dan.lituya.tools.Umriss.flaeche(r) / 1e6, Double::sum);
+                }
+                double um = 0;
+                int ug = 0;
+                for (String[] ez : com.dan.lituya.scene.WellenNetz.tsv(new File(wd, "einzug.tsv"))) {
+                    double fe2 = Double.parseDouble(ez[4]);
+                    if (fe2 < 5) continue;
+                    ug++;
+                    um = Math.max(um, Math.abs(fu.getOrDefault(Integer.parseInt(ez[0]), 0.0) - fe2) / fe2);
+                }
+                check(ug > 0 && um < 0.1, f("Umrisse aus 50 m: %d Gebiete ab 5 km², Fläche bis %.1f %% von der aus 10 m", ug, um * 100));
+                String eq = wn.wert("eis_geschwindigkeit");
+                if (eq == null || eq.startsWith("ohne")) hinweis("Gletscher ohne ITS_LIVE (Richtung aus dem Gelände, 100 m/a [G]): python tools/kartenmaterial/kartenmaterial.py laden --quellen itslive_geschwindigkeit, dann ant aufbereitung -Dschritte=wasser");
+                System.out.println("    " + com.dan.lituya.scene.WasserNetz.zeile(daten));
+            }
+        }
+
         teil("Staub und Treibgut (Phase 12): dustcloud, debris");
         {
             com.dan.dustcloud.DustCloud dc = new com.dan.dustcloud.DustCloud(0, 0, 40, 20, 50, com.dan.dustcloud.DustCloud.rockDust());
@@ -860,7 +938,7 @@ public final class Pruefung {
                     while (m.find()) if (!m.group(1).toUpperCase(Locale.ROOT).startsWith("LB_")) { fremd++; System.out.println("    ohne LB_: " + m.group(1) + " in " + x.getName()); }
                 }
             }
-            check(sk.length == 11 && anw > 40, f("db/netz: %d Skripte, %d Anweisungen, jede mit „/“ abgeschlossen", sk.length, anw));
+            check(sk.length == 13 && anw > 40, f("db/netz: %d Skripte, %d Anweisungen, jede mit „/“ abgeschlossen", sk.length, anw));
             check(fremd == 0, "alle Objekte mit Präfix LB_ (F40 B: Schema LITUYABAY1958)");
         }
         {
