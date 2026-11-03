@@ -818,7 +818,10 @@ public final class Renderer implements GLEventListener {
 
     /** Phase 16a: 1 h vom Strand und Washburn 1934 aus LB_NET_WEG (einmal aus daten/netz/weg/WEG.txt). */
     public String wegZeile() {
-        if (weg == null) weg = com.dan.lituya.scene.WegNetz.zeile(new java.io.File(System.getProperty("lituya.daten", "daten")));
+        if (weg == null) {
+            java.io.File d = new java.io.File(System.getProperty("lituya.daten", "daten"));
+            weg = com.dan.lituya.scene.WegNetz.zeile(d) + " · " + com.dan.lituya.scene.WegNetz.landfluchtZeile(d);
+        }
         return weg;
     }
 

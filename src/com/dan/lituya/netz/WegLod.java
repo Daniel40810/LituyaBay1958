@@ -1,5 +1,7 @@
 package com.dan.lituya.netz;
 
+import oracle.spatial.network.lod.LODAnalysisInfo;
+import oracle.spatial.network.lod.LODNetworkConstraint;
 import oracle.spatial.network.lod.LODNetworkFactory;
 import oracle.spatial.network.lod.LODNetworkManager;
 import oracle.spatial.network.lod.LogicalBasicNetwork;
@@ -63,6 +65,74 @@ public final class WegLod {
         }
         r[4] = String.format(Locale.ROOT, "LOD %s: withinCost 1 h, shortestPathDijkstra × %d, kShortestPaths k = 3, %.1f s", wo, Math.max(0, wegpunkte.length - 1), (System.nanoTime() - t0) / 1e9);
         return r;
+    }
+
+    /** Phase 16b: ein Knoten nur vor seiner Front (Ereigniszeit = delta + bisherige Kosten). */
+    static final class VorDerFront implements LODNetworkConstraint {
+        final double[] front;
+        final double delta;
+        long abgelehnt;
+        VorDerFront(double[] front, double delta) { this.front = front; this.delta = delta; }
+
+        @Override public boolean isSatisfied(LODAnalysisInfo info) {
+            LogicalNetNode n = info.getNextNode();
+            if (n == null) return true;
+            int id = (int) n.getId();
+            double fr = id >= 0 && id < front.length ? front[id] : Double.NaN;
+            if (Double.isNaN(fr)) return true;
+            double[] c = info.getNextCosts();
+            boolean ok = delta + (c != null && c.length > 0 ? c[0] : info.getNextCost()) < fr;
+            if (!ok) abgelehnt++;
+            return ok;
+        }
+
+        @Override public int[] getUserDataCategories() { return null; }
+        @Override public int getNumberOfUserObjects() { return 0; }
+        @Override public boolean isCurrentNodePartiallyExpanded(LODAnalysisInfo info) { return false; }
+        @Override public void reset() { }
+        @Override public void setNetworkAnalyst(NetworkAnalyst a) { }
+    }
+
+    /**
+     * Phase 16b, Flucht an Land: je Start (Landeplatz) und Zeit an Land die früheste Ankunft auf einem sicheren Knoten,
+     * mit withinCost und der Frontbedingung. front und sicher je Knoten-Nummer. Rückgabe {double[] Zeit (Ereigniszeit,
+     * NaN: keiner), long[] Knoten, String info}.
+     */
+    public static Object[] landflucht(String url, String user, String pw, long[] knoten, long[] von, long[] nach, double[] cost, long[] starts, double[] zeiten,
+                                      double[] front, boolean[] sicher, double grenze) throws Exception {
+        long t0 = System.nanoTime();
+        double[] t = new double[starts.length];
+        long[] z = new long[starts.length];
+        long[] abg = new long[1];
+        String wo;
+        if (url == null) {
+            NetworkAnalyst a = imSpeicher(knoten, von, nach, cost);
+            for (int i = 0; i < starts.length; i++) sicher(a, starts[i], zeiten[i], front, sicher, grenze, t, z, i, abg);
+            wo = "im Speicher (Ausschnitt, " + knoten.length + " Knoten)";
+        } else {
+            try (Connection c = LODNetworkManager.getConnection(url, user, pw)) {
+                NetworkAnalyst a = LODNetworkManager.getNetworkAnalyst(LODNetworkManager.getCachedNetworkIO(c, NETZ, NETZ, null));
+                for (int i = 0; i < starts.length; i++) sicher(a, starts[i], zeiten[i], front, sicher, grenze, t, z, i, abg);
+                wo = "Oracle " + NETZ;
+            }
+        }
+        return new Object[]{t, z, String.format(Locale.ROOT, "LOD %s: withinCost mit Frontbedingung × %d (%d Knoten abgelehnt), %.1f s", wo, starts.length, abg[0], (System.nanoTime() - t0) / 1e9)};
+    }
+
+    static void sicher(NetworkAnalyst a, long s, double t0, double[] front, boolean[] sicher, double grenze, double[] t, long[] z, int i, long[] abg) throws Exception {
+        VorDerFront v = new VorDerFront(front, t0);
+        LogicalSubPath[] w = a.withinCost(new PointOnNet(s), grenze, v, null);
+        abg[0] += v.abgelehnt;
+        double best = sicher[(int) s] ? 0 : Double.POSITIVE_INFINITY;
+        long bk = sicher[(int) s] ? s : -1;
+        if (w != null)
+            for (LogicalSubPath x : w) {
+                if (x.getEndPercentage() < 1 - 1e-9) continue;
+                long e = x.getReferencePath().getEndNodeId();
+                if (e >= 0 && e < sicher.length && sicher[(int) e] && x.getCost() < best) { best = x.getCost(); bk = e; }
+            }
+        t[i] = bk < 0 ? Double.NaN : t0 + best;
+        z[i] = bk;
     }
 
     static Object[] analysen(NetworkAnalyst a, long start, double grenze, long[] wp) throws Exception {

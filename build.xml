@@ -76,7 +76,7 @@
         lib/Renderer.jar alles hat, was LituyaBay1958 braucht (jedes gebrauchte Package mit Klassen und README, Java 21,
         von den 14 neuen die, deren Phase erreicht ist); abschalten mit -Dohne.paketpruefung=true.
     -->
-    <property name="lituya.phase" value="16a"/>
+    <property name="lituya.phase" value="16b"/>
     <target name="check-packages" description="Prüft lib/Renderer.jar: die gebrauchten Packages mit README, Java 21, die fälligen neuen." unless="ohne.paketpruefung">
         <property name="platform.java" value="java"/>
         <exec executable="${platform.java}" dir="${basedir}" failonerror="true">
@@ -157,12 +157,10 @@
          und die Zweitrechnung wie ant netzvergleich. Protokoll docs/status/netzdb_Phase7a.txt. -->
     <target name="netzdb" depends="compile" description="Phase 3/7a: Netze nach Oracle laden (Herkunft, Welle, Ufer), NDM-Funktionsprobe, Gegenrechnung.">
         <property name="platform.java" value="java"/>
-        <property name="lituya.weg" value="true"/>
         <java classname="com.dan.lituya.tools.NetzDb" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="true">
             <jvmarg value="-Dstdout.encoding=UTF-8"/>
             <jvmarg value="-Djava.awt.headless=true"/>
-            <jvmarg value="-Xmx12g"/>
-            <jvmarg value="-Dlituya.weg=${lituya.weg}"/>
+            <jvmarg value="-Xmx3g"/>
             <arg value="laden"/>
             <classpath><pathelement location="lib/Renderer.jar"/><pathelement path="${run.classpath}"/></classpath>
         </java>
@@ -756,7 +754,18 @@
     </target>
     <!-- Phase 16a (Werkbuch 7.5): ant aufbereitung -Dschritte=klassen+weg schreibt die Geländeklassen (daten/klassen) und
          LB_NET_WEG (daten/netz/weg, binär). wegkarte: 1 h vom Strand und Washburn 1934 nach docs/status/Weg.png.
-         ant netzdb lädt LB_NET_WEG (Millionen Kanten, einige Minuten; -Dlituya.weg=false lässt es aus). -->
+         ant wegdb lädt LB_NET_WEG (Millionen Kanten); ant netzdb lässt es stehen (Phase 16b). -->
+    <!-- Phase 16b: LB_NET_WEG für sich (97_weg_abbau, 11, Laden, 12, Prüfung, LB_LANDFLUCHT); braucht ein Schema aus ant netzdb. -->
+    <target name="wegdb" depends="compile" description="Phase 16b: LB_NET_WEG nach Oracle laden und prüfen (eigenes Ziel, lange).">
+        <property name="platform.java" value="java"/>
+        <java classname="com.dan.lituya.tools.NetzDb" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="true">
+            <jvmarg value="-Dstdout.encoding=UTF-8"/>
+            <jvmarg value="-Djava.awt.headless=true"/>
+            <jvmarg value="-Xmx12g"/>
+            <arg value="weg"/>
+            <classpath><pathelement location="lib/Renderer.jar"/><pathelement path="${run.classpath}"/></classpath>
+        </java>
+    </target>
     <target name="wegkarte" depends="compile" description="Phase 16a: Geländeklassen, 1 h vom Strand und Washburn 1934 (daten/netz/weg) nach docs/status/Weg.png.">
         <renderer-java klasse="com.dan.lituya.tools.Wegkarte" args="daten docs/status/Weg.png" ausgabe="docs/status/wegkarte_Phase${lituya.phase}.txt" speicher="-Xmx3g"/>
         <loadfile property="wegkarte.text" srcFile="docs/status/wegkarte_Phase${lituya.phase}.txt" encoding="UTF-8"/>

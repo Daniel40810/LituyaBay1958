@@ -7,7 +7,8 @@
 -- (3001, SRID 26908, Z = Höhe), gefüllt in 12 aus OST, NORD, HOEHE.
 -- COST = Gehzeit in s (Tobler × Zuschlag der Geländeklasse).
 -- Dazu LB_WEG_UMSTIEG (Fahrwasser LB_NET_SEE → Strand) und LB_WEG_ROUTE
--- (Washburn 1934, Punkte mit Höhe und Zeit).
+-- (Washburn 1934 und die Landwege der Flucht, Punkte mit Höhe und Zeit),
+-- seit 16b LB_LANDFLUCHT. Vorher räumt 97_weg_abbau.sql (ant wegdb).
 -- ============================================================================
 DECLARE
     t VARCHAR2(30) := 'LB_NET_WEG';
@@ -53,6 +54,19 @@ BEGIN
             PUNKT         SDO_GEOMETRY,
             CONSTRAINT LB_WEG_ROUTE_PK PRIMARY KEY (ROUTE, SEQ))');
     ddl('COMMENT ON TABLE LB_WEG_ROUTE IS ''LituyaBay1958: nachgerechnete Wege (WASHBURN_1934: Crillon Lake, South Crillon Glacier, Mount Crillon) als Punkte mit Hoehe und Gehzeit''');
+    ddl('CREATE TABLE LB_LANDFLUCHT (
+            BOOT          VARCHAR2(20) NOT NULL,
+            ABFAHRT_S     NUMBER NOT NULL,
+            GERETTET      CHAR(1) NOT NULL CHECK (GERETTET IN (''J'', ''N'')),
+            SPAETESTE     CHAR(1) DEFAULT ''N'' NOT NULL CHECK (SPAETESTE IN (''J'', ''N'')),
+            SEE_NODE_ID   NUMBER,
+            WEG_NODE_ID   NUMBER,
+            AN_LAND_S     NUMBER,
+            SICHER_NODE_ID NUMBER,
+            SICHER_S      NUMBER,
+            HOEHE         NUMBER,
+            RESERVE_S     NUMBER)');
+    ddl('COMMENT ON TABLE LB_LANDFLUCHT IS ''LituyaBay1958: Wer haette sich an Land retten koennen? Boot durch LB_NET_SEE zum Strand, 3 min anlanden, zu Fuss bis 10 m ueber den Auflauf der Vorrechnung, jeder Knoten vor der Front; Zeiten s nach dem Stoss''');
     DELETE FROM USER_SDO_GEOM_METADATA WHERE TABLE_NAME = 'LB_WEG_ROUTE';
     INSERT INTO USER_SDO_GEOM_METADATA (TABLE_NAME, COLUMN_NAME, DIMINFO, SRID) VALUES ('LB_WEG_ROUTE', 'PUNKT',
         SDO_DIM_ARRAY(SDO_DIM_ELEMENT('X', 220000, 480000, 0.005), SDO_DIM_ELEMENT('Y', 6385000, 6625000, 0.005),
