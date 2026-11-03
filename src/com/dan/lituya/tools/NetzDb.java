@@ -47,6 +47,10 @@ import java.util.Properties;
  * Seit Phase 16 dazu {@code LB_NET_WASSER} (gerichtet, zwei Ebenen) mit {@code LB_EINZUG}, {@code LB_SEE} und
  * {@code LB_SENKE} aus {@code daten/netz/wasser} ({@link WasserDb}, {@code 09_wasser.sql}, {@code 10_wasser_nach_dem_laden.sql});
  * Zweitrechnung LOD (traceIn je Ziel, Komponenten) gegen die Dateien, Flächen über CONNECT BY auf der Ebene 2.
+ * <p>
+ * Seit Phase 16a dazu {@code LB_NET_WEG} (logisch, gerichtet, zwei Ebenen, Millionen Kanten) mit {@code LB_WEG_UMSTIEG} und
+ * {@code LB_WEG_ROUTE} aus {@code daten/netz/weg} ({@link WegDb}, {@code 11_weg.sql}, {@code 12_weg_nach_dem_laden.sql});
+ * Zweitrechnung LOD in Oracle (1 h vom Strand, Washburn 1934) gegen den eigenen Dijkstra. {@code -Dlituya.weg=false} lässt es aus.
  */
 public final class NetzDb {
     private NetzDb() { }
@@ -146,6 +150,9 @@ public final class NetzDb {
         // Phase 16: Wasser (hierarchisch) mit LB_EINZUG, LB_SEE, LB_SENKE
         boolean wasser = com.dan.lituya.scene.WasserNetz.da(daten);
         if (wasser) WasserDb.laden(c, daten, sql, NetzDb::log); else log("Hinweis: daten/netz/wasser fehlt (ant aufbereitung -Dschritte=wasser), LB_NET_WASSER nicht geladen");
+        // Phase 16a: Weg (logisch, zwei Ebenen, Millionen Kanten); -Dlituya.weg=false lässt es aus
+        boolean weg = com.dan.lituya.scene.WegNetz.da(daten) && !"false".equals(System.getProperty("lituya.weg"));
+        if (weg) WegDb.laden(c, daten, sql, NetzDb::log); else log("Hinweis: LB_NET_WEG nicht geladen (daten/netz/weg fehlt: ant aufbereitung -Dschritte=klassen+weg, oder -Dlituya.weg=false)");
         // NDM-Funktionsprobe
         skript(c, new File(sql, "03_probe.sql"), true);
         boolean javaOk = javaProbe(c, k);
@@ -201,6 +208,8 @@ public final class NetzDb {
         if (com.dan.lituya.scene.SeeNetz.da(daten)) gut &= SeeDb.pruefen(c, daten, k.url, k.user, passwort(k), NetzDb::log);
         // Phase 16: LB_NET_WASSER, LOD und CONNECT BY gegen die Dateien
         if (com.dan.lituya.scene.WasserNetz.da(daten)) gut &= WasserDb.pruefen(c, daten, k.url, k.user, passwort(k), NetzDb::log);
+        // Phase 16a: LB_NET_WEG, LOD (1 h vom Strand, Washburn) gegen den eigenen Dijkstra
+        if (com.dan.lituya.scene.WegNetz.da(daten) && !"false".equals(System.getProperty("lituya.weg"))) gut &= WegDb.pruefen(c, daten, k.url, k.user, passwort(k), NetzDb::log);
         return gut;
     }
 

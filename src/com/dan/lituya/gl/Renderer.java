@@ -796,7 +796,7 @@ public final class Renderer implements GLEventListener {
                 echtzeit.zeile() + (echtzeit.an() ? " · " + echtzeit.messung() : ""),
                 waldZeile(),
                 boote.info() + " · " + fluchtZeile(),
-                wasserZeile(),
+                wasserZeile() + " · " + wegZeile(),
                 clipGl.info(),
                 cameraLine(),
                 String.format(Locale.GERMAN, "UTM 8 N  E %.0f  N %.0f · %s · Kimm %.1f km", utm[0], utm[1], Site.dms(ll[0], ll[1]), kimm / 1000),
@@ -814,7 +814,13 @@ public final class Renderer implements GLEventListener {
         return flucht;
     }
 
-    private String wasser;
+    private String wasser, weg;
+
+    /** Phase 16a: 1 h vom Strand und Washburn 1934 aus LB_NET_WEG (einmal aus daten/netz/weg/WEG.txt). */
+    public String wegZeile() {
+        if (weg == null) weg = com.dan.lituya.scene.WegNetz.zeile(new java.io.File(System.getProperty("lituya.daten", "daten")));
+        return weg;
+    }
 
     /** Phase 16: die Einzugsgebiete aus LB_NET_WASSER (einmal aus daten/netz/wasser/WASSER.txt). */
     public String wasserZeile() {
