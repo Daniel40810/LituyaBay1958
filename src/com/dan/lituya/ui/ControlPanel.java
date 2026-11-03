@@ -525,6 +525,7 @@ public final class ControlPanel extends JPanel implements javax.swing.Scrollable
         expSl.addChangeListener(e -> { if (!fromScene) r.exposureBias = expSl.getValue() / 10.0; });
         put(label("HUD"));
         hudBox = new FComboBox(new Object[]{"kurz", "voll", "aus"});
+        hudBox.setSelectedIndex(!r.showHud ? 2 : (r.hudFull ? 1 : 0));
         hudBox.addActionListener(e -> {
             int i = hudBox.getSelectedIndex();
             r.showHud = i != 2;
