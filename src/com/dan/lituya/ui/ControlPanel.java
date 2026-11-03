@@ -35,7 +35,7 @@ import java.util.prefs.Preferences;
 
 /**
  * Das Bedienfeld rechts als Klappblöcke (aus Sylt und Timmendorf, entschlackt). Die Blöcke stehen nach dem Werkbuch
- * (Abschnitt 12) schon alle da: ANSICHT, ZEIT, EREIGNIS, NETZE, WETTER, REGIEBÜCHER, DATEN, dazu TECHNIK. In Phase 1
+ * (Abschnitt 12) schon alle da: ANSICHT, ZEIT, EREIGNIS, NETZE, WETTER, REGIEBÜCHER, DATEN, dazu TECHNIK (KLANG seit Phase 18). In Phase 1
  * arbeiten ANSICHT (neun Ansichten, frei fliegen, kreisen), ZEIT (Zeitstand, Weltzeit, Simulationszeit, Zeitraffer,
  * Sonne), DATEN (Verbindung, Weg zum Network Data Model) und TECHNIK (Qualität, Auflösung, Belichtung, HUD, Marken, Foto,
  * Shader, Compute-Test, Physik, Packages); die übrigen sagen, in welcher Phase sie kommen. Offen bleibt, was zuletzt
@@ -48,7 +48,7 @@ public final class ControlPanel extends JPanel implements javax.swing.Scrollable
     private final SceneClock clock;
     private final JLabel dateLbl = label(""), timeLbl = label(""), simLbl = label(""), sunLbl = small(""), camLbl = small(""), perfLbl = small(""),
             computeLbl = small(""), glLbl = small(""), physLbl = small(""), hudLbl = small(""), scaleLbl = label(""), qualLbl = small(""), pkgLbl = small(""),
-            dbLbl = small(""), lodLbl = small(""), datenLbl = small(""), standLbl = small(""), netzLbl = small(""), regieLbl = small("");
+            dbLbl = small(""), lodLbl = small(""), datenLbl = small(""), standLbl = small(""), netzLbl = small(""), regieLbl = small(""), klangLbl = small("");
     private final FSlider time = new FSlider(0, 24 * 60 - 1, (int) (SceneClock.START_HOUR * 60)), scaleSl = new FSlider(50, 100, 85), expSl = new FSlider(-30, 30, 0);
     private final FCheckBox free = new FCheckBox("Frei fliegen (F)"), orbit = new FCheckBox("Von selbst kreisen (R)"),
             marks = new FCheckBox("Marken (UTM-Raster, Kern, Szene, Fern, Orte)"), autoBox = new FCheckBox("Auflösung selbst regeln"),
@@ -78,7 +78,7 @@ public final class ControlPanel extends JPanel implements javax.swing.Scrollable
     private volatile String lodProbe = "Probe läuft …";
 
     /** Die Reihenfolge der Blöcke (Werkbuch, Abschnitt 12). */
-    public static final String[] REIHENFOLGE = {"ANSICHT", "ZEIT", "EREIGNIS", "NETZE", "WETTER", "REGIEBÜCHER", "DATEN", "TECHNIK"};
+    public static final String[] REIHENFOLGE = {"ANSICHT", "ZEIT", "EREIGNIS", "NETZE", "WETTER", "KLANG", "REGIEBÜCHER", "DATEN", "TECHNIK"};
 
     private static Preferences prefs() {
         try { return Preferences.userRoot().node("com/dan/lituya/bedienfeld"); } catch (RuntimeException | Error e) { return null; }
@@ -410,6 +410,25 @@ public final class ControlPanel extends JPanel implements javax.swing.Scrollable
         block("WETTER", false);
         put(small("<html><body style='width:215px'>Kommt mit Phase 5a und 18: Sommerabend 1958 nach ERA5 und Zeugen, für „heute“ Regen, "
                 + "Nebel, Herbststurm, Winter; Polarlicht nur „heute“ (F35 A).</body></html>"));
+        block("KLANG", false);
+        // Phase 18: der Klang der Bucht am Ohr der Kamera (com.dan.soundscape)
+        FCheckBox tonBox = new FCheckBox("Ton an (M)"), echoBox = new FCheckBox("Echo an den Wänden");
+        tonBox.setToolTipText("Beben, Sturz, Aufschlag, Brecher, brechende Bäume, Gletscher, Möwen; Laufzeit des Schalls ab Quelle");
+        echoBox.setSelected(r.klang.echo);
+        tonBox.addActionListener(e -> { r.klang.setOn(tonBox.isSelected()); view.requestFocusInWindow(); });
+        echoBox.addActionListener(e -> { r.klang.echo = echoBox.isSelected(); view.requestFocusInWindow(); });
+        view.setKeyAction(java.awt.event.KeyEvent.VK_M, () -> javax.swing.SwingUtilities.invokeLater(() -> { tonBox.setSelected(!tonBox.isSelected()); r.klang.setOn(tonBox.isSelected()); }));
+        put(tonBox);
+        put(echoBox);
+        FSlider lautSl = new FSlider(0, 100, (int) Math.round(r.klang.lautstaerke * 100));
+        JLabel lautLbl = small(String.format(Locale.GERMAN, "Lautstärke %d %%", lautSl.getValue()));
+        lautSl.addChangeListener(e -> { r.klang.lautstaerke = lautSl.getValue() / 100.0; txt(lautLbl, String.format(Locale.GERMAN, "Lautstärke %d %%", lautSl.getValue())); });
+        put(lautLbl);
+        put(lautSl);
+        put(klangLbl);
+        put(small("<html><body style='width:215px'>Phase 18: was die Kamera hört, mit der Laufzeit des Schalls (rund 340 m/s: der Sturz ist in der "
+                + "Anchorage Cove erst 34 s später zu hören). Im Kino legt sich der Ton des Kinos darüber. Ohne Fenster: ant hoerproben "
+                + "(WAV und Spektrogramm nach docs/hoerproben).</body></html>"));
         block("REGIEBÜCHER", false);
         // Phase 17a: die fünf Regiebücher, im Kino oder im Fenster
         java.util.List<com.dan.lituya.scene.Regie.Book> buecher;
@@ -635,6 +654,7 @@ public final class ControlPanel extends JPanel implements javax.swing.Scrollable
         txt(datenLbl, "<html><body style='width:215px'>" + esc(Startbild.datenZeile()) + "</body></html>");
         txt(netzLbl, "<html><body style='width:215px'>" + esc(r.netzblick.stand()) + "</body></html>");
         txt(regieLbl, "<html><body style='width:215px'>" + esc(r.regieLine()) + "</body></html>");
+        txt(klangLbl, "<html><body style='width:215px'>" + esc(r.klang.describe().replace("!", "")) + "</body></html>");
         StringBuilder h = new StringBuilder("<html><body style='width:215px'>");
         for (String l : r.hudLines()) h.append(esc(l.startsWith("!") ? l.substring(1) : l)).append("<br>");
         txt(hudLbl, h.append("</body></html>").toString());

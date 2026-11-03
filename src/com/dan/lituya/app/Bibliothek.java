@@ -32,7 +32,7 @@ public final class Bibliothek {
      */
     public static final String[] NEU = {"clipmap", "surface", "understory", "scree", "netview", "quake", "landslide", "impact", "dustcloud", "debris",
             "succession", "vessel", "aurora", "bear"};
-    public static final String[] NEU_PHASE = {"4", "5", "6", "6a", "7", "8", "9", "10", "12", "12", "14", "15", "18", "18"};
+    public static final String[] NEU_PHASE = {"4", "5", "6", "6a", "7", "8", "9", "10", "12", "12", "14", "15", "18b", "18a"};
 
     /** Reihenfolge einer Phase: „6“ = 6, „6a“ = 6,5, „11b“ = 11,6 (wie tools/JarPruefung). */
     public static double rang(String phase) {

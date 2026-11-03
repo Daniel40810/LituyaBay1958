@@ -1001,6 +1001,7 @@ public final class Pruefung {
 
         sicht17(daten);
         regie17a(daten);
+        klang18(daten);
 
         teil("Staub und Treibgut (Phase 12): dustcloud, debris");
         {
@@ -1290,5 +1291,65 @@ public final class Pruefung {
                     f("„%s“: %s, %d Stichworte, %d Fotos, Blatt am Ende%s", b.name(), com.dan.lituya.scene.Regie.zeit(b.length()), b.cues().size(), b.fotos(),
                             fehlt.isEmpty() ? "; alle Namen gefunden" : "; FEHLT: " + fehlt));
         }
+    }
+
+    static void klang18(File daten) throws Exception {
+        teil("Klang (Phase 18): Laufzeit des Schalls, Ereignisse, Sprünge, Befunde 17a");
+        SceneClock c = new SceneClock();
+        Renderer r = new Renderer(c);
+        com.dan.lituya.gl.Klang k = r.klang;
+        k.offline = true;
+        k.s.autoGain = false;
+        // gegenüber dem Sturz (Schaustück 3): der Abbruch kommt nach der Laufzeit an
+        com.dan.lituya.camera.Schaustuecke.Stueck st = com.dan.lituya.camera.Schaustuecke.byNr(3);
+        double g = Math.max(0, r.groundHeight(st.x(), st.z()));
+        r.camera.place(st.x(), g + st.auge(), st.z(), st.heading(), st.pitch());
+        k.zuruecksetzen(1e9);
+        c.setEpochMillis(SceneClock.BEBEN.toEpochMilli() + 80_000);
+        c.zeitstand = SceneClock.Zeitstand.WELLE;
+        int rate = k.s.sampleRate();
+        float[] ton = new float[(int) (50 * rate) * 2 + 4096];
+        int n = 0;
+        for (double t = 0; t < 50; t += 0.02) {
+            c.setEpochMillis(c.epochMillis() + 20);
+            k.feed(0.02);
+            float[] b = k.s.render(0.02);
+            System.arraycopy(b, 0, ton, n, Math.min(b.length, ton.length - n));
+            n += b.length;
+        }
+        double[] imp = com.dan.lituya.scene.Site.fromUtm(com.dan.lituya.tools.Ereignis.wand()[0], com.dan.lituya.tools.Ereignis.wand()[1]);
+        double d = Math.hypot(imp[0] - st.x(), imp[1] - st.z());
+        double soll = com.dan.lituya.gl.Klang.STURZ_S + d / k.s.soundSpeed();
+        double ist = com.dan.lituya.tools.Hoerproben.ankunft(java.util.Arrays.copyOf(ton, n), rate, com.dan.lituya.gl.Klang.STURZ_S - 80, 50) + 80;
+        check(k.sturz == 1 && Math.abs(ist - soll) < 1.5, f("Sturz in %.1f km: am Ohr nach der Laufzeit bei %.1f s, hörbar ab %.1f s; %s", d / 1000, soll, ist, k.describe()));
+        check(k.echos > 0, f("Echo an den Wänden: %d Quellen gespiegelt", k.echos));
+        // ein Sprung über das Ereignis löst nichts aus
+        k.zuruecksetzen(1e9);
+        c.setEpochMillis(SceneClock.BEBEN.toEpochMilli() - 10_000);
+        k.feed(0.02);
+        c.setEpochMillis(SceneClock.BEBEN.toEpochMilli() + 200_000);
+        k.feed(0.02);
+        k.feed(0.02);
+        check(k.beben == 0 && k.sturz == 0, "Sprung der Uhr über Beben und Sturz: kein Ereignis (" + k.describe() + ")");
+        // Ruhe vor dem Stoß: Möwen und eine Kalbung
+        k.zuruecksetzen(5);
+        c.setEpochMillis(SceneClock.BEBEN.toEpochMilli() - 900_000);
+        c.zeitstand = SceneClock.Zeitstand.VOR;
+        for (double t = 0; t < 30; t += 0.05) { c.setEpochMillis(c.epochMillis() + 50); k.feed(0.05); k.s.render(0.05); }
+        check(k.kalbungen == 1 && k.moewen >= 1 && k.beben == 0, f("Abend vor Anker: %d Kalbung, %d Möwen in 30 s", k.kalbungen, k.moewen));
+        check(java.util.Arrays.asList(com.dan.lituya.ui.ControlPanel.REIHENFOLGE).indexOf("KLANG") == java.util.Arrays.asList(com.dan.lituya.ui.ControlPanel.REIHENFOLGE).indexOf("WETTER") + 1,
+                "Bedienfeld: Block KLANG nach WETTER");
+        // Befunde 17a: Marken nicht im Kino und im Regiebuch, Auge über den Kronen
+        r.showMarks = true;
+        check(r.marksJetzt(), "Marken im Fenster wie geschaltet");
+        com.dan.lituya.camera.Ansichten.Ansicht ms = com.dan.lituya.camera.Ansichten.byName("Mudslide Creek");
+        double gm = r.stapelHoehe(ms.x(), ms.z());
+        r.camera.place(ms.x(), gm + ms.eyeAboveGround(), ms.z(), ms.heading(), ms.pitch());
+        boolean geh = r.ueberKronen();
+        check(geh && r.camera.fy - gm >= Renderer.KRONEN - 0.01, f("Mudslide Creek: Auge von %.0f m auf %.0f m über dem Gelände gehoben", ms.eyeAboveGround(), r.camera.fy - gm));
+        com.dan.lituya.camera.Ansichten.Ansicht ac = com.dan.lituya.camera.Ansichten.byName("Anchorage Cove");
+        r.camera.place(ac.x(), ac.eyeAboveGround(), ac.z(), ac.heading(), ac.pitch());
+        double y0 = r.camera.fy;
+        check(!r.ueberKronen() && r.camera.fy == y0, "Anchorage Cove über dem Wasser: Auge bleibt (3 m)");
     }
 }
