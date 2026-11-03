@@ -28,7 +28,8 @@ import java.util.Locale;
  * {@code marken} = an|aus (in Phase 1 an), {@code meer} = aus, {@code pegel} = m über NAVD88 (von Hand); ab Phase 13b
  * {@code schaustueck} = Nummer oder Name (1 bis 7, Kamera und Uhr), {@code ereignis} = Sekunden nach dem ersten Stoß,
  * {@code lauf} = Lauf der Welle (kette, messwelle), {@code abspielen} = aus; ab Phase 14a {@code schaustueck} auch 10 und 11,
- * {@code wald} = aus.
+ * {@code wald} = aus; ab Phase 16c {@code netz} (welle, wasser, weg, sicht), {@code netzszene} = an, {@code netzblick} = aus,
+ * {@code regen} (mm/h); ab Phase 17 {@code fahrt} (rundflug, kamerafahrt) und {@code fahrtanteil} (0 … 1).
  */
 public final class Tempo {
     private Tempo() { }
@@ -74,7 +75,7 @@ public final class Tempo {
         if ("aus".equals(opt("abspielen"))) r.wiedergabe.an(false);
         // Phase 16c: netz = welle|wasser|weg (Netzblick), netzszene = an (auch in der Szene), regen = mm/h (Bäche)
         String nz = opt("netz"), rg = opt("regen");
-        if (nz != null && !nz.isBlank()) r.netzblick.netz = Math.max(0, java.util.Arrays.asList("welle", "wasser", "weg").indexOf(nz.toLowerCase(Locale.ROOT)));
+        if (nz != null && !nz.isBlank()) r.netzblick.netz = Math.max(0, java.util.Arrays.asList("welle", "wasser", "weg", "sicht").indexOf(nz.toLowerCase(Locale.ROOT)));
         if ("an".equals(opt("netzszene"))) r.netzblick.inSzene = true;
         if ("aus".equals(opt("netzblick"))) r.netzblick.bildImBild = false;
         if (rg != null && !rg.isBlank()) r.baeche.regen = Double.parseDouble(rg.replace(',', '.'));
@@ -126,6 +127,21 @@ public final class Tempo {
             long t0 = System.nanoTime();
             boolean ok = r.wiedergabe.warten(clock.simSeconds(), 300_000);
             System.out.printf(Locale.GERMAN, "Vorrechnung um t = %.1f s %s in %.1f s: %s%n", clock.simSeconds(), ok ? "geladen" : "NICHT geladen", (System.nanoTime() - t0) / 1e9, r.wiedergabe.zeile());
+        }
+        // Phase 17: fahrt = rundflug|kamerafahrt, fahrtanteil = 0 … 1 (wo auf der Fahrt das Bild steht)
+        String fa = opt("fahrt");
+        if (fa != null && !fa.isBlank()) {
+            String welche = fa.toLowerCase(Locale.ROOT).startsWith("k") ? com.dan.lituya.camera.SichtFahrt.KAMERAFAHRT : com.dan.lituya.camera.SichtFahrt.RUNDFLUG;
+            System.out.println("Fahrt: " + r.sichtFahrt(welche, 15));
+            com.dan.lituya.camera.Fahrt f = r.camera.fahrt;
+            String anteil = opt("fahrtanteil");
+            if (f != null && anteil != null && !anteil.isBlank()) {
+                f.u = Double.parseDouble(anteil.replace(',', '.'));
+                double[] fp = f.pose(f.u);
+                r.camera.place(fp[0], fp[1], fp[2], fp[3], fp[4]);
+                r.land.auge(fp[0], fp[2]);
+                r.land.warten(300_000);
+            }
         }
         // Phase 16c: Netze und Bäche abwarten (im Hintergrund geladen)
         {

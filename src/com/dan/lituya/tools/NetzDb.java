@@ -46,6 +46,8 @@ import java.util.Properties;
  * <p>
  * Seit Phase 16 dazu {@code LB_NET_WASSER} (gerichtet, zwei Ebenen) mit {@code LB_EINZUG}, {@code LB_SEE} und
  * {@code LB_SENKE} aus {@code daten/netz/wasser} ({@link WasserDb}, {@code 09_wasser.sql}, {@code 10_wasser_nach_dem_laden.sql});
+ * seit Phase 17 {@code LB_NET_SICHT} (ungerichtet) und {@code LB_SICHT_FAHRT} aus {@code daten/netz/sicht} ({@link SichtDb},
+ * {@code 13_sicht.sql}, {@code 14_sicht_nach_dem_laden.sql});
  * Zweitrechnung LOD (traceIn je Ziel, Komponenten) gegen die Dateien, Flächen über CONNECT BY auf der Ebene 2.
  * <p>
  * Seit Phase 16a dazu {@code LB_NET_WEG} (logisch, gerichtet, zwei Ebenen, Millionen Kanten) mit {@code LB_WEG_UMSTIEG} und
@@ -154,6 +156,9 @@ public final class NetzDb {
         // Phase 16: Wasser (hierarchisch) mit LB_EINZUG, LB_SEE, LB_SENKE
         boolean wasser = com.dan.lituya.scene.WasserNetz.da(daten);
         if (wasser) WasserDb.laden(c, daten, sql, NetzDb::log); else log("Hinweis: daten/netz/wasser fehlt (ant aufbereitung -Dschritte=wasser), LB_NET_WASSER nicht geladen");
+        // Phase 17: Sicht (ungerichtet) mit LB_SICHT_FAHRT
+        boolean sicht = com.dan.lituya.scene.SichtNetz.da(daten);
+        if (sicht) SichtDb.laden(c, daten, sql, NetzDb::log); else log("Hinweis: daten/netz/sicht fehlt (ant aufbereitung -Dschritte=sicht), LB_NET_SICHT nicht geladen");
         // Phase 16b: LB_NET_WEG lädt ant wegdb; 99_abbau lässt es stehen
         // NDM-Funktionsprobe
         skript(c, new File(sql, "03_probe.sql"), true);
@@ -210,6 +215,8 @@ public final class NetzDb {
         if (com.dan.lituya.scene.SeeNetz.da(daten)) gut &= SeeDb.pruefen(c, daten, k.url, k.user, passwort(k), NetzDb::log);
         // Phase 16: LB_NET_WASSER, LOD und CONNECT BY gegen die Dateien
         if (com.dan.lituya.scene.WasserNetz.da(daten)) gut &= WasserDb.pruefen(c, daten, k.url, k.user, passwort(k), NetzDb::log);
+        // Phase 17: LB_NET_SICHT, LOD (mcst, tsp, nearestNeighbors) gegen die Dateien
+        if (com.dan.lituya.scene.SichtNetz.da(daten)) gut &= SichtDb.pruefen(c, daten, k.url, k.user, passwort(k), NetzDb::log);
         // Phase 16b: LB_NET_WEG bleibt aus ant wegdb stehen; sein Eintrag in LB_NETZ_STAND kommt wieder dazu
         WegDb.standNachtragen(c, daten, NetzDb::log);
         return gut;

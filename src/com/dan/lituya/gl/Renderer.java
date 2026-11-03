@@ -56,7 +56,7 @@ public final class Renderer implements GLEventListener {
     public static final int MIN_MAJOR = 4, MIN_MINOR = 3;
     public static final String VERSION = "Phase 9";
     /** Phase des Stands (für Ansichten und Bedienfeld). */
-    public static final int PHASE = 16;
+    public static final int PHASE = 17;
     public static final String[] PASSES = {"Himmel", "Gelände", "Wald", "Boote", "Welle", "Wasser", "Staub", "Nachbearbeitung", "HUD"};
     private static final int MARKS = PASSES.length + 1;
     /** Nah- und Fernebene (m): vom Kutter bis über die Kimm des Mount Fairweather (264 km). */
@@ -366,6 +366,21 @@ public final class Renderer implements GLEventListener {
         camera.step(dt);
         netzblick.regen = baeche.regen;
         netzblick.schritt(clock.simSeconds(), wiring.pegel);
+    }
+
+    /** Phase 17: Rundflug oder Kamerafahrt aus LB_NET_SICHT starten ({@link com.dan.lituya.camera.SichtFahrt}); Rückgabe die Meldung. */
+    public String sichtFahrt(String welche, double tempo) {
+        try {
+            com.dan.lituya.camera.Fahrt f = com.dan.lituya.camera.SichtFahrt.bauen(new java.io.File(System.getProperty("lituya.daten", "daten")), welche, tempo, this::stapelHoehe);
+            if (f == null) { hudMeldung("LB_NET_SICHT fehlt (ant aufbereitung -Dschritte=sicht)"); return "LB_NET_SICHT fehlt"; }
+            camera.waterLevel = wiring.pegel;
+            camera.startFahrt(f);
+            hudMeldung("Fahrt " + f.describe());
+            return f.describe();
+        } catch (java.io.IOException e) {
+            hudMeldung("Fahrt: " + e.getMessage());
+            return e.getMessage();
+        }
     }
 
     /** Höhe des Geländes aus dem Kachelstapel (5 m, sonst gröber) für Bänder und Netze; NaN außerhalb (Phase 16c). */
@@ -815,6 +830,7 @@ public final class Renderer implements GLEventListener {
                 boote.info() + " · " + fluchtZeile(),
                 wasserZeile() + " · " + wegZeile(),
                 baeche.info(),
+                sichtZeile(),
                 clipGl.info(),
                 cameraLine(),
                 String.format(Locale.GERMAN, "UTM 8 N  E %.0f  N %.0f · %s · Kimm %.1f km", utm[0], utm[1], Site.dms(ll[0], ll[1]), kimm / 1000),
@@ -832,7 +848,14 @@ public final class Renderer implements GLEventListener {
         return flucht;
     }
 
-    private String wasser, weg;
+    private String wasser, weg, sicht;
+
+    /** Phase 17: Punkte, Sichtlinien und Rundflug aus LB_NET_SICHT (einmal aus daten/netz/sicht/SICHT.txt), dazu die laufende Fahrt. */
+    public String sichtZeile() {
+        if (sicht == null) sicht = com.dan.lituya.scene.SichtNetz.zeile(new java.io.File(System.getProperty("lituya.daten", "daten")));
+        com.dan.lituya.camera.Fahrt f = camera.fahrt;
+        return sicht + (f != null ? " · Fahrt " + f.describe() : "");
+    }
 
     /** Phase 16a: 1 h vom Strand und Washburn 1934 aus LB_NET_WEG (einmal aus daten/netz/weg/WEG.txt). */
     public String wegZeile() {
