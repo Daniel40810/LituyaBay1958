@@ -464,10 +464,10 @@ public final class ControlPanel extends JPanel implements javax.swing.Scrollable
         FButton sichernB = new FButton("Sitzung sichern"), laufB = new FButton("Lauf sichern");
         sichernB.setToolTipText("Kamera, Uhr, Zeitstand und alle Schalter nach LB_SITZUNG (ohne Datenbank nach daten/speicher) [Strg+S]");
         laufB.setToolTipText("Die Einstellungen der Echtzeit (Ort, Volumen, Grund, Ganglinie, Pegel) als Lauf nach LB_EREIGNIS_LAUF, zum Wiederabspielen");
-        Runnable sichern = () -> new Thread(() -> { String m = com.dan.lituya.gl.Sitzungen.sichern(r, null); r.hudMeldung(m); javax.swing.SwingUtilities.invokeLater(this::sitzungenNeu); }, "LituyaBay1958-Sichern").start();
+        Runnable sichern = () -> new Thread(() -> { String m = com.dan.lituya.gl.Sitzungen.sichern(r, null); r.hudMeldung(m); datenMeldung = java.time.LocalTime.now().withNano(0) + " " + m; javax.swing.SwingUtilities.invokeLater(this::sitzungenNeu); }, "LituyaBay1958-Sichern").start();
         sichernB.addActionListener(e -> { sichern.run(); view.requestFocusInWindow(); });
         view.speichern = sichern;
-        laufB.addActionListener(e -> { new Thread(() -> r.hudMeldung(laufSichern()), "LituyaBay1958-Lauf").start(); view.requestFocusInWindow(); });
+        laufB.addActionListener(e -> { new Thread(() -> { String m = laufSichern(); r.hudMeldung(m); datenMeldung = java.time.LocalTime.now().withNano(0) + " " + m; }, "LituyaBay1958-Lauf").start(); view.requestFocusInWindow(); });
         sp1.add(sichernB); sp1.add(laufB);
         put(sp1);
         sitzungBox = new FComboBox(new Object[]{"(keine Sitzung)"});
@@ -489,6 +489,13 @@ public final class ControlPanel extends JPanel implements javax.swing.Scrollable
         listeB.addActionListener(e -> { com.dan.lituya.data.Speicher.neuWaehlen(); sitzungenNeu(); view.requestFocusInWindow(); });
         sp2.add(ladenB); sp2.add(listeB);
         put(sp2);
+        JPanel sp3 = grid(2);
+        FButton archivB = new FButton("Archiv (F2)"), hilfeB = new FButton("Hilfe (F1)");
+        archivB.setToolTipText("Befunde, Zeugen, Läufe, Bilder, Sitzungen und Regiebücher in einem eigenen Fenster");
+        archivB.addActionListener(e -> Archiv.zeigen(r));
+        hilfeB.addActionListener(e -> Hilfe.zeigen());
+        sp3.add(archivB); sp3.add(hilfeB);
+        put(sp3);
         put(small("<html><body style='width:215px'>Phase 19: Sitzungen, Läufe, Regiebücher und Bilder (F12, Blätter) in Oracle (db/szene, ant szenedb), "
                 + "ohne Datenbank in daten/speicher; ant szenedb übernimmt sie später. Den Treiber 21 für LOD holt <i>ant lod</i> aus ORACLE_HOME.</body></html>"));
         javax.swing.SwingUtilities.invokeLater(this::sitzungenNeu);
@@ -556,7 +563,10 @@ public final class ControlPanel extends JPanel implements javax.swing.Scrollable
         for (Object[] b : bloecke) ((FCollapsiblePanel) b[0]).setBodyComponent((JComponent) b[1]);
         for (FCollapsiblePanel p : zu) p.setExpanded(false, false);
         add(Box.createVerticalGlue());
-        view.setKeyAction(java.awt.event.KeyEvent.VK_F1, () -> javax.swing.SwingUtilities.invokeLater(this::tasten));
+        // Phase 19a: F1 das Hilfefenster, F2 das Archiv; ein Klick auf eine Marke wählt den Befund
+        view.setKeyAction(java.awt.event.KeyEvent.VK_F1, () -> javax.swing.SwingUtilities.invokeLater(Hilfe::zeigen));
+        view.setKeyAction(java.awt.event.KeyEvent.VK_F2, () -> javax.swing.SwingUtilities.invokeLater(() -> Archiv.zeigen(r)));
+        view.setClickListener((x, y, w, h) -> r.archiv.pick(x, y, w, h));
         // seit Phase 13b: die Leertaste hält an und läuft mit dem vorigen Tempo weiter (auch Zeitlupe und rückwärts)
         view.setKeyAction(java.awt.event.KeyEvent.VK_SPACE, () -> javax.swing.SwingUtilities.invokeLater(() -> {
             if (clock.lapse != 0) { letzte = clock.lapse; clock.lapse = 0; } else clock.lapse = letzte == 0 ? 1 : letzte;
@@ -604,6 +614,9 @@ public final class ControlPanel extends JPanel implements javax.swing.Scrollable
         syncFromScene();
         view.requestFocusInWindow();
     }
+
+    /** Phase 19a: die letzte Meldung von Sichern und Lauf bleibt im Block DATEN stehen (das HUD zeigt sie nur 5 s). */
+    private volatile String datenMeldung = "";
 
     private void tasten() {
         StringBuilder an = new StringBuilder();
@@ -688,7 +701,8 @@ public final class ControlPanel extends JPanel implements javax.swing.Scrollable
         txt(regieLbl, "<html><body style='width:215px'>" + esc(r.regieLine()) + "</body></html>");
         txt(klangLbl, "<html><body style='width:215px'>" + esc(r.klang.describe().replace("!", "")) + "</body></html>");
         com.dan.lituya.data.Speicher spw = com.dan.lituya.data.Speicher.gewaehlt();
-        txt(speicherLbl, "<html><body style='width:215px'>Speicher: " + esc(spw == null ? "noch nicht gewählt" : spw.wo()) + (com.dan.lituya.data.Speicher.hinweis().isEmpty() ? "" : " (" + esc(com.dan.lituya.data.Speicher.hinweis()) + ")") + "</body></html>");
+        txt(speicherLbl, "<html><body style='width:215px'>Speicher: " + esc(spw == null ? "noch nicht gewählt" : spw.wo()) + (com.dan.lituya.data.Speicher.hinweis().isEmpty() ? "" : " (" + esc(com.dan.lituya.data.Speicher.hinweis()) + ")")
+                + (datenMeldung.isEmpty() ? "" : "<br>Zuletzt: " + esc(datenMeldung)) + "</body></html>");
         StringBuilder h = new StringBuilder("<html><body style='width:215px'>");
         for (String l : r.hudLines()) h.append(esc(l.startsWith("!") ? l.substring(1) : l)).append("<br>");
         txt(hudLbl, h.append("</body></html>").toString());
@@ -731,12 +745,12 @@ public final class ControlPanel extends JPanel implements javax.swing.Scrollable
     /** Die Einstellungen der Echtzeit als Lauf (Name aus Ort, Volumen, Grund, Pegel und Zeit). */
     String laufSichern() {
         com.dan.lituya.gl.Echtzeit ez = r.echtzeit;
-        String name = String.format(Locale.GERMAN, "Echtzeit %s %.1f Mio %s %+.1f m %tF %<tT", ez.ort.name(), ez.volumen / 1e6, ez.grund, ez.pegel, new java.util.Date());
+        String name = String.format(Locale.GERMAN, "Echtzeit %s · %.1f Mio. m³ · %s · %+.1f m · %tF %<tR", ez.ort.name(), ez.volumen / 1e6, ez.grund.name(), ez.pegel, new java.util.Date());
         StringBuilder in = new StringBuilder();
         java.util.Properties p = com.dan.lituya.gl.Sitzungen.erfassen(r, name).zustand();
         for (String k : new java.util.TreeSet<>(p.stringPropertyNames())) if (k.startsWith("echtzeit.")) in.append(k).append('=').append(p.getProperty(k)).append('\n');
-        com.dan.lituya.data.Speicher.Lauf l = new com.dan.lituya.data.Speicher.Lauf(name, "Echtzeit", ez.zeile(), ez.ort.name(), ez.volumen, ez.pegel, String.valueOf(ez.grund),
-                String.valueOf(ez.ganglinie), com.dan.lituya.scene.WellenNetz.START_S, null, r.glInfo(), ez.bis(), Double.NaN, Double.NaN, Double.NaN, Double.NaN, Double.NaN, in.toString());
+        com.dan.lituya.data.Speicher.Lauf l = new com.dan.lituya.data.Speicher.Lauf(name, "Echtzeit", ez.zeile(), ez.ort.name(), ez.volumen, ez.pegel, ez.grund.name(),
+                ez.ganglinie.name(), com.dan.lituya.scene.WellenNetz.START_S, null, r.glInfo(), ez.bis(), Double.NaN, Double.NaN, Double.NaN, Double.NaN, Double.NaN, in.toString());
         com.dan.lituya.data.Speicher sp = com.dan.lituya.data.Speicher.aktuell();
         try { sp.laufSpeichern(l); return "Lauf gesichert: " + name + " (" + sp.wo() + ")"; }
         catch (Exception e) {

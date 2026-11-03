@@ -28,6 +28,17 @@ public interface Speicher {
     record Bild(String art, String datei, byte[] png, byte[] vorschau, int breite, int hoehe, String weltzeit, double zeitS, String zeitstand,
                 double e, double n, double h, double richtung, double neigung, String regiebuch, double bildrate, String notiz) { }
 
+    /** Ein Befund (LB_BEFUND, Phase 19a im Archiv): Ort in UTM 8 N (NaN ohne), Quellen als Text. */
+    record Befund(String schluessel, String thema, String aussage, double wert, String einheit, String art, String abschnitt, String ortName, double e, double n,
+                  double zeitS, String gilt, String quellen, String herkunft) { }
+
+    /** Eine Aussage eines Zeugen (LB_ZEUGE): Zeit von/bis in s nach dem Stoß, Ort in UTM. */
+    record Zeuge(String name, String rolle, String boot, double vonS, double bisS, String ortName, double e, double n, String aussage, String art, String quelle) { }
+
+    /** Kopf eines Bilds mit Vorschau (ohne das große PNG). */
+    record BildKopf(String art, String datei, String aufgenommen, String weltzeit, double zeitS, String zeitstand, double e, double n, double h, double richtung,
+                    double neigung, String regiebuch, int breite, int hoehe, String notiz, byte[] vorschau) { }
+
     /** Ein Regiebuch: Name, Text, mitgeliefert oder eigen. */
     record Buch(String name, String text, boolean mitgeliefert, String geaendert) { }
 
@@ -54,6 +65,24 @@ public interface Speicher {
 
     /** Zahl der Bilder (für Bedienfeld und Prüfung). */
     int bilder() throws IOException;
+
+    // ------------------------------------------------------------------ Phase 19a: das Archiv
+
+    /** Alle Befunde (mitgeliefert und gerechnet; ohne Datenbank nur die mitgelieferten). */
+    List<Befund> befunde() throws IOException;
+
+    List<Zeuge> zeugen() throws IOException;
+
+    /** Die Bilder, neueste zuerst, mit Vorschau. */
+    List<BildKopf> bilderListe() throws IOException;
+
+    /** Das ganze PNG eines Bilds (null, wenn es fehlt). */
+    byte[] bildDaten(String datei) throws IOException;
+
+    void sitzungLoeschen(long id) throws IOException;
+
+    /** Ein eigenes Regiebuch löschen (mitgelieferte bleiben). */
+    void regiebuchLoeschen(String name) throws IOException;
 
     // ------------------------------------------------------------------ Wahl
 

@@ -163,4 +163,37 @@ public final class DateiSpeicher implements Speicher {
     }
 
     public File ordner() { return dir; }
+
+    // ------------------------------------------------------------------ Phase 19a: das Archiv
+
+    @Override public List<Befund> befunde() throws IOException { return Mitgeliefert.befunde(); }
+
+    @Override public List<Zeuge> zeugen() throws IOException { return Mitgeliefert.zeugen(); }
+
+    @Override public List<BildKopf> bilderListe() throws IOException {
+        List<BildKopf> l = new ArrayList<>();
+        for (String[] z : bildZeilen()) {
+            if (z.length < 15) continue;
+            File f = new File(new File(dir, "bilder"), new File(z[1]).getName());
+            byte[] v = null;
+            if (f.isFile()) {
+                java.awt.image.BufferedImage im = javax.imageio.ImageIO.read(f);
+                if (im != null) v = Bilder.vorschau(im);
+            }
+            l.add(new BildKopf(z[0], z[1], f.isFile() ? LocalDateTime.ofInstant(java.time.Instant.ofEpochMilli(f.lastModified()), java.time.ZoneId.systemDefault()).format(ZEIT) : "",
+                    z[4], Mitgeliefert.zahl(z[5]), z[6], Mitgeliefert.zahl(z[7]), Mitgeliefert.zahl(z[8]), Mitgeliefert.zahl(z[9]), Mitgeliefert.zahl(z[10]), Mitgeliefert.zahl(z[11]),
+                    z[12].isEmpty() ? null : z[12], (int) Mitgeliefert.zahl(z[2]), (int) Mitgeliefert.zahl(z[3]), z[14], v));
+        }
+        java.util.Collections.reverse(l);
+        return l;
+    }
+
+    @Override public byte[] bildDaten(String datei) throws IOException {
+        File f = new File(new File(dir, "bilder"), new File(datei).getName());
+        return f.isFile() ? Files.readAllBytes(f.toPath()) : null;
+    }
+
+    @Override public void sitzungLoeschen(long id) throws IOException { Files.deleteIfExists(new File(new File(dir, "sitzungen"), id + ".properties").toPath()); }
+
+    @Override public void regiebuchLoeschen(String name) throws IOException { Files.deleteIfExists(new File(new File(dir, "regiebuecher"), datei(name) + ".txt").toPath()); }
 }

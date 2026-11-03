@@ -15,7 +15,7 @@ BBox festgelegt (UTM Zone 8 Nord, Einzelheiten in [Kartenmaterial.md](Kartenmate
 | Szene (Fairweather-Kette) | 322 000 – 388 000 | 6 480 000 – 6 540 000 | −138,0956 58,4244 −136,9189 58,9849 |
 | Fern (Horizont) | 220 000 – 480 000 | 6 385 000 – 6 625 000 | −139,9734 57,5207 −135,3347 59,7624 |
 
-Werkbuch (Fragen beantwortet, alle A; Phase 1, das Gerüst, erledigt: siehe [README.md](README.md)): [docs/claude/LITUYABAY1958_WERKBUCH.md](docs/claude/LITUYABAY1958_WERKBUCH.md), erstellt aus dem [Prompt](docs/claude/LITUYABAY1958_WERKBUCH_PROMPT.md).
+Werkbuch: [docs/claude/LITUYABAY1958_WERKBUCH.md](docs/claude/LITUYABAY1958_WERKBUCH.md), erstellt aus dem [Prompt](docs/claude/LITUYABAY1958_WERKBUCH_PROMPT.md). **Stand: Phase 20 von 20, fertig (03.11.2026)** – was die Szene zeigt, wie man sie startet und welche Werkzeuge es gibt, steht im [README.md](README.md); der Ort jeder Rohdatei nach der Auslagerung in [docs/QUELLEN.md](docs/QUELLEN.md).
 
 Kartenmaterial: 48 Quellen von Lidar 2019 bis zur Karte von 1951 und den Vermessungen 1940/1959, Katalog in [Kartenmaterial.md](Kartenmaterial.md). Laden nach `download/`:
 

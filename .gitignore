@@ -18,3 +18,7 @@ __pycache__/
 /lib/lod/*.jar
 # Austausch mit Claude (Archive, Zwischenstände)
 /_transfer/
+# Phase 20: Ort des Kartenmaterials (docs/ sonst nicht im Git), Startskript mit Pfad dieses Rechners, Probe der Auslagerung
+!/docs/QUELLEN.md
+/start.cmd
+/download.probe/
