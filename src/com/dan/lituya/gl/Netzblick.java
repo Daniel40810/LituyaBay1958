@@ -328,6 +328,7 @@ public final class Netzblick {
         synchronized (viewWasser) {
             for (NetLayer[] x : new NetLayer[][]{{baecheL, b}, {eisL, g}, {einzugL, u}, {zielL, z}}) { x[0].clear(); x[0].items.addAll(x[1].items); }
         }
+        rohVergessen(viewWasser);
         zielZufluss = zz;
         wasser = w;
     }
@@ -443,6 +444,7 @@ public final class Netzblick {
         synchronized (viewWeg) {
             for (NetLayer[] x : new NetLayer[][]{{stundeL, st}, {washburnL, wb}, {wegpunktL, wp}, {landwegL, lw}, {landzielL, lz}}) { x[0].clear(); x[0].items.addAll(x[1].items); }
         }
+        rohVergessen(viewWeg);
         wegText = wt.text;
         landText = lt.text;
     }
@@ -480,6 +482,7 @@ public final class Netzblick {
         synchronized (viewSicht) {
             for (NetLayer[] x : new NetLayer[][]{{sichtLinienL, li}, {spannbaumL, sb}, {rundflugL, rf}, {sichtPunkteL, pu}}) { x[0].clear(); x[0].items.addAll(x[1].items); }
         }
+        rohVergessen(viewSicht);
         sicht = w;
     }
 
@@ -544,6 +547,61 @@ public final class Netzblick {
     /** Zeit der Welle (s nach dem Einschlag) aus der Simulationsuhr; vor dem Einschlag negativ. */
     public double zeit(double simSeconds) { return simSeconds - WellenNetz.START_S; }
 
+    // ------------------------------------------------------------------ Phase 17a: Erdkrümmung für Wasser, Weg und Sicht in der Szene
+
+    /** Wirksamer Erdradius (m) wie die Clipmap; der Renderer setzt ihn. */
+    public volatile double kruemmungR = 6_371_000 / 0.87;
+    private final java.util.Map<NetLayer, List<NetLayer.Item>> roh = new java.util.IdentityHashMap<>();
+    private volatile double krX = Double.NaN, krZ = Double.NaN;
+    private volatile boolean kruemmt;
+
+    /** Befund 16c: netview kennt keine Erdkrümmung; fern lagen die Linien darum über dem Gelände (in 20 km rund 30 m). */
+    private void kruemmen(double ex, double ez) {
+        for (NetviewGl v : new NetviewGl[]{viewWasser, viewWeg, viewSicht}) {
+            List<NetLayer> ls = v.layers();
+            List<Object[]> neu = new ArrayList<>();
+            for (NetLayer l : ls) {
+                List<NetLayer.Item> o;
+                synchronized (v) {
+                    o = roh.get(l);
+                    if (o == null || o.isEmpty() && !l.items.isEmpty()) { o = new ArrayList<>(l.items); roh.put(l, o); }
+                }
+                NetLayer t = new NetLayer(l.name);
+                double k = 1 / (2 * kruemmungR);
+                for (NetLayer.Item it : o) {
+                    float[] p = it.xyz.clone();
+                    for (int q = 0; q + 2 < p.length; q += 3) { double dx = p[q] - ex, dz = p[q + 2] - ez; p[q + 1] -= (float) ((dx * dx + dz * dz) * k); }
+                    switch (it.kind) {
+                        case POINTS -> t.points(p, it.values, it.rgb, it.width);
+                        case RAY -> t.ray(p, it.values, it.rgb, it.width);
+                        case ARROW -> t.arrow(p, it.rgb, it.width);
+                        default -> t.line(p, it.rgb, it.width);
+                    }
+                }
+                neu.add(new Object[]{l, t});
+            }
+            synchronized (v) {
+                for (Object[] x : neu) { NetLayer l = (NetLayer) x[0]; l.clear(); l.items.addAll(((NetLayer) x[1]).items); }
+            }
+        }
+        krX = ex;
+        krZ = ez;
+    }
+
+    /** Wenn die Ebenen neu gebaut sind: die Vorlagen für die Krümmung vergessen. */
+    private void rohVergessen(NetviewGl v) { synchronized (v) { for (NetLayer l : v.layers()) roh.remove(l); } krX = Double.NaN; }
+
+    /** Im Bildlauf: mit dem Auge, damit Wasser, Weg und Sicht in der Szene der Erdkrümmung folgen (neu ab 1 km Weg). */
+    void schritt(double simSeconds, double pegel, double ex, double ez) {
+        schritt(simSeconds, pegel);
+        if (!inSzene || netz == 0 || kruemmt || !fertig) return;
+        if (!Double.isNaN(krX) && Math.hypot(ex - krX, ez - krZ) < 1000) return;
+        kruemmt = true;
+        Thread th = new Thread(() -> { try { kruemmen(ex, ez); } catch (RuntimeException e) { System.err.println("LituyaBay1958: Netzblick krümmen: " + e); } finally { kruemmt = false; } }, "Netzblick krümmen");
+        th.setDaemon(true);
+        th.start();
+    }
+
     /** Im Bildlauf vor dem Zeichnen: Kostenart gewechselt? Sichtbarkeit, Zeit, Pegel. */
     void schritt(double simSeconds, double pegel) {
         this.pegel = pegel;
@@ -607,7 +665,10 @@ public final class Netzblick {
     }
 
     /** Bild im Bild unten rechts im Fenster (nach der Nachbearbeitung). */
-    void bildImBild(GL4 gl, Shader overlay, int vao, int surfW, int surfH, String zeitText) {
+    void bildImBild(GL4 gl, Shader overlay, int vao, int surfW, int surfH, String zeitText) { bildImBild(gl, overlay, vao, surfW, surfH, zeitText, 0); }
+
+    /** Bild im Bild, {@code unten} Bildpunkte über dem unteren Rand (im Kino über dem Balken, Phase 17a). */
+    void bildImBild(GL4 gl, Shader overlay, int vao, int surfW, int surfH, String zeitText, int unten) {
         if (!init || !bildImBild) return;
         int nz = netz;
         double[] au = ausschnitt(nz);
@@ -615,7 +676,7 @@ public final class Netzblick {
         int bw0 = Math.max(240, (int) (surfW * 0.30)), bh0 = (int) Math.round(bw0 * asp);
         if (bh0 > surfH * 0.55) { bh0 = (int) (surfH * 0.55); bw0 = (int) Math.round(bh0 / asp); }
         int bw = bw0, bh = bh0;
-        int x = surfW - bw - 14, y = 14;
+        int x = surfW - bw - 14, y = 14 + unten;
         karte.refresh(gl, 250, () -> karte(bw, bh, zeitText), karte.width != bw || karte.height != bh || karteNetz != nz);
         karteNetz = nz;
         gl.glEnable(GL.GL_SCISSOR_TEST);

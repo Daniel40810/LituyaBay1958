@@ -70,7 +70,7 @@ public final class Renderer implements GLEventListener {
     public final Physik physik = new Physik();
     /** Die Verdrahtung der Packages (Phase 1: Pegel und Wind als offene Werte). */
     public final Wiring wiring;
-    /** Phase 17: der Kinomodus (com.dan.kino); bis dahin nur der Anschluss für die Tasten der Szene. */
+    /** Phase 17a: der Kinomodus (com.dan.kino) für die Regiebücher. */
     public final com.dan.kino.Kino kino = new com.dan.kino.Kino();
     /** Phase 4: das Gelände aus daten/gelaende über com.dan.clipmap (vor dem Konstruktor angelegt, setQuality braucht es). */
     public final com.dan.lituya.scene.Land land = new com.dan.lituya.scene.Land();
@@ -276,8 +276,8 @@ public final class Renderer implements GLEventListener {
         return 0.6 * Math.pow(b, -0.85) * Math.pow(2, exposureBias);
     }
 
-    /** Kinomodus verlassen (Esc im Kino; ab Phase 17 läuft das Regiebuch dabei weiter). */
-    public void kinoVerlassen() { kino.abbrechen(); }
+    /** Kinomodus verlassen (Esc im Kino; das Regiebuch läuft im Fenster weiter). */
+    public void kinoVerlassen() { frozen = false; kino.abbrechen(); }
 
     /** Eine Arbeit im Faden des Bildlaufs (vor dem nächsten Schritt). */
     public void imBild(Runnable r) { imBild.add(r); }
@@ -323,6 +323,15 @@ public final class Renderer implements GLEventListener {
         } catch (RuntimeException e) {
             System.err.println("LituyaBay1958: Netzblick: " + e.getMessage());
         }
+        try {   // Phase 17a: der Kinomodus
+            com.dan.kino.KinoMaler km = new com.dan.kino.KinoMaler();
+            km.kopfFarbe = new java.awt.Color(200, 214, 222);
+            kinoGl = new com.dan.kino.gl.KinoGl(kino, km);
+            kinoGl.init(gl);
+        } catch (RuntimeException e) {
+            System.err.println("LituyaBay1958: Kino nicht verfügbar (ohne Balken und Blenden): " + e.getMessage());
+            kinoGl = null;
+        }
         if (!Boolean.getBoolean("lituya.ohneWald")) wald.aufbauen(new java.io.File(System.getProperty("lituya.daten", "daten")));
         boote.laden(new java.io.File(System.getProperty("lituya.daten", "daten")), wiedergabe.welle());
         System.out.println("LituyaBay1958: " + boote.status());
@@ -357,7 +366,16 @@ public final class Renderer implements GLEventListener {
                 else clock.set(n, clock.hour());
             }
         }
-        kino.schritt(dt);
+        regie.step(dt, regieCtx);   // Phase 17a: fällige Stichworte des Regiebuchs
+        if (regieLief && !regie.running() && netzVorher != null) {   // danach den Netzblick wie vorher
+            netzblick.bildImBild = (Boolean) netzVorher[0];
+            netzblick.inSzene = (Boolean) netzVorher[1];
+            netzblick.netz = (Integer) netzVorher[2];
+            netzVorher = null;
+            kinoNetzblick = false;
+        }
+        regieLief = regie.running();
+        kinoSchritt(dt);
         land.auge(camera.eye[0], camera.eye[2]);
         physik.advance(dt);
         camera.groundLevel = groundHeight(camera.eye[0], camera.eye[2]);
@@ -365,7 +383,9 @@ public final class Renderer implements GLEventListener {
         camera.targetGround = Math.max(groundHeight(camera.tx, camera.tz), wiring.pegel);
         camera.step(dt);
         netzblick.regen = baeche.regen;
-        netzblick.schritt(clock.simSeconds(), wiring.pegel);
+        com.dan.clipmap.Clipmap cmk = land.clipmap();
+        if (cmk != null && cmk.curvatureRadius > 0) netzblick.kruemmungR = cmk.curvatureRadius;
+        netzblick.schritt(clock.simSeconds(), wiring.pegel, camera.eye[0], camera.eye[2]);
     }
 
     /** Phase 17: Rundflug oder Kamerafahrt aus LB_NET_SICHT starten ({@link com.dan.lituya.camera.SichtFahrt}); Rückgabe die Meldung. */
@@ -381,6 +401,345 @@ public final class Renderer implements GLEventListener {
             hudMeldung("Fahrt: " + e.getMessage());
             return e.getMessage();
         }
+    }
+
+    // ================================================================== Phase 17a: Regiebücher und Kino
+
+    /** Phase 17a: die Regiebücher (Text mit Blatt am Ende), ihre Fotos und was sie sagen. */
+    public final com.dan.lituya.scene.Regie regie = new com.dan.lituya.scene.Regie();
+    private final RegieCtx regieCtx = new RegieCtx();
+    private com.dan.kino.gl.KinoGl kinoGl;
+    private final java.util.List<Runnable> kinoSchnitte = new java.util.ArrayList<>();
+    private double kinoYaw;
+    private boolean kinoFensterAn;
+    private com.dan.lituya.scene.Regie.Book kinoBuch;
+    /** true, wenn das Kino beginnt (Bedienfeld weg, Zeiger weg), false, wenn es zu Ende ist; im Bildlauf gerufen. */
+    public volatile Consumer<Boolean> kinoFenster = an -> { };
+    private volatile String captureCaption, sheetName, regieMsg = "";
+    private final java.util.List<BufferedImage> album = new java.util.ArrayList<>();
+    private final java.util.List<String> albumCaps = new java.util.ArrayList<>();
+    private double albumFps, albumGpu;
+    private int albumSamples;
+    /** Das zuletzt geschriebene Blatt (für Tempo und die Prüfung); null: noch keins. */
+    public volatile File lastSheet;
+    /** Ohne Blatt (Prüfung). */
+    public volatile boolean ohneBlatt;
+    /** Der Netzblick läuft im Kino (Stichwort netzblick). */
+    private volatile boolean kinoNetzblick;
+    private com.dan.lituya.scene.SichtNetz sichtNetz;
+
+    private Object[] netzVorher;
+    private boolean regieLief;
+
+    /** Ein Regiebuch von vorn im Fenster (das Album beginnt leer). */
+    public void regieStart(com.dan.lituya.scene.Regie.Book b) {
+        if (netzVorher == null) netzVorher = new Object[]{netzblick.bildImBild, netzblick.inSzene, netzblick.netz};
+        album.clear();
+        albumCaps.clear();
+        albumFps = albumGpu = 0;
+        albumSamples = 0;
+        regieMsg = "";
+        frozen = false;
+        regie.start(b, regieCtx);
+    }
+
+    public void regieStop() {
+        regie.stop();
+        if (kino.laeuft()) kino.abbrechen();
+    }
+
+    /** Ein Regiebuch im Kino (Vorspann mit Titel und Beschreibung, am Ende der Abspann). */
+    public void kinoStart(com.dan.lituya.scene.Regie.Book b) {
+        frozen = false;
+        regie.beiText = kino::untertitel;
+        kinoBuch = b;
+        kino.beginnen("Lituya Bay · 9. Juli 1958", b.name(), b.about());
+        regieStart(b);
+    }
+
+    /** Die Zeilen des Abspanns (erste Zeile groß). */
+    java.util.List<String> abspann(com.dan.lituya.scene.Regie.Book b) {
+        java.util.List<String> z = new java.util.ArrayList<>();
+        z.add(b != null ? b.name() : "Lituya Bay 1958");
+        z.add("Ort: Lituya Bay an der Küste des Golfs von Alaska, Glacier Bay National Park");
+        z.add("Gelände: Lidar 2019, IfSAR 2012, 3DEP; Grund: BlueTopo, Lotungen 1940");
+        z.add("Welle: Vorrechnung mit com.dan.wave nach Miller (1960) und Fritz u. a. (2001), gestaltet");
+        z.add("Boote: Edrie, Badger, Sunmore nach den Zeugen, Bahnen gerechnet");
+        z.add("Netze: Oracle Network Data Model, Welle, Ufer, See, Wasser, Weg, Sicht");
+        if (!album.isEmpty()) z.add("Fotos: " + album.size() + " auf dem Blatt in docs/status");
+        z.add("Lituya Bay 1958 · Das Projekt der Riesenwelle und des Netzes · Phase " + PHASE);
+        return z;
+    }
+
+    /** Ein Schnitt (Ansicht, Schaustück, Fahrt, Mitfahrt). Im Kino wartet er auf das Merken des Bilds für die Überblendung. */
+    private void schnitt(Runnable r) {
+        if (kino.schnitt()) kinoSchnitte.add(r);
+        else { r.run(); kinoYaw = 0; }
+    }
+
+    private void schnitteJetzt() {
+        if (kinoSchnitte.isEmpty()) return;
+        java.util.List<Runnable> l = new java.util.ArrayList<>(kinoSchnitte);
+        kinoSchnitte.clear();
+        for (Runnable x : l) x.run();
+        kinoYaw = 0;
+    }
+
+    /** Kino weiter, Abspann am Ende des Regiebuchs, Schwenk. */
+    private void kinoSchritt(double dt) {
+        com.dan.kino.Kino.Lage l = kino.lage();
+        if ((l == com.dan.kino.Kino.Lage.VORSPANN || l == com.dan.kino.Kino.Lage.FILM) && !regie.running() && !regieWantsFrame())
+            kino.beenden(abspann(kinoBuch));
+        kino.schritt(l == com.dan.kino.Kino.Lage.VORSPANN && regie.waiting() != null ? 0 : dt);
+        if (!kino.laeuft() && !kinoSchnitte.isEmpty() && !kino.schnittFaellig()) schnitteJetzt();
+        double s = kino.schwenk();
+        if (camera.fahrt == null && camera.mitfahrt == null && kinoSchnitte.isEmpty()) {
+            double d = s - kinoYaw;
+            if (camera.mode == com.dan.lituya.camera.Camera.Mode.FREI) camera.fyaw += d; else camera.yaw += d;
+        }
+        kinoYaw = s;
+        if (!kino.laeuft() && kinoNetzblick && !regie.running()) kinoNetzblick = false;
+    }
+
+    /** Ohne Bild (Prüfung): Schnitte ausführen, Fotos und Blatt verwerfen. */
+    public void bildlos() {
+        if (kino.schnittFaellig()) { schnitteJetzt(); kino.geschnitten(); }
+        if (!kino.laeuft()) schnitteJetzt();
+        captureCaption = null;
+        sheetName = null;
+    }
+
+    /** Ob ein Foto oder das Blatt auf das nächste Bild wartet. */
+    public boolean regieWantsFrame() { return captureCaption != null || sheetName != null || kino.schnittFaellig(); }
+
+    /** „Regie: Zehn Minuten · 1:48: die Wand aus Wasser · 1:10 von 5:00 · 3 Fotos“ (HUD). */
+    public String regieLine() {
+        return "Regie: " + regie.describe() + (album.isEmpty() ? "" : " · " + album.size() + " Fotos") + (regieMsg.isEmpty() ? "" : " · " + regieMsg);
+    }
+
+    /** LB_NET_SICHT (einmal gelesen) oder null. */
+    com.dan.lituya.scene.SichtNetz sichtNetz() {
+        if (sichtNetz == null) {
+            java.io.File d = new java.io.File(System.getProperty("lituya.daten", "daten"));
+            try { if (com.dan.lituya.scene.SichtNetz.da(d)) sichtNetz = com.dan.lituya.scene.SichtNetz.lesen(d); } catch (java.io.IOException e) { regieMsg = "LB_NET_SICHT: " + e.getMessage(); }
+        }
+        return sichtNetz;
+    }
+
+    /** Ein Punkt nach Namen: Ansicht, Punkt von LB_NET_SICHT oder Ort: {x, Auge, z, Blick, Neigung} (Blick NaN: frei); null. */
+    double[] punkt(String name) {
+        com.dan.lituya.camera.Ansichten.Ansicht a = com.dan.lituya.camera.Ansichten.byName(name);
+        if (a != null) return new double[]{a.x(), Math.max(groundHeight(a.x(), a.z()), wiring.pegel) + a.eyeAboveGround(), a.z(), a.heading(), a.pitch()};
+        com.dan.lituya.scene.SichtNetz w = sichtNetz();
+        if (w != null) {
+            int k = w.knoten(name);
+            if (k >= 0) return new double[]{w.x(k), w.hoehe[k], w.z(k), w.blick[k], Double.isNaN(w.neigung[k]) ? Double.NaN : w.neigung[k]};
+        }
+        com.dan.lituya.scene.Site.Ort o = com.dan.lituya.scene.Site.byName(name);
+        if (o != null) return new double[]{o.x(), Math.max(groundHeight(o.x(), o.z()), wiring.pegel) + 5, o.z(), Double.NaN, Double.NaN};
+        return null;
+    }
+
+    /** Kamera auf einen Punkt, Blick zum Ziel (null: der Blick des Punkts, sonst zur Mitte der Bucht); false ohne Punkt. */
+    public boolean placeNamed(String name, String ziel) {
+        double[] p = punkt(name);
+        if (p == null) return false;
+        com.dan.lituya.camera.Ansichten.Ansicht a = com.dan.lituya.camera.Ansichten.byName(name);
+        if (a != null && ziel == null) return placeView(a);
+        double[] t = ziel != null ? punkt(ziel) : null;
+        if (ziel != null && t == null) return false;
+        double h = p[3], ne = p[4];
+        if (t != null || Double.isNaN(h)) {
+            double tx = t != null ? t[0] : com.dan.lituya.scene.Site.LITUYA_BAY.x(), tz = t != null ? t[2] : com.dan.lituya.scene.Site.LITUYA_BAY.z();
+            double ty = t != null ? t[1] - (Double.isNaN(t[3]) ? 0 : 0) : wiring.pegel;
+            double dx = tx - p[0], dz = tz - p[2], d = Math.max(1, Math.hypot(dx, dz));
+            h = (Math.toDegrees(Math.atan2(dx, -dz)) + 360) % 360;
+            ne = Math.toDegrees(Math.atan2(p[1] - ty, d));
+        }
+        camera.stopFahrt();
+        camera.stopMitfahrt();
+        camera.diving = false;
+        camera.waterLevel = wiring.pegel;
+        camera.groundLevel = groundHeight(p[0], p[2]);
+        camera.place(p[0], p[1], p[2], h, Double.isNaN(ne) ? 8 : ne);
+        hudMeldung("Ansicht " + name + (ziel != null ? " → " + ziel : ""));
+        return true;
+    }
+
+    /** Die Fotos des Regiebuchs als ein Blatt nach docs/status (zwei Spalten; aus Rungholt). */
+    private void writeSheet(String name) {
+        if (album.isEmpty() || ohneBlatt) return;
+        try {
+            int n = album.size(), cols = 2, rows = (n + 1) / 2, cw = 960, ch = (int) Math.round(album.get(0).getHeight() * cw / (double) album.get(0).getWidth()), cap = 50, head = 44;
+            BufferedImage out = new BufferedImage(cols * cw, head + rows * (ch + cap), BufferedImage.TYPE_INT_RGB);
+            java.awt.Graphics2D g = out.createGraphics();
+            g.setRenderingHint(java.awt.RenderingHints.KEY_INTERPOLATION, java.awt.RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+            g.setRenderingHint(java.awt.RenderingHints.KEY_TEXT_ANTIALIASING, java.awt.RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+            g.setColor(new java.awt.Color(11, 18, 25));
+            g.fillRect(0, 0, out.getWidth(), out.getHeight());
+            g.setColor(new java.awt.Color(230, 236, 240));
+            g.setFont(new java.awt.Font(java.awt.Font.SANS_SERIF, java.awt.Font.BOLD, 20));
+            g.drawString(String.format(Locale.GERMAN, "Lituya Bay 1958 · Regiebuch „%s“ · %s · Ø %.0f Bilder/s · Grafikkarte Ø %.2f ms · %s", name, quality.label,
+                    albumFps / Math.max(1, albumSamples), albumGpu / Math.max(1, albumSamples), glInfo.replaceAll(" ·.*", "")), 14, 29);
+            g.setFont(new java.awt.Font(java.awt.Font.MONOSPACED, java.awt.Font.PLAIN, 16));
+            for (int i = 0; i < n; i++) {
+                int cx = (i % cols) * cw, cy = head + (i / cols) * (ch + cap);
+                g.drawImage(album.get(i), cx, cy, cw, ch, null);
+                g.setColor(new java.awt.Color(143, 162, 174));
+                String[] ln = albumCaps.get(i).split("\n");
+                for (int k = 0; k < ln.length; k++) g.drawString(ln[k], cx + 10, cy + ch + 21 + 20 * k);
+            }
+            g.dispose();
+            File dir = photoDir != null ? photoDir : new File("docs/status");
+            if (!dir.isDirectory() && !dir.mkdirs()) throw new java.io.IOException("Ordner " + dir + " lässt sich nicht anlegen");
+            String fn = "Regiebuch_" + name.replace("ü", "ue").replace("ö", "oe").replace("ä", "ae").replace("ß", "ss").replace("é", "e").replace(' ', '_') + "_"
+                    + java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss")) + ".png";
+            File f = new File(dir, fn);
+            javax.imageio.ImageIO.write(out, "png", f);
+            lastSheet = f;
+            hudMeldung("Regiebuch gespeichert: " + f.getPath());
+            System.out.println("Regiebuch gespeichert: " + f.getPath());
+        } catch (Exception e) {
+            hudMeldung("Blatt des Regiebuchs fehlgeschlagen: " + e.getMessage());
+            System.err.println("LituyaBay1958: Blatt: " + e.getMessage());
+        }
+    }
+
+    /** Nach dem Bild: Fotos und Blatt des Regiebuchs, dann Schnitt mit gemerktem Bild, Balken, Schwarz, Untertitel; Fenster. */
+    private void regieBild(GL4 gl, long now) {
+        String cap = captureCaption;
+        if (cap != null) {
+            captureCaption = null;
+            album.add(readDefault(gl, surfW, surfH));
+            albumCaps.add(clock.label() + " · " + clock.simLabel() + " · " + cap + "\nteuer: " + topPasses(3) + String.format(Locale.GERMAN, " · %.0f Bilder/s", fps));
+        }
+        if (regie.running()) { albumFps += fps; albumGpu += gpuMs; albumSamples++; }
+        String sn = sheetName;
+        if (sn != null) { sheetName = null; writeSheet(sn); }
+        if (kinoGl != null && kinoGl.bereit()) {
+            try {
+                if (kino.schnittFaellig()) {
+                    kinoGl.merken(gl, defaultFbo, surfW, surfH);
+                    schnitteJetzt();
+                    kino.geschnitten();
+                }
+                kinoGl.zeichnen(gl, defaultFbo, surfW, surfH, now / 1e9);
+            } catch (RuntimeException e) {
+                System.err.println("LituyaBay1958: Kino: " + e);
+                kinoGl = null;
+            }
+        } else if (kino.schnittFaellig()) { schnitteJetzt(); kino.geschnitten(); }
+        boolean an = kino.laeuft();
+        if (an != kinoFensterAn) {
+            kinoFensterAn = an;
+            try { kinoFenster.accept(an); } catch (RuntimeException e) { System.err.println("LituyaBay1958: Kinofenster: " + e); }
+        }
+        if (kino.endeMelden()) hudMeldung("Kino zu Ende" + (lastSheet != null ? " · Blatt: " + lastSheet.getName() : ""));
+    }
+
+    /** Der Zeitstand zu Datum und Uhrzeit: vor dem Stoß VOR, in den ersten 7 h 44 min WELLE, danach DANACH, ab 2026 HEUTE. */
+    static SceneClock.Zeitstand zeitstandZu(double epochMs) {
+        double s = (epochMs - SceneClock.BEBEN.toEpochMilli()) / 1000.0;
+        if (epochMs >= java.time.ZonedDateTime.of(2026, 1, 1, 0, 0, 0, 0, SceneClock.ZONE).toInstant().toEpochMilli()) return SceneClock.Zeitstand.HEUTE;
+        if (s < 0) return SceneClock.Zeitstand.VOR;
+        if (s < com.dan.lituya.camera.Schaustuecke.MORGEN) return SceneClock.Zeitstand.WELLE;
+        return SceneClock.Zeitstand.DANACH;
+    }
+
+    /** Was die Regiebücher in der App tun. */
+    private final class RegieCtx implements com.dan.lituya.scene.Regie.Ctx {
+        @Override public void time(java.time.LocalDate date, double hour) {
+            jahresRaffer = false;
+            clock.set(date, hour);
+            clock.zeitstand = zeitstandZu(clock.epochMillis());
+        }
+        @Override public void ereignis(double s) {
+            jahresRaffer = false;
+            clock.setEpochMillis(SceneClock.BEBEN.toEpochMilli() + s * 1000);
+            clock.zeitstand = SceneClock.Zeitstand.WELLE;
+            wiedergabe.an(true);
+        }
+        @Override public void lapse(double x) { clock.lapse = x; }
+        @Override public void zeitstand(SceneClock.Zeitstand z) { jahresRaffer = false; clock.set(z); }
+        @Override public void jahre(double v) {
+            if (Double.isNaN(v)) { jahresRaffer = false; return; }
+            jahreJeMinute = v;
+            rafferTage = 0;
+            jahresRaffer = true;
+        }
+        @Override public void view(String name) {
+            String[] p = name.split(">", 2);
+            String a = p[0].strip(), b = p.length > 1 ? p[1].strip() : null;
+            schnitt(() -> { if (!placeNamed(a, b)) regieMsg = "Ansicht „" + name + "“ gibt es nicht"; });
+        }
+        @Override public void stueck(String name) {
+            com.dan.lituya.camera.Schaustuecke.Stueck s = com.dan.lituya.camera.Schaustuecke.byName(name);
+            if (s == null) { regieMsg = "Schaustück „" + name + "“ gibt es nicht"; return; }
+            jahresRaffer = false;
+            schnitt(() -> placeStueck(s));
+        }
+        @Override public void fahrt(String name, String ziel, double tempo) {
+            schnitt(() -> {
+                if (ziel == null) {
+                    String k = name.toLowerCase(Locale.ROOT);
+                    String w = k.startsWith("rund") ? com.dan.lituya.camera.SichtFahrt.RUNDFLUG : k.startsWith("kamera") || k.startsWith("spann") ? com.dan.lituya.camera.SichtFahrt.KAMERAFAHRT : null;
+                    if (w == null) { regieMsg = "Fahrt „" + name + "“ gibt es nicht"; return; }
+                    sichtFahrt(w, tempo);
+                    return;
+                }
+                com.dan.lituya.scene.SichtNetz sn = sichtNetz();
+                com.dan.lituya.camera.Fahrt f = sn == null ? null : com.dan.lituya.camera.SichtFahrt.zwischen(sn, name, ziel, tempo, Renderer.this::stapelHoehe);
+                if (f == null) { regieMsg = "keine Fahrt von „" + name + "“ nach „" + ziel + "“ in LB_NET_SICHT"; return; }
+                camera.waterLevel = wiring.pegel;
+                camera.startFahrt(f);
+            });
+        }
+        @Override public void mitfahrt(String boot, boolean nebenher) {
+            schnitt(() -> {
+                if (boot == null) { camera.stopMitfahrt(); return; }
+                int i = boot.equals("Edrie") ? 0 : 1;
+                boote.laden(new java.io.File(System.getProperty("lituya.daten", "daten")), wiedergabe.welle());
+                java.util.function.Supplier<double[]> pose = mitfahrtBoot(i, nebenher);
+                if (pose.get() != null) { camera.stopFahrt(); camera.startMitfahrt(pose, nebenher ? -90 : 0); }
+                else regieMsg = "Mitfahrt " + boot + ": " + boote.status();
+            });
+        }
+        @Override public void netzblick(String netz, boolean szene) {
+            if (netz == null) { kinoNetzblick = false; netzblick.bildImBild = false; netzblick.inSzene = false; return; }
+            netzblick.netz = Math.max(0, java.util.Arrays.asList("welle", "wasser", "weg", "sicht").indexOf(netz));
+            netzblick.bildImBild = true;
+            netzblick.inSzene = szene;
+            kinoNetzblick = true;
+        }
+        @Override public void echtzeit(String ort, double mio) {
+            if (ort == null) { echtzeit.aus(); wiring.pegel = 0; return; }
+            int i = com.dan.lituya.scene.Regie.ECHTZEIT_ORTE.indexOf(ort);
+            echtzeit.ort = Echtzeit.ORTE.get(Math.max(0, i));
+            echtzeit.volumen = mio * 1e6;
+            echtzeit.grund = Echtzeit.Grund.G1940;
+            echtzeit.pegel = 0;
+            echtzeit.neu();
+            wiring.pegel = 0;
+            jahresRaffer = false;
+            clock.setEpochMillis(SceneClock.BEBEN.toEpochMilli() + 93_000L);
+            clock.zeitstand = SceneClock.Zeitstand.WELLE;
+            clock.lapse = 1;
+            wiedergabe.an(true);
+        }
+        @Override public void regen(double mmH) { baeche.regen = Math.max(0, Math.min(BaecheGl.REGEN_MAX, mmH)); }
+        @Override public boolean ready(com.dan.lituya.scene.Regie.Warte w) {
+            return switch (w.was()) {
+                case "uhr" -> clock.epochMillis() / 3_600_000.0 >= w.wert();
+                case "ereignis" -> clock.simSeconds() >= w.wert();
+                case "echtzeit" -> echtzeit.an() && !Double.isNaN(echtzeit.bis()) && echtzeit.bis() > 100;
+                case "jahre" -> !jahresRaffer;
+                case "boote" -> boote.anzahl() > 0;
+                default -> true;
+            };
+        }
+        @Override public void capture(String caption) { captureCaption = caption; }
+        @Override public void sheet(String name) { sheetName = name; }
+        @Override public void say(String text) { regieMsg = text; kino.untertitel(text); }
     }
 
     /** Höhe des Geländes aus dem Kachelstapel (5 m, sonst gröber) für Bänder und Netze; NaN außerhalb (Phase 16c). */
@@ -429,6 +788,7 @@ public final class Renderer implements GLEventListener {
         int w = Math.max(64, (int) Math.round(surfW * renderScale)), h = Math.max(64, (int) Math.round(surfH * renderScale));
         if (w != hdrW || h != hdrH) resizeTargets(gl, w, h);
         renderFrame(gl, w, h);
+        regieBild(gl, now);   // Phase 17a: Fotos und Blatt des Regiebuchs, Kino über das fertige Bild; F12 und Tempo mit
         if (photoRequest) { photoRequest = false; takePhoto(gl, surfW, surfH); }
         Consumer<BufferedImage> gr = grabRequest;
         if (gr != null) { grabRequest = null; try { gr.accept(readDefault(gl, surfW, surfH)); } catch (RuntimeException e) { System.err.println("LituyaBay1958: Bild nicht abgeholt: " + e); } }
@@ -561,12 +921,12 @@ public final class Renderer implements GLEventListener {
         mark(gl, 8);
 
         // 4b Netzblick als Bild im Bild unten rechts (Phase 7a)
-        if (!kino.laeuft()) netzblick.bildImBild(gl, overlay, emptyVao, surfW, surfH, netzZeit());
+        if (!kino.laeuft() || kinoNetzblick) netzblick.bildImBild(gl, overlay, emptyVao, surfW, surfH, netzZeit(), kino.laeuft() ? kino.balkenPx(surfW, surfH) : 0);
         gl.glBindVertexArray(emptyVao);
 
         // 5 HUD (vorher abschicken: die Grafikkarte arbeitet, während das HUD im selben Faden gemalt wird; aus Brocken)
         gl.glFlush();
-        if (showHud && !kino.laeuft()) {
+        if (showHud && !kino.laeuft() && captureCaption == null) {   // Phase 17a: nicht im Kino und nicht auf den Fotos des Regiebuchs
             hud.refresh(gl, 250, this::paintHud, frozen);
             hud.draw(gl, overlay, emptyVao, 12, Math.max(0, surfH - hud.height - 12), surfW, surfH);
         }
@@ -831,6 +1191,7 @@ public final class Renderer implements GLEventListener {
                 wasserZeile() + " · " + wegZeile(),
                 baeche.info(),
                 sichtZeile(),
+                regieLine(),
                 clipGl.info(),
                 cameraLine(),
                 String.format(Locale.GERMAN, "UTM 8 N  E %.0f  N %.0f · %s · Kimm %.1f km", utm[0], utm[1], Site.dms(ll[0], ll[1]), kimm / 1000),
@@ -955,6 +1316,7 @@ public final class Renderer implements GLEventListener {
         if (cm != null) cm.stop();
         hud.dispose(gl);
         netzblick.dispose(gl);
+        if (kinoGl != null) kinoGl.dispose(gl);
         baeche.dispose(gl);
         ereignisGl.dispose(gl);
         echtzeit.dispose(gl);

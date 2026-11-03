@@ -29,7 +29,8 @@ import java.util.Locale;
  * {@code schaustueck} = Nummer oder Name (1 bis 7, Kamera und Uhr), {@code ereignis} = Sekunden nach dem ersten Stoß,
  * {@code lauf} = Lauf der Welle (kette, messwelle), {@code abspielen} = aus; ab Phase 14a {@code schaustueck} auch 10 und 11,
  * {@code wald} = aus; ab Phase 16c {@code netz} (welle, wasser, weg, sicht), {@code netzszene} = an, {@code netzblick} = aus,
- * {@code regen} (mm/h); ab Phase 17 {@code fahrt} (rundflug, kamerafahrt) und {@code fahrtanteil} (0 … 1).
+ * {@code regen} (mm/h); ab Phase 17 {@code fahrt} (rundflug, kamerafahrt) und {@code fahrtanteil} (0 … 1); ab Phase 17a
+ * {@code regiebuch} (Name; ganz durchspielen, Blatt nach docs/status) und {@code kino} = aus.
  */
 public final class Tempo {
     private Tempo() { }
@@ -150,6 +151,33 @@ public final class Tempo {
             System.out.printf(Locale.GERMAN, "Netze in %.1f s: %s · %s%n", (System.nanoTime() - t0) / 1e9, r.netzblick.stand(), r.baeche.status());
         }
         for (int i = 0; i < 20; i++) { r.step(1 / 60.0); d.display(); }
+        // Phase 17a: regiebuch = Name (ganz durchspielen, 30 Bilder je Sekunde Regiezeit), kino = aus (im Fenster statt im Kino)
+        String rbn = opt("regiebuch");
+        if (rbn != null && !rbn.isBlank()) {
+            com.dan.lituya.scene.Regie.Book b = com.dan.lituya.scene.Regie.byName(rbn);
+            if (b == null) { System.err.println("FEHLER: kein Regiebuch „" + rbn + "“"); d.destroy(); System.exit(1); }
+            boolean imKino = !"aus".equals(opt("kino"));
+            if (png != null && png.getAbsoluteFile().getParentFile() != null) r.photoDir = png.getAbsoluteFile().getParentFile();
+            if (imKino) r.kinoStart(b); else r.regieStart(b);
+            r.frozen = true;   // Tempo schaltet die Uhr selbst (kinoStart und regieStart lösen sie)
+            long t0 = System.nanoTime(), n = 0, max = 30L * 60 * 20;
+            double dt = 1 / 30.0, worst = 0;
+            while ((r.regie.running() || r.kino.laeuft() || r.regieWantsFrame()) && n < max) {
+                long f0 = System.nanoTime();
+                r.step(dt);
+                d.display();
+                worst = Math.max(worst, (System.nanoTime() - f0) / 1e6);
+                if (++n % 900 == 0) System.out.printf(Locale.GERMAN, "  %5.0f s Regiezeit · %s%n", n * dt, r.regieLine());
+            }
+            double wall = (System.nanoTime() - t0) / 1e9;
+            System.out.printf(Locale.GERMAN, "Regiebuch „%s“ %s: %,d Bilder (%.0f s Regiezeit, davon %.0f s gewartet) in %.0f s, im Mittel %.1f ms je Bild, längstes %.0f ms%n",
+                    b.name(), imKino ? "im Kino" : "im Fenster", n, n * dt, r.regie.waitedTotal(), wall, wall * 1000 / Math.max(1, n), worst);
+            System.out.println("  " + r.regieLine());
+            System.out.println("Blatt: " + (r.lastSheet != null ? r.lastSheet.getPath() : "keins"));
+            if (r.error() != null) System.err.println("FEHLER: " + r.error());
+            d.destroy();
+            System.exit(n >= max || r.lastSheet == null ? 1 : 0);
+        }
         double best = Double.MAX_VALUE, sum = 0;
         for (int i = 0; i < frames; i++) {
             long t0 = System.nanoTime();

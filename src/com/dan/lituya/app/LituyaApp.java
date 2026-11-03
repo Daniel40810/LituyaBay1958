@@ -170,6 +170,16 @@ public final class LituyaApp {
             south.setVisible(an);
             root.revalidate();
         }));
+        // Phase 17a: im Kino Bedienfeld und Statuszeile weg, Zeiger weg; danach wie vorher
+        boolean[] vorher = {true};
+        rd.kinoFenster = an -> SwingUtilities.invokeLater(() -> {
+            if (an) vorher[0] = side.isVisible();
+            side.setVisible(!an && vorher[0]);
+            south.setVisible(!an && vorher[0]);
+            view.zeigerVerbergen(an);
+            root.revalidate();
+            view.requestFocusInWindow();
+        });
         view.requestFocusInWindow();
         frame = f;
         scene = view;

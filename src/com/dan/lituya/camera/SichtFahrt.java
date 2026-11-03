@@ -32,6 +32,19 @@ public final class SichtFahrt {
         return bauen(w, f, welche, tempo, grund);
     }
 
+    /** Phase 17a: von Punkt A nach Punkt B den kürzesten Weg die Sichtlinien entlang (null, wenn es A, B oder den Weg nicht gibt). */
+    public static Fahrt zwischen(SichtNetz w, String von, String nach, double tempo, DoubleBinaryOperator grund) {
+        int a = w.knoten(von), b = w.knoten(nach);
+        if (a < 0 || b < 0 || a == b) return null;
+        int[] vor = new int[w.n];
+        double[] d = w.dijkstra(a, vor);
+        List<Integer> p = w.weg(a, b, vor);
+        if (p == null) return null;
+        double[][] f = new double[p.size()][];
+        for (int i = 0; i < f.length; i++) f[i] = new double[]{p.get(i), d[p.get(i)]};
+        return bauen(w, f, von + " → " + nach, tempo, grund);
+    }
+
     /** Fahrt aus der Folge {Knoten, Zeit} des Netzes w. */
     public static Fahrt bauen(SichtNetz w, double[][] folge, String name, double tempo, DoubleBinaryOperator grund) {
         List<double[]> k = new ArrayList<>();

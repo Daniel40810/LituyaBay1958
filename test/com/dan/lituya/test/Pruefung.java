@@ -1000,6 +1000,7 @@ public final class Pruefung {
         }
 
         sicht17(daten);
+        regie17a(daten);
 
         teil("Staub und Treibgut (Phase 12): dustcloud, debris");
         {
@@ -1235,6 +1236,59 @@ public final class Pruefung {
                 check(ns17.ebene("Sichtlinien").items.size() == sn.m && ns17.ebene("Spannbaum").items.size() == sn.n - 1 && !ns17.ebene("Rundflug").items.isEmpty(),
                         f("Netzblick Sicht: %,d Sichtlinien, Spannbaum %d Kanten, Rundflug %d Stücke", ns17.ebene("Sichtlinien").items.size(), ns17.ebene("Spannbaum").items.size(), ns17.ebene("Rundflug").items.size()));
             }
+        }
+    }
+
+    /** Phase 17a: die Regiebücher ohne Bild (eigene Methode, damit die Namen nicht mit main zusammenstoßen). */
+    static void regie17a(File daten) throws Exception {
+        teil("Regiebücher (Phase 17a): fünf Bücher, Stichworte, Namen, warte");
+        // warte: die Uhr des Regiebuchs steht, bis die Bedingung kommt
+        com.dan.lituya.scene.Regie.Book pb = com.dan.lituya.scene.Regie.parse("Regiebuch: Probe\n0:00 zeit 09.07.1958 22:00 | Abend\n0:01 warte ereignis 30\n0:01 foto Nach dem Warten\n0:02 blatt\n");
+        java.util.List<String> log = new java.util.ArrayList<>();
+        int[] bereit = {0};
+        com.dan.lituya.scene.Regie.Ctx pc = (com.dan.lituya.scene.Regie.Ctx) java.lang.reflect.Proxy.newProxyInstance(Pruefung.class.getClassLoader(), new Class<?>[]{com.dan.lituya.scene.Regie.Ctx.class},
+                (o, m, args) -> { if (m.getName().equals("ready")) return ++bereit[0] > 3; log.add(m.getName()); return null; });
+        com.dan.lituya.scene.Regie rg = new com.dan.lituya.scene.Regie();
+        rg.start(pb, pc);
+        for (int i = 0; i < 10 && rg.running(); i++) rg.step(1, pc);
+        check(log.equals(java.util.List.of("time", "capture", "sheet")) && bereit[0] == 4 && Math.abs(rg.waitedTotal() - 3) < 1e-9 && !rg.running(),
+                f("warte: drei Schritte gewartet (%.0f s), dann Foto und Blatt; Stichworte %s", rg.waitedTotal(), log));
+        boolean fehlerErkannt = false;
+        try { com.dan.lituya.scene.Regie.parse("Regiebuch: X\n0:00 fliegen hoch\n"); } catch (IllegalArgumentException e) { fehlerErkannt = e.getMessage().startsWith("Zeile 2"); }
+        check(fehlerErkannt, "unbekannter Befehl wird mit der Zeile gemeldet");
+        // die fünf Bücher: lesen, ohne Bild durchspielen, jeden Namen auflösen
+        com.dan.lituya.scene.SichtNetz sn = com.dan.lituya.scene.SichtNetz.da(daten) ? com.dan.lituya.scene.SichtNetz.lesen(daten) : null;
+        if (sn == null) hinweis("daten/netz/sicht fehlt: Namen aus LB_NET_SICHT und Fahrten A > B ungeprüft");
+        java.util.List<com.dan.lituya.scene.Regie.Book> alle = com.dan.lituya.scene.Regie.all();
+        check(alle.size() == 5, "fünf Regiebücher: " + alle);
+        for (com.dan.lituya.scene.Regie.Book b : alle) {
+            java.util.List<String> fehlt = new java.util.ArrayList<>(), befehle = new java.util.ArrayList<>();
+            java.util.function.Predicate<String> punkt = n -> com.dan.lituya.camera.Ansichten.byName(n) != null || com.dan.lituya.scene.Site.byName(n) != null || (sn == null ? true : sn.knoten(n) >= 0);
+            com.dan.lituya.scene.Regie.Ctx c = (com.dan.lituya.scene.Regie.Ctx) java.lang.reflect.Proxy.newProxyInstance(Pruefung.class.getClassLoader(), new Class<?>[]{com.dan.lituya.scene.Regie.Ctx.class}, (o, m, args) -> {
+                befehle.add(m.getName());
+                switch (m.getName()) {
+                    case "ready": return true;
+                    case "view": for (String x : ((String) args[0]).split(">")) if (!punkt.test(x.strip())) fehlt.add("Ansicht " + x.strip()); break;
+                    case "stueck": if (com.dan.lituya.camera.Schaustuecke.byName((String) args[0]) == null) fehlt.add("Schaustück " + args[0]); break;
+                    case "fahrt": {
+                        String a0 = (String) args[0], z0 = (String) args[1];
+                        if (z0 == null) { if (!a0.toLowerCase(java.util.Locale.ROOT).startsWith("rund") && !a0.toLowerCase(java.util.Locale.ROOT).startsWith("kamera")) fehlt.add("Fahrt " + a0); }
+                        else if (sn != null && com.dan.lituya.camera.SichtFahrt.zwischen(sn, a0, z0, 15, null) == null) fehlt.add("Fahrt " + a0 + " > " + z0);
+                        break;
+                    }
+                    default: break;
+                }
+                return null;
+            });
+            com.dan.lituya.scene.Regie r = new com.dan.lituya.scene.Regie();
+            r.start(b, c);
+            double t = 0;
+            while (r.running() && t < 3600) { r.step(0.5, c); t += 0.5; }
+            boolean blattAmEnde = b.zeilen().get(b.zeilen().size() - 1).befehl().equals("blatt");
+            String st = r.describe();
+            check(fehlt.isEmpty() && !st.contains("Fehler") && b.length() >= 180 && b.length() <= 6.5 * 60 && b.fotos() >= 5 && blattAmEnde && befehle.contains("capture"),
+                    f("„%s“: %s, %d Stichworte, %d Fotos, Blatt am Ende%s", b.name(), com.dan.lituya.scene.Regie.zeit(b.length()), b.cues().size(), b.fotos(),
+                            fehlt.isEmpty() ? "; alle Namen gefunden" : "; FEHLT: " + fehlt));
         }
     }
 }
