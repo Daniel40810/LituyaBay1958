@@ -111,9 +111,9 @@ public final class Renderer implements GLEventListener {
     private long scaleNanos;
     private int scaleSteps;
     /** HUD an, kurz oder voll (H). */
-    public volatile boolean showHud = true, hudFull;
+    public volatile boolean showHud = false, hudFull;   // 03.11.: beim Start aus
     /** Die Marken zur Ausrichtung (UTM-Raster, Kern, Szene, Fern, Orte); in Phase 1 an. */
-    public volatile boolean showMarks = true;
+    public volatile boolean showMarks = false;   // 03.11.: beim Start aus
 
     /** Phase 18 (Befund 17a): im Kino und während eines Regiebuchs keine Marken (UTM-Raster, Ellipsen) im Bild; der Schalter bleibt. */
     public boolean marksJetzt() { return showMarks && !kino.sichtbar() && !regie.running(); }
