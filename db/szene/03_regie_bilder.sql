@@ -1,0 +1,101 @@
+-- ============================================================================
+-- LituyaBay1958 · Schema LITUYABAY1958 · db/szene 03: Regie und Bilder (als Schema)
+-- Phase 19, Werkbuch 13.1: Regiebücher (Text und Schritte), Kamerafahrten,
+-- Schnappschüsse (F12, Blätter der Regiebücher) als PNG im BLOB.
+-- ============================================================================
+
+-- ---------------------------------------------------------------- LB_SZENARIO
+CREATE SEQUENCE LB_SZENARIO_SEQ START WITH 1 INCREMENT BY 1 NOCACHE
+/
+CREATE TABLE LB_SZENARIO (
+    SZENARIO_ID  NUMBER          CONSTRAINT LB_SZENARIO_PK PRIMARY KEY,
+    NAME         VARCHAR2(100)   NOT NULL CONSTRAINT LB_SZENARIO_UK UNIQUE,
+    DATEI        VARCHAR2(200),
+    DAUER_S      NUMBER,
+    STICHWORTE   NUMBER,
+    FOTOS        NUMBER,
+    HERKUNFT     VARCHAR2(12)    DEFAULT 'eigen' CONSTRAINT LB_SZENARIO_HERKUNFT CHECK (HERKUNFT IN ('mitgeliefert', 'eigen')),
+    VERSION      NUMBER          DEFAULT 1 NOT NULL,
+    TEXT         CLOB            NOT NULL,
+    GEAENDERT    DATE            DEFAULT SYSDATE
+)
+/
+CREATE OR REPLACE TRIGGER LB_SZENARIO_BI BEFORE INSERT ON LB_SZENARIO FOR EACH ROW
+BEGIN
+    IF :NEW.SZENARIO_ID IS NULL THEN :NEW.SZENARIO_ID := LB_SZENARIO_SEQ.NEXTVAL; END IF;
+END;
+/
+COMMENT ON TABLE LB_SZENARIO IS 'LituyaBay1958: Regiebuecher (Werkbuch 11.3) mit ihrem Text; mitgeliefert aus scene/regie, eigene aus der App'
+/
+
+-- ---------------------------------------------------------------- LB_SZENARIO_SCHRITT
+CREATE TABLE LB_SZENARIO_SCHRITT (
+    SZENARIO_ID  NUMBER          NOT NULL CONSTRAINT LB_SZENARIO_SCHRITT_S REFERENCES LB_SZENARIO (SZENARIO_ID) ON DELETE CASCADE,
+    NR           NUMBER          NOT NULL,
+    ZEIT_S       NUMBER          NOT NULL,
+    BEFEHL       VARCHAR2(20)    NOT NULL,
+    ARGUMENT     VARCHAR2(400),
+    UNTERTITEL   VARCHAR2(400),
+    CONSTRAINT LB_SZENARIO_SCHRITT_PK PRIMARY KEY (SZENARIO_ID, NR)
+)
+/
+COMMENT ON TABLE LB_SZENARIO_SCHRITT IS 'LituyaBay1958: Stichworte eines Regiebuchs, aus dem Text abgeleitet (beim Speichern neu)'
+/
+
+-- ---------------------------------------------------------------- LB_KAMERA_FAHRT
+CREATE SEQUENCE LB_KAMERA_FAHRT_SEQ START WITH 1 INCREMENT BY 1 NOCACHE
+/
+CREATE TABLE LB_KAMERA_FAHRT (
+    FAHRT_ID     NUMBER          CONSTRAINT LB_KAMERA_FAHRT_PK PRIMARY KEY,
+    NAME         VARCHAR2(200)   NOT NULL CONSTRAINT LB_KAMERA_FAHRT_UK UNIQUE,
+    ART          VARCHAR2(12)    CONSTRAINT LB_KAMERA_FAHRT_ART CHECK (ART IN ('Rundflug', 'Spannbaum', 'A nach B', 'eigene')),
+    TEMPO        NUMBER,
+    DAUER_S      NUMBER,
+    LAENGE_M     NUMBER,
+    PUNKTE       NUMBER,
+    BAHN         SDO_GEOMETRY,
+    GEAENDERT    DATE            DEFAULT SYSDATE
+)
+/
+CREATE OR REPLACE TRIGGER LB_KAMERA_FAHRT_BI BEFORE INSERT ON LB_KAMERA_FAHRT FOR EACH ROW
+BEGIN
+    IF :NEW.FAHRT_ID IS NULL THEN :NEW.FAHRT_ID := LB_KAMERA_FAHRT_SEQ.NEXTVAL; END IF;
+END;
+/
+COMMENT ON TABLE LB_KAMERA_FAHRT IS 'LituyaBay1958: Kamerafahrten als 3D-Linie (Rundflug, Spannbaum, A nach B aus LB_NET_SICHT, eigene); die Netzseite bleibt in LB_SICHT_FAHRT'
+/
+
+-- ---------------------------------------------------------------- LB_SCHNAPPSCHUSS
+CREATE SEQUENCE LB_SCHNAPPSCHUSS_SEQ START WITH 1 INCREMENT BY 1 NOCACHE
+/
+CREATE TABLE LB_SCHNAPPSCHUSS (
+    BILD_ID      NUMBER          CONSTRAINT LB_SCHNAPPSCHUSS_PK PRIMARY KEY,
+    ART          VARCHAR2(10)    NOT NULL CONSTRAINT LB_SCHNAPPSCHUSS_ART CHECK (ART IN ('Foto', 'Blatt', 'Status')),
+    DATEI        VARCHAR2(400),
+    AUFGENOMMEN  DATE            DEFAULT SYSDATE,
+    WELTZEIT     VARCHAR2(40),
+    ZEIT_S       NUMBER,
+    ZEITSTAND    VARCHAR2(10),
+    KAMERA       SDO_GEOMETRY,
+    HOEHE_M      NUMBER,
+    RICHTUNG     NUMBER,
+    NEIGUNG      NUMBER,
+    SZENARIO_ID  NUMBER          CONSTRAINT LB_SCHNAPPSCHUSS_S REFERENCES LB_SZENARIO (SZENARIO_ID) ON DELETE SET NULL,
+    SITZUNG_ID   NUMBER,
+    BREITE       NUMBER,
+    HOEHE        NUMBER,
+    BYTES        NUMBER,
+    BILDRATE     NUMBER,
+    NOTIZ        VARCHAR2(1000),
+    BILD         BLOB,
+    VORSCHAU     BLOB,
+    CONSTRAINT LB_SCHNAPPSCHUSS_UK UNIQUE (DATEI)
+)
+/
+CREATE OR REPLACE TRIGGER LB_SCHNAPPSCHUSS_BI BEFORE INSERT ON LB_SCHNAPPSCHUSS FOR EACH ROW
+BEGIN
+    IF :NEW.BILD_ID IS NULL THEN :NEW.BILD_ID := LB_SCHNAPPSCHUSS_SEQ.NEXTVAL; END IF;
+END;
+/
+COMMENT ON TABLE LB_SCHNAPPSCHUSS IS 'LituyaBay1958: Fotos (F12) und Blaetter der Regiebuecher als PNG mit Vorschau (320 px), Ort und Zeit der Kamera'
+/

@@ -1002,6 +1002,7 @@ public final class Pruefung {
         sicht17(daten);
         regie17a(daten);
         klang18(daten);
+        szene19(daten);
 
         teil("Staub und Treibgut (Phase 12): dustcloud, debris");
         {
@@ -1351,5 +1352,86 @@ public final class Pruefung {
         r.camera.place(ac.x(), ac.eyeAboveGround(), ac.z(), ac.heading(), ac.pitch());
         double y0 = r.camera.fy;
         check(!r.ueberKronen() && r.camera.fy == y0, "Anchorage Cove über dem Wasser: Auge bleibt (3 m)");
+    }
+
+    static void szene19(File daten) throws Exception {
+        teil("Datenbank der Szene (Phase 19): db/szene, mitgelieferte Tabellen, Speicher, Sitzung");
+        File sz = new File("db/szene");
+        int anw = 0;
+        boolean alle = true;
+        for (String n : com.dan.lituya.tools.SzeneDb.SKRIPTE) {
+            File f = new File(sz, n);
+            if (!f.isFile()) { alle = false; continue; }
+            anw += com.dan.lituya.tools.NetzDb.anweisungen(Files.readString(f.toPath(), StandardCharsets.UTF_8)).size();
+        }
+        check(alle && anw >= 55, f("db/szene: %d Skripte, %d Anweisungen, jede mit „/“ abgeschlossen", com.dan.lituya.tools.SzeneDb.SKRIPTE.length, anw));
+        String tab = alle ? Files.readString(new File(sz, "01_belege.sql").toPath()) + Files.readString(new File(sz, "02_boote_laeufe.sql").toPath())
+                + Files.readString(new File(sz, "03_regie_bilder.sql").toPath()) + Files.readString(new File(sz, "04_sitzung_texturen.sql").toPath()) : "";
+        int da = 0;
+        for (String t : com.dan.lituya.tools.SzeneDb.TABELLEN) if (tab.contains("CREATE TABLE " + t + " (")) da++;
+        check(da == com.dan.lituya.tools.SzeneDb.TABELLEN.length && !tab.contains("AS IDENTITY") && !tab.contains("GENERATED"), f("%d Tabellen angelegt, Schlüssel aus Sequenz und Trigger (nie IDENTITY)", da));
+        String ab = Files.readString(new File("db/netz/99_abbau.sql").toPath());
+        check(ab.contains("'LB_V_BEFUND'") && ab.contains("'LB_SITZUNG')"), "db/netz/99_abbau.sql lässt Sichten und Raum-Metadaten von db/szene stehen");
+        // mitgelieferte Tabellen
+        java.util.List<String[]> q = com.dan.lituya.tools.SzeneDb.tsv("quellen.tsv"), b = com.dan.lituya.tools.SzeneDb.tsv("befunde.tsv"), z = com.dan.lituya.tools.SzeneDb.tsv("zeugen.tsv"),
+                bo = com.dan.lituya.tools.SzeneDb.tsv("boote.tsv");
+        java.util.Set<String> kurz = new java.util.HashSet<>(), keys = new java.util.HashSet<>();
+        for (String[] r : q) kurz.add(r[0]);
+        java.util.List<String> fehlt = new java.util.ArrayList<>();
+        java.util.Map<String, Integer> arten = new java.util.TreeMap<>();
+        int mitOrt = 0;
+        for (String[] r : b) {
+            if (r.length != 11) fehlt.add(r[0] + ": " + r.length + " Felder");
+            if (!keys.add(r[0])) fehlt.add("doppelt " + r[0]);
+            if (!java.util.List.of("belegt", "gemessen", "gerechnet", "gesetzt").contains(r[5])) fehlt.add(r[0] + ": Art " + r[5]);
+            if (!r[7].isBlank()) { if (com.dan.lituya.tools.SzeneDb.ort(r[7]) == null) fehlt.add(r[0] + ": Ort " + r[7]); else mitOrt++; }
+            for (String x : r[10].split(",")) if (!kurz.contains(x.split(":")[0].trim())) fehlt.add(r[0] + ": Quelle " + x);
+            arten.merge(r[5], 1, Integer::sum);
+        }
+        for (String[] r : z) { if (com.dan.lituya.tools.SzeneDb.ort(r[5]) == null) fehlt.add("Zeuge " + r[0] + ": Ort " + r[5]); if (!kurz.contains(r[8].split(",")[0].split(":")[0])) fehlt.add("Zeuge " + r[0] + ": Quelle"); }
+        check(q.size() >= 26 && kurz.size() == q.size(), f("quellen.tsv: %d Quellen (Werkbuch 2.9 und vier dazu), Kurzzeichen eindeutig", q.size()));
+        check(fehlt.isEmpty() && b.size() >= 50, f("befunde.tsv: %d Befunde %s, %d mit Ort; jede Quelle in quellen.tsv%s", b.size(), arten, mitOrt, fehlt.isEmpty() ? "" : "; FEHLT: " + fehlt));
+        check(z.size() >= 10 && bo.size() == 3, f("zeugen.tsv: %d Aussagen; boote.tsv: %d Boote", z.size(), bo.size()));
+        // Kennzahlen eines vorgerechneten Laufs
+        File kette = new File(new File(daten, "ereignis"), "kette");
+        if (new File(kette, "max_g2.r32").isFile()) {
+            com.dan.lituya.data.Speicher.Lauf l = com.dan.lituya.tools.LaufKennzahlen.lauf(kette);
+            check(l.auflaufSporn() > 400 && l.auflaufSporn() < 620 && l.ankunftCenotaph() < l.ankunftAnchorage() && l.ankunftAnchorage() < l.dauerS(),
+                    f("Kennzahlen „kette“: Sporn %.0f m (belegt 524), Ankunft Cenotaph %.0f s, Anchorage Cove %.0f s, Eingang %.0f s", l.auflaufSporn(), l.ankunftCenotaph(),
+                            l.ankunftAnchorage(), l.ankunftEingang()));
+        } else hinweis("daten/ereignis/kette ohne Raster: Kennzahlen ungeprüft (ant ereignis)");
+        // Speicher ohne Datenbank: Sitzung, Lauf, Regiebuch, Bild
+        File tmp = Files.createTempDirectory("lb_speicher").toFile();
+        com.dan.lituya.data.DateiSpeicher ds = new com.dan.lituya.data.DateiSpeicher(tmp);
+        SceneClock c = new SceneClock();
+        Renderer r = new Renderer(c);
+        r.camera.place(-5000, 40, 1200, 33, -4);
+        c.setEpochMillis(SceneClock.BEBEN.toEpochMilli() + 250_000);
+        c.zeitstand = SceneClock.Zeitstand.WELLE;
+        c.lapse = 5;
+        r.showMarks = false;
+        r.netzblick.netz = 2;
+        r.klang.echo = false;
+        r.echtzeit.volumen = 12e6;
+        com.dan.lituya.data.Speicher.Sitzung s0 = com.dan.lituya.gl.Sitzungen.erfassen(r, "Probe");
+        long id = ds.sitzungSpeichern(s0);
+        SceneClock c2 = new SceneClock();
+        Renderer r2 = new Renderer(c2);
+        com.dan.lituya.data.Speicher.Sitzung s1 = ds.sitzung(id);
+        int n = com.dan.lituya.gl.Sitzungen.herstellen(r2, s1);
+        boolean gleich = Math.abs(r2.camera.fx + 5000) < 1e-6 && Math.abs(r2.camera.fyaw - 33) < 1e-6 && c2.zeitstand == SceneClock.Zeitstand.WELLE && c2.lapse == 5
+                && Math.abs(c2.simSeconds() - 250) < 0.01 && !r2.showMarks && r2.netzblick.netz == 2 && !r2.klang.echo && r2.echtzeit.volumen == 12e6;
+        check(gleich && n > 40 && ds.sitzungen().size() == 1, f("Sitzung in die Dateien und zurück: %d Werte, Kamera, Uhr, Zeitstand, Raffer, Marken, Netz, Klang, Echtzeit wie vorher", n));
+        ds.laufSpeichern(new com.dan.lituya.data.Speicher.Lauf("Probe", "Echtzeit", "q", "Gilbert Inlet", 12e6, 0.5, "G1940", "KETTE", 105, null, null, 200, Double.NaN, Double.NaN,
+                Double.NaN, Double.NaN, Double.NaN, "echtzeit.volumen=1.2E7"));
+        ds.regiebuchSpeichern(new com.dan.lituya.data.Speicher.Buch("Eigenes", com.dan.lituya.scene.Regie.text("nacht.txt"), false, null));
+        java.awt.image.BufferedImage im = new java.awt.image.BufferedImage(640, 360, java.awt.image.BufferedImage.TYPE_INT_RGB);
+        java.io.ByteArrayOutputStream png = new java.io.ByteArrayOutputStream();
+        javax.imageio.ImageIO.write(im, "png", png);
+        ds.bildSpeichern(new com.dan.lituya.data.Speicher.Bild("Foto", "docs/status/Probe.png", png.toByteArray(), com.dan.lituya.data.Bilder.vorschau(im), 640, 360, "9.7.1958 22:20",
+                250, "WELLE", 345000, 6500000, 40, 33, -4, null, 60, "Probe"));
+        check(ds.laeufe().get(0).volumen() == 12e6 && ds.regiebuecher().get(0).text().equals(com.dan.lituya.scene.Regie.text("nacht.txt")) && ds.bilder() == 1
+                && ds.bildZeilen().get(0).length == 15, "Lauf, eigenes Regiebuch und Bild in daten/speicher und zurück");
+        check(com.dan.lituya.data.Speicher.aktuell() instanceof com.dan.lituya.data.DateiSpeicher, "ohne Verbindung nimmt die App die Dateien: " + com.dan.lituya.data.Speicher.aktuell().wo());
     }
 }

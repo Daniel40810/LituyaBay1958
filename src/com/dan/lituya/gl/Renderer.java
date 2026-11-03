@@ -56,7 +56,7 @@ public final class Renderer implements GLEventListener {
     public static final int MIN_MAJOR = 4, MIN_MINOR = 3;
     public static final String VERSION = "Phase 9";
     /** Phase des Stands (für Ansichten und Bedienfeld). */
-    public static final int PHASE = 18;
+    public static final int PHASE = 19;
     public static final String[] PASSES = {"Himmel", "Gelände", "Wald", "Boote", "Welle", "Wasser", "Staub", "Nachbearbeitung", "HUD"};
     private static final int MARKS = PASSES.length + 1;
     /** Nah- und Fernebene (m): vom Kutter bis über die Kimm des Mount Fairweather (264 km). */
@@ -620,6 +620,7 @@ public final class Renderer implements GLEventListener {
             javax.imageio.ImageIO.write(out, "png", f);
             lastSheet = f;
             hudMeldung("Regiebuch gespeichert: " + f.getPath());
+            if (!Boolean.getBoolean("lituya.ohneSpeicher")) bildSichern("Blatt", f, name, albumFps / Math.max(1, albumSamples), album.size() + " Fotos");
             System.out.println("Regiebuch gespeichert: " + f.getPath());
         } catch (Exception e) {
             hudMeldung("Blatt des Regiebuchs fehlgeschlagen: " + e.getMessage());
@@ -1284,12 +1285,20 @@ public final class Renderer implements GLEventListener {
             File f = new File(dir, name + ".png");
             javax.imageio.ImageIO.write(img, "png", f);
             photoMsg = "Foto gespeichert: " + f.getPath();
+            if (photoDir == null && !Boolean.getBoolean("lituya.ohneSpeicher")) bildSichern("Foto", f, regie.running() ? regie.book().name() : null, fps, null);
             System.out.println(photoMsg);
         } catch (Exception e) {
             photoMsg = "Foto fehlgeschlagen: " + e.getMessage();
             System.err.println(photoMsg);
         }
         photoMsgUntil = System.currentTimeMillis() + 5000;
+    }
+
+    /** Phase 19: ein geschriebenes Bild mit Ort und Zeit der Kamera nach Oracle oder daten/speicher (im eigenen Faden). */
+    private void bildSichern(String art, File f, String regiebuch, double bildrate, String notiz) {
+        double[] u = com.dan.lituya.scene.Site.toUtm(camera.eye[0], camera.eye[2]);
+        com.dan.lituya.data.Bilder.sichernSpaeter(art, f, clock.label(), clock.simSeconds(), clock.zeitstand.name(), u[0], u[1], camera.eye[1], camera.heading(),
+                Math.toDegrees(Math.asin(Math.max(-1, Math.min(1, camera.fwd[1])))), regiebuch, bildrate, notiz, m -> System.out.println("LituyaBay1958: " + m));
     }
 
     /** Liest das fertige Fensterbild (nach Nachbearbeitung und HUD). */

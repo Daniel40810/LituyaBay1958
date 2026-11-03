@@ -1022,6 +1022,35 @@ FFrame maximiert, Bedienfelder in FTheme-Farben: **ANSICHT** (Presets, Fahrten),
 
 Sequence + Trigger, nie IDENTITY; SRID 26908, Sichten in 4326.
 
+### 13.1 Entwurf Phase 19 (zur Freigabe, 03.11.2026)
+
+Neuer Ordner `db/szene/` (wie `db/netz/`): `01_belege.sql`, `02_boote_laeufe.sql`, `03_regie_bilder.sql`, `04_sitzung_texturen.sql`, `05_sichten.sql`, `99_abbau.sql`; Lader `tools.SzeneDb` mit `ant szenedb` (legt an, was fehlt, lädt die mitgelieferten Daten, prüft) und `ant szenedbpruefung`. Schlüssel aus Sequenz und Trigger, Orte als `SDO_GEOMETRY` in 26908 (Punkte 2D, Bahnen 3D 3002), Sichten in 4326.
+
+| Tabelle | Schlüssel | Inhalt | befüllt aus |
+|---|---|---|---|
+| `LB_QUELLE` | `QUELLE_ID`, `KURZ` eindeutig | Titel, Autoren, Jahr, Art (Aufsatz, Bericht, Daten, Karte, eigene), Fundort (`download/…` oder URL), Lizenz, geprüft (J, N, zu prüfen) | Werkbuch 2.9 (28 Kurzzeichen) |
+| `LB_BEFUND` | `BEFUND_ID`, `SCHLUESSEL` eindeutig | Thema, Aussage, Wert, Einheit, **Art** (belegt, gemessen, gerechnet, gesetzt = [G]), Abschnitt im Werkbuch, Ort (Punkt), Simulationszeit, gilt für (1958, heute, beide) | Werkbuch 2.1–2.7 als `data/befunde.tsv` |
+| `LB_BEFUND_QUELLE` | (`BEFUND_ID`, `QUELLE_ID`) | Seite, Rolle (Beleg, Vergleich, Widerspruch) | wie oben |
+| `LB_ZEUGE` | `ZEUGE_ID` | Name, Rolle, Boot, Zeit von/bis (Simulationszeit), Ort, Aussage sinngemäß, Quelle und Seite, Art (wörtlich kurz, sinngemäß) | Werkbuch 2.2/2.3; der Rest mit 0b |
+| `LB_BOOT` | `BOOT_ID`, `NAME` eindeutig | Typ, Länge (Fuß), Besatzung, Ankerplatz (Punkt), Tiefe und Kette (Faden), Ausgang, Quelle | Werkbuch 2.3, `vessel` |
+| `LB_BOOT_LAGE` | (`BOOT_ID`, `LAUF_ID`, `T_S`) | x, y, z, Kurs, Krängung, Trimm, Kettenzug je Zeitschritt | `daten/ereignis/boote/<lauf>/bahn_*.bin` |
+| `LB_EREIGNIS_LAUF` | `LAUF_ID`, `NAME` eindeutig | Art (vorgerechnet, Echtzeit), Quelle, Ort, Volumen, Pegel, Grund, Ganglinie, Gitter, Rechner, Dauer; **Kennzahlen** (größter Auflauf, Auflauf am Sporn, Ankunft Cenotaph, Anchorage Cove, Eingang, Energieanteil); Eingaben als Text | `daten/ereignis/*/EREIGNIS.txt` und die Raster; Echtzeitläufe aus der App |
+| `LB_SZENARIO` | `SZENARIO_ID`, `NAME` eindeutig | Datei, Dauer, Fotos, Herkunft (mitgeliefert, eigen), Version, geändert, **Text** des Regiebuchs (CLOB) | `scene/regie/*.txt`; eigene aus der App |
+| `LB_SZENARIO_SCHRITT` | (`SZENARIO_ID`, `NR`) | Zeit, Befehl, Argument, Untertitel (aus dem Text abgeleitet, zum Abfragen) | beim Speichern |
+| `LB_KAMERA_FAHRT` | `FAHRT_ID`, `NAME` eindeutig | Art (Rundflug, Spannbaum, A → B, eigene), Tempo, Dauer, Bahn (3D-Linie) | `SichtFahrt`; `LB_SICHT_FAHRT` (Netz) bleibt |
+| `LB_SCHNAPPSCHUSS` | `BILD_ID` | Art (Foto, Blatt, Status), Datei, aufgenommen, Weltzeit, Simulationszeit, Zeitstand, Kamera (Punkt, Höhe, Richtung, Neigung), Regiebuch, Sitzung, Größe, **Bild** (BLOB, PNG) und Vorschau (BLOB, 320 px), Bildrate, Notiz | F12, Blätter der Regiebücher; vorhandene `docs/status/*.png` auf Wunsch |
+| `LB_SITZUNG` | `SITZUNG_ID` | Name, gespeichert, Rechner, Kamera (Ort, Richtung, Neigung, Modus), Uhr, Zeitstand, Raffer, Lauf, Regiebuch, **Zustand** (alle Schalter als Text, CLOB) | Strg+S; ohne Datenbank als Datei `daten/sitzungen/*.properties` |
+| `LB_TEXTUR` | `TEXTUR_ID`, `NAME` eindeutig | Material, wo, Quelle, Satz (z. B. `Rock063`), URL, Lizenz, Auflösung, Datei, Prüfsumme | `daten/texturen/LIZENZEN.txt` |
+
+Sichten (4326): `LB_BEFUND_V` (mit den Quellen), `LB_ZEUGE_V`, `LB_BOOT_BAHN_V` (Bahn je Boot und Lauf als Linie), `LB_SCHNAPPSCHUSS_V` (ohne BLOB), `LB_LAUF_VERGLEICH_V` (Kennzahlen der Läufe nebeneinander).
+
+**Umgesetzt in Phase 19** (freigegeben wie Entwurf; Befunde aus Werkbuch 2 und den gerechneten Werten; von den alten Bildern je Regiebuch das neueste Blatt). Zwei Abweichungen: Die Sichten heißen wie in `db/netz` `LB_V_BEFUND`, `LB_V_BEFUND_ART`, `LB_V_ZEUGE`, `LB_V_BOOT_BAHN`, `LB_V_SCHNAPPSCHUSS`, `LB_V_LAUF_VERGLEICH`, `LB_V_SITZUNG`; die Bahn eines Boots liegt als 3D-Linie in einer eigenen kleinen Tabelle `LB_BOOT_BAHN` (eine Sicht kann aus 700 Punkten keine Linie bauen), zusammen 14 Tabellen. `db/netz/99_abbau.sql` lässt die Sichten und Raum-Metadaten von `db/szene` stehen.
+- **Mitgeliefert** in `com/dan/lituya/data`: `quellen.tsv` (30: 2.9 und STEVEDUTCH, USNI60, NPS, AMBIENTCG), `befunde.tsv` (55: 45 belegt, 4 gemessen, 3 gerechnet, 3 gesetzt; 42 mit Ort), `zeugen.tsv` (11 Aussagen von 7 Menschen, wörtlich nur kurz), `boote.tsv`.
+- **Gerechnet** von `tools.SzeneDb`: je Lauf Auflauf am Sporn, größter Stand, Ankunft an Cenotaph Island, in der Anchorage Cove und am Eingang (`tools.LaufKennzahlen`; „kette“: 514 m, 227 s, 415 s, 433 s), die Laufzeiten der Hörproben, je Boot und Lauf die Lage je Sekunde (Kurs, Krängung, Trimm wie `vessel.Boat`) und die Bahn.
+- **App:** `data.Speicher` mit `OracleSpeicher` und `DateiSpeicher` (`daten/speicher`), `gl.Sitzungen` (alle öffentlichen Schalter von Renderer, Netzblick, Klang, Echtzeit und Kamera, Uhr, Zeitstand, Raffer); Strg+S und DATEN „Sitzung sichern“, „Sitzung laden“, „Lauf sichern“; F12-Fotos und Blätter der Regiebücher gehen mit Ort und Zeit der Kamera in den Speicher. `ant szenedb` übernimmt, was ohne Datenbank gesichert wurde.
+
+App (19): `data.Speicher` mit zwei Wegen, Oracle und Datei (Rückfall, die App startet immer): Sitzung speichern und laden (Strg+S, Liste), Echtzeitlauf speichern und wieder abspielen, Regiebuch speichern und laden (die mitgelieferten bleiben in `scene/regie`), Foto und Blatt speichern. Mit Verbindung liest die App Befunde, Ankunftszeiten (`LB_ANKUNFT`) und Sitzungen aus Oracle. Das Bedienfeld dazu (DATEN, Abfragen, Hilfe F1) kommt mit 19a.
+
 ---
 
 ## 14. Phasenplan
@@ -1067,7 +1096,8 @@ Sequence + Trigger, nie IDENTITY; SRID 26908, Sichten in 4326.
 | 18a | R | **gebaut (wartet auf den Renderer-Build):** `com.dan.bear` (5.14): Körper, Gangarten, Verhalten, Fell, Demo | `BearCheck`, `Bear_Demo.png`, `Bear_GL.png` |
 | 18c | R+L | Leben in der Szene: Bären (Abend 1958, Beben, heute am Lachsbach), Möwen (`flock`) und Weißkopfseeadler (neu in `flock`), Seehunde und Seeotter (neu in `seal`); Schaustück 12 | Schaustück 12 |
 | 18b | R+L | Wetter (mit 5a: `sky`, `cloud`, `fog`, `rain`), Polarlicht (`aurora`, neu, nur „heute“) | Wetterbilder |
-| 19 | L+D | Oberfläche und Datenbank (Fragenblock II) | Tabellen freigegeben, Speichern/Laden |
+| 19 | L+D | **gebaut (wartet auf Oracle):** Datenbank der Szene (13.1, Fragenblock II 16.3): `db/szene` mit 14 Tabellen und 7 Sichten, `ant szenedb`, Speichern/Laden (Sitzung, Lauf, Regiebuch, Bild) mit Oracle oder Dateien | Tabellen freigegeben, Speichern/Laden |
+| 19a | L | Oberfläche: Bedienfeld DATEN (Befunde, Zeugen, Läufe nebeneinander, Bilder mit Vorschau, eigene Regiebücher), Abfragen in der App (Ankunft aus `LB_ANKUNFT`), Hilfe F1 | Bedienfeld |
 | 20 | L | Schliff: Qualitätsstufen, READMEs, GitHub-README, Icon, Verknüpfungen, Video, Dauerlauf; **Kartenmaterial ausgelagert, Start ohne `download/`** | „fertig“ |
 
 ---
@@ -1214,6 +1244,17 @@ A ist gewählt (Entscheidung vom 01.11.2026).
 
 Fragenblock II (Oberfläche, Datenbank) kommt in Phase 19 und wird hier als 16.3 angefügt.
 
+### 16.3 Fragenblock II (Phase 19, 03.11.2026)
+
+| Nr. | Frage | gewählt |
+|---|---|---|
+| F47 | Zuschnitt | 19 Datenbank (Tabellen, Befüllung, Speichern/Laden), 19a Oberfläche (DATEN, Abfragen in der App, Hilfe F1) |
+| F48 | Tabellen | alle aus 13: Quellen, Befunde, Zeugen; Boote und Läufe; Regie und Schnappschüsse; Texturen und Lizenzen |
+| F49 | Speichern/Laden | Sitzung (Strg+S), Echtzeitlauf, Regiebuch, Foto und Blatt, alles in Oracle |
+| F50 | Lesen | Oracle wahlweise, Dateien als Rückfall: die App startet immer |
+
+Entwurf der Tabellen in 13.1; Skripte erst nach Freigabe.
+
 ---
 
 ## 17. Ideenspeicher
@@ -1318,11 +1359,15 @@ Fragenblock II (Oberfläche, Datenbank) kommt in Phase 19 und wird hier als 16.3
 | 03.11.2026 | 18 | **Klang** (Freigabe „Phase18, los!“; Entscheidungen: 18 Klang, 18a Leben mit `bear`, 18b Wetter mit 5a und `aurora`; Klang live in der App und als Hörproben-WAV; Leben: Küstenbraunbär, Vögel, Robben; die Befunde aus 17a mit beheben), siehe 9.13.<br>• **Neu:** `gl.Klang` (Beben, Sturz, Aufschlag, Front, Echo, Ruhe; Laufzeit des Schalls), `tools.Hoerproben` (fünf Proben: Anchorage Cove, Cenotaph Island, gegenüber dem Sturz, Abend vor Anker, heute; WAV, Spektrogramm, Bericht nach `docs/hoerproben`).<br>• **App:** Bedienfeld KLANG nach WETTER (Ton an, Taste M; Echo; Lautstärke; Stand), im Kino der Ton des Kinos darüber, HUD-Zeile. Befunde 17a: `Renderer.marksJetzt()` (keine Marken im Kino und während eines Regiebuchs, der Schalter bleibt), `Renderer.ueberKronen()` (im Regiebuch Auge über Land ≥ 50 m über dem Gelände, Blick etwas tiefer); „Die Bucht der Wellen“ 1:00 schaut jetzt von Mudslide Creek zum Nordufer (120 m).<br>• **Ant:** `ant hoerproben` (`-Dnur=sturz` eine), `lituya.phase` 18; `Bibliothek`: `bear` in 18a, `aurora` in 18b. **Nachtrag:** der erste `ant pruefung` brach in `check-packages` ab (`tools/JarPruefung` erwartete `aurora` und `bear` schon in 18); dort jetzt ebenso 18a und 18b.<br>• **Hier geprüft:** `Pruefung` „Klang (Phase 18)“: Sturz in 2,1 km nach der Laufzeit (99,1 s gerechnet, hörbar ab 99,3 s), Echo, Sprung der Uhr ohne Ereignis, Abend mit Kalbung und Möwen, Block KLANG, Marken, Mudslide Creek von 20 auf 50 m, Anchorage Cove bleibt 3 m. Die fünf Hörproben mit deinem `LB_NET_WELLE` gerechnet (je 1 bis 10 s). Ton aus dem Lautsprecher und Bilder nicht (kein JOGL, kein Lautsprecher hier). | – | unverändert |
 | 03.11.2026 | 18 | **Abnahme** auf der Radeon: `ant pruefung` 234 Prüfungen in 61,8 s, alles in Ordnung (4 Hinweise). `ant hoerproben`: fünf WAV mit Spektrogramm, die Laufzeiten wie hier (gegenüber dem Sturz 99,1 gegen 99,4 s, Cenotaph 111,9 gegen 112,1 s, Anchorage Cove 127,2 gegen 134,2 s). `ant regiebuecher -Dbuch="Die Bucht der Wellen"`: keine Marken mehr, die Kamera über dem Wald (1853 und 1936). | `pruefung_Phase18.txt`, `hoerproben_Phase18.txt`, `regiebuecher_Phase18.txt`, `Regiebuch_Die_Bucht_der_Wellen_20261103_091307.png` | unverändert |
 | 03.11.2026 | 18a | **`com.dan.bear`** (Freigabe „Phase18a, los!“; Entscheidungen: 18a nur `bear`, 18c Leben in der Szene; Körper biegsam wie `seal`; Gehen/Traben/Galopp, Fischen, Graben/Schnüffeln/Aufrichten, Flucht vor Mensch, Boot und Beben; in der Szene der Abend 1958 und heute der Bär am Lachsbach, dazu Weißkopfseeadler und Seeotter neu), siehe 5.14.<br>• **Renderer, neu `com.dan.bear`:** `Bear`, `BearBody`, `Sleuth`, `gl/BearGl` mit `bear.vert`, `bear.frag`, `shadow.*`, `demo/BearCheck`, `BearDemo`, `BearGlBild`, `DemoBay`, `Soft`, README.<br>• **Hier geprüft:** `BearCheck` 39 Prüfungen, alles in Ordnung (66 s): Schulterhöhe 1,40 m, aufgerichtet 2,35 m; Gang ohne Rutschen (3,7/1,1/5,7 %); zwei Stunden in der Demobucht nie tiefer als 0,95 m im Wasser, im August 99 Sprünge und 26 Lachse, im Mai keiner, bei Hochwasser kein Graben; Wanderer: aufgerichtet bei 160 m, dann ausgewichen (nie näher als 149 m); überrascht auf 60 m: Galopp 7,7 m/s, nach 60 s 283 m fort, Junge höchstens 15 m zurück; Beben: alle galoppieren, nach 60 s mindestens 58 m höher; `PaketPruefung` für `bear`: Kern, gl, demo, Importe ok. `bear.vert` mit Mesa (llvmpipe) gegen Java auf 7e-7 m, ein Bild mit den Shadern gerechnet. Nicht auf der Radeon.<br>• **App:** `tools/JarPruefung` und `Bibliothek`: nur 6a gilt noch als nachzuholende Phase der App, `bear` ist ab 18a fällig; `lituya.phase` 18a; neue Ziele `ant bearcheck`, `ant bearbild`, `ant bearglbild`, `ant beardemo`. | – | **neu zu bauen** (mit `bear`) |
+| 03.11.2026 | 18a | **Abnahme** auf der Radeon: `ant bearcheck` 39 Prüfungen, „Alles in Ordnung.“; `ant pruefung` 234 Prüfungen, alles in Ordnung; `Bear_GL.png` wie mit Mesa. Befund: `BearDemo` ohne FFrame-Rahmen (`setContentPane` statt `getComponentPane()`), berichtigt im Renderer. | `bearcheck_Phase18a.txt`, `Bear_Demo.png`, `Bear_GL.png`, `pruefung_Phase18a.txt` | mit `bear` |
+| 03.11.2026 | 19 | **Datenbank der Szene** (Freigabe „Phase19, los!“ vor 18c und 18b; Fragenblock II als 16.3: 19 Datenbank, 19a Oberfläche; alle Tabellen; Sitzung, Lauf, Regiebuch, Bild in Oracle; Oracle wahlweise mit Dateien als Rückfall; Entwurf 13.1 freigegeben), siehe 13.1.<br>• **Neu:** `db/szene/01`–`05`, `99`; `tools.SzeneDb` (`ant szenedb`, `-Dneu=ja`; `ant szenedbpruefung`), `tools.LaufKennzahlen`; `data.Speicher`, `OracleSpeicher`, `DateiSpeicher`, `Bilder`; `gl.Sitzungen`; `data/quellen.tsv`, `befunde.tsv`, `zeugen.tsv`, `boote.tsv`.<br>• **App:** DATEN mit Sitzung sichern (Strg+S), laden und Lauf sichern; Fotos und Blätter in den Speicher; `db/netz/99_abbau.sql` lässt `db/szene` stehen; `PHASE` 19, `lituya.phase` 19. Weil 19 vor 18b kam, gilt `aurora` (18b) wie `scree` (6a) als nachzuholen (Hinweis, kein Fehler) in `Bibliothek` und `tools/JarPruefung`.<br>• **Hier geprüft:** `Pruefung` „Datenbank der Szene (Phase 19)“: 6 Skripte, 59 Anweisungen, 14 Tabellen ohne IDENTITY, 99 der Netze lässt die Szene stehen; 30 Quellen, 55 Befunde mit gültiger Art, Ort und Quelle, 11 Aussagen, 3 Boote; Kennzahlen „kette“ (Sporn 514 m gegen 524 m belegt); Sitzung in die Dateien und zurück (63 Werte, Kamera, Uhr, Zeitstand, Raffer, Schalter, Echtzeit), Lauf, eigenes Regiebuch und Bild; ohne Verbindung die Dateien. **Nicht hier:** die Skripte gegen Oracle (keine Datenbank im Container), die Knöpfe im Fenster. **Nachtrag:** erster `ant szenedb`: die fünf Skripte liefen durch (Tabellen und Sichten angelegt), dann ORA-01400 beim ersten Befund (`ART` ist Pflicht, kam erst mit dem zweiten Schritt); berichtigt, die Tabellen bleiben. Zweiter Lauf in 8 s: alles geladen (70 Befunde, 2 238 Bootslagen, 5 Regiebücher mit 145 Stichworten, 5 Blätter, 14 Texturen), Probesitzung hin und zurück; Läufe „kette“ 514 m, „kette_LOW“ 496 m, „messwelle“ 409 m am Sporn. Befunde: `staub` und `strom` galten als Läufe (jetzt nur Ordner mit `ankunft_g0.r32`, alte Zeilen fallen weg); VALIDATE der Bahnen „nein“ – jetzt in 2D geprüft, das 3D-Ergebnis steht als Hinweis mit Grund im Protokoll. | – | unverändert |
 | | 0b | parallel: Recherche vervollständigen (Miller S. 51–86, Zeugen, Boote, Tide, Zeitzone), Texturquellen und Lizenzen, `docs/QUELLEN.md` | | |
 
-**Nächster Schritt:** Phase 18a auf dem Rechner:
+**Nächster Schritt:** Phase 19 auf dem Rechner (Oracle, keine neuen Daten; der Renderer bleibt):
 
-1. Renderer: Branch `lituya-phase-18a` anlegen, `src/com/dan/bear` einchecken, Clean and Build (läuft `check-packages`), `dist/Renderer.jar` nach `LituyaBay1958/lib/`.
-2. LituyaBay1958: `ant bearcheck` (rund 1 min, „Alles in Ordnung.“), `ant bearbild`, `ant bearglbild` (Shader auf der Radeon), `ant pruefung`; gern `ant beardemo` (Klick in die Karte: ein Wanderer; „Beben“).
+1. `ant szenedb` (legt `db/szene` an, lädt, prüft; Ausgabe `docs/status/szenedb_Phase19.txt`, Protokoll `szenedb_protokoll_Phase19.txt`).
+2. `ant pruefung` (neuer Teil „Datenbank der Szene (Phase 19)“).
+3. In der App: verbinden, DATEN → „Sitzung sichern“ (oder Strg+S), Kamera und Uhr verstellen, „Sitzung laden“; ein Foto mit F12; „Lauf sichern“. Danach `ant szenedbpruefung`.
+4. Gern in SQL Developer: `SELECT * FROM LB_V_LAUF_VERGLEICH`, `LB_V_BEFUND`, `LB_V_BOOT_BAHN` (in QGIS als Linien).
 
-Abnahme: `bearcheck_Phase18a.txt`, `Bear_Demo.png`, `Bear_GL.png`, `pruefung_Phase18a.txt`. Danach 18c (Leben in der Szene, Adler und Otter neu), dann 18b (Wetter mit 5a, Polarlicht); offen bleiben 10b, 6a (Unterwuchs, Gletscher), `rueckbau1958`, `spurlinie`, die Tide nach COOPS, die Zeugen (0b), aus 14a die Bildrate von Schaustück 2 mit Wald, die BLOBs von `LB_NET_WEG` (36 min).
+Abnahme: `szenedb_Phase19.txt`, `szenedbpruefung_Phase19.txt`, `pruefung_Phase19.txt`. Danach 19a (Oberfläche: DATEN mit Befunden, Zeugen, Läufen und Bildern, Abfragen, Hilfe F1), dann 18c (Leben in der Szene) und 18b (Wetter mit 5a, Polarlicht); offen bleiben 10b, 6a (Unterwuchs, Gletscher), `rueckbau1958`, `spurlinie`, die Tide nach COOPS, die Zeugen (0b), aus 14a die Bildrate von Schaustück 2 mit Wald, die BLOBs von `LB_NET_WEG` (36 min).
