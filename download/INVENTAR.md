@@ -1,8 +1,8 @@
 # Kartenmaterial Lituya Bay – Inventar
 
-Stand 01.11.2026 13:41, Ordner `download/`. Erzeugt von `tools/kartenmaterial/kartenmaterial.py inventar`.
+Stand 03.11.2026 00:48, Ordner `download/`. Erzeugt von `tools/kartenmaterial/kartenmaterial.py inventar`.
 
-**1240 Dateien, 13.80 GB.** Jede Datei mit Größe in `inventar.csv`, Adressen und Fehler je Quelle in `_status/<quelle>.json`.
+**1245 Dateien, 13.81 GB.** Jede Datei mit Größe in `inventar.csv`, Adressen und Fehler je Quelle in `_status/<quelle>.json`.
 
 ## Gebiete
 
@@ -72,7 +72,7 @@ Stand 01.11.2026 13:41, Ordner `download/`. Erzeugt von `tools/kartenmaterial/ka
 
 | Quelle | Titel | Stufe | Gebiet | Dateien | geladen | geplant | Zustand |
 |---|---|---|---|---|---|---|---|
-| `itslive_geschwindigkeit` | ITS_LIVE Gletschergeschwindigkeit (Mosaik v2, Alaska) | gross | fern | 0/0 | 0 kB | – | nicht geplant |
+| `itslive_geschwindigkeit` | ITS_LIVE Gletschergeschwindigkeit (Mosaik v2, Ausschnitt Szene) | standard | szene | 5/5 | 8.2 MB | 5 ohne Angabe | vollständig |
 | `rgi7` | Randolph Glacier Inventory 7.0, Region 01 Alaska | standard | fern | 2/2 | 79.3 MB | 2 ohne Angabe | vollständig |
 | `glims` | GLIMS: Gletscherumrisse aller Zeitstände im Gebiet (WFS) | standard | szene | 2/2 | 7.8 MB | 2 ohne Angabe | vollständig |
 | `eisdicke` | Eisdicke: Millan et al. 2022, Farinotti et al. 2019 | manuell | szene | 0/0 | 0 kB | – | manuell |

@@ -76,7 +76,7 @@
         lib/Renderer.jar alles hat, was LituyaBay1958 braucht (jedes gebrauchte Package mit Klassen und README, Java 21,
         von den 14 neuen die, deren Phase erreicht ist); abschalten mit -Dohne.paketpruefung=true.
     -->
-    <property name="lituya.phase" value="15a"/>
+    <property name="lituya.phase" value="16"/>
     <target name="check-packages" description="Prüft lib/Renderer.jar: die gebrauchten Packages mit README, Java 21, die fälligen neuen." unless="ohne.paketpruefung">
         <property name="platform.java" value="java"/>
         <exec executable="${platform.java}" dir="${basedir}" failonerror="true">
@@ -129,7 +129,7 @@
     </target>
     <!-- Phase 2 (Werkbuch 3.3, 3.4): die Aufbereitung liest das Kartenmaterial (Pfad in daten/rohdaten.properties, Vorgabe
          download/) einmal und schreibt nach daten/. ant aufbereitung rechnet alle Schritte (gelaende, grund, namen, texturen,
-         herkunft, bilder, inhalt); -Dschritte=gelaende,grund nur diese; -Dneu=true rechnet fertige Kacheln neu; -Dausschnitt=OstMin,NordMin,OstMax,NordMax
+         herkunft, bilder, inhalt); -Dschritte=gelaende+grund nur diese (Komma nur in Anführungszeichen, cmd.exe trennt daran); -Dneu=true rechnet fertige Kacheln neu; -Dausschnitt=OstMin,NordMin,OstMax,NordMax
          nur die Kacheln dort; -Dfaeden=n. Prüfbilder nach docs/status/, Protokoll daten/aufbereitung.log. -->
     <target name="aufbereitung" depends="compile" description="Phase 2: Kartenmaterial einmal nach daten/ aufbereiten (Gelände, Grund, Namen, Prüfbilder, INHALT.txt).">
         <property name="platform.java" value="java"/>
@@ -742,5 +742,14 @@
         <renderer-java klasse="com.dan.lituya.tools.Fluchtkarte" args="daten docs/status/Flucht.png" ausgabe="docs/status/fluchtkarte_Phase${lituya.phase}.txt" speicher="-Xmx2g"/>
         <loadfile property="fluchtkarte.text" srcFile="docs/status/fluchtkarte_Phase${lituya.phase}.txt" encoding="UTF-8"/>
         <echo message="${fluchtkarte.text}"/>
+    </target>
+    <!-- Phase 16 (Werkbuch 7.4): ant aufbereitung -Dschritte=wasser schreibt LB_NET_WASSER als Datei nach daten/netz/wasser
+         (Bäche, Gletscher, Teileinzugsgebiete; braucht daten/gelaende/szene_5m, download/gletscher/rgi7, wahlweise ITS_LIVE).
+         wasserkarte: „Welche Fläche entwässert in die Bucht?“ nach docs/status/Wasser.png. ant netzdb lädt LB_NET_WASSER,
+         LB_EINZUG, LB_SEE und LB_SENKE und rechnet LOD und CONNECT BY gegen die Dateien. -->
+    <target name="wasserkarte" depends="compile" description="Phase 16: Einzugsgebiete, Bäche und Gletscher (daten/netz/wasser) nach docs/status/Wasser.png.">
+        <renderer-java klasse="com.dan.lituya.tools.Wasserkarte" args="daten docs/status/Wasser.png" ausgabe="docs/status/wasserkarte_Phase${lituya.phase}.txt" speicher="-Xmx2g"/>
+        <loadfile property="wasserkarte.text" srcFile="docs/status/wasserkarte_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${wasserkarte.text}"/>
     </target>
 </project>
