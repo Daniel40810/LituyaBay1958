@@ -863,6 +863,62 @@ public final class Pruefung {
             }
         }
 
+        teil("Wege über Gelände (Phase 16a): Klassen und LB_NET_WEG");
+        {
+            double v0 = com.dan.lituya.tools.Weg.tobler(0), vmax = com.dan.lituya.tools.Weg.tobler(-0.05), vauf = com.dan.lituya.tools.Weg.tobler(0.3);
+            check(Math.abs(v0 - 5.04) < 0.01 && Math.abs(vmax - 6) < 1e-9 && vauf < 2.2 && Math.abs(com.dan.lituya.tools.Weg.naismith(5, 600) - 7200) < 1e-9,
+                    f("Tobler: eben %.2f km/h, leicht bergab %.2f km/h (das schnellste), 30 %% bergauf %.2f km/h; Naismith 5 km und 600 m = 2 h", v0, vmax, vauf));
+            double q75 = com.dan.lituya.tools.Klassen.mittelwasser(7.5, 0);
+            check(Math.abs(q75 - 0.5) < 0.02, f("Mittelwasser bei 3 000 mm/a: 7,5 km² Land geben %.2f m³/s (Sperre ab 0,5)", q75));
+            byte[] kk = com.dan.lituya.tools.Klassen.lesen(daten, com.dan.lituya.tools.Klassen.KERN), ks = com.dan.lituya.tools.Klassen.lesen(daten, com.dan.lituya.tools.Klassen.SZENE);
+            if (kk == null || ks == null) hinweis("daten/klassen fehlt: ant aufbereitung -Dschritte=klassen");
+            else {
+                long[] nk = new long[com.dan.lituya.tools.Klassen.NAME.length], ns = new long[nk.length];
+                for (byte x : kk) nk[x]++;
+                for (byte x : ks) ns[x]++;
+                double wald = (nk[com.dan.lituya.tools.Klassen.WALD] + nk[com.dan.lituya.tools.Klassen.GEBUESCH]) / (double) kk.length;
+                double spalt = ns[com.dan.lituya.tools.Klassen.SPALTEN] / (double) (ns[com.dan.lituya.tools.Klassen.SPALTEN] + ns[com.dan.lituya.tools.Klassen.EIS]);
+                check(wald > 0.2 && spalt > 0.05 && spalt < 0.7 && nk[com.dan.lituya.tools.Klassen.STRAND] > 0 && ns[com.dan.lituya.tools.Klassen.BACH] > 0,
+                        f("Geländeklassen: im Kern %.0f %% Wald und Gebüsch, Strand %.2f %%; in der Szene %.0f %% des Eises Spaltenzone, Bäche gesperrt %.2f %%", wald * 100,
+                                100.0 * nk[com.dan.lituya.tools.Klassen.STRAND] / kk.length, spalt * 100, 100.0 * ns[com.dan.lituya.tools.Klassen.BACH] / ks.length));
+            }
+            if (!com.dan.lituya.scene.WegNetz.da(daten)) hinweis("daten/netz/weg fehlt: ant aufbereitung -Dschritte=klassen+weg");
+            else {
+                com.dan.lituya.scene.WegNetz wg = com.dan.lituya.scene.WegNetz.lesen(daten);
+                check(com.dan.lituya.scene.WegNetz.pruefsumme(daten).equals(wg.wert("pruefsumme")), wg + "; Prüfsumme in WEG.txt passt");
+                // gerichtet: zu jeder Kante die Gegenkante, bergauf langsamer als bergab; keine Kante zwischen den Ebenen; Eltern auf Ebene 2
+                int ohneGegen = 0, quer = 0, falsch = 0, steil = 0;
+                for (int e = 0; e < wg.m; e += 97) {
+                    int wa0 = wg.von[e], wb0 = wg.nach[e];
+                    if (wg.ebene[wa0] != wg.ebene[wb0]) quer++;
+                    int g = -1;
+                    for (int x = wg.aus[wb0]; x < wg.aus[wb0 + 1]; x++) if (wg.nach[x] == wa0) g = x;
+                    if (g < 0) { ohneGegen++; continue; }
+                    double dh = wg.hoehe[wb0] - wg.hoehe[wa0];
+                    if (Math.abs(dh) > 2 && (dh > 0) != (wg.cost[e] > wg.cost[g])) { if (Math.abs(dh) < 0.6 * Math.hypot(wg.ost(wb0) - wg.ost(wa0), wg.nord(wb0) - wg.nord(wa0))) falsch++; else steil++; }
+                }
+                int eltern = 0;
+                for (int kq = 0; kq < wg.n; kq += 101) if (wg.ebene[kq] == 1 && wg.parent[kq] >= 0 && wg.ebene[wg.parent[kq]] != 2) eltern++;
+                check(ohneGegen == 0 && quer == 0 && falsch == 0 && eltern == 0,
+                        f("Kanten (jede 97.): je Richtung eine, bergauf langsamer (%d anders, %d steile Gegenhänge nach Tobler), keine zwischen den Ebenen, Eltern auf Ebene 2", falsch, steil));
+                // 1 h vom Strand nachgerechnet
+                java.util.Map<String, String[]> pw = new java.util.HashMap<>();
+                for (String[] pz : com.dan.lituya.scene.WellenNetz.tsv(new File(new File(daten, com.dan.lituya.scene.WegNetz.ORDNER), "pruefwege.tsv"))) pw.put(pz[0] + "|" + pz[1], pz);
+                String[] st1 = pw.get("STUNDE_BADGER|1");
+                if (st1 != null) {
+                    double[] t1 = wg.dijkstra(Integer.parseInt(st1[2]) - 1, com.dan.lituya.tools.Weg.STUNDE, null);
+                    int a1 = 0;
+                    for (double x : t1) if (!Double.isNaN(x)) a1++;
+                    check(a1 == Integer.parseInt(st1[4]) && a1 > 1000, f("1 h vom Strand in Anchorage Cove: %,d Knoten (%.2f km²) wie in pruefwege.tsv", a1, a1 * 1e-4));
+                }
+                String wa = wg.wert("washburn");
+                check(wa != null && pw.containsKey("WASHBURN_2|2"), "Washburn 1934 (Ebene 2): " + wa);
+                com.dan.lituya.tools.WegDb.Vergleich vw = com.dan.lituya.tools.WegDb.lodImSpeicher(wg, daten);
+                check(vw.ok(), "LOD = eigener Dijkstra: " + vw.text());
+                System.out.println("    " + com.dan.lituya.scene.WegNetz.zeile(daten));
+            }
+        }
+
         teil("Staub und Treibgut (Phase 12): dustcloud, debris");
         {
             com.dan.dustcloud.DustCloud dc = new com.dan.dustcloud.DustCloud(0, 0, 40, 20, 50, com.dan.dustcloud.DustCloud.rockDust());
@@ -938,7 +994,7 @@ public final class Pruefung {
                     while (m.find()) if (!m.group(1).toUpperCase(Locale.ROOT).startsWith("LB_")) { fremd++; System.out.println("    ohne LB_: " + m.group(1) + " in " + x.getName()); }
                 }
             }
-            check(sk.length == 13 && anw > 40, f("db/netz: %d Skripte, %d Anweisungen, jede mit „/“ abgeschlossen", sk.length, anw));
+            check(sk.length == 15 && anw > 40, f("db/netz: %d Skripte, %d Anweisungen, jede mit „/“ abgeschlossen", sk.length, anw));
             check(fremd == 0, "alle Objekte mit Präfix LB_ (F40 B: Schema LITUYABAY1958)");
         }
         {
