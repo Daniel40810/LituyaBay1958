@@ -3,7 +3,6 @@ package com.dan.lituya.tools;
 import com.dan.lituya.scene.Site;
 import com.dan.lituya.scene.Stufe;
 import com.dan.lituya.scene.WasserNetz;
-import com.dan.lituya.scene.WellenNetz;
 
 import java.io.File;
 import java.io.IOException;
@@ -117,13 +116,7 @@ public final class Klassen {
         List<double[]> l = new ArrayList<>();
         if (!WasserNetz.da(daten)) return l;
         WasserNetz w = WasserNetz.lesen(daten);
-        java.util.Map<Integer, double[]> lin = new java.util.HashMap<>();
-        for (String[] z : WellenNetz.tsv(new File(new File(daten, WasserNetz.ORDNER), "linien.tsv"))) {
-            String[] p = z[1].split(",");
-            double[] q = new double[2 * p.length];
-            for (int k = 0; k < p.length; k++) { String[] xy = p[k].split(" "); q[2 * k] = Double.parseDouble(xy[0]); q[2 * k + 1] = Double.parseDouble(xy[1]); }
-            lin.put(Integer.parseInt(z[0]) - 1, q);
-        }
+        java.util.Map<Integer, double[]> lin = WasserNetz.linien(daten);
         for (int e = 0; e < w.m; e++) {
             if (w.kEbene[e] != 1 || !WasserNetz.BACH.equals(w.kArt[e])) continue;
             if (mittelwasser(w.kFlaeche[e], w.eisAnteil[w.von[e]]) < BACH_Q) continue;

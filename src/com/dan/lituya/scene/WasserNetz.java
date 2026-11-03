@@ -208,6 +208,33 @@ public final class WasserNetz {
         return w;
     }
 
+    /** Die Verläufe der Kanten der Ebene 1 aus {@code linien.tsv}: Index der Kante → {E, N, E, N, …} (leer, wenn die Datei fehlt). */
+    public static java.util.Map<Integer, double[]> linien(File daten) throws IOException {
+        java.util.Map<Integer, double[]> lin = new java.util.HashMap<>();
+        File f = new File(new File(daten, ORDNER), "linien.tsv");
+        if (!f.isFile()) return lin;
+        for (String[] z : WellenNetz.tsv(f)) {
+            if (z.length < 2 || z[1].isEmpty()) continue;
+            String[] p = z[1].split(",");
+            double[] q = new double[2 * p.length];
+            for (int k = 0; k < p.length; k++) { String[] xy = p[k].split(" "); q[2 * k] = Double.parseDouble(xy[0]); q[2 * k + 1] = Double.parseDouble(xy[1]); }
+            lin.put(Integer.parseInt(z[0]) - 1, q);
+        }
+        return lin;
+    }
+
+    /**
+     * Abfluss (m³/s) in Phase 16c: Fläche × Regen × Beiwert als Grund über dem Mittelwasser
+     * ({@link com.dan.lituya.tools.Klassen#mittelwasser}); Beiwert Land 0,7, Eis 1,0 [G]. Regen in mm/h.
+     */
+    public static double abfluss(double km2, double eis, double regenMmH) {
+        double c = com.dan.lituya.tools.Klassen.BEIWERT_LAND * (1 - eis) + com.dan.lituya.tools.Klassen.BEIWERT_EIS * eis;
+        return com.dan.lituya.tools.Klassen.mittelwasser(km2, eis) + km2 * regenMmH * c / 3.6;
+    }
+
+    /** Wasserspiegelbreite (m) aus dem Abfluss nach der hydraulischen Geometrie b = 2,5·Q^0,5 [G], 0,5 … 90 m. */
+    public static double breite(double q) { return Math.max(0.5, Math.min(90, 2.5 * Math.sqrt(Math.max(0, q)))); }
+
     /** Ein Wert aus WASSER.txt ({@code schluessel=wert}) oder null. */
     public String wert(String schluessel) {
         for (String z : text.split("\\R")) if (z.startsWith(schluessel + "=")) return z.substring(schluessel.length() + 1).trim();

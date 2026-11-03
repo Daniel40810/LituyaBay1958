@@ -72,6 +72,12 @@ public final class Tempo {
         String an = opt("ansicht"), ka = opt("kamera"), sst = opt("schaustueck"), ez = opt("ereignis"), lauf = opt("lauf");
         if (lauf != null && !lauf.isBlank()) r.wiedergabe.welle(lauf);
         if ("aus".equals(opt("abspielen"))) r.wiedergabe.an(false);
+        // Phase 16c: netz = welle|wasser|weg (Netzblick), netzszene = an (auch in der Szene), regen = mm/h (Bäche)
+        String nz = opt("netz"), rg = opt("regen");
+        if (nz != null && !nz.isBlank()) r.netzblick.netz = Math.max(0, java.util.Arrays.asList("welle", "wasser", "weg").indexOf(nz.toLowerCase(Locale.ROOT)));
+        if ("an".equals(opt("netzszene"))) r.netzblick.inSzene = true;
+        if ("aus".equals(opt("netzblick"))) r.netzblick.bildImBild = false;
+        if (rg != null && !rg.isBlank()) r.baeche.regen = Double.parseDouble(rg.replace(',', '.'));
         com.dan.lituya.camera.Schaustuecke.Stueck stueck = com.dan.lituya.camera.Schaustuecke.byName(sst);
         if (sst != null && !sst.isBlank() && stueck == null) System.err.println("FEHLER: kein Schaustück „" + sst + "“");
         Runnable stellen = () -> {
@@ -120,6 +126,12 @@ public final class Tempo {
             long t0 = System.nanoTime();
             boolean ok = r.wiedergabe.warten(clock.simSeconds(), 300_000);
             System.out.printf(Locale.GERMAN, "Vorrechnung um t = %.1f s %s in %.1f s: %s%n", clock.simSeconds(), ok ? "geladen" : "NICHT geladen", (System.nanoTime() - t0) / 1e9, r.wiedergabe.zeile());
+        }
+        // Phase 16c: Netze und Bäche abwarten (im Hintergrund geladen)
+        {
+            long t0 = System.nanoTime();
+            while ((!r.netzblick.fertig || !r.baeche.bereit()) && System.nanoTime() - t0 < 300e9) { d.display(); Thread.sleep(100); }
+            System.out.printf(Locale.GERMAN, "Netze in %.1f s: %s · %s%n", (System.nanoTime() - t0) / 1e9, r.netzblick.stand(), r.baeche.status());
         }
         for (int i = 0; i < 20; i++) { r.step(1 / 60.0); d.display(); }
         double best = Double.MAX_VALUE, sum = 0;

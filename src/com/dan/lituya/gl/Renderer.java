@@ -37,6 +37,8 @@ import java.util.function.Consumer;
  * <li><b>Wasser</b>: die Fläche im Pegel mit Erdkrümmung bis zur Kimm ({@code meer.frag}, Platzhalter bis {@code ocean}
  * in Phase 5a), darauf die Marken: UTM-Raster, Kern, Szene und Fern, die Orte aus GNIS ({@code marken.glsl}).
  * Ab Phase 4 kommt das Gelände aus {@code clipmap} davor.</li>
+ * <li><b>Bäche</b> (ab Phase 16c): die Bäche aus {@code LB_NET_WASSER} als Bänder auf dem Gelände ({@link BaecheGl},
+ * {@code baeche.vert/.frag}), Breite nach dem Regen im Bedienfeld; die Zeit steht unter „Wald“.</li>
  * <li><b>Welle</b> (ab Phase 13b): Welle und Felssturz der Vorrechnung als Höhenfelder ({@link EreignisGl}); im Rechteck
  * der Welle zeichnet das Wasser darunter nur einen Boden 40 m unter dem Pegel.</li>
  * <li><b>Staub</b> (ab Phase 13b): die Wolke des Felssturzes als Volumen und die Trübe, wenn das Auge unter Wasser ist.</li>
@@ -75,6 +77,8 @@ public final class Renderer implements GLEventListener {
     private final com.dan.clipmap.gl.ClipmapGl clipGl = new com.dan.clipmap.gl.ClipmapGl();
     /** Phase 7a: der Netzblick (Bild im Bild und in der Szene) mit com.dan.netview über daten/netz/welle und daten/netz/ufer. */
     public final Netzblick netzblick = new Netzblick();
+    /** Phase 16c: die Bäche aus LB_NET_WASSER als eigener Wasser-Pass (Bänder auf dem Gelände, Breite nach Regen). */
+    public final BaecheGl baeche = new BaecheGl();
     /** Das Gelände zeigen (G … im Bedienfeld TECHNIK). */
     public volatile boolean showGelaende = true;
     /** Phase 13b: das Abspielen der Vorrechnung (daten/ereignis) mit Vorrat und die Durchgänge dazu. */
@@ -126,7 +130,7 @@ public final class Renderer implements GLEventListener {
             gelaendeShader = new Shader("Gelände", null, "gelaende.vert", "gelaende.frag"),
             post = new Shader("Nachbearbeitung", null, "fullscreen.vert", "post.frag"),
             overlay = new Shader("Überlagerung", null, "fullscreen.vert", "overlay.frag");
-    private final Shader[] all = {skyShader, gelaendeShader, meerShader, post, overlay, ereignisGl.welle, ereignisGl.strom, ereignisGl.medien};
+    private final Shader[] all = {skyShader, gelaendeShader, meerShader, post, overlay, ereignisGl.welle, ereignisGl.strom, ereignisGl.medien, baeche.shader};
     private final HudOverlay hud = new HudOverlay();
     private int emptyVao, hdrTex, depthTex, hdrFbo, hdrColorFbo, hdrW, hdrH, surfW = 1, surfH = 1, defaultFbo;
     private boolean reversedZ, ready;
@@ -314,7 +318,8 @@ public final class Renderer implements GLEventListener {
         try {
             netzblick.init(gl);
             wiedergabe.start();
-            netzblick.laden(new java.io.File(System.getProperty("lituya.daten", "daten")));
+            netzblick.laden(new java.io.File(System.getProperty("lituya.daten", "daten")), this::stapelHoehe);
+            baeche.laden(new java.io.File(System.getProperty("lituya.daten", "daten")), this::stapelHoehe);
         } catch (RuntimeException e) {
             System.err.println("LituyaBay1958: Netzblick: " + e.getMessage());
         }
@@ -359,7 +364,16 @@ public final class Renderer implements GLEventListener {
         camera.waterLevel = wiring.pegel;
         camera.targetGround = Math.max(groundHeight(camera.tx, camera.tz), wiring.pegel);
         camera.step(dt);
+        netzblick.regen = baeche.regen;
         netzblick.schritt(clock.simSeconds(), wiring.pegel);
+    }
+
+    /** Höhe des Geländes aus dem Kachelstapel (5 m, sonst gröber) für Bänder und Netze; NaN außerhalb (Phase 16c). */
+    double stapelHoehe(double x, double z) {
+        com.dan.clipmap.TileStack s = land.stapel();
+        if (s == null) return Double.NaN;
+        float h = s.height(x, z, 5.0);
+        return Float.isNaN(h) || h <= com.dan.lituya.scene.Land.AUSSEN + 1 ? Double.NaN : h;
     }
 
     @Override
@@ -472,6 +486,9 @@ public final class Renderer implements GLEventListener {
 
         // 2a Wald (Phase 14a): forest über den Kern mit den Zuständen der Welle und der Wiederbewaldung
         if (showGelaende) wald.zeichnen(gl, vp, camera.eye, reversedZ, sun, clock.t());
+        gl.glBindVertexArray(emptyVao);
+        // 2a' Bäche (Phase 16c): eigener Wasser-Pass auf dem Gelände, Tiefe gegen Gelände und Wald (Zeit unter „Wald“)
+        if (showGelaende) baeche.zeichnen(gl, sh -> common(gl, sh, vp, inv, sun), cm, reversedZ, h, fovy());
         gl.glBindVertexArray(emptyVao);
         gl.glUseProgram(0);
         mark(gl, 3);
@@ -797,6 +814,7 @@ public final class Renderer implements GLEventListener {
                 waldZeile(),
                 boote.info() + " · " + fluchtZeile(),
                 wasserZeile() + " · " + wegZeile(),
+                baeche.info(),
                 clipGl.info(),
                 cameraLine(),
                 String.format(Locale.GERMAN, "UTM 8 N  E %.0f  N %.0f · %s · Kimm %.1f km", utm[0], utm[1], Site.dms(ll[0], ll[1]), kimm / 1000),
@@ -914,6 +932,7 @@ public final class Renderer implements GLEventListener {
         if (cm != null) cm.stop();
         hud.dispose(gl);
         netzblick.dispose(gl);
+        baeche.dispose(gl);
         ereignisGl.dispose(gl);
         echtzeit.dispose(gl);
         wiedergabe.close();

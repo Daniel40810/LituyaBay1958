@@ -320,6 +320,13 @@ public final class ControlPanel extends JPanel implements javax.swing.Scrollable
         view.setKeyAction(java.awt.event.KeyEvent.VK_N, () -> javax.swing.SwingUtilities.invokeLater(() -> { pip.setSelected(!pip.isSelected()); nb.bildImBild = pip.isSelected(); }));
         put(pip);
         put(szene);
+        // Phase 16c: welches Netz (je Netz ein eigener Ausschnitt im Bild im Bild: Bucht, Szene, Kern)
+        put(label("Netz"));
+        FComboBox netzBox = new FComboBox(new String[]{"Welle (LB_NET_WELLE, Bucht)", "Wasser (LB_NET_WASSER, Szene)", "Weg (LB_NET_WEG, Kern)"});
+        netzBox.setSelectedIndex(nb.netz);
+        netzBox.setToolTipText("Was der Netzblick zeigt, im Bild im Bild und in der Szene");
+        netzBox.addActionListener(e -> { nb.netz = Math.max(0, netzBox.getSelectedIndex()); view.requestFocusInWindow(); });
+        put(netzBox);
         put(label("Laufzeit über dem Grund"));
         FComboBox kost = new FComboBox(com.dan.lituya.scene.WellenNetz.KOSTEN_NAME);
         kost.setSelectedIndex(nb.kosten);
@@ -329,6 +336,41 @@ public final class ControlPanel extends JPanel implements javax.swing.Scrollable
         put(isoBox);
         put(rayBox);
         put(uferBox);
+        // Phase 16c: Ebenen von LB_NET_WASSER und LB_NET_WEG
+        put(label("Wasser"));
+        FCheckBox baBox = new FCheckBox("Bäche nach Einzugsfläche"), glBox = new FCheckBox("Fließlinien der Gletscher (ITS_LIVE)"),
+                ezBox = new FCheckBox("Einzugsgebiete und Ziele");
+        baBox.setSelected(nb.baeche); glBox.setSelected(nb.gletscher); ezBox.setSelected(nb.einzug);
+        baBox.addActionListener(e -> { nb.baeche = baBox.isSelected(); view.requestFocusInWindow(); });
+        glBox.addActionListener(e -> { nb.gletscher = glBox.isSelected(); view.requestFocusInWindow(); });
+        ezBox.addActionListener(e -> { nb.einzug = ezBox.isSelected(); view.requestFocusInWindow(); });
+        put(baBox);
+        put(glBox);
+        put(ezBox);
+        com.dan.lituya.gl.BaecheGl ba = r.baeche;
+        FCheckBox baSzene = new FCheckBox("Bäche in der Szene (Wasser-Pass)");
+        baSzene.setSelected(ba.an);
+        baSzene.addActionListener(e -> { ba.an = baSzene.isSelected(); view.requestFocusInWindow(); });
+        put(baSzene);
+        JLabel regenLbl = small("");
+        FSlider regenSl = new FSlider(0, (int) com.dan.lituya.gl.BaecheGl.REGEN_MAX, (int) Math.round(ba.regen));
+        regenSl.setToolTipText("Regen in mm/h: Abfluss = Fläche × Regen × Beiwert (Land 0,7, Eis 1,0) über dem Mittelwasser; Breite b = 2,5·Q^0,5 [G]");
+        put(regenLbl);
+        put(regenSl);
+        regenSl.addChangeListener(e -> { ba.regen = regenSl.getValue(); txt(regenLbl, String.format(Locale.GERMAN, "Regen %d mm/h (0: Mittelwasser)", regenSl.getValue())); });
+        txt(regenLbl, String.format(Locale.GERMAN, "Regen %.0f mm/h (0: Mittelwasser)", ba.regen));
+        put(label("Weg"));
+        FCheckBox stBox = new FCheckBox("1 h vom Strand (Isolinien 15 min)"), wbBox = new FCheckBox("Washburn 1934 mit Wegpunkten"),
+                lfBox = new FCheckBox("Flucht an Land mit der Uhr"), klBox = new FCheckBox("Geländeklassen im Bild im Bild");
+        stBox.setSelected(nb.stunde); wbBox.setSelected(nb.washburn); lfBox.setSelected(nb.landflucht); klBox.setSelected(nb.klassen);
+        stBox.addActionListener(e -> { nb.stunde = stBox.isSelected(); view.requestFocusInWindow(); });
+        wbBox.addActionListener(e -> { nb.washburn = wbBox.isSelected(); view.requestFocusInWindow(); });
+        lfBox.addActionListener(e -> { nb.landflucht = lfBox.isSelected(); view.requestFocusInWindow(); });
+        klBox.addActionListener(e -> { nb.klassen = klBox.isSelected(); view.requestFocusInWindow(); });
+        put(stBox);
+        put(wbBox);
+        put(lfBox);
+        put(klBox);
         JPanel nz = grid(2);
         FButton welleStart = new FButton("Welle: Einschlag"), welleEnde = new FButton("+ 6 min");
         welleStart.setToolTipText("Uhr auf den Einschlag im Gilbert Inlet: 22:16 Uhr + " + Math.round(com.dan.lituya.scene.WellenNetz.START_S) + " s [G]");
@@ -340,7 +382,8 @@ public final class ControlPanel extends JPanel implements javax.swing.Scrollable
         put(netzLbl);
         put(small("<html><body style='width:215px'>Die Netze kommen aus daten/netz (F25 A; ant aufbereitung \"-Dschritte=welle,ufer\"), in Oracle als "
                 + "LB_NET_WELLE und LB_NET_UFER (ant netzdb, ant netzvergleich). Isochronen alle 10 s, jede Minute kräftig; sie laufen mit der Uhr "
-                + "(Zeitraffer im Block ZEIT). Später See, Wasser, Wege, Sicht und Herkunft (Phasen 15a bis 17).</body></html>"));
+                + "(Zeitraffer im Block ZEIT). Seit Phase 16c auch LB_NET_WASSER (Szene) und LB_NET_WEG (Kern; die Flucht an Land wächst mit der Uhr: "
+                + "„Welle: Einschlag“ und Zeitraffer). Später Sicht und Herkunft (Phase 17).</body></html>"));
         block("WETTER", false);
         put(small("<html><body style='width:215px'>Kommt mit Phase 5a und 18: Sommerabend 1958 nach ERA5 und Zeugen, für „heute“ Regen, "
                 + "Nebel, Herbststurm, Winter; Polarlicht nur „heute“ (F35 A).</body></html>"));
