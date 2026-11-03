@@ -54,9 +54,9 @@ import java.util.function.Consumer;
  */
 public final class Renderer implements GLEventListener {
     public static final int MIN_MAJOR = 4, MIN_MINOR = 3;
-    public static final String VERSION = "Phase 9";
+    public static final String VERSION = "1.0 (Phase 20)";
     /** Phase des Stands (für Ansichten und Bedienfeld). */
-    public static final int PHASE = 19;
+    public static final int PHASE = 20;
     public static final String[] PASSES = {"Himmel", "Gelände", "Wald", "Boote", "Welle", "Wasser", "Staub", "Nachbearbeitung", "HUD"};
     private static final int MARKS = PASSES.length + 1;
     /** Nah- und Fernebene (m): vom Kutter bis über die Kimm des Mount Fairweather (264 km). */
@@ -137,6 +137,10 @@ public final class Renderer implements GLEventListener {
             overlay = new Shader("Überlagerung", null, "fullscreen.vert", "overlay.frag");
     private final Shader[] all = {skyShader, gelaendeShader, meerShader, post, overlay, ereignisGl.welle, ereignisGl.strom, ereignisGl.medien, baeche.shader};
     private final HudOverlay hud = new HudOverlay();
+    /** Phase 19a: Befunde als Marken, Zeugen als Untertitel (Archiv). */
+    public final ArchivSzene archiv = new ArchivSzene();
+    private final HudOverlay archivTafel = new HudOverlay();
+    private volatile float[] letzteVP;
     private int emptyVao, hdrTex, depthTex, hdrFbo, hdrColorFbo, hdrW, hdrH, surfW = 1, surfH = 1, defaultFbo;
     private boolean reversedZ, ready;
     private final int[][] stamp = new int[2][MARKS];
@@ -834,6 +838,7 @@ public final class Renderer implements GLEventListener {
         double[] sun = Sun.direction(sp[0], sp[1]);
         float[] proj = Mat4.perspective(fovy(), w / (double) h, NEAR, FAR, reversedZ);
         float[] vp = Mat4.mul(proj, camera.view());
+        letzteVP = vp;
         float[] inv = Mat4.invert(vp);
         try {
             wald.vorbereiten(gl, clock);
@@ -946,6 +951,20 @@ public final class Renderer implements GLEventListener {
         // 4b Netzblick als Bild im Bild unten rechts (Phase 7a)
         if (!kino.laeuft() || kinoNetzblick) netzblick.bildImBild(gl, overlay, emptyVao, surfW, surfH, netzZeit(), kino.laeuft() ? kino.balkenPx(surfW, surfH) : 0);
         gl.glBindVertexArray(emptyVao);
+
+        // 4c Phase 19a: das Archiv in der Szene (Marken nicht im Kino und nicht im Regiebuch, Untertitel der Zeugen auch dort)
+        if (archiv.aktiv()) {
+            final int aw = surfW, ah = surfH;
+            final float[] avp = letzteVP;
+            final double[] eye = camera.eye.clone();
+            final double sim = clock.simSeconds();
+            final SceneClock.Zeitstand zs = clock.zeitstand;
+            final boolean mitMarken = !kino.laeuft() && !regie.running();
+            final int unten = kino.laeuft() ? kino.balkenPx(surfW, surfH) : 0;
+            archivTafel.refresh(gl, 60, () -> archiv.malen(aw, ah, avp, eye, (x, z) -> { double g = groundHeight(x, z); return g <= KEIN_GRUND + 1 ? stapelHoehe(x, z) : g; },
+                    sim, zs, mitMarken, unten), frozen);
+            archivTafel.draw(gl, overlay, emptyVao, 0, 0, surfW, surfH);
+        }
 
         // 5 HUD (vorher abschicken: die Grafikkarte arbeitet, während das HUD im selben Faden gemalt wird; aus Brocken)
         gl.glFlush();

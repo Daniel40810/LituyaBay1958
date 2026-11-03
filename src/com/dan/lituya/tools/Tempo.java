@@ -201,7 +201,8 @@ public final class Tempo {
             if (dir != null) dir.mkdirs();
             final java.awt.image.BufferedImage[] img = new java.awt.image.BufferedImage[1];
             d.invoke(true, x -> { img[0] = r.grab(x); return true; });
-            javax.imageio.ImageIO.write(img[0], "png", png);
+            // Phase 20: .jpg schreibt JPEG (für die Bilder des README), sonst PNG
+            javax.imageio.ImageIO.write(img[0], png.getName().toLowerCase(Locale.ROOT).matches(".*\\.jpe?g") ? "jpg" : "png", png);
             System.out.println("Bild: " + png.getPath());
         }
         d.destroy();

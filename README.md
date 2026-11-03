@@ -1,49 +1,69 @@
 # LituyaBay1958 – das Projekt der Riesenwelle und des Netzes
 
-Lituya Bay, Alaska, 9. Juli 1958, 22:16 Uhr Ortszeit: Das Beben an der Fairweather-Störung löst einen Felssturz von 30,6 Mio. m³ in den Gilbert Inlet aus, die Welle läuft am Sporn gegenüber bis 524 m hinauf und die 12 km lange Bucht hinab bis zu den drei Kuttern am Eingang. Eine animierte 3D-Echtzeitszene der Bucht vor, während und nach der Welle und heute, mit der Ereigniskette als Physik in neuen Packages des Projekts Renderer und sieben Netzen im Oracle Network Data Model. Plan und Fortschritt stehen im Werkbuch `docs/claude/LITUYABAY1958_WERKBUCH.md`, die Statusbilder in `docs/status/`.
+Lituya Bay, Alaska, 9. Juli 1958, 22:16 Uhr Ortszeit: Das Beben an der Fairweather-Störung (Mw 7,8) löst am Gilbert Inlet einen Felssturz von 30,6 Mio. m³ aus. Die Welle läuft am Sporn gegenüber bis 524 m hinauf und die 12 km lange Bucht hinab bis zu den drei Kuttern am Eingang. LituyaBay1958 zeigt die Bucht als animierte 3D-Echtzeitszene vor, während und nach der Welle und heute. Die Ereigniskette ist als Physik in neuen Packages des Projekts Renderer gerechnet, dazu kommen sieben Netze im Oracle Network Data Model.
 
-**Stand: Phase 9 von 20, Felssturz** (01.11.2026). Das neue Package `com.dan.landslide` rechnet den Bergsturz als tiefengemittelten Strom (Savage-Hutter mit Erddruck, Reibung nach Voellmy, HLL) über das Gelände ins Wasser und meldet, was über die Uferlinie kommt. `fracture` übergibt die Zellen einer abgebrochenen Platte als Masse und Geschwindigkeit, `quake.Slope` entfestigt die Klüfte. Am Gilbert Inlet (gerechnetes Gelände): Aufprall rund 105 m/s (FRITZ01: 96–110 m/s). Die Auslösung nach Newmark kommt mit 22–35 s zu früh für die Zeugen (60–150 s); die Szene löst von Hand aus. Prüfen: `ant landslidecheck`, `ant fracturecheck`, `ant sturz`, `ant landslidebild`.
+![Die Front bei Cenotaph Island](images/readme/4_die_front.jpg)
 
-Davor, Phase 7a: Netz der Welle, Ufer und Netzblick.
+**Stand: Phase 20 von 20, fertig (03.11.2026), Version 1.0.** Plan, Entscheidungen, Befunde und Fortschritt stehen im Werkbuch [`docs/claude/LITUYABAY1958_WERKBUCH.md`](docs/claude/LITUYABAY1958_WERKBUCH.md). Als Nachträge benannt, aber nicht gebaut: 18c (Leben in der Szene: Bären, Adler, Seeotter), 18b (Wetter, Polarlicht), 10b (Wasser im Gleitkörper), 6a (Unterwuchs, Gletscher, `scree`) und die Aufbereitungsschritte `rueckbau1958` und `spurlinie`.
 
-Davor, Phase 7: Laufzeit und Netzblick im Renderer.
+## Was man sieht
 
-Davor, Phase 6: Wald und Unterwuchs.
+| | |
+|---|---|
+| ![Abend vor Anker](images/readme/1_abend_vor_anker.jpg) **Abend vor Anker**, 22:00: die Edrie in der Anchorage Cove, die helle Julinacht | ![Die Wand aus Wasser](images/readme/2_die_wand_aus_wasser.jpg) **Die Wand aus Wasser**: der Sturz trifft den Gilbert Inlet, Staub und Strom |
+| ![524 m](images/readme/3_524_m.jpg) **524 m**: der Auflauf am Sporn, der Wald wird abrasiert | ![Netzblick](images/readme/5_netzblick.jpg) **Netzblick**: Isochronen aus `LB_NET_WELLE` als Bild im Bild |
+| ![Der Morgen danach](images/readme/6_der_morgen_danach.jpg) **Der Morgen danach**: das helle Band, Treibgut in der Bucht | ![68 Jahre](images/readme/7_68_jahre.jpg) **68 Jahre**: der Wald wächst ins Band zurück (heute) |
 
-**Phase 5, die Materialien** (01.11.2026). Das neue Package `com.dan.surface` im Renderer bringt 14 Materialien für die Fjordküste: Strandkies, Sand, zweierlei Schiefer, Moräne, Waldboden, Moos, Firn, Eis, Rinde, Treibholz, Seetang und den Kutter. Die Sätze sind CC0 von ambientCG; das Kartenmaterial-Werkzeug lädt sie (Gruppe `texturen`), der Schritt `texturen` der Aufbereitung backt sie nach `daten/texturen`. Auf der Grafikkarte liegen sie gepackt (BC7, BC5), ohne sichtbare Wiederholung (Hex-Kachelung), an Wänden dreiseitig, mit Nässe und Schnee. Das Gelände bis zum Horizont (`com.dan.clipmap`, Phase 4) bekommt sie in Phase 5a. Prüfen: `ant surfacecheck`, `ant texturbild`, `ant surfacedemo`.
+Die Bilder schreibt `ant readmebilder` neu (ohne HUD, Stufe Hoch).
 
-**Phase 4, das Gelände** (01.11.2026). Das Package `com.dan.clipmap` im Renderer zeichnet das Gelände aus `daten/gelaende` bis zum Horizont: am Auge 0,5 m aus dem Lidar, nach außen jede Stufe doppelt so grob, bis rund 200 km, ohne Risse zwischen den Stufen, mit Erdkrümmung und Refraktion. Abgenommen auf der Radeon: 79 fps in 1920 × 1080 (Mittel), Gelände 6,4 ms. Prüfen: `ant clipmapcheck`, `ant clipmapbild`, `ant clipmapdemo`.
+- **Vier Zeitstände:** vor der Welle, die Welle, danach (10. Juli 1958) und heute, dazu der Jahres-Zeitraffer von 1958 bis 2026 mit der Wiederbewaldung.
+- **Die Ereigniskette:** Beben (`quake`), Felssturz (`landslide`, `fracture`), Eintauchen (`impact`, SPH im Schnitt), Welle in der Bucht (`wave.Bay` auf dem Grund von 1958, auf dem Prozessor und als Compute Shader), Staub und Treibgut (`dustcloud`, `debris`), Boote (`vessel`: Edrie, Badger, Sunmore) und Wellenwurf im Wald (`succession`, `forest`). Lauf `kette`: Auflauf am Sporn 514 m (belegt 524 m), die Front an Cenotaph Island nach 227 s, in der Anchorage Cove nach 415 s und am Eingang nach 433 s.
+- **Abspielen und „Was wäre wenn“:** Die vorgerechneten Läufe laufen vorwärts, rückwärts und in Zeitlupe. Die Echtzeit rechnet die Welle neu mit eigenem Volumen, Ort, Tide und Grund (1940 gegen heute); Strg + Klick setzt den Ort des Sturzes.
+- **Klang:** Grollen, Sturz, Brecher, Bäume und Echo, jeweils mit der Laufzeit des Schalls zur Kamera.
+- **Sieben Netze** (Oracle NDM, als Datei auch ohne Datenbank): `LB_NET_HERKUNFT` (woher jede Datei kommt), `LB_NET_WELLE` (Laufzeit der Front), `LB_NET_UFER` (Spurlinie je Ufermeter), `LB_NET_SEE` (Wege der Boote), `LB_NET_WASSER` (Bäche und Gletscher), `LB_NET_WEG` (zu Fuß über das Gelände, Flucht an Land) und `LB_NET_SICHT` (Kamerapunkte, Rundflug, Kamerafahrt).
+- **Regiebücher im Kino:** „Zehn Minuten“, „Die drei Boote“, „Die Nacht der Welle“, „68 Jahre“, „Die Bucht der Wellen“. Eigene Regiebücher schreibt und prüft man im Archiv.
+- **Archiv (F2):** Befunde mit Quellen als Marken in der Szene, Aussagen der Zeugen als Untertitel zur Zeit, Läufe im Vergleich, Bildergalerie mit „Kamera hierhin“, Sitzungen. Alles liegt in Oracle (`db/szene`) oder ohne Datenbank in `daten/speicher`.
 
-**Phase 3, Schema und NDM-Funktionsprobe** (01.11.2026). Schema ist der vorhandene Benutzer `LITUYABAY1958` (F40 B), Präfix `LB_`. Die Skripte in `db/netz/` (00 Rechte als SYS, 01 Tabellen, 02 Netze, 03 Funktionsprobe, 04 Partitionen, 05 Sichten, 98 und 99 Abbau) lädt `ant netzdb`: zuerst `LB_NET_HERKUNFT`, das Herkunftsnetz (je Rohdatei aus `download/inventar.csv` ein Knoten, je Datei in `daten/` eine Ausgabe, dazu Quellen, Schritte, Szenenobjekte und Befunde; Dateien in `daten/netz/herkunft/` aus dem Schritt `herkunft` der Aufbereitung). Die Funktionsprobe (Werkbuch 2.8) prüft in SQL und mit LOD (Treiber 21 im eigenen Klassenlader, eigene Kostenfunktion und Netzbedingung) auf Probenetzen, die danach wieder verschwinden; das Ergebnis steht in `LB_NDM_PROBE`. Gegenrechnung: `VALIDATE_NETWORK`, CONNECT BY und `traceIn` gegen `pruefwege.tsv`; Prüfsumme in `LB_NETZ_STAND`.
+## Starten
 
-**Phase 2, die Aufbereitung** (01.11.2026). `ant aufbereitung` liest das Kartenmaterial einmal und schreibt nach `daten/`: das Gelände in drei Stufen (Kern 0,5 m aus dem Lidar 2019, Szene 5 m aus IfSAR 2012, Fern 30 m aus 3DEP und Copernicus, im Wasser USACE 2019, BlueTopo und GEBCO; Kacheln zu 2000² als `.r32`, Format in `scene.Stufe`), den Grund der Bucht heute (4 m, mit Wassermaske) und 1926, 1940, 1959 aus den Lotungen der NOS (20 m, Delaunay), die Namen aus GNIS und `INHALT.txt` mit SHA-256 je Datei; Prüfbilder nach `docs/status/`. Noch offen aus 3.4: `rueckbau1958`, `spurlinie`, `klassen`, `wald`, `gletscher` (siehe Werkbuch 19).
+- **Voraussetzungen:** JDK 21, OpenGL 4.3 (gebaut und abgenommen auf einer AMD Radeon 680M), 16 GB RAM oder mehr, `daten/` aus der Aufbereitung (rund 15 GB). Oracle 21c ist wahlweise: Ohne Datenbank liest die App die Netze aus `daten/netz` und speichert in `daten/speicher`.
+- **NetBeans:** Projekt öffnen, **Clean and Build**, dann **Run** (Hauptklasse `com.dan.lituya.app.LituyaApp`). In `lib/` liegen `Renderer.jar` (aus dem Projekt Renderer, nicht im Git), JOGL mit den Natives für Windows, `FStyle.jar`, `ojdbc11.jar`, `sdoapi.jar`, `sdogr.jar`, `sdoutl.jar` und `sdonm.jar`.
+- **Verknüpfung:** `ant symbol` (das Programmsymbol nach `icon/LituyaBay1958.ico`), dann `ant verknuepfung`. Das legt `start.cmd` im Projektordner und je eine Verknüpfung „Lituya Bay 1958“ auf dem Desktop und im Startmenü an (javaw ohne Konsole, mit Symbol; `-Dwo=desktop|startmenue|beide`). Startfehler ohne Konsole stehen in `daten/fehler.txt`.
+- **Datenbank:** Den Zugang trägt man in `db/db.properties` ein (Vorlage `db/db.properties.example`). Ist das Passwort leer, fragt das Startbild danach (oder die Umgebungsvariable `LituyaBay1958_DB_PASSWORD`). Einmal als SYS `db/netz/00_sys.sql` ausführen, dann `ant netzdb` (Netze) und `ant szenedb` (Befunde, Zeugen, Boote, Läufe, Regiebücher, Sitzungen, Bilder).
 
-**Phase 1, das Gerüst** (01.11.2026). Die GL-Engine aus Timmendorf, entschlackt (F6 A): FFrame mit GL-Fläche, Startbild mit Anmeldung an die Datenbank, Bedienfeld mit allen Blöcken des Werkbuchs (ANSICHT, ZEIT, EREIGNIS, NETZE, WETTER, REGIEBÜCHER, DATEN, TECHNIK), HUD mit der Zeit jedes Durchgangs auf der Grafikkarte und den drei Uhren (Weltzeit, Simulationszeit, Zeitstand), Qualitätsstufen, Foto, Shader neu laden, Faden der Physik, Kinomodus als Anschluss. Noch kein Gelände: das Wasser mit Erdkrümmung reicht bis zur Kimm, darauf die Marken (UTM-Raster, Kern, Szene, Fern, die Orte aus GNIS). Neun Ansichten von Anchorage Cove bis zum Fern. `sdonm.jar` in `lib/`, der Treiber 21 für LOD in `lib/lod/` (F26 A).
+## Bedienung
 
-## Bauen und starten
+- **Maus:** Links ziehen dreht, rechts ziehen verschiebt, das Rad zoomt. Ein Klick auf eine Marke wählt den Befund im Archiv.
+- **Tasten:** W A S D gleiten, Q/E ab und auf, F frei fliegen, R kreisen, 0 bis 9 die Ansichten, Pos1 die Grundansicht. Leertaste hält die Uhr an, J K L spielen rückwärts, halten an und spielen vorwärts, Z ist Zeitlupe, Y der Jahres-Zeitraffer. N schaltet den Netzblick, M den Klang, H das HUD. F1 Hilfe, F2 Archiv, F11 nur die Szene, F12 Foto, F5 Shader neu laden, Strg+S Sitzung sichern.
+- **Bedienfeld:** ANSICHT, ZEIT, EREIGNIS (Schaustücke 1 bis 11, Wiedergabe, Echtzeit, Boote), NETZE, WETTER, KLANG, REGIEBÜCHER, DATEN, TECHNIK.
+- **Hilfe (F1):** Tasten, Ansichten und Schaustücke, Bedienfeld, Archiv, Regiebücher schreiben, Datenstand, alle ant-Ziele und die Kapitel des Werkbuchs.
 
-- NetBeans-Projekt mit Ant, JDK 21. In `lib/`: `Renderer.jar` (aus dem Projekt Renderer, nicht im Git), JOGL mit Windows-Natives, `FStyle.jar`, `ojdbc11.jar`, `sdoapi.jar`, `sdogr.jar`, `sdoutl.jar`, `sdonm.jar`.
-- **Clean and Build**, dann **Run** (Hauptklasse `com.dan.lituya.app.LituyaApp`). Voraussetzung: OpenGL 4.3.
-- Nach einer Änderung im Projekt Renderer: dort „Clean and Build“, dann `dist/Renderer.jar` nach `lib/` kopieren; `check-packages` meldet, wenn etwas fehlt.
-- **Prüfung:** `ant pruefung` endet mit „ERGEBNIS: alles in Ordnung“ (ohne Grafikkarte und Datenbank: Raum, Gebiete und Orte, Uhren und Sonne zur Bebenzeit, Ansichten und Kamera, Renderer.jar, Shader, `sdonm.jar` und `lib/lod`, `daten/`, die Skripte in `db/netz`, LOD auf dem Probenetz im Speicher, das Herkunftsnetz, Regel 3.3 und Paketvertrag 13).
-- **Statusbild:** `ant statusbild` schreibt `docs/status/Status_Phase1.png` (Grundansicht, Full HD, Stufe Mittel, volles HUD mit den Zeiten); `-Dansicht=AnchorageCove` usw. wählt eine Ansicht.
-- **Texturen (Phase 5):** `python tools/kartenmaterial/kartenmaterial.py laden --gruppe texturen` (13 Sätze, rund 330 MB nach `download/texturen`), dann `ant aufbereitung "-Dschritte=texturen,herkunft,inhalt"` (Kante `-Dlituya.textur.kante=2048`). `ant surfacecheck` prüft, `ant texturbild` schreibt den Kontaktbogen `docs/status/Texturen.png` (beim ersten Mal packt der Treiber die Karten und merkt sie als `gpu_*.bin`), `ant surfacedemo` zeigt ihn mit Reglern.
-- **Wald und Unterwuchs (Phase 6):** vor dem Kopieren eines neuen `Renderer.jar` das alte als `lib/Renderer_phase5.jar` sichern. Dann `ant waldvergleich` (die anderen Szenen unverändert), `ant waldcheck` (ForestCheck und ForestGpuCheck), `ant waldzeiten` (fps-Tabelle je Qualität und Ansicht nach `docs/status/waldzeiten_Phase6.txt`), `ant waldbild` (`docs/status/Wald.png`, `-Dqualitaet=ULTRA`), `ant walddemo`. Dazu `ant unterwuchscheck`, `ant unterwuchsbild` (`docs/status/Unterwuchs.png`) und `ant unterwuchsdemo`.
-- **Laufzeit und Netzblick (Phase 7):** `ant routecheck` (Sterne, konstante Tiefe, Isochronen, Messstrecke), `ant netviewcheck` (Kreisfeld, Douglas-Peucker, Stufen), `ant isochronenbild` (`docs/status/Isochronen.png` über `daten/grund`, mit Ankunftszeiten), `ant isochronendemo` (`docs/status/Isochronen_Demo.png`, gerechnete Bucht), `ant isochronenfenster`, `ant netviewbild` (`docs/status/Netzblick.png`) und `ant netviewdemo`.
-- **Netze der Welle und des Ufers (Phase 7a):** `ant aufbereitung "-Dschritte=welle,ufer"` schreibt `daten/netz/welle` und `daten/netz/ufer`; `ant netzdb` lädt sie mit dem Herkunftsnetz nach Oracle (Protokoll `docs/status/netzdb_protokoll_Phase7a.txt`); `ant netzvergleich` rechnet nur nach (LOD gegen `route`, `SDO_LRS` gegen `Measure`). In der App: Bedienfeld NETZE, Taste N.
-- **Felssturz (Phase 9):** `ant landslidecheck`, `ant landslidebild` (`docs/status/Landslide_Demo.png`, `-Dfall=gilbertInlet1958|vajont1963|spiritLake1980`, `-Dzeit=18`, `-Dqualitaet=MEDIUM`), `ant landslidedemo` (Fenster), `ant fracturecheck` (mit der Übergabe; Glacier und Sylt unverändert), `ant sturz` (`docs/status/Sturz.png`: Auslösung über `daten/ereignis`, Abbruch mit `fracture`, Strom mit `landslide`; `-Dzeit` nach der Auslösung, `-Dmodus=zeuge|newmark`).
-- **Erdbeben (Phase 8):** `ant aufbereitung -Dschritte=stoerung` schreibt `daten/ereignis` (Störung, Herd); `ant quakecheck`, `ant quakebild` (`docs/status/Quake_Demo.png`, `-Dzeit=30`), `ant quakedemo` (Fenster), `ant grollen` (`docs/status/Grollen.wav`), `ant bebenbild` (`docs/status/Beben.png` über `daten/ereignis`).
-- **Aufbereitung:** `ant aufbereitung` (alle Schritte; Dauer auf dem Ryzen geschätzt 10 bis 30 min, -Xmx24g), `"-Dschritte=gelaende,grund"` (unter Windows in Anführungszeichen, sonst trennt cmd am Komma), `-Dneu=true`, `-Dausschnitt=OstMin,NordMin,OstMax,NordMax`; Protokoll `daten/aufbereitung.log`. Der Pfad des Kartenmaterials steht in `daten/rohdaten.properties`.
-- **Netze in Oracle (Phase 3):** einmal als SYS in SQL Developer `db/netz/00_sys.sql` (F5); dann `ant aufbereitung "-Dschritte=herkunft,inhalt"` und `ant netzdb` (Protokoll `docs/status/netzdb_Phase3.txt`); `ant dbpruefung` prüft später nur, ob Oracle und `daten/netz/` zusammenpassen.
-- **Gelände (Phase 4):** `lib/Renderer.jar` muss `clipmap` enthalten (Renderer, Branch `lituya-phase-4`). `ant clipmapcheck` prüft 1 000 Stichproben an den Kacheln und den Shader auf der Grafikkarte gegen Java. `ant clipmapbild` schreibt vier Ansichten mit der Zeit je Bild nach `docs/status/Phase4_Clipmap.png`. `ant clipmapdemo` öffnet die Vorschau des Packages (Maus, W A S D, Q/E).
-- **LOD:** `ant lod` holt `ojdbc11.jar` aus `ORACLE_HOME\jdbc\lib` nach `lib/lod/` und lädt die LOD-Klassen im eigenen Klassenlader (gebraucht von `ant netzdb`).
-- **Datenbank:** Zugang in `db/db.properties` (Vorlage `db/db.properties.example`); ist das Passwort leer, fragt das Startbild danach und trägt es ein (oder Umgebungsvariable `LituyaBay1958_DB_PASSWORD`). `db/db.properties` steht in `.gitignore`.
-- **Tasten:** F1 zeigt alle. Maus ziehen dreht und verschiebt, Rad zoomt, W A S D gleitet, F fliegt frei, R kreist, 1 bis 9 die Ansichten, H das HUD, F11 nur die Szene, F12 ein Foto nach `docs/status/`, F5 lädt die Shader neu, Leertaste hält die Uhr an.
+## Film, Qualität, Dauerlauf
+
+- **`ant film -Dbuch="Zehn Minuten"`** spielt ein Regiebuch ohne Fenster im Kino, mit festem Zeitschritt und dem Klang an der Kamera. Daraus wird `docs/film/<Name>.mp4` (H.264 mit AAC; `-Dqualitaet=HOCH`, `-Dpreset=slow` für die beste Güte, `-Dbis=30` zum Probieren). ffmpeg kommt aus dem PATH oder `-Dffmpeg=…`; ohne ffmpeg entstehen PNG-Bilder und ein WAV, dazu die Zeile zum Nachholen.
+- **`ant qualitaet`** misst die Zeit je Bild in den Stufen Niedrig, Mittel, Hoch und Ultra in drei Ansichten. Die Tabelle steht in `docs/status/qualitaet_Phase20.txt` und im Werkbuch 15.
+- **`ant dauerlauf -Dminuten=480`** spielt alle Regiebücher immer wieder im Kino und schreibt je Minute Bildrate, Speicher und Grafikspeicher. Am Ende prüft es: kein Fehler, kein wachsender Speicher, keine einbrechende Bildrate.
+- **`ant pruefung`** läuft ohne Grafikkarte und Datenbank und endet mit „ERGEBNIS: alles in Ordnung“.
+
+## Daten und Kartenmaterial
+
+Das Kartenmaterial (48 Quellen, rund 1 250 Dateien, 13,8 GB; Katalog in [`Kartenmaterial.md`](Kartenmaterial.md)) lädt `python tools/kartenmaterial/kartenmaterial.py laden` nach `download/`. Nur die Aufbereitung (`ant aufbereitung`) liest es und schreibt nach `daten/` mit `daten/INHALT.txt` (SHA-256 je Datei). App, Netze und Oracle lesen nie aus `download/` (Werkbuch 3.3).
+
+Zum Auslagern auf eine Wechselfestplatte:
+
+1. `ant auslagerung` prüft `daten/` gegen `INHALT.txt` und Regel 3.3 und schreibt [`docs/QUELLEN.md`](docs/QUELLEN.md), den Ort jeder Rohdatei.
+2. `download/` verschieben, etwa mit `robocopy download E:\LituyaBay1958_Kartenmaterial /E /MOVE /XF INVENTAR.md`.
+3. `ant auslagerung -Dziel=E:\LituyaBay1958_Kartenmaterial` prüft das Ziel und trägt es in `daten/rohdaten.properties` ein.
+4. `ant auslagerungsprobe` lässt Prüfung und Statusbild bei umbenanntem `download/` laufen.
 
 ## Raum und Zeit
 
-UTM Zone 8 Nord (NAD83, EPSG:26908), Höhen über NAVD88, Ursprung in der Mitte des Kerns bei E 352 000, N 6 503 000 [G]: x nach Osten, z nach Süden (Nord = −z), y nach oben. Kern 24 × 18 km (E 340 000–364 000, N 6 494 000–6 512 000), Szene 66 × 60 km, Fern 260 × 240 km (`geodaten/gebiete.geojson`). Ortszeit 1958 UTC−8 (PST): der erste Stoß um 22:16 ist der 10.7.1958 06:16 UTC; Sonnenuntergang am 9.7.1958 um 22:14, beim Stoß stand die Sonne rund 1° unter der Kimm.
+UTM Zone 8 Nord (NAD83, EPSG:26908), Höhen über NAVD88. Der Ursprung liegt in der Mitte des Kerns bei E 352 000, N 6 503 000: x nach Osten, z nach Süden, y nach oben. Die Gebiete: Kern 24 × 18 km, Szene 66 × 60 km, Fern 260 × 240 km (`geodaten/gebiete.geojson`). Die Ortszeit 1958 ist UTC−8 (PST), der erste Stoß um 22:16 also der 10.7.1958 06:16 UTC. Die Sonne ging am 9.7.1958 um 22:14 unter.
 
-## Daten
+## Packages im Projekt Renderer
 
-Das Kartenmaterial (`Kartenmaterial.md`, 48 Quellen) lädt `tools/kartenmaterial` nach `download/`; nur die Aufbereitung in Phase 2 liest es und schreibt nach `daten/`. Die App liest nie aus `download/` (Werkbuch 3.3).
+Gebraucht werden 26 vorhandene Packages (`wave`, `fracture`, `forest`, `ocean`, `sky`, `soundscape`, `kino`, `route`, …). Neu für LituyaBay1958 sind `clipmap` (Gelände bis zum Horizont), `surface` (Materialien), `understory`, `netview` (Netzblick), `quake`, `landslide`, `impact`, `dustcloud`, `debris`, `succession`, `vessel` und `bear`. Jedes hat eine README und eine Prüfklasse; `ant check-packages` prüft `lib/Renderer.jar`. Noch offen sind `scree` (6a) und `aurora` (18b).
+
+## Quellen
+
+Die Belege (Miller 1960, Fritz u. a. 2001, die Zeugen, Vermessungen 1926, 1940 und 1959) stehen im Werkbuch 2, die Befunde mit Quellen in `src/com/dan/lituya/data/befunde.tsv` und `quellen.tsv` (in der App im Archiv). Die Texturen sind CC0 von ambientCG.

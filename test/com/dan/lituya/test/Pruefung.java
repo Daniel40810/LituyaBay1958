@@ -1433,5 +1433,138 @@ public final class Pruefung {
         check(ds.laeufe().get(0).volumen() == 12e6 && ds.regiebuecher().get(0).text().equals(com.dan.lituya.scene.Regie.text("nacht.txt")) && ds.bilder() == 1
                 && ds.bildZeilen().get(0).length == 15, "Lauf, eigenes Regiebuch und Bild in daten/speicher und zurück");
         check(com.dan.lituya.data.Speicher.aktuell() instanceof com.dan.lituya.data.DateiSpeicher, "ohne Verbindung nimmt die App die Dateien: " + com.dan.lituya.data.Speicher.aktuell().wo());
+
+        teil("Archiv und Hilfe (Phase 19a): Befunde als Marken, Zeugen als Untertitel, Galerie, Regiebuch-Editor");
+        String s6 = Files.readString(new File(sz, "06_phase19a.sql").toPath(), StandardCharsets.UTF_8);
+        check(com.dan.lituya.tools.SzeneDb.SKRIPTE.length == 7 && s6.contains("NAME VARCHAR2(200 CHAR)") && s6.contains("GRUND VARCHAR2(60 CHAR)"),
+                "db/szene/06_phase19a.sql weitet LB_EREIGNIS_LAUF (NAME 200, GRUND 60 Zeichen), LB_SITZUNG und LB_SCHNAPPSCHUSS; Befund aus dem App-Test 19");
+        java.util.List<com.dan.lituya.data.Speicher.Befund> mb = com.dan.lituya.data.Mitgeliefert.befunde();
+        java.util.List<com.dan.lituya.data.Speicher.Zeuge> mz = com.dan.lituya.data.Mitgeliefert.zeugen();
+        long mbOrt = mb.stream().filter(x -> !Double.isNaN(x.e())).count();
+        check(mb.size() == b.size() && mz.size() == z.size() && mbOrt == mitOrt && mb.stream().allMatch(x -> !x.quellen().isBlank()),
+                f("ohne Datenbank: %d Befunde (%d mit Ort) und %d Aussagen aus den mitgelieferten Tabellen, jede mit Quelle", mb.size(), mbOrt, mz.size()));
+        com.dan.lituya.gl.ArchivSzene as = new com.dan.lituya.gl.ArchivSzene();
+        as.setzen(mb, mz);
+        com.dan.lituya.data.Speicher.Zeuge z0 = mz.stream().filter(x -> !Double.isNaN(x.vonS())).findFirst().orElse(null);
+        boolean zeitOk = z0 != null && as.jetzt(z0.vonS() + 0.5, SceneClock.Zeitstand.WELLE).contains(z0) && !as.jetzt(z0.vonS() + 0.5, SceneClock.Zeitstand.HEUTE).contains(z0)
+                && !as.jetzt(z0.vonS() - 30, SceneClock.Zeitstand.WELLE).contains(z0);
+        check(zeitOk, "Untertitel: eine Aussage erscheint zu ihrer Zeit in der Nacht von 1958, nicht davor und nicht im Zeitstand heute" + (z0 == null ? "" : " („" + z0.name() + "“ ab " + z0.vonS() + " s)"));
+        // Projektion und Klick auf einer gebauten Matrix: der Ort des Befunds liegt in der Mitte der Tafel
+        com.dan.lituya.data.Speicher.Befund b0 = mb.stream().filter(x -> !Double.isNaN(x.e())).findFirst().orElseThrow();
+        double[] p0 = com.dan.lituya.scene.Site.fromUtm(b0.e(), b0.n());
+        float kx = 1f / 20000, ky = 1f / 1000;
+        float[] vp = new float[16];
+        vp[0] = kx; vp[5] = ky; vp[10] = 1; vp[15] = 1;
+        vp[12] = (float) (-p0[0] * kx); vp[13] = (float) (-com.dan.lituya.gl.ArchivSzene.UEBER * ky);
+        double[] eye = {p0[0], 300, p0[1]};
+        double[] px = com.dan.lituya.gl.ArchivSzene.bild(vp, eye, b0.e(), b0.n(), com.dan.lituya.gl.ArchivSzene.UEBER, 800, 600);
+        as.setzen(java.util.List.of(b0), mz);
+        as.marken = true;
+        com.dan.lituya.data.Speicher.Befund[] getroffen = {null};
+        as.onPick = x -> getroffen[0] = x;
+        java.awt.image.BufferedImage taf = as.malen(800, 600, vp, eye, (x, y) -> 0, 0, SceneClock.Zeitstand.WELLE, true, 0);
+        boolean daneben = !as.pick(100, 100, 1600, 1200);
+        boolean treffer = as.pick(800 + 6, 600 - 4, 1600, 1200);
+        int farbe = taf.getRGB(400, 300);
+        check(px != null && Math.abs(px[0] - 400) < 0.5 && Math.abs(px[1] - 300) < 0.5 && treffer && daneben && getroffen[0] == b0 && b0.schluessel().equals(as.gewaehlt)
+                        && ((farbe >>> 24) & 0xff) > 200,
+                f("Marke „%s“ auf (%.1f, %.1f) der Tafel 800 × 600, Klick auf der doppelt so großen Leinwand trifft sie, daneben nicht", b0.schluessel(), px == null ? -1 : px[0], px == null ? -1 : px[1]));
+        // Regiebuch-Editor: die Prüfung nennt die Zeile
+        String falsch = "Regiebuch: Probe\n0:00 zeit 09.07.1958 22:10 | Abend\n0:05 flieg hoch\n0:20 blatt\n";
+        String meldung = "";
+        try { com.dan.lituya.scene.Regie.parse(falsch); } catch (IllegalArgumentException e) { meldung = e.getMessage(); }
+        com.dan.lituya.scene.Regie.Book gut = com.dan.lituya.scene.Regie.parse(falsch.replace("0:05 flieg hoch\n", "0:05 sage Hallo\n"));
+        check(meldung.startsWith("Zeile 3:") && meldung.contains("flieg") && gut.cues().size() >= 2, "Regiebuch prüfen: der Fehler nennt die Zeile („" + meldung + "“), die berichtigte Fassung geht");
+        // Galerie und Löschen in den Dateien
+        java.util.List<com.dan.lituya.data.Speicher.BildKopf> gal = ds.bilderListe();
+        byte[] voll = ds.bildDaten(gal.isEmpty() ? "x" : gal.get(0).datei());
+        ds.sitzungLoeschen(id);
+        ds.regiebuchLoeschen("Eigenes");
+        check(gal.size() == 1 && gal.get(0).vorschau() != null && Math.abs(gal.get(0).e() - 345000) < 1e-6 && voll != null && voll.length == png.size()
+                        && ds.sitzungen().isEmpty() && ds.regiebuecher().isEmpty(),
+                "Galerie: Bild mit Vorschau, Ort der Kamera und vollem PNG; Sitzung und eigenes Regiebuch lassen sich löschen");
+        String hilfe = com.dan.lituya.ui.Hilfe.markdown(java.util.List.of("## 12 Oberfläche", "| a | b |", "|---|---|", "| **x** | `y` |", "- eins"));
+        check(hilfe.contains("<table><tr><td>a</td>") && hilfe.contains("<b>x</b>") && hilfe.contains("<code>y</code>") && hilfe.contains("<li>eins</li>"),
+                "Hilfe: Kapitel des Werkbuchs als HTML (Tabellen, fett, Code, Listen)");
+        schliff20();
+    }
+
+    /** Phase 20: Schliff (Symbol, Verknüpfung, Film, Auslagerung, Qualität, Dauerlauf), alles ohne Grafikkarte. */
+    static void schliff20() throws Exception {
+        teil("Schliff (Phase 20): Symbol, Verknüpfung, Film, Auslagerung, Qualitätsstufen, Dauerlauf");
+        File daten = new File(System.getProperty("lituya.daten", "daten"));
+        check(Renderer.PHASE == 20 && Renderer.VERSION.startsWith("1.0"), "Stand " + Renderer.VERSION + ", Phase " + Renderer.PHASE);
+        // Symbol: PNGs im Jar, ICO mit sieben Größen
+        int imJar = 0;
+        for (int sz : com.dan.lituya.ui.AppIcon.SIZES) if (com.dan.lituya.ui.AppIcon.class.getResource("icon/lituya_" + sz + ".png") != null) imJar++;
+        java.util.List<byte[]> pngs = new java.util.ArrayList<>();
+        for (int sz : com.dan.lituya.ui.AppIcon.SIZES) { java.io.ByteArrayOutputStream o = new java.io.ByteArrayOutputStream(); javax.imageio.ImageIO.write(com.dan.lituya.ui.AppIcon.paint(sz), "png", o); pngs.add(o.toByteArray()); }
+        byte[] ico = com.dan.lituya.tools.Symbol.ico(com.dan.lituya.ui.AppIcon.SIZES, pngs);
+        java.nio.ByteBuffer ib = java.nio.ByteBuffer.wrap(ico).order(java.nio.ByteOrder.LITTLE_ENDIAN);
+        boolean icoOk = ib.getShort(0) == 0 && ib.getShort(2) == 1 && ib.getShort(4) == com.dan.lituya.ui.AppIcon.SIZES.length;
+        for (int k = 0; k < com.dan.lituya.ui.AppIcon.SIZES.length && icoOk; k++) {
+            int off = ib.getInt(6 + 16 * k + 12);
+            icoOk = (ico[off] & 0xff) == 0x89 && ico[off + 1] == 'P' && ico[off + 2] == 'N' && ico[off + 3] == 'G';
+        }
+        File icoDatei = new File("icon/LituyaBay1958.ico");
+        check(imJar == com.dan.lituya.ui.AppIcon.SIZES.length && icoOk && icoDatei.isFile(),
+                f("Symbol: %d PNGs im Jar, ICO mit %d Größen (16 bis 256, PNG), icon/LituyaBay1958.ico %s", imJar, com.dan.lituya.ui.AppIcon.SIZES.length, icoDatei.isFile() ? "da" : "FEHLT (ant symbol)"));
+        // Verknüpfung und Ziele
+        File ps = new File("tools/verknuepfung.ps1");
+        String pst = ps.isFile() ? Files.readString(ps.toPath(), StandardCharsets.ISO_8859_1) : "";
+        boolean ascii = !pst.isEmpty() && pst.chars().allMatch(ch -> ch < 128);
+        String bx = new File("build.xml").isFile() ? Files.readString(new File("build.xml").toPath(), StandardCharsets.UTF_8) : "";
+        java.util.List<String> ziele = new java.util.ArrayList<>();
+        for (String z : java.util.List.of("symbol", "verknuepfung", "film", "auslagerung", "auslagerungsprobe", "qualitaet", "dauerlauf")) if (!bx.contains("<target name=\"" + z + "\"")) ziele.add(z);
+        check(ascii && pst.contains("CreateShortcut") && pst.contains("IconLocation") && ziele.isEmpty(),
+                "Verknüpfung: tools/verknuepfung.ps1 (nur ASCII, WScript.Shell mit Symbol); ant-Ziele der Phase 20 da" + (ziele.isEmpty() ? "" : "; FEHLEN: " + ziele));
+        // Film: ohne ffmpeg PNG und WAV, mit ffmpeg ein kurzes MP4
+        File ft = Files.createTempDirectory("lb_film").toFile();
+        int rate = 48000;
+        java.util.function.IntFunction<java.awt.image.BufferedImage> bild = k -> {
+            java.awt.image.BufferedImage im = new java.awt.image.BufferedImage(320, 180, java.awt.image.BufferedImage.TYPE_INT_RGB);
+            java.awt.Graphics2D g = im.createGraphics();
+            g.setColor(new java.awt.Color(20, 40, 60)); g.fillRect(0, 0, 320, 180);
+            g.setColor(java.awt.Color.ORANGE); g.fillOval(k * 10, 60, 40, 40); g.dispose();
+            return im;
+        };
+        float[] stueck = new float[2 * rate / 30];
+        com.dan.lituya.tools.FilmSchreiber ohne = new com.dan.lituya.tools.FilmSchreiber(new File(ft, "ohne.mp4"), 320, 180, 30, rate, null, null, 20);
+        for (int k = 0; k < 6; k++) { ohne.bild(bild.apply(k)); ohne.ton(stueck); }
+        ohne.close();
+        File[] pn = new File(ft, "ohne_bilder").listFiles();
+        check(pn != null && pn.length == 6 && new File(ft, "ohne_ton.wav").length() > 44 && Math.abs(ohne.sekunden() - ohne.tonSekunden()) < 1e-9 && ohne.bericht.get(1).contains("ffmpeg -framerate 30"),
+                f("Film ohne ffmpeg: %d PNG-Bilder und Ton (%.2f s), dazu die Zeile zum Nachholen", pn == null ? 0 : pn.length, ohne.tonSekunden()));
+        String ff = com.dan.lituya.tools.FilmSchreiber.finden(System.getProperty("ffmpeg"));
+        if (ff != null) {
+            com.dan.lituya.tools.FilmSchreiber mit = new com.dan.lituya.tools.FilmSchreiber(new File(ft, "mit.mp4"), 320, 180, 30, rate, ff, "veryfast", 23);
+            for (int k = 0; k < 30; k++) { mit.bild(bild.apply(k)); mit.ton(stueck); }
+            mit.close();
+            check(new File(ft, "mit.mp4").length() > 1000 && !new File(ft, "mit_bild.mp4").exists(), "Film mit ffmpeg (" + ff + "): " + mit.bericht.get(0));
+        } else hinweis("ffmpeg nicht gefunden (PATH, -Dffmpeg=…): ant film schreibt dann PNG-Bilder und WAV");
+        // Auslagerung: INHALT.txt, Regel 3.3, CSV, QUELLEN.md
+        File dt = Files.createTempDirectory("lb_daten").toFile();
+        Files.writeString(new File(dt, "a.txt").toPath(), "Lituya", StandardCharsets.UTF_8);
+        Files.writeString(new File(dt, "b.txt").toPath(), "Bucht", StandardCharsets.UTF_8);
+        String shaA = java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest("Lituya".getBytes(StandardCharsets.UTF_8)));
+        Files.writeString(new File(dt, "INHALT.txt").toPath(), "# Probe\na.txt\t6\t" + shaA + "\nb.txt\t5\t" + shaA + "\nc.txt\t3\tx\n", StandardCharsets.UTF_8);
+        com.dan.lituya.tools.Auslagerung.Stand st = com.dan.lituya.tools.Auslagerung.inhalt(dt, true);
+        check(st.dateien() == 3 && st.fehlen() == 1 && st.falsch() == 1 && !st.ok(), f("Auslagerung: INHALT.txt mit Größe und SHA-256 (Probe: %d Dateien, %d fehlt, %d anders)", st.dateien(), st.fehlen(), st.falsch()));
+        check(com.dan.lituya.tools.Auslagerung.regel33(new File("src")).isEmpty(), "Auslagerung: kein Laufzeitcode nennt download/ (wie Regel 3.3)");
+        File dd = new File(daten, "INHALT.txt");
+        if (dd.isFile()) {
+            com.dan.lituya.tools.Auslagerung.Stand sd = com.dan.lituya.tools.Auslagerung.inhalt(daten, false);
+            check(sd.ok(), f("daten/ gegen INHALT.txt (nur Größe): %d Dateien, %.2f GB%s", sd.dateien(), sd.bytes() / 1e9, sd.ok() ? "" : "; " + sd.meldungen().subList(0, Math.min(5, sd.meldungen().size()))));
+        } else hinweis("daten/INHALT.txt fehlt: ant aufbereitung -Dschritte=inhalt");
+        // Qualität und Dauerlauf
+        String tab = com.dan.lituya.tools.QualitaetTabelle.tabelle(java.util.List.of("### Grundansicht · MITTEL", "     [java] 1920×1080 Mittel, 22:00: bestes Bild 10,20 ms, Mittel 12,50 ms (80 Bilder/s)",
+                "### Grundansicht · HOCH", "1920×1080 Hoch, 22:00: bestes Bild 14,00 ms, Mittel 16,00 ms (63 Bilder/s)"));
+        check(tab.contains("| Grundansicht | 12,50 ms (80) | 16,00 ms (63) |"), "Qualitätsstufen: Tabelle aus den Läufen von Tempo");
+        java.util.List<double[]> pt = new java.util.ArrayList<>();
+        for (int k = 0; k < 30; k++) pt.add(new double[]{k, 500 + 2 * k + (k % 2 == 0 ? 0.5 : -0.5)});
+        check(Math.abs(com.dan.lituya.tools.Dauerlauf.steigung(pt) - 2) < 0.05, f("Dauerlauf: Steigung des Speichers aus den Minutenwerten (Probe 2 MB je Minute: %.3f)", com.dan.lituya.tools.Dauerlauf.steigung(pt)));
+        File rd = new File("README.md");
+        String rt = rd.isFile() ? Files.readString(rd.toPath(), StandardCharsets.UTF_8) : "";
+        check(rt.contains("Phase 20") && rt.contains("ant film") && rt.contains("ant verknuepfung"), "README.md auf dem Stand von Phase 20 (Start, Verknüpfung, Film)");
     }
 }

@@ -293,6 +293,67 @@ public final class OracleSpeicher implements Speicher {
         try (Connection c = c()) { return Integer.parseInt(Db.einWert(c, "SELECT COUNT(*) FROM LB_SCHNAPPSCHUSS")); } catch (SQLException e) { throw io(e); }
     }
 
+    // ------------------------------------------------------------------ Phase 19a: das Archiv
+
+    @Override public List<Befund> befunde() throws IOException {
+        List<Befund> l = new ArrayList<>();
+        try (Connection c = c(); PreparedStatement p = c.prepareStatement("SELECT v.SCHLUESSEL, v.THEMA, v.AUSSAGE, v.WERT, v.EINHEIT, v.ART, v.ABSCHNITT, v.ORT_NAME, "
+                + "b.ORT.SDO_POINT.X AS E, b.ORT.SDO_POINT.Y AS N, v.ZEIT_S, v.GILT, v.QUELLEN, v.HERKUNFT FROM LB_V_BEFUND v JOIN LB_BEFUND b ON b.BEFUND_ID = v.BEFUND_ID "
+                + "ORDER BY v.HERKUNFT DESC, v.ABSCHNITT, v.SCHLUESSEL"); ResultSet r = p.executeQuery()) {
+            while (r.next())
+                l.add(new Befund(r.getString(1), r.getString(2), r.getString(3), num(r, "WERT"), r.getString(5), r.getString(6), r.getString(7), r.getString(8), num(r, "E"), num(r, "N"),
+                        num(r, "ZEIT_S"), r.getString(12), r.getString(13), r.getString(14)));
+        } catch (SQLException e) { throw io(e); }
+        return l;
+    }
+
+    @Override public List<Zeuge> zeugen() throws IOException {
+        List<Zeuge> l = new ArrayList<>();
+        try (Connection c = c(); PreparedStatement p = c.prepareStatement("SELECT z.NAME, z.ROLLE, z.BOOT, z.ZEIT_VON_S, z.ZEIT_BIS_S, z.ORT_NAME, z.ORT.SDO_POINT.X AS E, "
+                + "z.ORT.SDO_POINT.Y AS N, z.AUSSAGE, z.ART, q.KURZ || NVL2(z.SEITE, ' S. ' || z.SEITE, '') AS QUELLE FROM LB_ZEUGE z LEFT JOIN LB_QUELLE q ON q.QUELLE_ID = z.QUELLE_ID "
+                + "ORDER BY z.ZEIT_VON_S, z.NAME"); ResultSet r = p.executeQuery()) {
+            while (r.next())
+                l.add(new Zeuge(r.getString(1), r.getString(2), r.getString(3), num(r, "ZEIT_VON_S"), num(r, "ZEIT_BIS_S"), r.getString(6), num(r, "E"), num(r, "N"), r.getString(9),
+                        r.getString(10), r.getString(11)));
+        } catch (SQLException e) { throw io(e); }
+        return l;
+    }
+
+    @Override public List<BildKopf> bilderListe() throws IOException {
+        List<BildKopf> l = new ArrayList<>();
+        try (Connection c = c(); PreparedStatement p = c.prepareStatement("SELECT s.ART, s.DATEI, TO_CHAR(s.AUFGENOMMEN, 'DD.MM.YYYY HH24:MI:SS'), s.WELTZEIT, s.ZEIT_S, s.ZEITSTAND, "
+                + "s.KAMERA.SDO_POINT.X AS E, s.KAMERA.SDO_POINT.Y AS N, s.HOEHE_M, s.RICHTUNG, s.NEIGUNG, z.NAME, s.BREITE, s.HOEHE, s.NOTIZ, s.VORSCHAU "
+                + "FROM LB_SCHNAPPSCHUSS s LEFT JOIN LB_SZENARIO z ON z.SZENARIO_ID = s.SZENARIO_ID ORDER BY s.AUFGENOMMEN DESC, s.BILD_ID DESC"); ResultSet r = p.executeQuery()) {
+            while (r.next())
+                l.add(new BildKopf(r.getString(1), r.getString(2), r.getString(3), r.getString(4), num(r, "ZEIT_S"), r.getString(6), num(r, "E"), num(r, "N"), num(r, "HOEHE_M"),
+                        num(r, "RICHTUNG"), num(r, "NEIGUNG"), r.getString(12), r.getInt(13), r.getInt(14), r.getString(15), r.getBytes(16)));
+        } catch (SQLException e) { throw io(e); }
+        return l;
+    }
+
+    @Override public byte[] bildDaten(String datei) throws IOException {
+        try (Connection c = c(); PreparedStatement p = c.prepareStatement("SELECT BILD FROM LB_SCHNAPPSCHUSS WHERE DATEI = ?")) {
+            p.setString(1, datei);
+            try (ResultSet r = p.executeQuery()) { return r.next() ? r.getBytes(1) : null; }
+        } catch (SQLException e) { throw io(e); }
+    }
+
+    @Override public void sitzungLoeschen(long id) throws IOException {
+        try (Connection c = c()) {
+            try (PreparedStatement p = c.prepareStatement("UPDATE LB_SCHNAPPSCHUSS SET SITZUNG_ID = NULL WHERE SITZUNG_ID = ?")) { p.setLong(1, id); p.executeUpdate(); }
+            try (PreparedStatement p = c.prepareStatement("DELETE FROM LB_SITZUNG WHERE SITZUNG_ID = ?")) { p.setLong(1, id); p.executeUpdate(); }
+            c.commit();
+        } catch (SQLException e) { throw io(e); }
+    }
+
+    @Override public void regiebuchLoeschen(String name) throws IOException {
+        try (Connection c = c(); PreparedStatement p = c.prepareStatement("DELETE FROM LB_SZENARIO WHERE NAME = ? AND HERKUNFT = 'eigen'")) {
+            p.setString(1, name);
+            p.executeUpdate();
+            c.commit();
+        } catch (SQLException e) { throw io(e); }
+    }
+
     /** „12 Sitzungen, 3 Läufe …“ für das Bedienfeld. */
     public String zahlen() throws SQLException {
         try (Connection c = c()) {

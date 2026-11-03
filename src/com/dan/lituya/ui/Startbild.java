@@ -126,9 +126,9 @@ public final class Startbild extends JDialog {
         sub.setFont(new Font("SansSerif", Font.PLAIN, 14));
         sub.setForeground(Theme.MILCH);
         SceneClock start = new SceneClock();
-        JLabel info = new JLabel("<html><body style='width:560px'>" + Renderer.VERSION + ", das Gerüst: die GL-Engine aus Timmendorf, Wasser mit "
-                + "Erdkrümmung bis zur Kimm, die Gebiete Kern, Szene und Fern und die Orte aus GNIS als Marken, neun Ansichten, HUD mit Zeitmessung und den drei Uhren. "
-                + "Die Szene beginnt am " + start.label() + " (" + start.simLabel() + " bis zum ersten Stoß).<br>Renderer.jar: " + Bibliothek.kurz().replace("!", "")
+        JLabel info = new JLabel("<html><body style='width:560px'>" + "LituyaBay1958 " + Renderer.VERSION + ": die Bucht vor, während und nach der Welle und heute, mit Gelände bis zum Horizont, "
+                + "Wald, Booten, Beben, Felssturz, Welle (vorgerechnet und in Echtzeit), Klang, sieben Netzen, Regiebüchern im Kino und dem Archiv (F2). "
+                + "F1 zeigt die Hilfe. Die Szene beginnt am " + start.label() + " (" + start.simLabel() + " bis zum ersten Stoß).<br>Renderer.jar: " + Bibliothek.kurz().replace("!", "")
                 + "<br>Netze: " + com.dan.lituya.netz.Lod.stand() + "</body></html>");
         info.setFont(new Font("SansSerif", Font.PLAIN, 12));
         info.setForeground(new Color(170, 182, 192));

@@ -76,7 +76,7 @@
         lib/Renderer.jar alles hat, was LituyaBay1958 braucht (jedes gebrauchte Package mit Klassen und README, Java 21,
         von den 14 neuen die, deren Phase erreicht ist); abschalten mit -Dohne.paketpruefung=true.
     -->
-    <property name="lituya.phase" value="19"/>
+    <property name="lituya.phase" value="20"/>
     <target name="check-packages" description="Prüft lib/Renderer.jar: die gebrauchten Packages mit README, Java 21, die fälligen neuen." unless="ohne.paketpruefung">
         <property name="platform.java" value="java"/>
         <exec executable="${platform.java}" dir="${basedir}" failonerror="true">
@@ -921,5 +921,219 @@
         <renderer-java klasse="com.dan.lituya.tools.Wegkarte" args="daten docs/status/Weg.png" ausgabe="docs/status/wegkarte_Phase${lituya.phase}.txt" speicher="-Xmx3g"/>
         <loadfile property="wegkarte.text" srcFile="docs/status/wegkarte_Phase${lituya.phase}.txt" encoding="UTF-8"/>
         <echo message="${wegkarte.text}"/>
+    </target>
+    <!-- ================================================================== Phase 20: Schliff
+         symbol: das Programmsymbol (ui.AppIcon) als PNGs ins Jar und als icon/LituyaBay1958.ico.
+         verknuepfung: start.cmd und Verknüpfungen auf dem Desktop und im Startmenü (javaw ohne Konsole, im Projektordner,
+         mit dem Symbol); -Dwo=desktop|startmenue|beide.
+         film: ein Regiebuch als MP4 (ohne Fenster, fester Zeitschritt, Klang offline; ffmpeg aus dem PATH oder -Dffmpeg=…,
+         sonst PNG-Bilder und WAV); -Dbuch=Name, -Dqualitaet=HOCH, -Dpreset=veryfast (slow: beste Güte), -Dbis=Sekunden.
+         auslagerung: daten/ gegen INHALT.txt, Regel 3.3, Kartenmaterial nach inventar.csv, docs/QUELLEN.md; mit
+         -Dziel=E:\… nach dem Verschieben auch daten/rohdaten.properties.
+         auslagerungsprobe: download/ kurz umbenannt, dann Prüfung und Statusbild; danach wieder zurück.
+         qualitaet: Tempo je Stufe und drei Ansichten, Tabelle für das Werkbuch 15.
+         dauerlauf: die Regiebücher immer wieder im Kino, je Minute eine Zeile; -Dminuten=60 (über Nacht 480). -->
+    <target name="symbol" depends="compile" description="Phase 20: Programmsymbol nach src/com/dan/lituya/ui/icon und icon/LituyaBay1958.ico.">
+        <property name="platform.java" value="java"/>
+        <java classname="com.dan.lituya.tools.Symbol" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="true">
+            <jvmarg value="-Dstdout.encoding=UTF-8"/>
+            <jvmarg value="-Djava.awt.headless=true"/>
+            <arg value="src/com/dan/lituya/ui/icon"/>
+            <arg value="icon/LituyaBay1958.ico"/>
+            <classpath><pathelement path="${run.classpath}"/></classpath>
+        </java>
+    </target>
+    <target name="verknuepfung" depends="jar" description="Phase 20: start.cmd und Verknüpfungen (Desktop, Startmenü) mit dem Symbol; -Dwo=desktop|startmenue|beide.">
+        <property name="wo" value="beide"/>
+        <fail message="icon/LituyaBay1958.ico fehlt: erst ant symbol">
+            <condition><not><available file="icon/LituyaBay1958.ico"/></not></condition>
+        </fail>
+        <pathconvert property="start.cp" pathsep=";" dirsep="\">
+            <path><pathelement location="${dist.jar}"/><pathelement path="${javac.classpath}"/></path>
+            <map from="${basedir}${file.separator}" to=""/>
+        </pathconvert>
+        <property name="start.javaw" location="${platform.home}/bin/javaw.exe"/>
+        <property name="start.args" value="${run.jvmargs} -Dlituya.start=verknuepfung -cp &quot;${start.cp}&quot; ${main.class}"/>
+        <echo file="start.cmd" encoding="UTF-8">@echo off&#13;&#10;rem LituyaBay1958 starten (Phase 20, ant verknuepfung): javaw ohne Konsole im Projektordner.&#13;&#10;cd /d "%~dp0"&#13;&#10;start "Lituya Bay 1958" "${start.javaw}" ${start.args}&#13;&#10;</echo>
+        <mkdir dir="build"/>
+        <echo file="build/verknuepfung.txt" encoding="UTF-8">${start.javaw}&#10;${start.args}&#10;${basedir}&#10;${basedir}\icon\LituyaBay1958.ico&#10;Lituya Bay 1958&#10;</echo>
+        <exec executable="powershell" failonerror="true">
+            <arg value="-NoProfile"/>
+            <arg value="-ExecutionPolicy"/>
+            <arg value="Bypass"/>
+            <arg value="-File"/>
+            <arg file="tools/verknuepfung.ps1"/>
+            <arg value="-Datei"/>
+            <arg file="build/verknuepfung.txt"/>
+            <arg value="-Wo"/>
+            <arg value="${wo}"/>
+        </exec>
+        <echo message="start.cmd im Projektordner; Ziel ${start.javaw}"/>
+    </target>
+    <target name="film" depends="jar" description="Phase 20: ein Regiebuch als Film nach docs/film (MP4 mit Ton); -Dbuch=Name.">
+        <property name="platform.java" value="java"/>
+        <property name="buch" value="Zehn Minuten"/>
+        <property name="qualitaet" value="HOCH"/>
+        <property name="preset" value="veryfast"/>
+        <property name="crf" value="18"/>
+        <property name="bis" value="0"/>
+        <property name="ffmpeg" value=""/>
+        <property name="breite" value="1920"/>
+        <property name="hoehe" value="1080"/>
+        <mkdir dir="docs/film"/>
+        <java classname="com.dan.lituya.tools.Film" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="true" output="docs/status/film_Phase${lituya.phase}.txt" append="true" logError="true">
+            <jvmarg value="-Dstdout.encoding=UTF-8"/>
+            <jvmarg value="--enable-native-access=ALL-UNNAMED"/>
+            <jvmarg value="-Xmx10g"/>
+            <jvmarg value="-Dregiebuch=${buch}"/>
+            <jvmarg value="-Dqualitaet=${qualitaet}"/>
+            <jvmarg value="-Dpreset=${preset}"/>
+            <jvmarg value="-Dcrf=${crf}"/>
+            <jvmarg value="-Dbis=${bis}"/>
+            <jvmarg value="-Dffmpeg=${ffmpeg}"/>
+            <jvmarg value="-Dbreite=${breite}"/>
+            <jvmarg value="-Dhoehe=${hoehe}"/>
+            <classpath><pathelement path="${run.classpath}"/></classpath>
+        </java>
+        <loadfile property="film.text" srcFile="docs/status/film_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${film.text}"/>
+    </target>
+    <target name="auslagerung" depends="compile" description="Phase 20: daten/ und Kartenmaterial prüfen, docs/QUELLEN.md; -Dziel=E:\… nach dem Verschieben.">
+        <property name="platform.java" value="java"/>
+        <property name="ziel" value=""/>
+        <property name="sha" value="ja"/>
+        <java classname="com.dan.lituya.tools.Auslagerung" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="true" output="docs/status/auslagerung_Phase${lituya.phase}.txt" logError="true">
+            <jvmarg value="-Dstdout.encoding=UTF-8"/>
+            <jvmarg value="-Djava.awt.headless=true"/>
+            <jvmarg value="-Dziel=${ziel}"/>
+            <jvmarg value="-Dsha=${sha}"/>
+            <classpath><pathelement path="${run.classpath}"/></classpath>
+        </java>
+        <loadfile property="auslagerung.text" srcFile="docs/status/auslagerung_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${auslagerung.text}"/>
+    </target>
+    <target name="auslagerungsprobe" depends="jar,compile-test" description="Phase 20: Prüfung und Statusbild ohne download/ (kurz umbenannt).">
+        <property name="platform.java" value="java"/>
+        <available file="download" type="dir" property="download.da"/>
+        <antcall target="-download-weg"/>
+        <java classname="com.dan.lituya.test.Pruefung" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="false" resultproperty="probe.pruefung"
+              output="docs/status/auslagerungsprobe_Phase${lituya.phase}.txt" logError="true">
+            <jvmarg value="-Dstdout.encoding=UTF-8"/>
+            <jvmarg value="-Djava.awt.headless=true"/>
+            <jvmarg value="-Xmx6g"/>
+            <classpath><pathelement path="${run.test.classpath}"/></classpath>
+        </java>
+        <java classname="com.dan.lituya.tools.Tempo" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="false" resultproperty="probe.bild"
+              output="docs/status/auslagerungsprobe_Phase${lituya.phase}.txt" append="true" logError="true">
+            <jvmarg value="-Dstdout.encoding=UTF-8"/>
+            <jvmarg value="--enable-native-access=ALL-UNNAMED"/>
+            <jvmarg value="-Xmx6g"/>
+            <jvmarg value="-Dhud=voll"/>
+            <jvmarg value="-Dschaustueck=6"/>
+            <arg line="60 1920 1080 docs/status/Ohne_download_Phase${lituya.phase}.png MITTEL"/>
+            <classpath><pathelement path="${run.classpath}"/></classpath>
+        </java>
+        <antcall target="-download-zurueck"/>
+        <loadfile property="probe.text" srcFile="docs/status/auslagerungsprobe_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${probe.text}"/>
+        <fail message="Probe ohne download/: Prüfung ${probe.pruefung}, Statusbild ${probe.bild} (0 = in Ordnung)">
+            <condition><not><and><equals arg1="${probe.pruefung}" arg2="0"/><equals arg1="${probe.bild}" arg2="0"/></and></not></condition>
+        </fail>
+        <echo message="Probe ohne download/: Prüfung und Statusbild in Ordnung (docs/status/Ohne_download_Phase${lituya.phase}.png)"/>
+    </target>
+    <target name="-download-weg" if="download.da">
+        <move file="download" tofile="download.probe"/>
+        <echo message="download/ umbenannt in download.probe/ (kommt nach der Probe zurück)"/>
+    </target>
+    <target name="-download-zurueck" if="download.da">
+        <move file="download.probe" tofile="download"/>
+        <echo message="download/ wieder da"/>
+    </target>
+    <macrodef name="qualitaetslauf">
+        <attribute name="name"/>
+        <attribute name="stufe"/>
+        <attribute name="schaustueck" default=""/>
+        <sequential>
+            <echo file="docs/status/qualitaet_Phase${lituya.phase}.txt" append="true" encoding="UTF-8">### @{name} · @{stufe}&#10;</echo>
+            <java classname="com.dan.lituya.tools.Tempo" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="false" output="docs/status/qualitaet_Phase${lituya.phase}.txt" append="true" logError="true">
+                <jvmarg value="-Dstdout.encoding=UTF-8"/>
+                <jvmarg value="--enable-native-access=ALL-UNNAMED"/>
+                <jvmarg value="-Xmx8g"/>
+                <jvmarg value="-Dschaustueck=@{schaustueck}"/>
+                <arg line="240 1920 1080 - @{stufe}"/>
+                <classpath><pathelement path="${run.classpath}"/></classpath>
+            </java>
+        </sequential>
+    </macrodef>
+    <macrodef name="qualitaetsstufe">
+        <attribute name="stufe"/>
+        <sequential>
+            <qualitaetslauf name="Grundansicht 22 Uhr" stufe="@{stufe}"/>
+            <qualitaetslauf name="Die Front (Schaustück 6)" stufe="@{stufe}" schaustueck="6"/>
+            <qualitaetslauf name="68 Jahre (Schaustück 11)" stufe="@{stufe}" schaustueck="11"/>
+        </sequential>
+    </macrodef>
+    <target name="qualitaet" depends="jar" description="Phase 20: Bildzeiten je Qualitätsstufe in drei Ansichten (docs/status/qualitaet_Phase20.txt).">
+        <property name="platform.java" value="java"/>
+        <delete file="docs/status/qualitaet_Phase${lituya.phase}.txt" quiet="true"/>
+        <qualitaetsstufe stufe="NIEDRIG"/>
+        <qualitaetsstufe stufe="MITTEL"/>
+        <qualitaetsstufe stufe="HOCH"/>
+        <qualitaetsstufe stufe="ULTRA"/>
+        <java classname="com.dan.lituya.tools.QualitaetTabelle" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="true">
+            <jvmarg value="-Dstdout.encoding=UTF-8"/>
+            <arg value="docs/status/qualitaet_Phase${lituya.phase}.txt"/>
+            <classpath><pathelement path="${run.classpath}"/></classpath>
+        </java>
+    </target>
+    <!-- Phase 20: readmebilder: sieben Standbilder ohne HUD und Marken nach images/readme/*.jpg für README.md (im Git). -->
+    <macrodef name="readmebild">
+        <attribute name="name"/>
+        <attribute name="schaustueck"/>
+        <attribute name="netzblick" default="aus"/>
+        <attribute name="netz" default="welle"/>
+        <sequential>
+            <java classname="com.dan.lituya.tools.Tempo" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="false" output="docs/status/readmebilder_Phase${lituya.phase}.txt" append="true" logError="true">
+                <jvmarg value="-Dstdout.encoding=UTF-8"/>
+                <jvmarg value="--enable-native-access=ALL-UNNAMED"/>
+                <jvmarg value="-Xmx8g"/>
+                <jvmarg value="-Dhud=aus"/>
+                <jvmarg value="-Dmarken=aus"/>
+                <jvmarg value="-Dschaustueck=@{schaustueck}"/>
+                <jvmarg value="-Dnetzblick=@{netzblick}"/>
+                <jvmarg value="-Dnetz=@{netz}"/>
+                <arg line="60 1920 1080 images/readme/@{name}.jpg HOCH"/>
+                <classpath><pathelement path="${run.classpath}"/></classpath>
+            </java>
+        </sequential>
+    </macrodef>
+    <target name="readmebilder" depends="jar" description="Phase 20: Standbilder ohne HUD für README.md nach images/readme/.">
+        <property name="platform.java" value="java"/>
+        <mkdir dir="images/readme"/>
+        <delete file="docs/status/readmebilder_Phase${lituya.phase}.txt" quiet="true"/>
+        <readmebild name="1_abend_vor_anker" schaustueck="1"/>
+        <readmebild name="2_die_wand_aus_wasser" schaustueck="4"/>
+        <readmebild name="3_524_m" schaustueck="5"/>
+        <readmebild name="4_die_front" schaustueck="6"/>
+        <readmebild name="5_netzblick" schaustueck="6" netzblick="an"/>
+        <readmebild name="6_der_morgen_danach" schaustueck="10"/>
+        <readmebild name="7_68_jahre" schaustueck="11"/>
+    </target>
+    <target name="dauerlauf" depends="jar" description="Phase 20: Dauerlauf mit allen Regiebüchern im Kino (docs/status/dauerlauf_Phase20.txt); -Dminuten=60.">
+        <property name="platform.java" value="java"/>
+        <property name="minuten" value="60"/>
+        <property name="qualitaet" value="MITTEL"/>
+        <java classname="com.dan.lituya.tools.Dauerlauf" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="false" resultproperty="dauerlauf.ergebnis"
+              output="docs/status/dauerlauf_Phase${lituya.phase}.txt" logError="true">
+            <jvmarg value="-Dstdout.encoding=UTF-8"/>
+            <jvmarg value="--enable-native-access=ALL-UNNAMED"/>
+            <jvmarg value="-Xmx8g"/>
+            <jvmarg value="-Dminuten=${minuten}"/>
+            <jvmarg value="-Dqualitaet=${qualitaet}"/>
+            <classpath><pathelement path="${run.classpath}"/></classpath>
+        </java>
+        <loadfile property="dauerlauf.text" srcFile="docs/status/dauerlauf_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${dauerlauf.text}"/>
+        <fail message="Dauerlauf nicht bestanden (siehe oben)"><condition><not><equals arg1="${dauerlauf.ergebnis}" arg2="0"/></not></condition></fail>
     </target>
 </project>

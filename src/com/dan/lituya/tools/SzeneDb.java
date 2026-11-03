@@ -52,7 +52,7 @@ public final class SzeneDb {
     public static final String[] TABELLEN = {"LB_QUELLE", "LB_BEFUND", "LB_BEFUND_QUELLE", "LB_ZEUGE", "LB_BOOT", "LB_BOOT_LAGE", "LB_BOOT_BAHN", "LB_EREIGNIS_LAUF",
             "LB_SZENARIO", "LB_SZENARIO_SCHRITT", "LB_KAMERA_FAHRT", "LB_SCHNAPPSCHUSS", "LB_SITZUNG", "LB_TEXTUR"};
     public static final String[] SICHTEN = {"LB_V_BEFUND", "LB_V_BEFUND_ART", "LB_V_ZEUGE", "LB_V_BOOT_BAHN", "LB_V_SCHNAPPSCHUSS", "LB_V_LAUF_VERGLEICH", "LB_V_SITZUNG"};
-    public static final String[] SKRIPTE = {"01_belege.sql", "02_boote_laeufe.sql", "03_regie_bilder.sql", "04_sitzung_texturen.sql", "05_sichten.sql", "99_abbau.sql"};
+    public static final String[] SKRIPTE = {"01_belege.sql", "02_boote_laeufe.sql", "03_regie_bilder.sql", "04_sitzung_texturen.sql", "05_sichten.sql", "06_phase19a.sql", "99_abbau.sql"};
 
     static void log(String f, Object... a) {
         String s = a.length == 0 ? f : String.format(Locale.GERMAN, f, a);
@@ -81,6 +81,7 @@ public final class SzeneDb {
                         for (int i = 0; i < 4; i++) NetzDb.skript(c, new File(sql, SKRIPTE[i]), true);
                     } else log("Tabellen da: angelegt wird nichts (neu mit -Dneu=ja)");
                     NetzDb.skript(c, new File(sql, "05_sichten.sql"), true);
+                    NetzDb.skript(c, new File(sql, "06_phase19a.sql"), true);
                     laden(c, daten);
                     log("geladen in %.1f s", (System.nanoTime() - t0) / 1e9);
                 }
@@ -99,29 +100,12 @@ public final class SzeneDb {
 
     // ------------------------------------------------------------------ mitgelieferte Tabellen
 
-    /** Eine mitgelieferte Tabelle aus com/dan/lituya/data: Zeilen ohne #, Felder mit Tab (leere Felder bleiben). */
-    public static List<String[]> tsv(String name) throws IOException {
-        try (InputStream in = Verbindung.class.getResourceAsStream(name)) {
-            if (in == null) throw new IOException("data/" + name + " fehlt im Build");
-            List<String[]> l = new ArrayList<>();
-            for (String z : new String(in.readAllBytes(), StandardCharsets.UTF_8).split("\\R")) if (!z.isBlank() && !z.startsWith("#")) l.add(z.split("\t", -1));
-            return l;
-        }
-    }
+    /** Eine mitgelieferte Tabelle aus com/dan/lituya/data (siehe {@link com.dan.lituya.data.Mitgeliefert}). */
+    public static List<String[]> tsv(String name) throws IOException { return com.dan.lituya.data.Mitgeliefert.tsv(name); }
 
-    /** Ort aus Name (Site) oder „E N“; null ohne. */
-    public static double[] ort(String s) {
-        if (s == null || s.isBlank()) return null;
-        String[] p = s.trim().split("\\s+");
-        if (p.length == 2) try { return new double[]{Double.parseDouble(p[0]), Double.parseDouble(p[1])}; } catch (NumberFormatException e) { /* Name */ }
-        Site.Ort o = Site.byName(s.trim());
-        return o == null ? null : new double[]{o.e(), o.n()};
-    }
+    public static double[] ort(String s) { return com.dan.lituya.data.Mitgeliefert.ort(s); }
 
-    static double zahl(String s) {
-        if (s == null || s.isBlank()) return Double.NaN;
-        try { return Double.parseDouble(s.trim()); } catch (NumberFormatException e) { return Double.NaN; }
-    }
+    static double zahl(String s) { return com.dan.lituya.data.Mitgeliefert.zahl(s); }
 
     static void laden(Connection c, File daten) throws Exception {
         Map<String, Long> q = quellen(c);
