@@ -48,7 +48,7 @@ public final class ControlPanel extends JPanel implements javax.swing.Scrollable
     private final SceneClock clock;
     private final JLabel dateLbl = label(""), timeLbl = label(""), simLbl = label(""), sunLbl = small(""), camLbl = small(""), perfLbl = small(""),
             computeLbl = small(""), glLbl = small(""), physLbl = small(""), hudLbl = small(""), scaleLbl = label(""), qualLbl = small(""), pkgLbl = small(""),
-            dbLbl = small(""), lodLbl = small(""), datenLbl = small(""), standLbl = small(""), netzLbl = small("");
+            dbLbl = small(""), lodLbl = small(""), datenLbl = small(""), standLbl = small(""), netzLbl = small(""), regieLbl = small("");
     private final FSlider time = new FSlider(0, 24 * 60 - 1, (int) (SceneClock.START_HOUR * 60)), scaleSl = new FSlider(50, 100, 85), expSl = new FSlider(-30, 30, 0);
     private final FCheckBox free = new FCheckBox("Frei fliegen (F)"), orbit = new FCheckBox("Von selbst kreisen (R)"),
             marks = new FCheckBox("Marken (UTM-Raster, Kern, Szene, Fern, Orte)"), autoBox = new FCheckBox("Auflösung selbst regeln"),
@@ -411,8 +411,28 @@ public final class ControlPanel extends JPanel implements javax.swing.Scrollable
         put(small("<html><body style='width:215px'>Kommt mit Phase 5a und 18: Sommerabend 1958 nach ERA5 und Zeugen, für „heute“ Regen, "
                 + "Nebel, Herbststurm, Winter; Polarlicht nur „heute“ (F35 A).</body></html>"));
         block("REGIEBÜCHER", false);
-        put(small("<html><body style='width:215px'>Kommt mit Phase 17: „Die Nacht der Welle“, „Zehn Minuten“, „Die drei Boote“, "
-                + "„68 Jahre“, „Die Bucht der Wellen“; im Kinomodus aus com.dan.kino.</body></html>"));
+        // Phase 17a: die fünf Regiebücher, im Kino oder im Fenster
+        java.util.List<com.dan.lituya.scene.Regie.Book> buecher;
+        try { buecher = com.dan.lituya.scene.Regie.all(); } catch (RuntimeException ex) { buecher = java.util.List.of(); put(small("Regiebücher nicht lesbar: " + ex.getMessage())); }
+        FComboBox buchBox = new FComboBox(buecher.toArray());
+        buchBox.setToolTipText("Die fünf Regiebücher (Werkbuch 11.3); der Text liegt in com/dan/lituya/scene/regie");
+        put(buchBox);
+        JPanel rb = grid(2);
+        FButton kinoB = new FButton("Im Kino"), fensterB = new FButton("Im Fenster"), haltB = new FButton("Anhalten");
+        kinoB.setToolTipText("Vollbild ohne Bedienfeld, Balken 2,39 : 1, Vor- und Abspann, Untertitel; Esc: zurück ins Fenster, Leertaste: anhalten");
+        fensterB.setToolTipText("Das Regiebuch im Fenster mit HUD; am Ende das Blatt mit den Fotos in docs/status");
+        kinoB.addActionListener(e -> { if (buchBox.getSelectedItem() instanceof com.dan.lituya.scene.Regie.Book b) r.imBild(() -> r.kinoStart(b)); view.requestFocusInWindow(); });
+        fensterB.addActionListener(e -> { if (buchBox.getSelectedItem() instanceof com.dan.lituya.scene.Regie.Book b) r.imBild(() -> r.regieStart(b)); view.requestFocusInWindow(); });
+        haltB.addActionListener(e -> { r.imBild(r::regieStop); view.requestFocusInWindow(); });
+        rb.add(kinoB); rb.add(fensterB);
+        put(rb);
+        JPanel rb2 = grid(1);
+        rb2.add(haltB);
+        put(rb2);
+        put(regieLbl);
+        put(small("<html><body style='width:215px'>„Zehn Minuten“, „Die drei Boote“, „Die Nacht der Welle“, „68 Jahre“, „Die Bucht der Wellen“ "
+                + "(Phase 17a). Fahrten aus LB_NET_SICHT, Mitfahrt auf den Booten, Netzblick im Kino; die früheren Wellen der Bucht in Echtzeit "
+                + "nachgerechnet [G]. Ganz ohne Fenster: ant regiebuecher.</body></html>"));
 
         // ============================================================== DATEN
         block("DATEN", false);
@@ -614,6 +634,7 @@ public final class ControlPanel extends JPanel implements javax.swing.Scrollable
         txt(lodLbl, "<html><body style='width:215px'>Netze (LOD): " + esc(Lod.stand()) + "<br>" + esc(lodProbe) + "</body></html>");
         txt(datenLbl, "<html><body style='width:215px'>" + esc(Startbild.datenZeile()) + "</body></html>");
         txt(netzLbl, "<html><body style='width:215px'>" + esc(r.netzblick.stand()) + "</body></html>");
+        txt(regieLbl, "<html><body style='width:215px'>" + esc(r.regieLine()) + "</body></html>");
         StringBuilder h = new StringBuilder("<html><body style='width:215px'>");
         for (String l : r.hudLines()) h.append(esc(l.startsWith("!") ? l.substring(1) : l)).append("<br>");
         txt(hudLbl, h.append("</body></html>").toString());

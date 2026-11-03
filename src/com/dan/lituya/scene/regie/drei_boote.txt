@@ -1,0 +1,41 @@
+# Lituya Bay 1958 · Regiebuch (Phase 17a). Edrie (Howard Ulrich und sein Sohn), Badger (Bill und Vivian Swanson) und
+# Sunmore (Orville und Mickey Wagner) nach den Zeugen bei Miller (1960); Bahnen aus boote1958 (Lauf kette); die Flucht aus
+# LB_NET_SEE und LB_NET_WEG (Phasen 15a und 16b, Vorrechnung). Zeiten und Blicke gestaltet [G].
+Regiebuch: Die drei Boote
+Beschreibung: Edrie, Badger und Sunmore am Abend des 9. Juli 1958, je aus ihrer Sicht; am Ende: Wer hätte entkommen können?
+Länge: 6:00
+0:00 netzblick aus
+0:00 schaustueck 1 | 21:56 Uhr: drei Fischkutter liegen vor Anker in der Lituya Bay
+0:00 warte boote
+0:00 raffer 1
+0:14 foto Abend vor Anker
+0:20 mitfahrt edrie | Auf der Edrie: Howard Ulrich und sein siebenjähriger Sohn
+0:20 ereignis 60
+0:36 foto Im Steuerhaus der Edrie, eine Minute nach dem Stoß
+0:40 ereignis 150 | Ulrich lässt die Ankerkette laufen und dreht den Bug zur Welle
+0:40 raffer 0.5
+1:20 foto Die Edrie auf der Welle
+1:28 ereignis 230
+1:28 raffer 1
+1:45 mitfahrt aus
+1:45 schaustueck 9 | Neben der Badger: Bill und Vivian Swanson
+2:20 foto Neben der Badger
+2:30 ansicht Eingang | Die Sunmore der Wagners versucht, den Eingang zu erreichen
+2:30 ereignis 300
+2:30 raffer 1
+3:05 foto Am Eingang, wo die Sunmore verschwand
+3:12 zeitstand danach | Am Morgen danach: von der Sunmore und den Wagners findet man nichts
+3:12 ansicht Anchorage Cove
+3:32 foto Der Morgen danach in der Anchorage Cove
+3:40 ansicht Draufsicht | Wer hätte entkommen können? Die Wege an Land aus LB_NET_WEG
+3:40 ereignis 150
+3:40 netzblick weg
+3:40 raffer 25
+4:25 foto Flucht an Land mit der Uhr
+4:30 sage Über See hätte die Edrie gut vier Minuten vor dem Stoß ablegen müssen; die Badger wäre noch vier Minuten danach hinausgekommen
+4:52 sage An Land, zu Fuß über den Auflauf hinauf, wäre die Edrie bis gut drei Minuten nach dem Stoß sicher gewesen
+5:15 netzblick aus
+5:15 zeitstand vor
+5:15 ansicht Anchorage Cove
+5:40 foto Anchorage Cove
+5:55 blatt Die drei Boote

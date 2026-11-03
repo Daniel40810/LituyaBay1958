@@ -76,7 +76,7 @@
         lib/Renderer.jar alles hat, was LituyaBay1958 braucht (jedes gebrauchte Package mit Klassen und README, Java 21,
         von den 14 neuen die, deren Phase erreicht ist); abschalten mit -Dohne.paketpruefung=true.
     -->
-    <property name="lituya.phase" value="17"/>
+    <property name="lituya.phase" value="17a"/>
     <target name="check-packages" description="Prüft lib/Renderer.jar: die gebrauchten Packages mit README, Java 21, die fälligen neuen." unless="ohne.paketpruefung">
         <property name="platform.java" value="java"/>
         <exec executable="${platform.java}" dir="${basedir}" failonerror="true">
@@ -129,6 +129,7 @@
         <attribute name="fahrt" default=""/>
         <attribute name="fahrtanteil" default=""/>
         <attribute name="liste" default="netzbilder"/>
+        <attribute name="netzszene" default="an"/>
         <sequential>
             <java classname="com.dan.lituya.tools.Tempo" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="false" output="docs/status/@{liste}_Phase${lituya.phase}.txt" append="true" logError="true">
                 <jvmarg value="-Dstdout.encoding=UTF-8"/>
@@ -136,7 +137,7 @@
                 <jvmarg value="-Xmx6g"/>
                 <jvmarg value="-Dhud=voll"/>
                 <jvmarg value="-Dnetz=@{netz}"/>
-                <jvmarg value="-Dnetzszene=an"/>
+                <jvmarg value="-Dnetzszene=@{netzszene}"/>
                 <jvmarg value="-Dnetzblick=@{netzblick}"/>
                 <jvmarg value="-Dregen=@{regen}"/>
                 <jvmarg value="-Dansicht=@{ansicht}"/>
@@ -153,8 +154,8 @@
         <delete file="docs/status/netzbilder_Phase${lituya.phase}.txt" quiet="true"/>
         <netzbild name="Wasser" netz="wasser" ansicht="MudslideCreek" regen="10"/>
         <netzbild name="Weg" netz="weg" ansicht="AnchorageCove" ereignis="900"/>
-        <netzbild name="Baeche_0mm" netz="wasser" ansicht="GilbertInlet" netzblick="aus"/>
-        <netzbild name="Baeche_20mm" netz="wasser" ansicht="GilbertInlet" regen="20" netzblick="aus"/>
+        <netzbild name="Baeche_0mm" netz="wasser" ansicht="MudslideCreek" netzblick="aus" netzszene="aus"/>
+        <netzbild name="Baeche_20mm" netz="wasser" ansicht="MudslideCreek" regen="20" netzblick="aus" netzszene="aus"/>
     </target>
     <!-- Phase 17: sichtbilder: der Netzblick für LB_NET_SICHT und Standbilder auf dem Rundflug und der Kamerafahrt nach
          docs/status/Netzblick_Sicht*_Phase17.png, Zeiten in docs/status/sichtbilder_Phase17.txt. -->
@@ -165,6 +166,40 @@
         <netzbild name="Sicht_Rundflug_30" netz="sicht" ansicht="" fahrt="rundflug" fahrtanteil="0.3" liste="sichtbilder"/>
         <netzbild name="Sicht_Rundflug_70" netz="sicht" ansicht="" fahrt="rundflug" fahrtanteil="0.7" netzblick="aus" liste="sichtbilder"/>
         <netzbild name="Sicht_Kamerafahrt_50" netz="sicht" ansicht="" fahrt="kamerafahrt" fahrtanteil="0.5" liste="sichtbilder"/>
+    </target>
+    <!-- Phase 17a: regiebuecher: die fünf Regiebücher im Kino ohne Fenster ganz durchspielen (30 Bilder je Sekunde
+         Regiezeit), je ein Blatt mit den Fotos nach docs/status/Regiebuch_*.png, Zeiten in docs/status/regiebuecher_Phase17a.txt.
+         -Dbuch=Name spielt nur eins, -Dkino=aus im Fenster mit HUD. Auf der Radeon laufen lassen (zusammen gut 20 min). -->
+    <macrodef name="regiebuch">
+        <attribute name="buch"/>
+        <sequential>
+            <java classname="com.dan.lituya.tools.Tempo" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="false" output="docs/status/regiebuecher_Phase${lituya.phase}.txt" append="true" logError="true">
+                <jvmarg value="-Dstdout.encoding=UTF-8"/>
+                <jvmarg value="--enable-native-access=ALL-UNNAMED"/>
+                <jvmarg value="-Xmx8g"/>
+                <jvmarg value="-Dregiebuch=@{buch}"/>
+                <jvmarg value="-Dkino=${kino}"/>
+                <arg line="1 1920 1080 docs/status/Regiebuch.png MITTEL"/>
+                <classpath><pathelement path="${run.classpath}"/></classpath>
+            </java>
+        </sequential>
+    </macrodef>
+    <target name="regiebuecher" depends="jar" description="Phase 17a: die fünf Regiebücher im Kino durchspielen, je ein Blatt nach docs/status (Regiebuch_*.png).">
+        <property name="platform.java" value="java"/>
+        <property name="kino" value="an"/>
+        <property name="buch" value=""/>
+        <delete file="docs/status/regiebuecher_Phase${lituya.phase}.txt" quiet="true"/>
+        <condition property="nur.eins"><not><equals arg1="${buch}" arg2=""/></not></condition>
+        <antcall target="-regiebuch-eins"/>
+        <antcall target="-regiebuch-alle"/>
+    </target>
+    <target name="-regiebuch-eins" if="nur.eins"><regiebuch buch="${buch}"/></target>
+    <target name="-regiebuch-alle" unless="nur.eins">
+        <regiebuch buch="Zehn Minuten"/>
+        <regiebuch buch="Die drei Boote"/>
+        <regiebuch buch="Die Nacht der Welle"/>
+        <regiebuch buch="68 Jahre"/>
+        <regiebuch buch="Die Bucht der Wellen"/>
     </target>
     <!-- Phase 1 (F26 A, wie Timmendorf): den JDBC-Treiber 21 für LOD aus ORACLE_HOME\jdbc\lib nach lib/lod/ holen und im
          eigenen Klassenlader mit sdonm.jar probieren. Ohne ORACLE_HOME: ant lod -Dtreiber=C:\…\jdbc\lib\ojdbc11.jar -->
