@@ -25,14 +25,14 @@ import java.util.Set;
  * Phase 3: {@code herkunft} (das Herkunftsnetz nach {@code daten/netz/herkunft/}, {@link Herkunft}). Phase 5: {@code texturen}
  * (die CC0-Sätze aus {@code download/texturen} gebacken nach {@code daten/texturen/}, {@link Texturen}). Phase 7a:
  * {@code welle} und {@code ufer} (die Netze der Welle und des Ufers als Datei nach {@code daten/netz/welle/} und
- * {@code daten/netz/ufer/}, {@link Welle}, {@link Ufer}; brauchen nur {@code daten/grund}). Phase 16a: {@code klassen} (Geländeklassen nach {@code daten/klassen/}, {@link Klassen}) und {@code weg} ({@code LB_NET_WEG} nach {@code daten/netz/weg/}, {@link Weg}; braucht {@code klassen}). Phase 16: {@code wasser} ({@code LB_NET_WASSER} als Datei nach {@code daten/netz/wasser/}, {@link Wasser}; braucht das Gelände der Szene, RGI 7 und ITS_LIVE). Phase 14a: {@code wald} (Kronenhöhe ArcticDEM − Gelände und Abgleich der Wiederbewaldung nach {@code daten/wald/}, {@link Wald}). Phase 8: {@code stoerung} (Fairweather-Störung aus Qfaults
+ * {@code daten/netz/ufer/}, {@link Welle}, {@link Ufer}; brauchen nur {@code daten/grund}). Phase 16b: {@code landflucht} (Flucht an Land nach {@code daten/netz/weg/}, {@link Landflucht}; braucht see, weg und den Lauf kette). Phase 16a: {@code klassen} (Geländeklassen nach {@code daten/klassen/}, {@link Klassen}) und {@code weg} ({@code LB_NET_WEG} nach {@code daten/netz/weg/}, {@link Weg}; braucht {@code klassen}). Phase 16: {@code wasser} ({@code LB_NET_WASSER} als Datei nach {@code daten/netz/wasser/}, {@link Wasser}; braucht das Gelände der Szene, RGI 7 und ITS_LIVE). Phase 14a: {@code wald} (Kronenhöhe ArcticDEM − Gelände und Abgleich der Wiederbewaldung nach {@code daten/wald/}, {@link Wald}). Phase 8: {@code stoerung} (Fairweather-Störung aus Qfaults
  * und Herd aus ComCat nach {@code daten/ereignis/}, {@link Stoerung}). Später: {@code rueckbau1958}, {@code spurlinie} (brauchen die von Hand eingepassten Karten 1951/C-5 und die
  * Miller-Karte), {@code klassen}, {@code wald}, {@code gletscher}, die übrigen räumlichen Netze, {@code ereignis} (Phase 13).
  */
 public final class Aufbereitung {
     private Aufbereitung() { }
 
-    public static final String[] SCHRITTE = {"gelaende", "grund", "namen", "welle", "ufer", "see", "wasser", "stoerung", "texturen", "herkunft", "wald", "klassen", "weg", "bilder", "inhalt"};
+    public static final String[] SCHRITTE = {"gelaende", "grund", "namen", "welle", "ufer", "see", "wasser", "stoerung", "texturen", "herkunft", "wald", "klassen", "weg", "landflucht", "bilder", "inhalt"};
 
     public static void main(String[] a) throws Exception {
         File daten = new File(System.getProperty("lituya.daten", "daten"));
@@ -68,6 +68,7 @@ public final class Aufbereitung {
             if (s.contains("wald")) { r.log("--- wald"); Wald.rechnen(r); }
             if (s.contains("klassen")) { r.log("--- klassen"); Klassen.rechnen(r); }
             if (s.contains("weg")) { r.log("--- weg"); Weg.rechnen(r); }
+            if (s.contains("landflucht")) { r.log("--- landflucht"); Landflucht.rechnen(r); }
             if (s.contains("bilder")) { r.log("--- bilder"); Pruefbilder.alle(daten, new File("docs/status"), r); }
             if (s.contains("inhalt")) { r.log("--- inhalt"); inhalt(r); }
             r.log("=== fertig in %.1f min", (System.nanoTime() - t0) / 60e9);

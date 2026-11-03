@@ -100,6 +100,87 @@ public final class WegDb {
     /** Ergebnis der Zweitrechnung. */
     public record Vergleich(boolean ok, String text) { }
 
+    /**
+     * {@code ant wegdb} (Phase 16b): 97_weg_abbau, Laden (11, 12), Flucht an Land, Prüfung. Braucht das Schema aus
+     * {@code ant netzdb} (LB_NETZ_STAND, LB_PROBE_SETZEN).
+     */
+    public static boolean alles(Connection c, File daten, File sql, String url, String user, String pw, Welle.Log log) throws Exception {
+        if (!"1".equals(Db.einWert(c, "SELECT COUNT(*) FROM USER_TABLES WHERE TABLE_NAME = 'LB_NETZ_STAND'")))
+            throw new IllegalStateException("kein Schema der Netze (LB_NETZ_STAND fehlt): erst ant netzdb");
+        if (!WegNetz.da(daten)) throw new IllegalStateException("daten/netz/weg fehlt: ant aufbereitung -Dschritte=klassen+weg+landflucht");
+        c.setAutoCommit(false);
+        long t0 = System.nanoTime();
+        NetzDb.skript(c, new File(sql, "97_weg_abbau.sql"), false);
+        laden(c, daten, sql, log);
+        landfluchtLaden(c, daten, log);
+        boolean ok = pruefen(c, daten, url, user, pw, log);
+        log.log("wegdb zusammen %.1f min", (System.nanoTime() - t0) / 60e9);
+        return ok;
+    }
+
+    /** LB_LANDFLUCHT aus landflucht.tsv, die Landwege der spätesten Abfahrt in LB_WEG_ROUTE (LANDFLUCHT_EDRIE, …). */
+    static void landfluchtLaden(Connection c, File daten, Welle.Log log) throws Exception {
+        File d = new File(daten, WegNetz.ORDNER);
+        if (!new File(d, "landflucht.tsv").isFile()) { log.log("Hinweis: landflucht.tsv fehlt (ant aufbereitung -Dschritte=landflucht), LB_LANDFLUCHT leer"); return; }
+        int n = 0;
+        try (PreparedStatement p = c.prepareStatement("INSERT INTO LB_LANDFLUCHT (BOOT, ABFAHRT_S, GERETTET, SPAETESTE, SEE_NODE_ID, WEG_NODE_ID, AN_LAND_S, SICHER_NODE_ID, SICHER_S, HOEHE, RESERVE_S) "
+                + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")) {
+            for (String[] z : WellenNetz.tsv(new File(d, "landflucht.tsv"))) {
+                boolean sp = z[0].endsWith("*");
+                p.setString(1, sp ? z[0].substring(0, z[0].length() - 1) : z[0]);
+                p.setDouble(2, Double.parseDouble(z[1]));
+                p.setString(3, z[2]);
+                p.setString(4, sp ? "J" : "N");
+                for (int i = 3; i <= 9; i++) {
+                    String v = z.length > i ? z[i] : "";
+                    if (v.isEmpty() || v.contains("Inf")) p.setNull(i + 2, java.sql.Types.NUMERIC); else p.setDouble(i + 2, Double.parseDouble(v));
+                }
+                p.addBatch();
+                n++;
+            }
+            p.executeBatch();
+        }
+        int np = 0;
+        try (PreparedStatement p = c.prepareStatement("INSERT INTO LB_WEG_ROUTE (ROUTE, SEQ, NODE_ID, HOEHE, ZEIT_S, KLASSE, WEGPUNKT, PUNKT) VALUES (?, ?, ?, ?, ?, NULL, ?, "
+                + "SDO_GEOMETRY(3001, 26908, SDO_POINT_TYPE(?, ?, ?), NULL, NULL))")) {
+            File lw = new File(d, "landwege.tsv");
+            if (lw.isFile())
+                for (String[] z : WellenNetz.tsv(lw)) {
+                    if (!z[3].equals("WEG")) continue;
+                    p.setString(1, "LANDFLUCHT_" + z[0].toUpperCase(Locale.ROOT));
+                    p.setInt(2, Integer.parseInt(z[2]));
+                    p.setLong(3, Long.parseLong(z[4]));
+                    p.setDouble(4, Double.parseDouble(z[7]));
+                    p.setDouble(5, Double.parseDouble(z[8]));
+                    p.setString(6, "Abfahrt " + z[1] + " s");
+                    p.setDouble(7, Double.parseDouble(z[5]));
+                    p.setDouble(8, Double.parseDouble(z[6]));
+                    p.setDouble(9, Double.parseDouble(z[7]));
+                    p.addBatch();
+                    np++;
+                }
+            p.executeBatch();
+        }
+        c.commit();
+        log.log("geladen: LB_LANDFLUCHT %d Zeilen, Landwege %d Punkte in LB_WEG_ROUTE", n, np);
+    }
+
+    /** Nach ant netzdb (das LB_NETZ_STAND neu anlegt): der Eintrag für LB_NET_WEG, wenn das Netz aus ant wegdb noch in Oracle steht. */
+    public static void standNachtragen(Connection c, File daten, Welle.Log log) throws Exception {
+        if (!"1".equals(Db.einWert(c, "SELECT COUNT(*) FROM USER_SDO_NETWORK_METADATA WHERE NETWORK = '" + WEG + "'"))) {
+            log.log("Hinweis: LB_NET_WEG nicht in Oracle (ant wegdb lädt es)");
+            return;
+        }
+        File t = new File(new File(daten, WegNetz.ORDNER), "WEG.txt");
+        if (!t.isFile()) return;
+        WegNetz w = new WegNetz();
+        w.text = java.nio.file.Files.readString(t.toPath());
+        String kn = Db.einWert(c, "SELECT COUNT(*) FROM " + WEG + "_NODE$");
+        WelleDb.stand(c, WEG, "Weg (Werkbuch 7.5): Tobler mit Zuschlag je Klasse, gerichtet, Kern 10 m und Szene 50 m", Long.parseLong(kn), Long.parseLong(w.wert("kanten")),
+                w.wert("pruefsumme"), "daten/" + WegNetz.ORDNER, "aus ant wegdb (stehen geblieben)");
+        log.log("LB_NET_WEG steht aus ant wegdb: %s Knoten in Oracle (Datei %s), Eintrag in LB_NETZ_STAND nachgetragen", kn, w.wert("knoten"));
+    }
+
     /** Start (Anchorage Cove, Ebene 1) und Wegpunkte (Washburn, Ebene 2) aus WEG.txt und washburn.tsv (Indizes). */
     static int[] fragen(WegNetz w, File daten) throws Exception {
         String s = w.wert("start.badger");
@@ -201,6 +282,94 @@ public final class WegDb {
                 r[4], gleich, dmax, anders, b, java.util.Arrays.toString(java.util.Arrays.stream(k3).map(x -> Math.round(x)).toArray())));
     }
 
+    /**
+     * Phase 16b: der Landweg der Flucht an Land – je Boot die Abfahrt 0 s und die späteste – mit LOD (withinCost mit
+     * Frontbedingung vom Landeplatz) gegen {@link Landflucht#sicherAb}. url null: im Speicher auf dem Kern um die Landeplätze
+     * (±2,5 km), sonst in Oracle.
+     */
+    public static Vergleich landfluchtGegenLod(WegNetz w, File daten, String url, String user, String pw, URL klassen) throws Exception {
+        Landflucht.Feld fd = Landflucht.feld(daten, "kette", Klassen.gelaende(daten, Klassen.KERN));
+        boolean[] sicher = new boolean[w.n];
+        double[] fw = Landflucht.frontJeKnoten(w, fd, sicher);
+        List<int[]> st = new ArrayList<>();
+        List<Double> zt = new ArrayList<>();
+        for (String[] z : WellenNetz.tsv(new File(new File(daten, WegNetz.ORDNER), "landflucht.tsv")))
+            if (z[2].equals("J") && (z[1].equals("0") || z[0].endsWith("*"))) { st.add(new int[]{Integer.parseInt(z[4]) - 1}); zt.add(Double.parseDouble(z[5])); }
+        if (st.isEmpty()) return new Vergleich(false, "landflucht.tsv ohne gerettete Flucht");
+        int[] s0 = st.stream().mapToInt(x -> x[0]).toArray();
+        WegNetz u = w;
+        int[] alt = null;
+        long[] knoten = null, von = null, nach = null;
+        double[] cost = null;
+        if (url == null) {
+            double emin = 1e18, emax = -1e18, nmin = 1e18, nmax = -1e18;
+            for (int k : s0) { emin = Math.min(emin, w.ost(k)); emax = Math.max(emax, w.ost(k)); nmin = Math.min(nmin, w.nord(k)); nmax = Math.max(nmax, w.nord(k)); }
+            boolean[] in = new boolean[w.n];
+            int ni = 0;
+            for (int k = 0; k < w.n; k++) {
+                in[k] = w.ebene[k] == 1 && w.ost(k) >= emin - 2500 && w.ost(k) <= emax + 2500 && w.nord(k) >= nmin - 2500 && w.nord(k) <= nmax + 2500;
+                if (in[k]) ni++;
+            }
+            int[] neu = new int[w.n];
+            java.util.Arrays.fill(neu, -1);
+            alt = new int[ni];
+            int q = 0;
+            for (int k = 0; k < w.n; k++) if (in[k]) { neu[k] = q; alt[q++] = k; }
+            int mi = 0;
+            for (int e = 0; e < w.m; e++) if (in[w.von[e]] && in[w.nach[e]]) mi++;
+            u = new WegNetz();
+            u.n = ni; u.m = mi;
+            u.ebene = new byte[ni]; u.klasse = new byte[ni]; u.zelle = new int[ni]; u.hoehe = new float[ni]; u.parent = new int[ni];
+            for (int k = 0; k < ni; k++) { int o = alt[k]; u.ebene[k] = w.ebene[o]; u.zelle[k] = w.zelle[o]; u.klasse[k] = w.klasse[o]; u.hoehe[k] = w.hoehe[o]; u.parent[k] = -1; }
+            u.von = new int[mi]; u.nach = new int[mi]; u.cost = new float[mi];
+            von = new long[mi]; nach = new long[mi]; cost = new double[mi];
+            int j = 0;
+            for (int e = 0; e < w.m; e++) if (in[w.von[e]] && in[w.nach[e]]) {
+                u.von[j] = neu[w.von[e]]; u.nach[j] = neu[w.nach[e]]; u.cost[j] = w.cost[e];
+                von[j] = u.von[j] + 1L; nach[j] = u.nach[j] + 1L; cost[j] = w.cost[e];
+                j++;
+            }
+            u.index();
+            knoten = new long[ni];
+            for (int k = 0; k < ni; k++) knoten[k] = k + 1L;
+            double[] f2 = new double[ni];
+            boolean[] s2 = new boolean[ni];
+            for (int k = 0; k < ni; k++) { f2[k] = fw[alt[k]]; s2[k] = sicher[alt[k]]; }
+            fw = f2;
+            sicher = s2;
+            for (int i = 0; i < s0.length; i++) s0[i] = neu[s0[i]];
+        }
+        double[] frontId = new double[u.n + 1];
+        boolean[] sicherId = new boolean[u.n + 1];
+        frontId[0] = Double.NaN;
+        for (int k = 0; k < u.n; k++) { frontId[k + 1] = fw[k]; sicherId[k + 1] = sicher[k]; }
+        long[] starts = new long[s0.length];
+        double[] zeiten = new double[s0.length];
+        for (int i = 0; i < s0.length; i++) { starts[i] = s0[i] + 1L; zeiten[i] = zt.get(i); }
+        Object[] r;
+        try (URLClassLoader cl = com.dan.lituya.netz.Lod.lader(klassen)) {
+            Class<?> k = Class.forName("com.dan.lituya.netz.WegLod", true, cl);
+            Method mm = k.getMethod("landflucht", String.class, String.class, String.class, long[].class, long[].class, long[].class, double[].class, long[].class, double[].class,
+                    double[].class, boolean[].class, double.class);
+            r = (Object[]) mm.invoke(null, url, user, pw, knoten, von, nach, cost, starts, zeiten, frontId, sicherId, Landflucht.LAND_MAX_S);
+        }
+        double[] tl = (double[]) r[0];
+        double dmax = 0;
+        boolean ok = true;
+        StringBuilder b = new StringBuilder();
+        for (int i = 0; i < s0.length; i++) {
+            double[] e = Landflucht.sicherAb(u, s0[i], zeiten[i], fw, sicher, Landflucht.LAND_MAX_S);
+            ok &= !Double.isNaN(e[0]) && !Double.isNaN(tl[i]);
+            dmax = Math.max(dmax, Math.abs(e[0] - tl[i]));
+            b.append(String.format(Locale.GERMAN, "%.0f/%.0f s; ", e[0], tl[i]));
+        }
+        ok &= dmax <= 0.05;
+        return new Vergleich(ok, String.format(Locale.GERMAN, "%s; sicher nach (eigen/LOD) %sbis %.3f s gleich", r[2], b, dmax));
+    }
+
+    /** Die Zweitrechnung des Landwegs im Speicher (ohne Oracle; Prüfung). */
+    public static Vergleich landfluchtImSpeicher(WegNetz w, File daten) throws Exception { return landfluchtGegenLod(w, daten, null, null, null, NetzDb.klassen()); }
+
     /** Die Zweitrechnung im Speicher (ohne Oracle; Prüfung). */
     public static Vergleich lodImSpeicher(WegNetz w, File daten) throws Exception { return lodGegenDatei(w, daten, null, null, null, NetzDb.klassen()); }
 
@@ -217,11 +386,21 @@ public final class WegDb {
             vg = new Vergleich(false, "LOD in Oracle: " + NetzDb.ursache(e));
         }
         log.log("Zweitrechnung Weg: %s – %s", vg.ok() ? "LOD = Datei" : "LOD ≠ Datei", vg.text());
+        Vergleich vl = null;
+        if (new File(new File(daten, WegNetz.ORDNER), "landflucht.tsv").isFile()) {
+            try {
+                vl = landfluchtGegenLod(w, daten, url, user, pw, NetzDb.klassen());
+            } catch (Exception e) {
+                vl = new Vergleich(false, "LOD in Oracle: " + NetzDb.ursache(e));
+            }
+            log.log("Zweitrechnung Flucht an Land: %s – %s", vl.ok() ? "LOD = Datei" : "LOD ≠ Datei", vl.text());
+            log.log("LB_LANDFLUCHT: %s Zeilen, davon gerettet %s", Db.einWert(c, "SELECT COUNT(*) FROM LB_LANDFLUCHT"), Db.einWert(c, "SELECT COUNT(*) FROM LB_LANDFLUCHT WHERE GERETTET = 'J'"));
+        }
         String kl = Db.einWert(c, "SELECT COUNT(*) FROM LB_V_WEG_KLASSE");
         String um = Db.einWert(c, "SELECT COUNT(*) FROM LB_WEG_UMSTIEG"), ro = Db.einWert(c, "SELECT COUNT(*) FROM LB_WEG_ROUTE");
         log.log("LB_V_WEG_KLASSE %s Zeilen, LB_WEG_UMSTIEG %s, LB_WEG_ROUTE %s Punkte", kl, um, ro);
         WelleDb.stand(c, WEG, "Weg (Werkbuch 7.5): Tobler mit Zuschlag je Klasse, gerichtet, Kern 10 m und Szene 50 m", w.n, w.m, WegNetz.pruefsumme(daten), "daten/" + WegNetz.ORDNER,
-                "VALIDATE " + v + "; LOD = Datei " + (vg.ok() ? "ok" : "FEHLER"));
-        return "TRUE".equalsIgnoreCase(v) && vg.ok();
+                "VALIDATE " + v + "; LOD = Datei " + (vg.ok() ? "ok" : "FEHLER") + (vl == null ? "" : "; Landflucht " + (vl.ok() ? "ok" : "FEHLER")));
+        return "TRUE".equalsIgnoreCase(v) && vg.ok() && (vl == null || vl.ok());
     }
 }

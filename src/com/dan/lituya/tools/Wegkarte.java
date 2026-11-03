@@ -41,7 +41,7 @@ public final class Wegkarte {
         float[] zeit = Stufe.lesen(new File(new File(daten, WegNetz.ORDNER), "zeit_kern_10m.r32"));
         WegNetz w = new WegNetz();
         w.text = java.nio.file.Files.readString(new File(new File(daten, WegNetz.ORDNER), "WEG.txt").toPath());
-        int H1 = s.h(), kw = k.w() / 2, kh = k.h() / 2, tafel = 190, W = s.w();
+        int H1 = s.h(), kw = k.w() / 2, kh = k.h() / 2, tafel = 230, W = s.w();
         BufferedImage im = new BufferedImage(W, H1 + kh + tafel, BufferedImage.TYPE_INT_RGB);
         // Szene
         for (int j = 0; j < s.h(); j++)
@@ -95,6 +95,25 @@ public final class Wegkarte {
                 g.setColor(Color.WHITE);
                 g.drawString(z[7], x + 7, y - 6);
             }
+        // Phase 16b: die Wege der spätesten Flucht an Land im Kern (Fahrwasser gestrichelt, zu Fuß durchgezogen)
+        File lw = new File(new File(daten, WegNetz.ORDNER), "landwege.tsv");
+        if (lw.isFile()) {
+            java.util.Map<String, Path2D[]> pf = new java.util.LinkedHashMap<>();
+            for (String[] z : WellenNetz.tsv(lw)) {
+                Path2D[] pp = pf.computeIfAbsent(z[0], q -> new Path2D[]{new Path2D.Double(), new Path2D.Double()});
+                int art = z[3].equals("SEE") ? 0 : 1;
+                double x = ox + (Double.parseDouble(z[5]) - k.e0()) / (2 * k.zelle()), y = H1 + (k.n0() - Double.parseDouble(z[6])) / (2 * k.zelle());
+                if (pp[art].getCurrentPoint() == null) { pp[art].moveTo(x, y); if (art == 1 && pp[0].getCurrentPoint() != null) pp[0].lineTo(x, y); } else pp[art].lineTo(x, y);
+            }
+            for (var en : pf.entrySet()) {
+                Color c = en.getKey().equals("Edrie") ? new Color(255, 200, 90) : new Color(120, 200, 255);
+                g.setColor(c);
+                g.setStroke(new BasicStroke(2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND, 1, new float[]{5, 4}, 0));
+                g.draw(en.getValue()[0]);
+                g.setStroke(new BasicStroke(3f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                g.draw(en.getValue()[1]);
+            }
+        }
         g.setColor(INK);
         g.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 13));
         g.drawString("Kern (gestrichelt, darunter vergrößert): Gehzeit von den Landeplätzen, Bänder zu 15 min bis 1 h", 12, H1 + 18);
@@ -103,8 +122,12 @@ public final class Wegkarte {
         g.drawString("LB_NET_WEG: Wie weit in einer Stunde vom Strand? Wie kam Washburn 1934 auf den Mount Crillon?", 14, H1 + kh + 26);
         g.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 13));
         int yy = H1 + kh + 50;
-        for (String[] z : new String[][]{{"stunde.badger", "1 h Anchorage Cove"}, {"stunde.edrie", "1 h Edrie (Südufer)"}, {"washburn", "Washburn 1934"}}) {
-            String v = w.wert(z[0]);
+        WegNetz lfx = new WegNetz();
+        File lft = new File(new File(daten, WegNetz.ORDNER), "LANDFLUCHT.txt");
+        if (lft.isFile()) lfx.text = java.nio.file.Files.readString(lft.toPath());
+        for (String[] z : new String[][]{{"stunde.badger", "1 h Anchorage Cove"}, {"stunde.edrie", "1 h Edrie (Südufer)"}, {"washburn", "Washburn 1934"},
+                {"=landflucht.edrie.text", "an Land: Edrie"}, {"=landflucht.badger.text", "an Land: Badger"}}) {
+            String v = z[0].startsWith("=") ? lfx.wert(z[0].substring(1)) : w.wert(z[0]);
             g.setColor(INK);
             g.drawString(String.format("%-20s %s", z[1], v == null ? "–" : v), 14, yy);
             yy += 18;

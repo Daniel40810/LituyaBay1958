@@ -916,6 +916,37 @@ public final class Pruefung {
                 com.dan.lituya.tools.WegDb.Vergleich vw = com.dan.lituya.tools.WegDb.lodImSpeicher(wg, daten);
                 check(vw.ok(), "LOD = eigener Dijkstra: " + vw.text());
                 System.out.println("    " + com.dan.lituya.scene.WegNetz.zeile(daten));
+                // Phase 16b: Flucht an Land
+                float[] gm = {1, 5, 2, 0, 0, 7, 3};
+                float[] go = new float[gm.length];
+                com.dan.lituya.tools.Landflucht.gleitMax(gm, 0, 1, gm.length, 1, go);
+                check(java.util.Arrays.equals(go, new float[]{5, 5, 5, 2, 7, 7, 7}), "Landflucht: gleitendes Maximum über ±1 Zelle " + java.util.Arrays.toString(go));
+                File lf = new File(new File(daten, com.dan.lituya.scene.WegNetz.ORDNER), "landflucht.tsv");
+                if (!lf.isFile()) hinweis("daten/netz/weg/landflucht.tsv fehlt: ant aufbereitung -Dschritte=landflucht");
+                else if (!new File(com.dan.lituya.scene.EreignisDaten.ordner(daten, "kette"), "max_g0.r32").isFile()) hinweis("Lauf kette fehlt (ant ereignis -Dlauf=kette): Flucht an Land nicht nachgerechnet");
+                else {
+                    com.dan.lituya.scene.SeeNetz sn = com.dan.lituya.scene.SeeNetz.lesen(daten);
+                    com.dan.lituya.tools.Landflucht.Feld lfd = com.dan.lituya.tools.Landflucht.feld(daten, "kette", com.dan.lituya.tools.Klassen.gelaende(daten, com.dan.lituya.tools.Klassen.KERN));
+                    boolean[] lsi = new boolean[wg.n];
+                    double[] lfw = com.dan.lituya.tools.Landflucht.frontJeKnoten(wg, lfd, lsi);
+                    int[][] lum = com.dan.lituya.tools.Landflucht.umstieg(daten);
+                    int gleichL = 0, alleL = 0;
+                    double dL = 0;
+                    for (String[] lz : com.dan.lituya.scene.WellenNetz.tsv(lf)) {
+                        if (lz[0].endsWith("*") || !(lz[1].equals("0") || lz[1].equals("90") || lz[1].equals("180"))) continue;
+                        Object[] pl = lz[0].equals("Edrie") ? com.dan.lituya.scene.SeeNetz.PLAETZE[0] : com.dan.lituya.scene.SeeNetz.PLAETZE[1];
+                        com.dan.lituya.tools.Landflucht.Ergebnis le = com.dan.lituya.tools.Landflucht.flucht(sn, sn.knotenBei((double) pl[1], (double) pl[2]), Double.parseDouble(lz[1]),
+                                com.dan.lituya.scene.SeeNetz.stromTabelle(), wg, lum, lfw, lsi);
+                        alleL++;
+                        boolean gl = le.gerettet() == lz[2].equals("J") && (!le.gerettet() || Math.abs(le.sicher() - Double.parseDouble(lz[7])) < 0.2);
+                        if (gl) gleichL++;
+                        if (le.gerettet()) dL = Math.max(dL, Math.abs(le.sicher() - Double.parseDouble(lz[7])));
+                    }
+                    check(alleL == 6 && gleichL == alleL, f("Flucht an Land nachgerechnet (Edrie, Badger bei 0, 90, 180 s): %d von %d wie landflucht.tsv, bis %.2f s", gleichL, alleL, dL));
+                    com.dan.lituya.tools.WegDb.Vergleich vlf = com.dan.lituya.tools.WegDb.landfluchtImSpeicher(wg, daten);
+                    check(vlf.ok(), "Landweg: LOD (withinCost mit Frontbedingung) = eigener Dijkstra: " + vlf.text());
+                    System.out.println("    " + com.dan.lituya.scene.WegNetz.landfluchtZeile(daten));
+                }
             }
         }
 
@@ -994,7 +1025,7 @@ public final class Pruefung {
                     while (m.find()) if (!m.group(1).toUpperCase(Locale.ROOT).startsWith("LB_")) { fremd++; System.out.println("    ohne LB_: " + m.group(1) + " in " + x.getName()); }
                 }
             }
-            check(sk.length == 15 && anw > 40, f("db/netz: %d Skripte, %d Anweisungen, jede mit „/“ abgeschlossen", sk.length, anw));
+            check(sk.length == 16 && anw > 40, f("db/netz: %d Skripte, %d Anweisungen, jede mit „/“ abgeschlossen", sk.length, anw));
             check(fremd == 0, "alle Objekte mit Präfix LB_ (F40 B: Schema LITUYABAY1958)");
         }
         {

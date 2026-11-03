@@ -81,6 +81,40 @@ public final class WegNetz {
         return t;
     }
 
+    /** Wie dijkstra, aber mit Startzeit t0 (Ereigniszeit) und nur vor der Front je Knoten (NaN: keine); Zeiten als Ereigniszeit. */
+    public double[] dijkstraVorFront(int s, double t0, double[] front, double grenze, int[] vorKante) {
+        double[] t = new double[n];
+        Arrays.fill(t, Double.POSITIVE_INFINITY);
+        if (vorKante != null) Arrays.fill(vorKante, -1);
+        if (!Double.isNaN(front[s]) && !(t0 < front[s])) { Arrays.fill(t, Double.NaN); return t; }
+        t[s] = t0;
+        int[] heap = new int[1024], pos = new int[n];
+        Arrays.fill(pos, -1);
+        int hn = 0;
+        heap[hn] = s; pos[s] = hn++;
+        while (hn > 0) {
+            int v = heap[0];
+            pos[v] = -2;
+            int last = heap[--hn];
+            if (hn > 0) { heap[0] = last; pos[last] = 0; runter(heap, pos, hn, t, 0); }
+            if (t[v] - t0 > grenze) { t[v] = Double.POSITIVE_INFINITY; break; }
+            for (int e = aus[v]; e < aus[v + 1]; e++) {
+                int w = nach[e];
+                if (pos[w] == -2) continue;
+                double d = t[v] + cost[e];
+                if (!Double.isNaN(front[w]) && !(d < front[w])) continue;
+                if (d < t[w]) {
+                    t[w] = d;
+                    if (vorKante != null) vorKante[w] = e;
+                    if (pos[w] < 0) { if (hn == heap.length) heap = Arrays.copyOf(heap, hn * 2); heap[hn] = w; pos[w] = hn++; }
+                    hoch(heap, pos, t, pos[w]);
+                }
+            }
+        }
+        for (int i = 0; i < n; i++) if (Double.isInfinite(t[i]) || t[i] - t0 > grenze) t[i] = Double.NaN;
+        return t;
+    }
+
     static void hoch(int[] h, int[] pos, double[] t, int i) {
         int x = h[i];
         while (i > 0) {
@@ -285,6 +319,25 @@ public final class WegNetz {
             return "Wege (LB_NET_WEG): 1 h von Anchorage Cove " + (a == null ? "?" : a.split(";")[0]) + "; Washburn 1934 " + (b == null ? "?" : b.split(";")[0]);
         } catch (IOException e) {
             return "Wege: " + e.getMessage();
+        }
+    }
+
+    /** „Flucht an Land: späteste Abfahrt Edrie +194 s, Badger +254 s“ aus LANDFLUCHT.txt, oder ein Hinweis. */
+    public static String landfluchtZeile(File daten) {
+        File t = new File(new File(daten, ORDNER), "LANDFLUCHT.txt");
+        if (!t.isFile()) return "Flucht an Land: daten/netz/weg/LANDFLUCHT.txt fehlt (ant aufbereitung -Dschritte=landflucht)";
+        try {
+            WegNetz w = new WegNetz();
+            w.text = Files.readString(t.toPath(), StandardCharsets.UTF_8);
+            StringBuilder b = new StringBuilder("Flucht an Land (Boot, Strand, zu Fuß über den Auflauf), späteste Abfahrt nach dem Stoß:");
+            for (String bt : new String[]{"edrie", "badger"}) {
+                String v = w.wert("landflucht." + bt);
+                b.append(' ').append(Character.toUpperCase(bt.charAt(0))).append(bt.substring(1)).append(' ')
+                        .append(v == null || v.equals("keine") ? "keine" : String.format(Locale.GERMAN, "%+d s", Integer.parseInt(v))).append(bt.equals("edrie") ? "," : "");
+            }
+            return b.toString();
+        } catch (IOException e) {
+            return "Flucht an Land: " + e.getMessage();
         }
     }
 

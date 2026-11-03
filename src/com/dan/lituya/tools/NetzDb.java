@@ -50,7 +50,9 @@ import java.util.Properties;
  * <p>
  * Seit Phase 16a dazu {@code LB_NET_WEG} (logisch, gerichtet, zwei Ebenen, Millionen Kanten) mit {@code LB_WEG_UMSTIEG} und
  * {@code LB_WEG_ROUTE} aus {@code daten/netz/weg} ({@link WegDb}, {@code 11_weg.sql}, {@code 12_weg_nach_dem_laden.sql});
- * Zweitrechnung LOD in Oracle (1 h vom Strand, Washburn 1934) gegen den eigenen Dijkstra. {@code -Dlituya.weg=false} lässt es aus.
+ * Zweitrechnung LOD in Oracle (1 h vom Strand, Washburn 1934) gegen den eigenen Dijkstra. Seit 16b mit eigenem Ziel
+ * {@code ant wegdb} (Argument {@code weg}: 97_weg_abbau, 11, Laden, 12, Prüfung, Flucht an Land); {@code netzdb} lässt es
+ * stehen. Anweisungen über 5 s meldet {@link #skript} mit ihrer Zeit.
  */
 public final class NetzDb {
     private NetzDb() { }
@@ -65,12 +67,13 @@ public final class NetzDb {
     }
 
     public static void main(String[] a) throws Exception {
-        boolean nurPruefen = a.length > 0 && a[0].equalsIgnoreCase("pruefen"), vergleich = a.length > 0 && a[0].equalsIgnoreCase("vergleich");
+        boolean nurPruefen = a.length > 0 && a[0].equalsIgnoreCase("pruefen"), vergleich = a.length > 0 && a[0].equalsIgnoreCase("vergleich"),
+                weg = a.length > 0 && a[0].equalsIgnoreCase("weg");
         File daten = new File(System.getProperty("lituya.daten", "daten"));
         File dir = new File(daten, Herkunft.ORDNER);
         File sql = new File(System.getProperty("lituya.sql", "db/netz"));
         boolean ok;
-        String was = vergleich ? "netzvergleich" : nurPruefen ? "dbpruefung" : "netzdb";
+        String was = weg ? "wegdb" : vergleich ? "netzvergleich" : nurPruefen ? "dbpruefung" : "netzdb";
         log("=== %s LituyaBay1958 (Phase 7a), %s", was, java.time.LocalDateTime.now().withNano(0));
         if (!new File(dir, "knoten.tsv").isFile())
             throw new IOException("Herkunftsnetz fehlt: " + dir + " (ant aufbereitung -Dschritte=herkunft,inhalt)");
@@ -87,7 +90,8 @@ public final class NetzDb {
         try (Connection c = Db.oeffnen(k)) {
             log("verbunden: %s als %s, %s", k.url, Db.einWert(c, "SELECT USER FROM DUAL"), c.getMetaData().getDatabaseProductVersion().split("\\R")[0]);
             try {
-                ok = vergleich ? vergleich(c, k, daten) : nurPruefen ? pruefen(c, h, summe, daten) : laden(c, k, h, dir, sql, summe, daten);
+                ok = weg ? WegDb.alles(c, daten, sql, k.url, k.user, passwort(k), NetzDb::log)
+                        : vergleich ? vergleich(c, k, daten) : nurPruefen ? pruefen(c, h, summe, daten) : laden(c, k, h, dir, sql, summe, daten);
             } catch (Exception e) {
                 ok = false;
                 log("FEHLER: %s", ursache(e));
@@ -150,9 +154,7 @@ public final class NetzDb {
         // Phase 16: Wasser (hierarchisch) mit LB_EINZUG, LB_SEE, LB_SENKE
         boolean wasser = com.dan.lituya.scene.WasserNetz.da(daten);
         if (wasser) WasserDb.laden(c, daten, sql, NetzDb::log); else log("Hinweis: daten/netz/wasser fehlt (ant aufbereitung -Dschritte=wasser), LB_NET_WASSER nicht geladen");
-        // Phase 16a: Weg (logisch, zwei Ebenen, Millionen Kanten); -Dlituya.weg=false lässt es aus
-        boolean weg = com.dan.lituya.scene.WegNetz.da(daten) && !"false".equals(System.getProperty("lituya.weg"));
-        if (weg) WegDb.laden(c, daten, sql, NetzDb::log); else log("Hinweis: LB_NET_WEG nicht geladen (daten/netz/weg fehlt: ant aufbereitung -Dschritte=klassen+weg, oder -Dlituya.weg=false)");
+        // Phase 16b: LB_NET_WEG lädt ant wegdb; 99_abbau lässt es stehen
         // NDM-Funktionsprobe
         skript(c, new File(sql, "03_probe.sql"), true);
         boolean javaOk = javaProbe(c, k);
@@ -208,8 +210,8 @@ public final class NetzDb {
         if (com.dan.lituya.scene.SeeNetz.da(daten)) gut &= SeeDb.pruefen(c, daten, k.url, k.user, passwort(k), NetzDb::log);
         // Phase 16: LB_NET_WASSER, LOD und CONNECT BY gegen die Dateien
         if (com.dan.lituya.scene.WasserNetz.da(daten)) gut &= WasserDb.pruefen(c, daten, k.url, k.user, passwort(k), NetzDb::log);
-        // Phase 16a: LB_NET_WEG, LOD (1 h vom Strand, Washburn) gegen den eigenen Dijkstra
-        if (com.dan.lituya.scene.WegNetz.da(daten) && !"false".equals(System.getProperty("lituya.weg"))) gut &= WegDb.pruefen(c, daten, k.url, k.user, passwort(k), NetzDb::log);
+        // Phase 16b: LB_NET_WEG bleibt aus ant wegdb stehen; sein Eintrag in LB_NETZ_STAND kommt wieder dazu
+        WegDb.standNachtragen(c, daten, NetzDb::log);
         return gut;
     }
 
@@ -402,7 +404,10 @@ public final class NetzDb {
             s.setEscapeProcessing(false);
             for (String a : l) {
                 try {
+                    long ta = System.nanoTime();
                     s.execute(a);
+                    double ds = (System.nanoTime() - ta) / 1e9;
+                    if (ds >= 5) log("  %.0f s: %s", ds, kurz(ohneKommentar(a).strip().replaceAll("\\s+", " "), 110));
                 } catch (SQLException e) {
                     fehler++;
                     String kopf = ohneKommentar(a).strip().split("\\R")[0];
