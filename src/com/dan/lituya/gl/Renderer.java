@@ -56,7 +56,7 @@ public final class Renderer implements GLEventListener {
     public static final int MIN_MAJOR = 4, MIN_MINOR = 3;
     public static final String VERSION = "Phase 9";
     /** Phase des Stands (für Ansichten und Bedienfeld). */
-    public static final int PHASE = 17;
+    public static final int PHASE = 18;
     public static final String[] PASSES = {"Himmel", "Gelände", "Wald", "Boote", "Welle", "Wasser", "Staub", "Nachbearbeitung", "HUD"};
     private static final int MARKS = PASSES.length + 1;
     /** Nah- und Fernebene (m): vom Kutter bis über die Kimm des Mount Fairweather (264 km). */
@@ -86,6 +86,8 @@ public final class Renderer implements GLEventListener {
     final EreignisGl ereignisGl = new EreignisGl();
     /** Phase 13c: „Was wäre wenn“ in Echtzeit (wave.Bay auf der Grafikkarte, LOW). */
     public final Echtzeit echtzeit = new Echtzeit();
+    /** Phase 18: der Klang (com.dan.soundscape), Ohr = Kamera; Ton an im Bedienfeld KLANG. */
+    public final Klang klang = new Klang(this);
     /** Phase 14a: der Wald (forest mit succession) über den Kern, Zustände nach dem Zeitstand, Treibgut am Morgen. */
     public final WaldGl wald = new WaldGl();
     /** Phase 15a: die drei Troller auf ihren vorgerechneten Bahnen (tools.Boote1958). */
@@ -112,6 +114,9 @@ public final class Renderer implements GLEventListener {
     public volatile boolean showHud = true, hudFull;
     /** Die Marken zur Ausrichtung (UTM-Raster, Kern, Szene, Fern, Orte); in Phase 1 an. */
     public volatile boolean showMarks = true;
+
+    /** Phase 18 (Befund 17a): im Kino und während eines Regiebuchs keine Marken (UTM-Raster, Ellipsen) im Bild; der Schalter bleibt. */
+    public boolean marksJetzt() { return showMarks && !kino.sichtbar() && !regie.running(); }
     /** Das Wasser zeigen (Platzhalter bis Phase 5a). */
     public volatile boolean showMeer = true;
     /** Szene steht (für Standbilder und die Leertaste im Kino später). */
@@ -206,6 +211,20 @@ public final class Renderer implements GLEventListener {
         boolean ok = Ansichten.apply(a, camera, PHASE, this::groundHeight);
         if (ok) hudMeldung("Ansicht " + a);
         return ok;
+    }
+
+    /** Befund 17a: im Regiebuch steht das Auge über Land mindestens so hoch über dem Gelände (Sitka-Fichten bis rund 50 m). */
+    public static final double KRONEN = 50;
+
+    /** Hebt ein frei gestelltes Auge über Land auf {@link #KRONEN} m über dem Gelände und neigt den Blick um so viel nach unten, wie es auf 1,5 km ausmacht. */
+    public boolean ueberKronen() {
+        if (camera.mode != com.dan.lituya.camera.Camera.Mode.FREI || camera.mitfahrt != null) return false;
+        double g = groundHeight(camera.fx, camera.fz);
+        if (g <= KEIN_GRUND + 1) g = stapelHoehe(camera.fx, camera.fz);   // ohne clipmap (Prüfung): der Kachelstapel
+        if (Double.isNaN(g) || g < wiring.pegel + 0.5 || camera.fy - g >= KRONEN) return false;
+        double dh = g + KRONEN - camera.fy;
+        camera.place(camera.fx, g + KRONEN, camera.fz, camera.fyaw, camera.fpitch + Math.toDegrees(Math.atan2(dh, 1500)));
+        return true;
     }
 
     /** Stellt Kamera und Uhr auf ein Schaustück (Phase 13b) und schaltet das Abspielen an. */
@@ -375,6 +394,9 @@ public final class Renderer implements GLEventListener {
             kinoNetzblick = false;
         }
         regieLief = regie.running();
+        if (klang.on || klang.offline) {
+            try { klang.feed(dt); } catch (RuntimeException e) { klang.note = "!" + e.getMessage(); }
+        }
         kinoSchritt(dt);
         land.auge(camera.eye[0], camera.eye[2]);
         physik.advance(dt);
@@ -670,13 +692,13 @@ public final class Renderer implements GLEventListener {
         @Override public void view(String name) {
             String[] p = name.split(">", 2);
             String a = p[0].strip(), b = p.length > 1 ? p[1].strip() : null;
-            schnitt(() -> { if (!placeNamed(a, b)) regieMsg = "Ansicht „" + name + "“ gibt es nicht"; });
+            schnitt(() -> { if (!placeNamed(a, b)) regieMsg = "Ansicht „" + name + "“ gibt es nicht"; else ueberKronen(); });
         }
         @Override public void stueck(String name) {
             com.dan.lituya.camera.Schaustuecke.Stueck s = com.dan.lituya.camera.Schaustuecke.byName(name);
             if (s == null) { regieMsg = "Schaustück „" + name + "“ gibt es nicht"; return; }
             jahresRaffer = false;
-            schnitt(() -> placeStueck(s));
+            schnitt(() -> { placeStueck(s); ueberKronen(); });
         }
         @Override public void fahrt(String name, String ziel, double tempo) {
             schnitt(() -> {
@@ -743,7 +765,7 @@ public final class Renderer implements GLEventListener {
     }
 
     /** Höhe des Geländes aus dem Kachelstapel (5 m, sonst gröber) für Bänder und Netze; NaN außerhalb (Phase 16c). */
-    double stapelHoehe(double x, double z) {
+    public double stapelHoehe(double x, double z) {
         com.dan.clipmap.TileStack s = land.stapel();
         if (s == null) return Double.NaN;
         float h = s.height(x, z, 5.0);
@@ -970,7 +992,7 @@ public final class Renderer implements GLEventListener {
     static float[] forward(float[] v) { return new float[]{-v[2], -v[6], -v[10]}; }
 
     private void bindMarks(GL4 gl, Shader s) {
-        s.set(gl, "uMarks", showMarks ? 1 : 0);
+        s.set(gl, "uMarks", marksJetzt() ? 1 : 0);
         rect(gl, s, "uRectKern", Site.KERN);
         rect(gl, s, "uRectSzene", Site.SZENE);
         rect(gl, s, "uRectFern", Site.FERN);
@@ -1192,6 +1214,7 @@ public final class Renderer implements GLEventListener {
                 baeche.info(),
                 sichtZeile(),
                 regieLine(),
+                klang.describe(),
                 clipGl.info(),
                 cameraLine(),
                 String.format(Locale.GERMAN, "UTM 8 N  E %.0f  N %.0f · %s · Kimm %.1f km", utm[0], utm[1], Site.dms(ll[0], ll[1]), kimm / 1000),
