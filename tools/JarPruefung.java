@@ -64,9 +64,9 @@ public final class JarPruefung {
             for (int i = 0; i < NEU.length; i++) {
                 if (rang(NEU_PHASE[i]) > rang(phase)) continue;
                 neu++;
-                // Phase 7: Packages einer a-Phase (scree in 6a) gehören zu einer Phase der App, die nach den Renderer-Phasen
-                // nachgeholt wird; bis dahin ein Hinweis, kein Fehler
-                boolean spaeter = NEU_PHASE[i].trim().toLowerCase().endsWith("a");
+                // Phase 7: Packages einer Phase der App, die nach den Renderer-Phasen nachgeholt wird (scree in 6a), sind bis
+                // dahin ein Hinweis, kein Fehler. Seit 18a nur noch 6a: bear kommt in 18a regulär im Renderer.
+                boolean spaeter = NEU_PHASE[i].trim().equalsIgnoreCase("6a");
                 String n = NEU[i], k = Character.toUpperCase(n.charAt(0)) + n.substring(1);
                 for (String e : new String[]{"README.md", "demo/" + k + "Check.class"})
                     if (z.getEntry("com/dan/" + n + "/" + e) == null) {

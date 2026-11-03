@@ -76,7 +76,7 @@
         lib/Renderer.jar alles hat, was LituyaBay1958 braucht (jedes gebrauchte Package mit Klassen und README, Java 21,
         von den 14 neuen die, deren Phase erreicht ist); abschalten mit -Dohne.paketpruefung=true.
     -->
-    <property name="lituya.phase" value="18"/>
+    <property name="lituya.phase" value="18a"/>
     <target name="check-packages" description="Prüft lib/Renderer.jar: die gebrauchten Packages mit README, Java 21, die fälligen neuen." unless="ohne.paketpruefung">
         <property name="platform.java" value="java"/>
         <exec executable="${platform.java}" dir="${basedir}" failonerror="true">
@@ -827,6 +827,27 @@
     </target>
     <target name="vesseldemo" depends="compile" description="Phase 15: VesselDemo im Fenster.">
         <renderer-fenster klasse="com.dan.vessel.demo.VesselDemo" speicher="-Xmx2g"/>
+    </target>
+    <!-- Phase 18a (Werkbuch 5.14): com.dan.bear im Renderer. bearcheck: BearCheck nach docs/status/bearcheck_Phase18a.txt;
+         bearbild: Gangarten, Haltungen und die Demobucht nach docs/status/Bear_Demo.png (ohne Grafikkarte);
+         bearglbild: dieselben Haltungen mit gl/BearGl nach docs/status/Bear_GL.png (Grafikkarte); beardemo: im Fenster. -->
+    <target name="bearcheck" depends="compile" description="Phase 18a: BearCheck nach docs/status/bearcheck_Phase18a.txt.">
+        <renderer-java klasse="com.dan.bear.demo.BearCheck" ausgabe="docs/status/bearcheck_Phase${lituya.phase}.txt" speicher="-Xmx2g"/>
+        <loadfile property="bearcheck.text" srcFile="docs/status/bearcheck_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${bearcheck.text}"/>
+    </target>
+    <target name="bearbild" depends="compile" description="Phase 18a: BearDemo --bild nach docs/status/Bear_Demo.png.">
+        <renderer-java klasse="com.dan.bear.demo.BearDemo" args="--bild docs/status/Bear_Demo.png" ausgabe="docs/status/bearbild_Phase${lituya.phase}.txt" speicher="-Xmx2g"/>
+        <loadfile property="bearbild.text" srcFile="docs/status/bearbild_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${bearbild.text}"/>
+    </target>
+    <target name="bearglbild" depends="compile" description="Phase 18a: die Haltungen mit gl/BearGl nach docs/status/Bear_GL.png.">
+        <renderer-java klasse="com.dan.bear.demo.BearDemo" args="--glbild docs/status/Bear_GL.png" ausgabe="docs/status/bearglbild_Phase${lituya.phase}.txt" speicher="-Xmx2g"/>
+        <loadfile property="bearglbild.text" srcFile="docs/status/bearglbild_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${bearglbild.text}"/>
+    </target>
+    <target name="beardemo" depends="compile" description="Phase 18a: BearDemo im Fenster.">
+        <renderer-fenster klasse="com.dan.bear.demo.BearDemo" speicher="-Xmx2g"/>
     </target>
     <!-- Phase 15a (Werkbuch 7.3, 10.3): die Boote in der Szene und LB_NET_SEE.
          Vorher ant ereignis -Dlauf=kette (und messwelle) neu: seit 15a schreibt die Vorrechnung die Strömung mit.
