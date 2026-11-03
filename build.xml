@@ -76,7 +76,7 @@
         lib/Renderer.jar alles hat, was LituyaBay1958 braucht (jedes gebrauchte Package mit Klassen und README, Java 21,
         von den 14 neuen die, deren Phase erreicht ist); abschalten mit -Dohne.paketpruefung=true.
     -->
-    <property name="lituya.phase" value="18a"/>
+    <property name="lituya.phase" value="19"/>
     <target name="check-packages" description="Prüft lib/Renderer.jar: die gebrauchten Packages mit README, Java 21, die fälligen neuen." unless="ohne.paketpruefung">
         <property name="platform.java" value="java"/>
         <exec executable="${platform.java}" dir="${basedir}" failonerror="true">
@@ -265,6 +265,35 @@
             <arg value="laden"/>
             <classpath><pathelement location="lib/Renderer.jar"/><pathelement path="${run.classpath}"/></classpath>
         </java>
+    </target>
+    <!-- Phase 19 (Werkbuch 13.1): szenedb legt die Tabellen von db/szene an (nur, was fehlt; -Dneu=ja baut vorher alles ab, auch
+         Sitzungen, eigene Regiebücher und Fotos), lädt Quellen, Befunde, Zeugen, Boote, Läufe mit Kennzahlen, Bootslagen, Regiebücher,
+         Kamerafahrten, Texturen, die neuesten Blätter und was die App in daten/speicher gesichert hat, und prüft. Ausgabe nach
+         docs/status/szenedb_Phase19.txt. szenedbpruefung prüft nur (mit einer Probesitzung, die danach wieder weg ist). -->
+    <target name="szenedb" depends="compile" description="Phase 19: Tabellen von db/szene anlegen, befüllen und prüfen.">
+        <property name="platform.java" value="java"/>
+        <property name="neu" value="nein"/>
+        <java classname="com.dan.lituya.tools.SzeneDb" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="true" output="docs/status/szenedb_Phase${lituya.phase}.txt" logError="true">
+            <jvmarg value="-Dstdout.encoding=UTF-8"/>
+            <jvmarg value="-Djava.awt.headless=true"/>
+            <jvmarg value="-Xmx3g"/>
+            <jvmarg value="-Dneu=${neu}"/>
+            <arg value="laden"/>
+            <classpath><pathelement location="lib/Renderer.jar"/><pathelement path="${run.classpath}"/></classpath>
+        </java>
+        <loadfile property="szenedb.text" srcFile="docs/status/szenedb_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${szenedb.text}"/>
+    </target>
+    <target name="szenedbpruefung" depends="compile" description="Phase 19: die Tabellen von db/szene prüfen.">
+        <property name="platform.java" value="java"/>
+        <java classname="com.dan.lituya.tools.SzeneDb" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="true" output="docs/status/szenedbpruefung_Phase${lituya.phase}.txt" logError="true">
+            <jvmarg value="-Dstdout.encoding=UTF-8"/>
+            <jvmarg value="-Djava.awt.headless=true"/>
+            <arg value="pruefen"/>
+            <classpath><pathelement location="lib/Renderer.jar"/><pathelement path="${run.classpath}"/></classpath>
+        </java>
+        <loadfile property="szenedbpruefung.text" srcFile="docs/status/szenedbpruefung_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${szenedbpruefung.text}"/>
     </target>
     <!-- Phase 3: nur prüfen, ob Oracle und daten/netz zusammenpassen (Prüfsumme, Zahlen, VALIDATE_NETWORK, LB_NDM_PROBE). -->
     <target name="dbpruefung" depends="compile" description="Phase 3: prüfen, ob die Netze in Oracle zu daten/netz passen.">

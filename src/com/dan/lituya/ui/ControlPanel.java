@@ -48,7 +48,7 @@ public final class ControlPanel extends JPanel implements javax.swing.Scrollable
     private final SceneClock clock;
     private final JLabel dateLbl = label(""), timeLbl = label(""), simLbl = label(""), sunLbl = small(""), camLbl = small(""), perfLbl = small(""),
             computeLbl = small(""), glLbl = small(""), physLbl = small(""), hudLbl = small(""), scaleLbl = label(""), qualLbl = small(""), pkgLbl = small(""),
-            dbLbl = small(""), lodLbl = small(""), datenLbl = small(""), standLbl = small(""), netzLbl = small(""), regieLbl = small(""), klangLbl = small("");
+            dbLbl = small(""), lodLbl = small(""), datenLbl = small(""), standLbl = small(""), netzLbl = small(""), regieLbl = small(""), klangLbl = small(""), speicherLbl = small("");
     private final FSlider time = new FSlider(0, 24 * 60 - 1, (int) (SceneClock.START_HOUR * 60)), scaleSl = new FSlider(50, 100, 85), expSl = new FSlider(-30, 30, 0);
     private final FCheckBox free = new FCheckBox("Frei fliegen (F)"), orbit = new FCheckBox("Von selbst kreisen (R)"),
             marks = new FCheckBox("Marken (UTM-Raster, Kern, Szene, Fern, Orte)"), autoBox = new FCheckBox("Auflösung selbst regeln"),
@@ -458,8 +458,40 @@ public final class ControlPanel extends JPanel implements javax.swing.Scrollable
         put(dbLbl);
         put(lodLbl);
         put(datenLbl);
-        put(small("<html><body style='width:215px'>Phase 1 verbindet nur. Die NDM-Funktionsprobe und die Netze LB_NET_ kommen mit Phase 3, "
-                + "Tabellen, Speichern und Laden mit Phase 19 (Fragenblock II). Den Treiber 21 für LOD holt <i>ant lod</i> aus ORACLE_HOME.</body></html>"));
+        // Phase 19: Speichern und Laden (Oracle, sonst daten/speicher)
+        put(speicherLbl);
+        JPanel sp1 = grid(2);
+        FButton sichernB = new FButton("Sitzung sichern"), laufB = new FButton("Lauf sichern");
+        sichernB.setToolTipText("Kamera, Uhr, Zeitstand und alle Schalter nach LB_SITZUNG (ohne Datenbank nach daten/speicher) [Strg+S]");
+        laufB.setToolTipText("Die Einstellungen der Echtzeit (Ort, Volumen, Grund, Ganglinie, Pegel) als Lauf nach LB_EREIGNIS_LAUF, zum Wiederabspielen");
+        Runnable sichern = () -> new Thread(() -> { String m = com.dan.lituya.gl.Sitzungen.sichern(r, null); r.hudMeldung(m); javax.swing.SwingUtilities.invokeLater(this::sitzungenNeu); }, "LituyaBay1958-Sichern").start();
+        sichernB.addActionListener(e -> { sichern.run(); view.requestFocusInWindow(); });
+        view.speichern = sichern;
+        laufB.addActionListener(e -> { new Thread(() -> r.hudMeldung(laufSichern()), "LituyaBay1958-Lauf").start(); view.requestFocusInWindow(); });
+        sp1.add(sichernB); sp1.add(laufB);
+        put(sp1);
+        sitzungBox = new FComboBox(new Object[]{"(keine Sitzung)"});
+        sitzungBox.setToolTipText("Gesicherte Sitzungen, neueste zuerst");
+        put(sitzungBox);
+        JPanel sp2 = grid(2);
+        FButton ladenB = new FButton("Sitzung laden"), listeB = new FButton("Liste neu");
+        ladenB.addActionListener(e -> {
+            if (sitzungBox.getSelectedItem() instanceof Eintrag en) new Thread(() -> {
+                try {
+                    com.dan.lituya.data.Speicher.Sitzung s = en.sp.sitzung(en.s.id());
+                    if (s == null) { r.hudMeldung("Sitzung nicht mehr da"); return; }
+                    r.imBild(() -> { int n = com.dan.lituya.gl.Sitzungen.herstellen(r, s); r.hudMeldung("Sitzung „" + s.name() + "“ geladen (" + n + " Werte)"); });
+                    javax.swing.SwingUtilities.invokeLater(this::syncFromScene);
+                } catch (Exception ex) { r.hudMeldung("Sitzung nicht geladen: " + ex.getMessage()); }
+            }, "LituyaBay1958-Laden").start();
+            view.requestFocusInWindow();
+        });
+        listeB.addActionListener(e -> { com.dan.lituya.data.Speicher.neuWaehlen(); sitzungenNeu(); view.requestFocusInWindow(); });
+        sp2.add(ladenB); sp2.add(listeB);
+        put(sp2);
+        put(small("<html><body style='width:215px'>Phase 19: Sitzungen, Läufe, Regiebücher und Bilder (F12, Blätter) in Oracle (db/szene, ant szenedb), "
+                + "ohne Datenbank in daten/speicher; ant szenedb übernimmt sie später. Den Treiber 21 für LOD holt <i>ant lod</i> aus ORACLE_HOME.</body></html>"));
+        javax.swing.SwingUtilities.invokeLater(this::sitzungenNeu);
 
         // ============================================================== TECHNIK
         block("TECHNIK", false);
@@ -655,6 +687,8 @@ public final class ControlPanel extends JPanel implements javax.swing.Scrollable
         txt(netzLbl, "<html><body style='width:215px'>" + esc(r.netzblick.stand()) + "</body></html>");
         txt(regieLbl, "<html><body style='width:215px'>" + esc(r.regieLine()) + "</body></html>");
         txt(klangLbl, "<html><body style='width:215px'>" + esc(r.klang.describe().replace("!", "")) + "</body></html>");
+        com.dan.lituya.data.Speicher spw = com.dan.lituya.data.Speicher.gewaehlt();
+        txt(speicherLbl, "<html><body style='width:215px'>Speicher: " + esc(spw == null ? "noch nicht gewählt" : spw.wo()) + (com.dan.lituya.data.Speicher.hinweis().isEmpty() ? "" : " (" + esc(com.dan.lituya.data.Speicher.hinweis()) + ")") + "</body></html>");
         StringBuilder h = new StringBuilder("<html><body style='width:215px'>");
         for (String l : r.hudLines()) h.append(esc(l.startsWith("!") ? l.substring(1) : l)).append("<br>");
         txt(hudLbl, h.append("</body></html>").toString());
@@ -675,6 +709,40 @@ public final class ControlPanel extends JPanel implements javax.swing.Scrollable
 
     /** Text nur setzen, wenn er sich ändert (sonst legt Swing den Block bei jedem Takt neu aus). */
     private static void txt(JLabel l, String t) { if (!t.equals(l.getText())) l.setText(t); }
+
+    /** Eine Sitzung in der Liste (mit ihrem Speicher). */
+    record Eintrag(com.dan.lituya.data.Speicher sp, com.dan.lituya.data.Speicher.Sitzung s) {
+        @Override public String toString() { return s.zeile(); }
+    }
+
+    private FComboBox sitzungBox;
+
+    /** Liest die gesicherten Sitzungen neu (im Hintergrund, Oracle kann dauern). */
+    void sitzungenNeu() {
+        new Thread(() -> {
+            java.util.List<Object> l = new java.util.ArrayList<>();
+            com.dan.lituya.data.Speicher sp = com.dan.lituya.data.Speicher.aktuell();
+            try { for (com.dan.lituya.data.Speicher.Sitzung s : sp.sitzungen()) l.add(new Eintrag(sp, s)); } catch (Exception e) { l.add("(" + e.getMessage() + ")"); }
+            if (l.isEmpty()) l.add("(keine Sitzung)");
+            javax.swing.SwingUtilities.invokeLater(() -> { if (sitzungBox != null) { sitzungBox.removeAllItems(); for (Object o : l) sitzungBox.addItem(o); } });
+        }, "LituyaBay1958-Sitzungen").start();
+    }
+
+    /** Die Einstellungen der Echtzeit als Lauf (Name aus Ort, Volumen, Grund, Pegel und Zeit). */
+    String laufSichern() {
+        com.dan.lituya.gl.Echtzeit ez = r.echtzeit;
+        String name = String.format(Locale.GERMAN, "Echtzeit %s %.1f Mio %s %+.1f m %tF %<tT", ez.ort.name(), ez.volumen / 1e6, ez.grund, ez.pegel, new java.util.Date());
+        StringBuilder in = new StringBuilder();
+        java.util.Properties p = com.dan.lituya.gl.Sitzungen.erfassen(r, name).zustand();
+        for (String k : new java.util.TreeSet<>(p.stringPropertyNames())) if (k.startsWith("echtzeit.")) in.append(k).append('=').append(p.getProperty(k)).append('\n');
+        com.dan.lituya.data.Speicher.Lauf l = new com.dan.lituya.data.Speicher.Lauf(name, "Echtzeit", ez.zeile(), ez.ort.name(), ez.volumen, ez.pegel, String.valueOf(ez.grund),
+                String.valueOf(ez.ganglinie), com.dan.lituya.scene.WellenNetz.START_S, null, r.glInfo(), ez.bis(), Double.NaN, Double.NaN, Double.NaN, Double.NaN, Double.NaN, in.toString());
+        com.dan.lituya.data.Speicher sp = com.dan.lituya.data.Speicher.aktuell();
+        try { sp.laufSpeichern(l); return "Lauf gesichert: " + name + " (" + sp.wo() + ")"; }
+        catch (Exception e) {
+            try { com.dan.lituya.data.Speicher.datei().laufSpeichern(l); return "Lauf in die Dateien gesichert (" + e.getMessage() + ")"; } catch (Exception e2) { return "Lauf nicht gesichert: " + e2.getMessage(); }
+        }
+    }
 
     private void reihenfolge() {
         java.util.Map<String, FCollapsiblePanel> m = new java.util.LinkedHashMap<>();

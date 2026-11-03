@@ -98,8 +98,8 @@ public final class Bibliothek {
         return f;
     }
 
-    /** Phase der App, die nach den Renderer-Phasen nachgeholt wird: nur 6a ({@code scree}); {@code bear} in 18a kommt regulär. */
-    static boolean aPhase(String phase) { return phase.trim().equalsIgnoreCase("6a"); }
+    /** Phasen, die nachgeholt werden: 6a ({@code scree}) und seit Phase 19 auch 18b ({@code aurora}, 19 kam vor 18b); {@code bear} in 18a kommt regulär. */
+    static boolean aPhase(String phase) { return java.util.Set.of("6a", "18b").contains(phase.trim().toLowerCase(Locale.ROOT)); }
 
     /** „50 Packages in Renderer.jar, alle 26 gebrauchten da; neu 0 von 14“ */
     public static String kurz() {
