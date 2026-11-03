@@ -122,8 +122,21 @@ public final class ControlPanel extends JPanel implements javax.swing.Scrollable
         hb.addActionListener(e -> { view.goHome(); view.requestFocusInWindow(); });
         home.add(hb);
         put(home);
+        // Phase 17: Fahrten aus LB_NET_SICHT
+        put(label("Fahrten aus LB_NET_SICHT"));
+        FComboBox fahrtTempo = new FComboBox(new String[]{"Tempo 1× (Flugzeit)", "Tempo 5×", "Tempo 15×", "Tempo 50×"});
+        fahrtTempo.setSelectedIndex(2);
+        put(fahrtTempo);
+        JPanel fz = grid(2);
+        FButton rundB = new FButton("Rundflug"), fahrtB = new FButton("Kamerafahrt");
+        rundB.setToolTipText("Geschlossene Rundreise (tsp) über alle Motive ab der Anchorage Cove, die Sichtlinien entlang");
+        fahrtB.setToolTipText("Den Spannbaum (mcst) entlang, jede Kante hin und zurück, Äste ohne Motiv weggelassen");
+        rundB.addActionListener(e -> { r.sichtFahrt(com.dan.lituya.camera.SichtFahrt.RUNDFLUG, com.dan.lituya.camera.SichtFahrt.TEMPI[Math.max(0, fahrtTempo.getSelectedIndex())]); view.requestFocusInWindow(); });
+        fahrtB.addActionListener(e -> { r.sichtFahrt(com.dan.lituya.camera.SichtFahrt.KAMERAFAHRT, com.dan.lituya.camera.SichtFahrt.TEMPI[Math.max(0, fahrtTempo.getSelectedIndex())]); view.requestFocusInWindow(); });
+        fz.add(rundB); fz.add(fahrtB);
+        put(fz);
         put(small("<html><body style='width:215px'>Die Ansichten stehen seit Phase 4 auf dem Gelände aus clipmap (vor dem ersten Laden über dem Wasser)."
-                + " Fahrten und Presets aus LB_NET_SICHT kommen mit Phase 17, „Mit der Edrie“ mit Phase 15.</body></html>"));
+                + " Seit Phase 17 die Fahrten aus LB_NET_SICHT (ant aufbereitung -Dschritte=sicht): Tasten F oder R, Pfeile oder Ziehen beenden sie.</body></html>"));
 
         // ============================================================== ZEIT
         block("ZEIT", true);
@@ -322,7 +335,7 @@ public final class ControlPanel extends JPanel implements javax.swing.Scrollable
         put(szene);
         // Phase 16c: welches Netz (je Netz ein eigener Ausschnitt im Bild im Bild: Bucht, Szene, Kern)
         put(label("Netz"));
-        FComboBox netzBox = new FComboBox(new String[]{"Welle (LB_NET_WELLE, Bucht)", "Wasser (LB_NET_WASSER, Szene)", "Weg (LB_NET_WEG, Kern)"});
+        FComboBox netzBox = new FComboBox(new String[]{"Welle (LB_NET_WELLE, Bucht)", "Wasser (LB_NET_WASSER, Szene)", "Weg (LB_NET_WEG, Kern)", "Sicht (LB_NET_SICHT, Szene)"});
         netzBox.setSelectedIndex(nb.netz);
         netzBox.setToolTipText("Was der Netzblick zeigt, im Bild im Bild und in der Szene");
         netzBox.addActionListener(e -> { nb.netz = Math.max(0, netzBox.getSelectedIndex()); view.requestFocusInWindow(); });
@@ -371,6 +384,16 @@ public final class ControlPanel extends JPanel implements javax.swing.Scrollable
         put(wbBox);
         put(lfBox);
         put(klBox);
+        // Phase 17: Ebenen von LB_NET_SICHT
+        put(label("Sicht"));
+        FCheckBox slBox = new FCheckBox("Alle Sichtlinien"), rfBox = new FCheckBox("Rundflug (tsp)"), sbBox = new FCheckBox("Spannbaum (mcst)");
+        slBox.setSelected(nb.sichtlinien); rfBox.setSelected(nb.rundflug); sbBox.setSelected(nb.spannbaum);
+        slBox.addActionListener(e -> { nb.sichtlinien = slBox.isSelected(); view.requestFocusInWindow(); });
+        rfBox.addActionListener(e -> { nb.rundflug = rfBox.isSelected(); view.requestFocusInWindow(); });
+        sbBox.addActionListener(e -> { nb.spannbaum = sbBox.isSelected(); view.requestFocusInWindow(); });
+        put(slBox);
+        put(rfBox);
+        put(sbBox);
         JPanel nz = grid(2);
         FButton welleStart = new FButton("Welle: Einschlag"), welleEnde = new FButton("+ 6 min");
         welleStart.setToolTipText("Uhr auf den Einschlag im Gilbert Inlet: 22:16 Uhr + " + Math.round(com.dan.lituya.scene.WellenNetz.START_S) + " s [G]");
@@ -383,7 +406,7 @@ public final class ControlPanel extends JPanel implements javax.swing.Scrollable
         put(small("<html><body style='width:215px'>Die Netze kommen aus daten/netz (F25 A; ant aufbereitung \"-Dschritte=welle,ufer\"), in Oracle als "
                 + "LB_NET_WELLE und LB_NET_UFER (ant netzdb, ant netzvergleich). Isochronen alle 10 s, jede Minute kräftig; sie laufen mit der Uhr "
                 + "(Zeitraffer im Block ZEIT). Seit Phase 16c auch LB_NET_WASSER (Szene) und LB_NET_WEG (Kern; die Flucht an Land wächst mit der Uhr: "
-                + "„Welle: Einschlag“ und Zeitraffer). Später Sicht und Herkunft (Phase 17).</body></html>"));
+                + "„Welle: Einschlag“ und Zeitraffer), seit Phase 17 LB_NET_SICHT (Szene: Kamerapunkte, Sichtlinien, Rundflug, Spannbaum).</body></html>"));
         block("WETTER", false);
         put(small("<html><body style='width:215px'>Kommt mit Phase 5a und 18: Sommerabend 1958 nach ERA5 und Zeugen, für „heute“ Regen, "
                 + "Nebel, Herbststurm, Winter; Polarlicht nur „heute“ (F35 A).</body></html>"));

@@ -46,13 +46,17 @@ public final class Netzblick {
     static final double AE0 = 342_800, AE1 = 358_000, AN0 = 6_498_400, AN1 = 6_507_600;
 
     public volatile boolean bildImBild = true, inSzene = false, ganz = false, isochronen = true, strahlen = true, ufer = true;
-    /** Phase 16c: welches Netz (0 Welle, 1 Wasser, 2 Weg). */
-    public static final String[] NETZE = {"Welle", "Wasser", "Weg"};
+    /** Phase 16c: welches Netz (0 Welle, 1 Wasser, 2 Weg; seit Phase 17 3 Sicht). */
+    public static final String[] NETZE = {"Welle", "Wasser", "Weg", "Sicht"};
     public volatile int netz = 0;
     /** Ebenen Wasser (Phase 16c). */
     public volatile boolean baeche = true, gletscher = true, einzug = true;
     /** Ebenen Weg (Phase 16c). */
     public volatile boolean stunde = true, washburn = true, landflucht = true, klassen = true;
+    /** Ebenen Sicht (Phase 17). */
+    public volatile boolean sichtlinien = false, rundflug = true, spannbaum = true;
+    /** Farben der Knotenarten (wie SichtNetz.ARTEN). */
+    static final int[] ART_RGB = {0xFFFFFF, 0xFFD040, 0xFF8A50, 0x60FF90, 0xFF4060, 0x80C0FF, 0xC8A0FF, 0x40E0E0};
     /** Regen (mm/h) für den Abfluss in der Karte (vom Bedienfeld, wie die Bäche in der Szene). */
     public volatile double regen = 0;
     /** Farben der Ziele (wie WasserNetz.ZIELE). */
@@ -63,7 +67,11 @@ public final class Netzblick {
     private final NetviewGl view = new NetviewGl();
     private final NetLayer iso = new NetLayer("Isochronen"), ray = new NetLayer("Wellenstrahlen"), quelle = new NetLayer("Einschlag"),
             uferL = new NetLayer("Ufer"), auflauf = new NetLayer("Auflauf");
-    private final NetviewGl viewWasser = new NetviewGl(), viewWeg = new NetviewGl();
+    private final NetviewGl viewWasser = new NetviewGl(), viewWeg = new NetviewGl(), viewSicht = new NetviewGl();
+    private final NetLayer sichtLinienL = new NetLayer("Sichtlinien"), spannbaumL = new NetLayer("Spannbaum"), rundflugL = new NetLayer("Rundflug"), sichtPunkteL = new NetLayer("Kamerapunkte");
+    private volatile com.dan.lituya.scene.SichtNetz sicht;
+    private volatile BufferedImage grundSicht;
+    private volatile String standSicht = "LB_NET_SICHT: nicht geladen";
     private final NetLayer baecheL = new NetLayer("Bäche"), eisL = new NetLayer("Gletscher"), einzugL = new NetLayer("Einzugsgebiete"), zielL = new NetLayer("Ziele"),
             stundeL = new NetLayer("1 h vom Strand"), washburnL = new NetLayer("Washburn 1934"), wegpunktL = new NetLayer("Wegpunkte"), landwegL = new NetLayer("Flucht an Land"),
             landzielL = new NetLayer("Sicher");
@@ -88,10 +96,10 @@ public final class Netzblick {
     private double zeit;
 
     /** Netz n geladen (0 Welle, 1 Wasser, 2 Weg)? Oder das Laden ist zu Ende ({@link #fertig}). */
-    public boolean bereit(int n) { return n == 1 ? wasser != null : n == 2 ? !wegText.isEmpty() : welle != null; }
+    public boolean bereit(int n) { return n == 1 ? wasser != null : n == 2 ? !wegText.isEmpty() : n == 3 ? sicht != null : welle != null; }
     public volatile boolean fertig;
 
-    public String stand() { return stand + " · " + standWasser + " · " + standWeg; }
+    public String stand() { return stand + " · " + standWasser + " · " + standWeg + " · " + standSicht; }
     public WellenNetz welle() { return welle; }
     public UferNetz ufer() { return uferNetz; }
 
@@ -130,6 +138,15 @@ public final class Netzblick {
                 } else standWeg = "LB_NET_WEG fehlt (ant aufbereitung -Dschritte=klassen+weg+landflucht)";
             } catch (Exception e) {
                 standWeg = "LB_NET_WEG nicht geladen: " + e.getMessage();
+            }
+            try {
+                long t0 = System.nanoTime();
+                if (com.dan.lituya.scene.SichtNetz.da(daten)) {
+                    bauenSicht(daten);
+                    standSicht = String.format(Locale.GERMAN, "%s; geladen in %.1f s", sicht, (System.nanoTime() - t0) / 1e9);
+                } else standSicht = "LB_NET_SICHT fehlt (ant aufbereitung -Dschritte=sicht)";
+            } catch (Exception e) {
+                standSicht = "LB_NET_SICHT nicht geladen: " + e.getMessage();
             }
             fertig = true;
         }, "Netzblick");
@@ -219,6 +236,7 @@ public final class Netzblick {
         return switch (netz) {
             case 1 -> new double[]{Site.SZENE.eMin(), Site.SZENE.eMax(), Site.SZENE.nMin(), Site.SZENE.nMax()};
             case 2 -> new double[]{Site.KERN.eMin(), Site.KERN.eMax(), Site.KERN.nMin(), Site.KERN.nMax()};
+            case 3 -> new double[]{Site.SZENE.eMin(), Site.SZENE.eMax(), Site.SZENE.nMin(), Site.SZENE.nMax()};
             default -> new double[]{AE0, AE1, AN0, AN1};
         };
     }
@@ -316,7 +334,8 @@ public final class Netzblick {
 
     /** Eine Ebene von Wasser oder Weg nach Namen (für die Prüfung) oder null. */
     public NetLayer ebene(String name) {
-        for (NetLayer l : new NetLayer[]{baecheL, eisL, einzugL, zielL, stundeL, washburnL, wegpunktL, landwegL, landzielL}) if (l.name.equals(name)) return l;
+        for (NetLayer l : new NetLayer[]{baecheL, eisL, einzugL, zielL, stundeL, washburnL, wegpunktL, landwegL, landzielL, sichtLinienL, spannbaumL, rundflugL, sichtPunkteL})
+            if (l.name.equals(name)) return l;
         return null;
     }
 
@@ -428,6 +447,61 @@ public final class Netzblick {
         landText = lt.text;
     }
 
+    // ------------------------------------------------------------------ Phase 17: LB_NET_SICHT
+
+    /** Baut die Ebenen von LB_NET_SICHT (im Hintergrund, einmal): Punkte nach Art, alle Sichtlinien, Spannbaum, Rundflug. */
+    public void bauenSicht(File daten) throws java.io.IOException {
+        com.dan.lituya.scene.SichtNetz w = com.dan.lituya.scene.SichtNetz.lesen(daten);
+        NetLayer li = new NetLayer("Sichtlinien"), sb = new NetLayer("Spannbaum"), rf = new NetLayer("Rundflug"), pu = new NetLayer("Kamerapunkte");
+        for (int e = 0; e < w.m; e++) li.line(new float[]{(float) w.x(w.von[e]), (float) w.hoehe[w.von[e]], (float) w.z(w.von[e]), (float) w.x(w.nach[e]), (float) w.hoehe[w.nach[e]], (float) w.z(w.nach[e])}, 0x5A6A78, 0.7f);
+        File dir = new File(daten, com.dan.lituya.scene.SichtNetz.ORDNER);
+        File sf = new File(dir, "spannbaum.tsv");
+        if (sf.isFile())
+            for (String[] r : WellenNetz.tsv(sf)) {
+                int e = Integer.parseInt(r[0]) - 1;
+                sb.line(new float[]{(float) w.x(w.von[e]), (float) w.hoehe[w.von[e]] + 1, (float) w.z(w.von[e]), (float) w.x(w.nach[e]), (float) w.hoehe[w.nach[e]] + 1, (float) w.z(w.nach[e])}, 0x40D8FF, 1.6f);
+            }
+        double[][] fo = com.dan.lituya.scene.SichtNetz.fahrt(daten, "rundflug.tsv");
+        if (fo != null) {
+            float[] xyz = new float[3 * fo.length];
+            for (int q = 0; q < fo.length; q++) { int k = (int) fo[q][0]; xyz[3 * q] = (float) w.x(k); xyz[3 * q + 1] = (float) w.hoehe[k] + 2; xyz[3 * q + 2] = (float) w.z(k); }
+            linie(rf, xyz, 0xFF9A30, 2.6f);
+        }
+        for (int a = 0; a < com.dan.lituya.scene.SichtNetz.ARTEN.length; a++) {
+            List<Float> p = new ArrayList<>();
+            for (int k = 0; k < w.n; k++)
+                if (com.dan.lituya.scene.SichtNetz.ARTEN[a].equals(w.art[k])) { p.add((float) w.x(k)); p.add((float) w.hoehe[k] + 3); p.add((float) w.z(k)); }
+            float[] pa = new float[p.size()];
+            for (int k = 0; k < pa.length; k++) pa[k] = p.get(k);
+            if (pa.length >= 3) pu.points(pa, null, ART_RGB[a], a == 0 || a == 1 ? 11 : 8);
+        }
+        BufferedImage g = grundWasser;
+        grundSicht = g != null ? g : klassenBild(daten, Klassen.SZENE, 1, 0.62, true);
+        synchronized (viewSicht) {
+            for (NetLayer[] x : new NetLayer[][]{{sichtLinienL, li}, {spannbaumL, sb}, {rundflugL, rf}, {sichtPunkteL, pu}}) { x[0].clear(); x[0].items.addAll(x[1].items); }
+        }
+        sicht = w;
+    }
+
+    BufferedImage karteSicht(int bw, int bh) {
+        BufferedImage im = new BufferedImage(bw, bh, BufferedImage.TYPE_INT_ARGB);
+        com.dan.lituya.scene.SichtNetz w = sicht;
+        Graphics2D g = kopf(im, grundSicht, "NETZBLICK · LB_NET_SICHT · Szene", w == null ? "" : w.wert("netz") + " · Kosten = Flugzeit der Kamera");
+        List<Object[]> z = new ArrayList<>();
+        if (w != null) {
+            z.add(new Object[]{"Rundflug (tsp): " + w.wert("rundflug"), new Color(0xFF9A30)});
+            z.add(new Object[]{"Spannbaum (mcst): " + w.wert("spannbaum"), new Color(0x40D8FF)});
+            int[] c = new int[com.dan.lituya.scene.SichtNetz.ARTEN.length];
+            for (int k = 0; k < w.n; k++) c[java.util.Arrays.asList(com.dan.lituya.scene.SichtNetz.ARTEN).indexOf(w.art[k])]++;
+            StringBuilder b = new StringBuilder();
+            for (int a = 0; a < c.length; a++) b.append(a > 0 ? " · " : "").append(com.dan.lituya.scene.SichtNetz.ARTEN[a].charAt(0)).append(com.dan.lituya.scene.SichtNetz.ARTEN[a].substring(1).toLowerCase(Locale.ROOT)).append(' ').append(c[a]);
+            z.add(new Object[]{b.toString(), Color.WHITE});
+        }
+        zeilen(g, bw, bh, z);
+        g.dispose();
+        return im;
+    }
+
     /** Ein Strahl (wächst mit der Uhr) aus Punkten {x, y, z, Zeit}, in Stücken. */
     static void strahl(NetLayer l, List<float[]> p, int rgb, float breite) {
         if (p.size() < 2) return;
@@ -462,6 +536,8 @@ public final class Netzblick {
         for (NetLayer l : new NetLayer[]{einzugL, eisL, baecheL, zielL}) viewWasser.add(l);
         viewWeg.init(gl);
         for (NetLayer l : new NetLayer[]{stundeL, washburnL, landwegL, wegpunktL, landzielL}) viewWeg.add(l);
+        viewSicht.init(gl);
+        for (NetLayer l : new NetLayer[]{sichtLinienL, spannbaumL, rundflugL, sichtPunkteL}) viewSicht.add(l);
         init = true;
     }
 
@@ -496,13 +572,16 @@ public final class Netzblick {
         wegpunktL.visible = washburn;
         landwegL.visible = landflucht;
         landzielL.visible = landflucht;
+        sichtLinienL.visible = sichtlinien;
+        spannbaumL.visible = spannbaum;
+        rundflugL.visible = rundflug;
     }
 
     /** Ansicht, Sperre und Zeit des gewählten Netzes. */
-    private NetviewGl ansicht() { return netz == 1 ? viewWasser : netz == 2 ? viewWeg : view; }
-    private Object sperre() { return netz == 1 ? viewWasser : netz == 2 ? viewWeg : iso; }
-    private double zeitJe() { return netz == 1 ? 1e9 : netz == 2 ? simSeconds : zeit; }
-    private boolean geladen() { return netz == 1 ? wasser != null : netz == 2 ? !wegText.isEmpty() : welle != null; }
+    private NetviewGl ansicht() { return netz == 1 ? viewWasser : netz == 2 ? viewWeg : netz == 3 ? viewSicht : view; }
+    private Object sperre() { return netz == 1 ? viewWasser : netz == 2 ? viewWeg : netz == 3 ? viewSicht : iso; }
+    private double zeitJe() { return netz == 1 || netz == 3 ? 1e9 : netz == 2 ? simSeconds : zeit; }
+    private boolean geladen() { return bereit(netz); }
 
     /** In der Szene: in den HDR-Puffer nach dem Wasser, Tiefe gegen das Gelände. */
     void szene(GL4 gl, float[] vp, double[] eye, int w, int h, boolean reversedZ, double exposure) {
@@ -556,7 +635,7 @@ public final class Netzblick {
                 v.gain = 1;
                 v.depthBias = 0;
                 double[] a = Site.fromUtm(au[0], au[3]), b = Site.fromUtm(au[1], au[2]);
-                double hoch = nz == 0 ? 3000 : nz == 1 ? 9000 : 5000;
+                double hoch = nz == 0 ? 3000 : nz == 1 || nz == 3 ? 9000 : 5000;
                 v.draw(gl, ortho(a[0], b[0], a[1], b[1]), new double[]{(a[0] + b[0]) / 2, hoch, (a[1] + b[1]) / 2}, bw, bh, nz == 0 ? zeit : zeitJe());
                 gl.glDisable(GL.GL_DEPTH_TEST);
                 gl.glDepthFunc(GL.GL_LESS);
@@ -582,6 +661,7 @@ public final class Netzblick {
     BufferedImage karte(int bw, int bh, String zeitText) {
         if (netz == 1) return karteWasser(bw, bh);
         if (netz == 2) return karteWeg(bw, bh);
+        if (netz == 3) return karteSicht(bw, bh);
         BufferedImage im = new BufferedImage(bw, bh, BufferedImage.TYPE_INT_ARGB);
         Graphics2D g = im.createGraphics();
         g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
@@ -716,8 +796,9 @@ public final class Netzblick {
     String info() {
         if (netz == 1) return standWasser + String.format(Locale.GERMAN, " · Regen %.0f mm/h", regen);
         if (netz == 2) return standWeg + String.format(Locale.GERMAN, " · t = %+.0f s nach dem Stoß", simSeconds);
+        if (netz == 3) return standSicht;
         return stand + (welle != null ? String.format(Locale.GERMAN, " · %s, Welle t = %.0f s", WellenNetz.KOSTEN_NAME[kosten], zeit) : "");
     }
 
-    void dispose(GL4 gl) { if (init) { view.dispose(gl); viewWasser.dispose(gl); viewWeg.dispose(gl); } karte.dispose(gl); }
+    void dispose(GL4 gl) { if (init) { view.dispose(gl); viewWasser.dispose(gl); viewWeg.dispose(gl); viewSicht.dispose(gl); } karte.dispose(gl); }
 }

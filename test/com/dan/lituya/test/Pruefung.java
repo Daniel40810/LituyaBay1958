@@ -999,6 +999,8 @@ public final class Pruefung {
             }
         }
 
+        sicht17(daten);
+
         teil("Staub und Treibgut (Phase 12): dustcloud, debris");
         {
             com.dan.dustcloud.DustCloud dc = new com.dan.dustcloud.DustCloud(0, 0, 40, 20, 50, com.dan.dustcloud.DustCloud.rockDust());
@@ -1074,7 +1076,7 @@ public final class Pruefung {
                     while (m.find()) if (!m.group(1).toUpperCase(Locale.ROOT).startsWith("LB_")) { fremd++; System.out.println("    ohne LB_: " + m.group(1) + " in " + x.getName()); }
                 }
             }
-            check(sk.length == 16 && anw > 40, f("db/netz: %d Skripte, %d Anweisungen, jede mit „/“ abgeschlossen", sk.length, anw));
+            check(sk.length == 18 && anw > 40, f("db/netz: %d Skripte, %d Anweisungen, jede mit „/“ abgeschlossen", sk.length, anw));
             check(fremd == 0, "alle Objekte mit Präfix LB_ (F40 B: Schema LITUYABAY1958)");
         }
         {
@@ -1170,4 +1172,69 @@ public final class Pruefung {
     }
 
     private Pruefung() { }
+
+    /** Phase 17: LB_NET_SICHT (eigene Methode, damit die Namen nicht mit main zusammenstoßen). */
+    static void sicht17(File daten) throws Exception {
+        teil("Sicht und Kamera (Phase 17): LB_NET_SICHT, Rundflug und Kamerafahrt");
+        {
+            double t1 = com.dan.lituya.scene.SichtNetz.flugzeit(3000, 0, 0), t2 = com.dan.lituya.scene.SichtNetz.flugzeit(0, 4000, 1200);
+            com.dan.lituya.tools.Sicht.Hoehe meer = (e, n) -> 0;
+            java.util.concurrent.atomic.AtomicInteger pr17 = new java.util.concurrent.atomic.AtomicInteger();
+            double f12 = com.dan.lituya.tools.Sicht.frei(meer, new double[]{0, 0, 3, 0}, new double[]{12_000, 0, 3, 0}, 12_000, pr17),
+                    f20 = com.dan.lituya.tools.Sicht.frei(meer, new double[]{0, 0, 3, 0}, new double[]{20_000, 0, 3, 0}, 20_000, pr17);
+            double soll12 = 3 - 12_000.0 * 12_000 / (8 * com.dan.lituya.scene.SichtNetz.radius());
+            check(Math.abs(t1 - 100) < 1e-9 && Math.abs(t2 - 100) < 1e-9 && Math.abs(f12 - soll12) < 0.01 && f20 < 0,
+                    f("Flugzeit: 3 km am Boden 100 s, 1 200 m steigen 100 s; Sicht über das Meer in 3 m Augenhöhe: 12 km frei (%.2f m Abstand, k = 0,13), 20 km hinter der Kimm", f12));
+            if (!com.dan.lituya.scene.SichtNetz.da(daten)) hinweis("daten/netz/sicht fehlt: ant aufbereitung -Dschritte=sicht");
+            else {
+                com.dan.lituya.scene.SichtNetz sn = com.dan.lituya.scene.SichtNetz.lesen(daten);
+                check(com.dan.lituya.scene.WellenNetz.pruefsumme(new File(daten, com.dan.lituya.scene.SichtNetz.ORDNER)).equals(sn.wert("pruefsumme")), sn + "; Prüfsumme in SICHT.txt passt");
+                int[] kz17 = new int[1];
+                sn.komponenten(kz17);
+                int falsch17 = 0, motive17 = 0;
+                for (int e = 0; e < sn.m; e++) {
+                    int a17 = sn.von[e], b17 = sn.nach[e];
+                    double c = com.dan.lituya.scene.SichtNetz.flugzeit(sn.laenge[e], 0.5 * (sn.hoehe[a17] + sn.hoehe[b17]), sn.hoehe[b17] - sn.hoehe[a17]);
+                    if (Math.abs(c - sn.cost[e]) > 0.05 || sn.frei[e] < 0 || Math.abs(Math.hypot(sn.ost[b17] - sn.ost[a17], sn.nord[b17] - sn.nord[a17]) - sn.laenge[e]) > 0.2) falsch17++;
+                }
+                for (boolean x : sn.motiv) if (x) motive17++;
+                java.util.Map<String, Integer> arten17 = new java.util.TreeMap<>();
+                for (String x : sn.art) arten17.merge(x, 1, Integer::sum);
+                check(kz17[0] == 1 && falsch17 == 0 && motive17 >= 20 && sn.n >= 100,
+                        f("%d Punkte (%s), eine Komponente, %d Motive; jede Sichtlinie frei, Länge und Flugzeit nachgerechnet (%d falsch)", sn.n, arten17, motive17, falsch17));
+                // Fahrten: aufeinanderfolgende Knoten durch Sichtlinien verbunden, Zeit wie die Summe der Kosten, alle Motive besucht
+                for (String[] fd : new String[][]{{"rundflug.tsv", "rundflug.kosten"}, {"fahrt.tsv", null}}) {
+                    double[][] fo = com.dan.lituya.scene.SichtNetz.fahrt(daten, fd[0]);
+                    double tt = 0;
+                    int ohne = 0;
+                    java.util.Set<Integer> bes = new java.util.HashSet<>();
+                    for (int q = 0; q < fo.length; q++) {
+                        int k = (int) fo[q][0];
+                        bes.add(k);
+                        if (q == 0) continue;
+                        int kp = (int) fo[q - 1][0], ke = -1;
+                        for (int e : sn.adj[kp]) if (sn.anderes(e, kp) == k) ke = e;
+                        if (ke < 0) ohne++; else tt += sn.cost[ke];
+                    }
+                    int fehlt = 0;
+                    for (int k = 0; k < sn.n; k++) if (sn.motiv[k] && !bes.contains(k)) fehlt++;
+                    double soll = fd[1] == null ? tt : Double.parseDouble(sn.wert(fd[1]));
+                    check(ohne == 0 && fehlt == 0 && Math.abs(tt - fo[fo.length - 1][1]) < 0.5 && Math.abs(tt - soll) < 0.5 && (fd[1] == null || (int) fo[0][0] == (int) fo[fo.length - 1][0]),
+                            f("%s: %,d Schritte die Sichtlinien entlang, %.0f min Flugzeit, alle Motive besucht%s", fd[0], fo.length, tt / 60, fd[1] != null ? ", geschlossen" : ""));
+                }
+                com.dan.lituya.tools.SichtDb.Vergleich v17 = com.dan.lituya.tools.SichtDb.lodImSpeicher(sn);
+                check(v17.ok(), "Zweitrechnung LOD im Speicher (mcst, tsp, nearestNeighbors) gegen die eigene: " + v17.text());
+                com.dan.lituya.camera.Fahrt fr17 = com.dan.lituya.camera.SichtFahrt.bauen(daten, com.dan.lituya.camera.SichtFahrt.RUNDFLUG, 15, null);
+                double[][] fo = com.dan.lituya.scene.SichtNetz.fahrt(daten, "rundflug.tsv");
+                double lk = 0;
+                for (int q = 1; q < fo.length; q++) { int a17 = (int) fo[q - 1][0], b17 = (int) fo[q][0]; lk += Math.hypot(sn.ost[b17] - sn.ost[a17], sn.nord[b17] - sn.nord[a17]); }
+                check(fr17 != null && Math.abs(fr17.length - lk) < 0.05 * lk && Math.abs(fr17.duration - fo[fo.length - 1][1] / 15) < 1,
+                        f("Fahrt Rundflug in der App: %s (Knoten %,.0f m, Rundung mit Catmull-Rom)", fr17 == null ? "–" : fr17.describe(), lk));
+                com.dan.lituya.gl.Netzblick ns17 = new com.dan.lituya.gl.Netzblick();
+                ns17.bauenSicht(daten);
+                check(ns17.ebene("Sichtlinien").items.size() == sn.m && ns17.ebene("Spannbaum").items.size() == sn.n - 1 && !ns17.ebene("Rundflug").items.isEmpty(),
+                        f("Netzblick Sicht: %,d Sichtlinien, Spannbaum %d Kanten, Rundflug %d Stücke", ns17.ebene("Sichtlinien").items.size(), ns17.ebene("Spannbaum").items.size(), ns17.ebene("Rundflug").items.size()));
+            }
+        }
+    }
 }
