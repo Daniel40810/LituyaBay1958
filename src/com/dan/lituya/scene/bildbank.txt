@@ -1,0 +1,21 @@
+# Werkbuch Bild, Abschnitt 3.1: die Bildbank. Zwölf feste Ansichten, Grundlage jeder Abnahme (ant bildbank).
+# Eine Zeile je Bild: Schlüssel=Wert, getrennt mit „;“. Lage entweder
+#   schaustueck=n            (Kamera und Uhr des Schaustücks, Werkbuch 1 10.3)
+#   ort=NAME[;versatz=Grad,m] (ein Ort aus Site, z. B. ANCHORAGE, CENOTAPH, GILBERT; versetzt um m in Richtung Grad)
+#   xz=x,z                    (Szenenmeter, x nach Ost, z nach Süd)
+# Blick: blick=Grad von Nord oder blickauf=NAME (Ort aus Site); neigung=Grad nach unten (negativ: hinauf); auge=m über Grund/Wasser.
+# Zeit: zeitstand=vor|welle|danach|heute, uhr=Stunden Ortszeit, datum=JJJJ-MM-TT, ereignis=s nach dem ersten Stoß.
+# Bild: brennweite=mm (Kleinbild). Sonst: lauf, regen (mm/h), wetter (Text, gilt erst ab B10), offen=Grund (Bild noch nicht machbar).
+# Lagen und Zeiten [G], nach den ersten Bildern von B0 nachzustellen.
+nr=1;name=Abend_vor_Anker;schaustueck=1;zeitstand=vor;uhr=22.0;brennweite=50;warum=Spiegel, Alpenglühen, Kutter
+nr=2;name=Fairweather_vom_Eingang;ort=CHAUSSEE;versatz=225,1500;auge=6;blickauf=FAIRWEATHER;neigung=-5.5;zeitstand=vor;uhr=22.1667;brennweite=200;warum=Maßstab, Luftperspektive, Schnee
+nr=3;name=Gilbert_Inlet_von_Sueden;ort=GILBERT;versatz=210,1600;auge=40;blickauf=GILBERT;neigung=-6;zeitstand=vor;uhr=22.25;brennweite=35;warum=Gletscherfront, Wand, Eis im Wasser
+nr=4;name=Der_Sturz;schaustueck=3;ereignis=96;brennweite=85;warum=Fels, Staub im Gegenlicht
+nr=5;name=Die_Wand_aus_Wasser;schaustueck=4;ereignis=104;brennweite=24;warum=Krone, Gischt, Licht durch das Wasser
+nr=6;name=524_m;schaustueck=5;ereignis=106;brennweite=135;warum=Auflauf, Wald verschwindet
+nr=7;name=Die_Front_vor_Cenotaph;ort=CENOTAPH;versatz=60,1500;auge=4;blick=50;neigung=-2;ereignis=170;brennweite=50;warum=Wasserwand mit Treibgut, aus Bootshöhe
+nr=8;name=Unter_Wasser;schaustueck=7;ereignis=115;brennweite=18;warum=Trübe, Licht, Stämme
+nr=9;name=Der_Morgen_danach;schaustueck=10;brennweite=35;warum=Narbe, Holzteppich
+nr=10;name=Millers_Standort;offen=wartet auf Millers Foto und Standort (FB9 A: Fotos von Hand nach docs/bild/referenz);warum=Abgleich mit dem Foto
+nr=11;name=Narbe_heute;xz=1000,-1300;auge=20;blick=2;neigung=-4;zeitstand=heute;datum=2026-07-20;uhr=15.0;brennweite=85;warum=hellgrünes Band
+nr=12;name=Heute_im_Regen;ort=ANCHORAGE;auge=3;blick=62;neigung=-2;zeitstand=heute;datum=2026-07-20;uhr=11.0;regen=8;wetter=Regen, Nebel in den Hängen (erst ab B10 im Bild);brennweite=35;warum=Wetter, Stimmung

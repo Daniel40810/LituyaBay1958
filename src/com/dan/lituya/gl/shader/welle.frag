@@ -18,6 +18,9 @@ float vn(vec2 x) {
     f = f * f * (3.0 - 2.0 * f);
     return mix(mix(h2(i), h2(i + vec2(1, 0)), f.x), mix(h2(i + vec2(0, 1)), h2(i + vec2(1, 1)), f.x), f.y);
 }
+// W0 (K4): Rauschen mit Periode p (m), das ausblendet (zum Mittel 0,5 geht), sobald ein Bildpunkt mehr als rund ein
+// Drittel der Periode deckt; vorher sprenkelte es in der Ferne weiß und flimmerte beim Bewegen.
+float vnf(vec2 q, float p, vec2 o, float px) { return mix(vn(q / p + o), 0.5, smoothstep(0.25, 0.6, px / p)); }
 
 void main() {
     if (vNass < 0.35) discard;
@@ -28,16 +31,17 @@ void main() {
     vec2 q = vW.xz;
     // kleine Wellen wie in meer.frag (zwei Lagen, in der Ferne glatt), auf die Normale der Welle gesetzt
     float pxm = dist * 0.0012;
+    float px = max(length(fwidth(q)), 1e-4);   // Bildpunkt auf der Fläche (m)
     float k1 = (1.0 - smoothstep(300.0, 6000.0, dist)) / (1.0 + pxm / 3.0), k2 = (1.0 - smoothstep(30.0, 600.0, dist)) / (1.0 + pxm);
-    vec2 g = vec2(vn(q / 11.0 + uTime * 0.06) - vn(q / 11.0 + vec2(3.1, 0.0) - uTime * 0.045),
-                  vn(q / 8.0 - uTime * 0.05) - vn(q / 8.0 + vec2(0.0, 5.3) + uTime * 0.04)) * 0.30 * k1
-           + vec2(vn(q / 1.7 + uTime * 0.3) - 0.5, vn(q / 1.3 - uTime * 0.25) - 0.5) * 0.20 * k2;
+    vec2 g = vec2(vnf(q, 11.0, vec2(uTime * 0.06), px) - vnf(q, 11.0, vec2(3.1, 0.0) - uTime * 0.045, px),
+                  vnf(q, 8.0, vec2(-uTime * 0.05), px) - vnf(q, 8.0, vec2(0.0, 5.3) + uTime * 0.04, px)) * 0.30 * k1
+           + vec2(vnf(q, 1.7, vec2(uTime * 0.3), px) - 0.5, vnf(q, 1.3, vec2(-uTime * 0.25), px) - 0.5) * 0.20 * k2;
     vec3 n = normalize(normalize(vN) + vec3(g.x, 0.0, g.y));
     vec3 v = -d;
     float B = skyBrightness(sunElevDeg());
     float steil = 1.0 - normalize(vN).y;
     // Gischt: steile Flanke, schnell steigende Front, mit Rauschen ausgefranst [G]
-    float roh = vn(q / 3.0 + vec2(uTime * 0.7, 0.0)) * 0.6 + vn(q / 0.9) * 0.4;
+    float roh = vnf(q, 3.0, vec2(uTime * 0.7, 0.0), px) * 0.6 + vnf(q, 0.9, vec2(0.0), px) * 0.4;
     float gischt = clamp(smoothstep(0.08, 0.35, steil) + smoothstep(0.8, 4.0, vSteig), 0.0, 1.0) * smoothstep(0.25, 0.75, roh + 0.3);
     float trueb = smoothstep(2.0, 25.0, vH - uLevel);
     vec3 body = mix(vec3(0.025, 0.065, 0.065), vec3(0.09, 0.085, 0.07), trueb) * (B / 0.32) * (0.35 + 0.65 * max(uSun.y, 0.0));

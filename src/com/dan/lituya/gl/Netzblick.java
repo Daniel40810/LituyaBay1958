@@ -45,7 +45,7 @@ public final class Netzblick {
     /** Ausschnitt der Draufsicht (UTM). */
     static final double AE0 = 342_800, AE1 = 358_000, AN0 = 6_498_400, AN1 = 6_507_600;
 
-    public volatile boolean bildImBild = true, inSzene = false, ganz = false, isochronen = true, strahlen = true, ufer = true;
+    public volatile boolean bildImBild = false, inSzene = false, ganz = false, isochronen = true, strahlen = true, ufer = true;
     /** Phase 16c: welches Netz (0 Welle, 1 Wasser, 2 Weg; seit Phase 17 3 Sicht). */
     public static final String[] NETZE = {"Welle", "Wasser", "Weg", "Sicht"};
     public volatile int netz = 0;

@@ -30,7 +30,8 @@ import java.util.Locale;
  * {@code lauf} = Lauf der Welle (kette, messwelle), {@code abspielen} = aus; ab Phase 14a {@code schaustueck} auch 10 und 11,
  * {@code wald} = aus; ab Phase 16c {@code netz} (welle, wasser, weg, sicht), {@code netzszene} = an, {@code netzblick} = aus,
  * {@code regen} (mm/h); ab Phase 17 {@code fahrt} (rundflug, kamerafahrt) und {@code fahrtanteil} (0 … 1); ab Phase 17a
- * {@code regiebuch} (Name; ganz durchspielen, Blatt nach docs/status) und {@code kino} = aus.
+ * {@code regiebuch} (Name; ganz durchspielen, Blatt nach docs/status) und {@code kino} = aus; ab Werkbuch Bild B0
+ * {@code brennweite} (mm, Kleinbild) und {@code zeitstand} (vor, welle, danach, heute; nur der Stand, die Uhr kommt aus den Argumenten).
  */
 public final class Tempo {
     private Tempo() { }
@@ -63,6 +64,14 @@ public final class Tempo {
         r.frozen = true;
         r.setQuality(q);
         r.autoScale = false;
+        // Werkbuch Bild, B0: Brennweite und Zeitstand für die Bildbank
+        String bw = opt("brennweite"), zst = opt("zeitstand");
+        if (bw != null && !bw.isBlank()) r.brennweite = Double.parseDouble(bw.replace(',', '.'));
+        if (zst != null && !zst.isBlank()) {
+            String k = zst.trim().toLowerCase(Locale.ROOT);
+            for (SceneClock.Zeitstand z : SceneClock.Zeitstand.values())
+                if (z.name().toLowerCase(Locale.ROOT).equals(k) || z.label.equalsIgnoreCase(k)) clock.zeitstand = z;
+        }
         String hud = opt("hud");
         if ("aus".equals(hud)) r.showHud = false;
         if ("voll".equals(hud)) r.hudFull = true;
@@ -78,7 +87,9 @@ public final class Tempo {
         String nz = opt("netz"), rg = opt("regen");
         if (nz != null && !nz.isBlank()) r.netzblick.netz = Math.max(0, java.util.Arrays.asList("welle", "wasser", "weg", "sicht").indexOf(nz.toLowerCase(Locale.ROOT)));
         if ("an".equals(opt("netzszene"))) r.netzblick.inSzene = true;
-        if ("aus".equals(opt("netzblick"))) r.netzblick.bildImBild = false;
+        // W0 (K6): der Netzblick ist von Haus aus aus; an mit netzblick=an oder wenn ein Netz gewählt ist (ant netzbilder, sichtbilder)
+        String nbl = opt("netzblick");
+        r.netzblick.bildImBild = "an".equals(nbl) || (nbl == null && nz != null && !nz.isBlank());
         if (rg != null && !rg.isBlank()) r.baeche.regen = Double.parseDouble(rg.replace(',', '.'));
         com.dan.lituya.camera.Schaustuecke.Stueck stueck = com.dan.lituya.camera.Schaustuecke.byName(sst);
         if (sst != null && !sst.isBlank() && stueck == null) System.err.println("FEHLER: kein Schaustück „" + sst + "“");
@@ -96,7 +107,9 @@ public final class Tempo {
                 String[] p = ka.split(",");
                 double x = Double.parseDouble(p[0]), z = Double.parseDouble(p[1]);
                 double hd = p.length > 2 ? Double.parseDouble(p[2]) : 0, pt = p.length > 3 ? Double.parseDouble(p[3]) : 10, up = p.length > 4 ? Double.parseDouble(p[4]) : 2;
-                r.camera.place(x, Math.max(r.groundHeight(x, z), r.wiring.pegel) + up, z, hd, pt);
+                // W0: sechster Wert = Auge absolut (m über NAVD88)
+                double y = p.length > 5 ? Double.parseDouble(p[5]) : Math.max(r.groundHeight(x, z), r.wiring.pegel) + up;
+                r.camera.place(x, y, z, hd, pt);
             } else if (an != null && !an.isBlank()) {
                 Ansichten.Ansicht v = Ansichten.byName(an);
                 if (v == null) System.err.println("FEHLER: keine Ansicht „" + an + "“");

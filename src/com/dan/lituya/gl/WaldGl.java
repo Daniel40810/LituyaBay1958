@@ -49,7 +49,13 @@ public final class WaldGl {
     static final double X0 = -12_000, Z0 = -12_000, KANTE = 24_000;
     static final int N_GELAENDE = 4096, N_DICHTE = 2048;
     /** Texturstellen: Boden im Band, Holzteppich. */
-    public static final int UNIT_BAND = 10, UNIT_TEPPICH = 11;
+    public static final int UNIT_BAND = 10, UNIT_TEPPICH = 11, UNIT_KRONE = 12;
+    /**
+     * Werkbuch Welle W0 (K3): Einzelbäume nur bis hierher (m); dahinter zeichnet das Gelände das Kronendach aus dem
+     * Dichtegitter (gelaende.frag). Vorher reichten die Bäume in „Hoch“ 4,5 km weit und zerfielen dort in Bildpunkte;
+     * bis 3 km glättet sie jetzt die Kantenglättung (erste Annahme 1,8 km: der Gegenhang wurde zu glatt).
+     */
+    public static final double NAH = 3000, AUSDUENNEN_AB = 0.55;
     /** Treibgut zeigen bis so viele Sekunden nach dem Beben (rund drei Wochen) [G]. */
     static final double TREIBGUT_BIS = 21 * 86_400;
 
@@ -64,6 +70,7 @@ public final class WaldGl {
     private Daten d;
     private ForestGpu forest;
     private boolean gezogenGebaut;
+    private int kroneTex;
     private int bandTex, teppichTex, gezeigt = Integer.MIN_VALUE, bodenJahr = Integer.MIN_VALUE, tag = -1;
     private double welleT = Double.NaN;
     private boolean mitTreibgut;
@@ -93,7 +100,14 @@ public final class WaldGl {
 
     public String status() { return status; }
 
-    public void stufe(Quality q) { stufe = ForestGpu.Quality.values()[q.ordinal()]; if (forest != null) forest.apply(stufe); }
+    public void stufe(Quality q) { stufe = ForestGpu.Quality.values()[q.ordinal()]; if (forest != null) nah(forest); }
+
+    /** Stufe anwenden und die Reichweite der Einzelbäume auf {@link #NAH} kürzen (W0, K3). */
+    private void nah(ForestGpu f) {
+        f.apply(stufe);
+        f.radius = Math.min(f.radius, NAH);
+        f.thinFrom = AUSDUENNEN_AB;
+    }
 
     Daten rechnen(File daten, boolean g) throws Exception {
         long t0 = System.nanoTime();
@@ -165,15 +179,17 @@ public final class WaldGl {
             try {
                 d = bau.get();
                 forest = new ForestGpu(ARTEN, 3, Wald1958.ABSTAND, 1958);
-                forest.apply(stufe);
+                nah(forest);
                 forest.setTerrain(d.gelaende);
                 forest.setDensity(d.dichte);
                 forest.setStates(d.states);
                 forest.init(gl);
-                int[] t = new int[2];
-                gl.glGenTextures(2, t, 0);
+                int[] t = new int[3];
+                gl.glGenTextures(3, t, 0);
                 bandTex = t[0];
                 teppichTex = t[1];
+                kroneTex = t[2];
+                kroneTextur(gl);
                 if (d.teppich != null) {
                     FloatBuffer fb = Buffers.newDirectFloatBuffer(d.tnx * d.tnz * 2);
                     int n = d.tnx * d.tnz;
@@ -276,11 +292,44 @@ public final class WaldGl {
         parameter(gl);
     }
 
+    /** W0 (K3): das Dichtegitter (drei Arten) als RGB-Textur mit Mip-Stufen für das Kronendach im Gelände. */
+    void kroneTextur(GL4 gl) {
+        ForestCulture.Grid g = d.dichte;
+        int n = g.n, L = Math.min(3, g.layers);
+        ByteBuffer b = Buffers.newDirectByteBuffer(n * n * 4);
+        for (int j = 0; j < n; j++)
+            for (int i = 0; i < n; i++) {
+                for (int s = 0; s < 3; s++) b.put((byte) (s < L ? Math.round(Math.max(0, Math.min(1, g.v[(s * n + j) * n + i])) * 255) : 0));
+                b.put((byte) 255);
+            }
+        b.flip();
+        gl.glBindTexture(GL.GL_TEXTURE_2D, kroneTex);
+        gl.glPixelStorei(GL.GL_UNPACK_ALIGNMENT, 1);
+        gl.glTexImage2D(GL.GL_TEXTURE_2D, 0, GL.GL_RGBA8, n, n, 0, GL.GL_RGBA, GL.GL_UNSIGNED_BYTE, b);
+        gl.glPixelStorei(GL.GL_UNPACK_ALIGNMENT, 4);
+        gl.glGenerateMipmap(GL.GL_TEXTURE_2D);
+        gl.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR_MIPMAP_LINEAR);
+        gl.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_LINEAR);
+        gl.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_S, GL.GL_CLAMP_TO_EDGE);
+        gl.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_T, GL.GL_CLAMP_TO_EDGE);
+    }
+
     /** Uniforms des Bodens im Band für das Gelände (Shader ist gebunden). */
     public void gelaende(GL4 gl, Shader s) { gelaende(gl, s.id()); }
 
     /** Wie {@link #gelaende(GL4, Shader)} für ein Programm p (gebunden). */
     public void gelaende(GL4 gl, int p) {
+        // W0 (K3): Kronendach hinter den Einzelbäumen
+        boolean kr = an && d != null && kroneTex != 0 && forest != null;
+        gl.glUniform1i(gl.glGetUniformLocation(p, "uKroneAn"), kr ? 1 : 0);
+        gl.glUniform1i(gl.glGetUniformLocation(p, "uKrone"), UNIT_KRONE);
+        if (kr) {
+            gl.glActiveTexture(GL.GL_TEXTURE0 + UNIT_KRONE);
+            gl.glBindTexture(GL.GL_TEXTURE_2D, kroneTex);
+            gl.glActiveTexture(GL.GL_TEXTURE0);
+            gl.glUniform4f(gl.glGetUniformLocation(p, "uKroneRect"), (float) X0, (float) Z0, (float) KANTE, (float) KANTE);
+            gl.glUniform2f(gl.glGetUniformLocation(p, "uKroneAb"), (float) (forest.radius * forest.thinFrom), (float) forest.radius);
+        }
         boolean on = an && d != null && bodenJahr >= 0;
         gl.glUniform1i(gl.glGetUniformLocation(p, "uBandAn"), on ? 1 : 0);
         gl.glUniform1i(gl.glGetUniformLocation(p, "uBand"), UNIT_BAND);
@@ -345,6 +394,7 @@ public final class WaldGl {
 
     public void dispose(GL4 gl) {
         if (forest != null) forest.dispose(gl);
+        if (kroneTex != 0) gl.glDeleteTextures(1, new int[]{kroneTex}, 0);
         exec.shutdownNow();
     }
 }

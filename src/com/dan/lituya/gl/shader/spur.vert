@@ -108,5 +108,13 @@ void main() {
     int a = texelFetch(uA, cc, 0).r, b = texelFetch(uB, cc, 0).r;
     vSteig = (a != TROCKEN && b != TROCKEN) ? float(b - a) * uStufe : 0.0;
 #endif
-    gl_Position = uVP * vec4(vW, 1.0);
+    // W0 (K4): wo die Schicht dünn über dem Grund liegt (Auflauf am Hang, Strom), lagen Fläche (Gitter 2–16 m) und Gelände
+    // (feiner) fast aufeinander und durchdrangen sich unter Bildpunktgröße: Gesprenkel. Die Ecke rückt deshalb um 0,2 % des
+    // Abstands auf dem Sehstrahl zur Kamera (Bildort unverändert, nur die Tiefe gewinnt).
+#ifdef STROM
+    float zug = (1.0 - smoothstep(3.0, 20.0, h - texelFetch(uBoden, cc, 0).r)) * 0.002;
+#else
+    float zug = 0.0015;   // die Welle hat hier kein Bodengitter: die ganze Fläche, bei 6 km rund 9 m
+#endif
+    gl_Position = uVP * vec4(mix(vW, uCam, zug), 1.0);
 }

@@ -1086,6 +1086,34 @@
             <classpath><pathelement path="${run.classpath}"/></classpath>
         </java>
     </target>
+    <!-- Werkbuch Bild, B0 (Abschnitt 3.1): bildbank: die zwölf festen Ansichten aus src/com/dan/lituya/scene/bildbank.txt,
+         je eine JVM mit Tempo, ohne HUD und Marken, nach docs/bild/${bild.phase}/NN_Name.png, dazu Kontaktbogen
+         Bildbank_<Phase>.png, Tafeln „Ist gegen Foto“ (Fotos unter docs/bild/referenz/NN_….jpg) und bildbank_<Phase>.txt.
+         -Dbild.phase=B0, -Dnur=1,5,9, -Dgross=an (zusätzlich 4K), -Dvorher=B0 (Vergleich vorher/nachher), -Dstufe=HOCH. -->
+    <target name="bildbank" depends="jar" description="Werkbuch Bild B0: die zwölf Ansichten der Bildbank nach docs/bild/&lt;Phase&gt; (-Dbild.phase, -Dnur, -Dgross=an, -Dvorher; seit W0 -Dbildbank=Liste, -Dbreite, -Dhoehe).">
+        <property name="platform.java" value="java"/>
+        <property name="bild.phase" value="B0"/>
+        <property name="nur" value=""/>
+        <property name="gross" value="aus"/>
+        <property name="vorher" value=""/>
+        <property name="stufe" value="HOCH"/>
+        <property name="bildbank" value=""/>
+        <property name="breite" value="1920"/>
+        <property name="hoehe" value="1080"/>
+        <mkdir dir="docs/bild/referenz"/>
+        <java classname="com.dan.lituya.tools.Bildbank" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="true">
+            <jvmarg value="-Dstdout.encoding=UTF-8"/>
+            <jvmarg value="-Dbild.phase=${bild.phase}"/>
+            <jvmarg value="-Dnur=${nur}"/>
+            <jvmarg value="-Dgross=${gross}"/>
+            <jvmarg value="-Dvorher=${vorher}"/>
+            <jvmarg value="-Dstufe=${stufe}"/>
+            <jvmarg value="-Dbildbank=${bildbank}"/>
+            <jvmarg value="-Dbreite=${breite}"/>
+            <jvmarg value="-Dhoehe=${hoehe}"/>
+            <classpath><pathelement path="${run.classpath}"/></classpath>
+        </java>
+    </target>
     <!-- Phase 20: readmebilder: sieben Standbilder ohne HUD und Marken nach images/readme/*.jpg für README.md (im Git). -->
     <macrodef name="readmebild">
         <attribute name="name"/>

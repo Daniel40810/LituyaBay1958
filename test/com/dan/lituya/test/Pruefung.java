@@ -120,9 +120,31 @@ public final class Pruefung {
         teil("Renderer, Qualität, Verdrahtung");
         Renderer rd = new Renderer(clock);
         check(rd.groundHeight(0, 0) == Renderer.KEIN_GRUND, "ohne geladene Stufen kein Grund (der Ladefaden der Clipmap gibt erst nach dem ersten Bild frei)");
-        rd.setQuality(Quality.MITTEL);
-        rd.regulateForTest(30, 10_000_000_000L);
-        check(rd.renderScale < Quality.MITTEL.renderScale && rd.renderScale >= Renderer.MIN_SCALE, f("Regelung senkt die Auflösung bei 30 ms: %.0f %%", rd.renderScale * 100));
+        // Werkbuch Welle W0 (K1): Start in „Hoch“, geregelt auf 30 Bilder/s, nie unter 85 %
+        check(rd.quality() == Quality.HOCH && rd.renderScale == 1.0, "W0: die App startet in „Hoch“ mit voller Auflösung");
+        check(Renderer.MIN_SCALE >= 0.85 && rd.targetFps == 30, f("W0: Regelung auf %.0f Bilder/s, nie unter %.0f %%", rd.targetFps, Renderer.MIN_SCALE * 100));
+        rd.regulateForTest(50, 10_000_000_000L);
+        check(rd.renderScale < Quality.HOCH.renderScale && rd.renderScale >= Renderer.MIN_SCALE, f("Regelung senkt die Auflösung bei 50 ms: %.0f %%", rd.renderScale * 100));
+        rd.renderScale = 1.0;
+        // W0 (K2): Kantenglättung an, Versatz nach Halton, Rückprojektion umkehrbar
+        check(rd.taa && Math.abs(Renderer.halton(1, 2) - 0.5) < 1e-12 && Math.abs(Renderer.halton(2, 3) - 2 / 3.0) < 1e-12, "W0: Kantenglättung (TAA) an, Versatz nach Halton 2/3");
+        {
+            double[] m = Renderer.mulD(Mat4.perspective(Camera.FOVY, 16 / 9.0, 0.3, 400_000, true), home.view());
+            double[] e = Renderer.mulDD(m, Renderer.invertD(m));
+            double err = 0;
+            for (int i = 0; i < 16; i++) err = Math.max(err, Math.abs(e[i] - (i % 5 == 0 ? 1 : 0)));
+            check(err < 1e-9, f("W0: Rückprojektion des Verlaufs in double umkehrbar (Fehler %.1e)", err));
+        }
+        // W0 (K6, WF11 A): keine Karte und keine Netzlinien beim Start
+        check(!rd.netzblick.bildImBild && !rd.netzblick.inSzene && !rd.showHud && !rd.showMarks, "W0: beim Start weder Netzblick noch HUD noch Marken");
+        // W0 (Befund K8): keine leeren Versprechen im Bedienfeld
+        {
+            File cp = new File("src/com/dan/lituya/ui/ControlPanel.java");
+            if (cp.isFile()) {
+                String t = new String(java.nio.file.Files.readAllBytes(cp.toPath()), java.nio.charset.StandardCharsets.UTF_8);
+                check(!t.contains("Kommt mit Phase") && !t.contains("kommt mit Phase"), "W0: kein Block im Bedienfeld mit „kommt mit Phase …“ statt Inhalt");
+            } else hinweis("ControlPanel.java nicht gefunden, leere Versprechen nicht geprüft");
+        }
         for (String l : rd.hudLines()) if (l.startsWith("!")) System.out.println("    HUD: " + l.substring(1));
         check(rd.hudLines().length >= 12 && rd.uhrenZeile().contains("t = −16:00"), "HUD: " + rd.uhrenZeile());
         Wiring w = new Wiring(clock);

@@ -45,7 +45,8 @@ void main() {
         if (b > a) {
             const int N = 48;
             float ds = (b - a) / float(N);
-            float j = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453);
+            // W0 (K4): der Versatz wandert von Bild zu Bild (goldener Schnitt); fest je Bildpunkt war er Gesprenkel am Rand der Wolke
+            float j = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453 + uBild * 0.61803399);
             float cs = dot(d, uSun), g = 0.6;
             float hg = (1.0 - g * g) / (4.0 * 3.14159265 * pow(1.0 + g * g - 2.0 * g * cs, 1.5));
             vec3 sonne = sunLight() * hg * 4.0 * 3.14159265;

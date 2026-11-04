@@ -49,7 +49,7 @@ public final class ControlPanel extends JPanel implements javax.swing.Scrollable
     private final JLabel dateLbl = label(""), timeLbl = label(""), simLbl = label(""), sunLbl = small(""), camLbl = small(""), perfLbl = small(""),
             computeLbl = small(""), glLbl = small(""), physLbl = small(""), hudLbl = small(""), scaleLbl = label(""), qualLbl = small(""), pkgLbl = small(""),
             dbLbl = small(""), lodLbl = small(""), datenLbl = small(""), standLbl = small(""), netzLbl = small(""), regieLbl = small(""), klangLbl = small(""), speicherLbl = small("");
-    private final FSlider time = new FSlider(0, 24 * 60 - 1, (int) (SceneClock.START_HOUR * 60)), scaleSl = new FSlider(50, 100, 85), expSl = new FSlider(-30, 30, 0);
+    private final FSlider time = new FSlider(0, 24 * 60 - 1, (int) (SceneClock.START_HOUR * 60)), scaleSl = new FSlider(50, 100, 100), expSl = new FSlider(-30, 30, 0);
     private final FCheckBox free = new FCheckBox("Frei fliegen (F)"), orbit = new FCheckBox("Von selbst kreisen (R)"),
             marks = new FCheckBox("Marken (UTM-Raster, Kern, Szene, Fern, Orte)"), autoBox = new FCheckBox("Auflösung selbst regeln"),
             meerBox = new FCheckBox("Wasser zeigen (Platzhalter bis Phase 5a)"),
@@ -365,13 +365,7 @@ public final class ControlPanel extends JPanel implements javax.swing.Scrollable
         baSzene.setSelected(ba.an);
         baSzene.addActionListener(e -> { ba.an = baSzene.isSelected(); view.requestFocusInWindow(); });
         put(baSzene);
-        JLabel regenLbl = small("");
-        FSlider regenSl = new FSlider(0, (int) com.dan.lituya.gl.BaecheGl.REGEN_MAX, (int) Math.round(ba.regen));
-        regenSl.setToolTipText("Regen in mm/h: Abfluss = Fläche × Regen × Beiwert (Land 0,7, Eis 1,0) über dem Mittelwasser; Breite b = 2,5·Q^0,5 [G]");
-        put(regenLbl);
-        put(regenSl);
-        regenSl.addChangeListener(e -> { ba.regen = regenSl.getValue(); txt(regenLbl, String.format(Locale.GERMAN, "Regen %d mm/h (0: Mittelwasser)", regenSl.getValue())); });
-        txt(regenLbl, String.format(Locale.GERMAN, "Regen %.0f mm/h (0: Mittelwasser)", ba.regen));
+        // W0: der Regler „Regen“ steht seit dem Werkbuch Welle im Block WETTER
         put(label("Weg"));
         FCheckBox stBox = new FCheckBox("1 h vom Strand (Isolinien 15 min)"), wbBox = new FCheckBox("Washburn 1934 mit Wegpunkten"),
                 lfBox = new FCheckBox("Flucht an Land mit der Uhr"), klBox = new FCheckBox("Geländeklassen im Bild im Bild");
@@ -408,8 +402,20 @@ public final class ControlPanel extends JPanel implements javax.swing.Scrollable
                 + "(Zeitraffer im Block ZEIT). Seit Phase 16c auch LB_NET_WASSER (Szene) und LB_NET_WEG (Kern; die Flucht an Land wächst mit der Uhr: "
                 + "„Welle: Einschlag“ und Zeitraffer), seit Phase 17 LB_NET_SICHT (Szene: Kamerapunkte, Sichtlinien, Rundflug, Spannbaum).</body></html>"));
         block("WETTER", false);
-        put(small("<html><body style='width:215px'>Kommt mit Phase 5a und 18: Sommerabend 1958 nach ERA5 und Zeugen, für „heute“ Regen, "
-                + "Nebel, Herbststurm, Winter; Polarlicht nur „heute“ (F35 A).</body></html>"));
+        // Werkbuch Welle W0: der Block war seit Phase 1 leer (vertröstet auf 5a und 18b, beide nie gebaut). Jetzt steht hier,
+        // was es gibt (Regen auf die Bäche), und ehrlich, was mit W7 kommt.
+        put(label("Regen"));
+        JLabel regenLbl = small("");
+        FSlider regenSl = new FSlider(0, (int) com.dan.lituya.gl.BaecheGl.REGEN_MAX, (int) Math.round(ba.regen));
+        regenSl.setToolTipText("Regen in mm/h: Abfluss = Fläche × Regen × Beiwert (Land 0,7, Eis 1,0) über dem Mittelwasser; Breite b = 2,5·Q^0,5 [G]");
+        put(regenLbl);
+        put(regenSl);
+        regenSl.addChangeListener(e -> { ba.regen = regenSl.getValue(); txt(regenLbl, String.format(Locale.GERMAN, "Regen %d mm/h (0: Mittelwasser)", regenSl.getValue())); });
+        txt(regenLbl, String.format(Locale.GERMAN, "Regen %.0f mm/h (0: Mittelwasser)", ba.regen));
+        put(small("<html><body style='width:215px'>Regen wirkt bisher nur auf die Bäche (Abfluss, Breite). "
+                + "<b>Werkbuch Welle W7</b> bringt das Wetter ins Bild: Wetterlagen mit Übergängen (klarer Abend 1958, grauer Morgen danach, "
+                + "Quellwolken, Küstennebel durch den Eingang, Regen mit Schleiern, Ringen und Tropfen auf der Linse, Sturm an der Barre, "
+                + "Neuschnee, Winternacht), Wind in Wasser und Wald, Zeitraffer; hier dann Auswahl und Regler für den Übergang.</body></html>"));
         block("KLANG", false);
         // Phase 18: der Klang der Bucht am Ohr der Kamera (com.dan.soundscape)
         FCheckBox tonBox = new FCheckBox("Ton an (M)"), echoBox = new FCheckBox("Echo an den Wänden");

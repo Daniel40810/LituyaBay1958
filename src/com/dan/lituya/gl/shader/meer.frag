@@ -22,6 +22,9 @@ float vn(vec2 x) {
     f = f * f * (3.0 - 2.0 * f);
     return mix(mix(h2(i), h2(i + vec2(1, 0)), f.x), mix(h2(i + vec2(0, 1)), h2(i + vec2(1, 1)), f.x), f.y);
 }
+// W0 (K4): Rauschen mit Periode p (m), das zum Mittel 0,5 ausblendet, sobald ein Bildpunkt (px, m) mehr als ein Drittel
+// der Periode deckt (im flachen Blick über das Wasser sind die Bildpunkte in der Tiefe lang gestreckt)
+float vnf(vec2 q, float p, vec2 o, float px) { return mix(vn(q / p + o), 0.5, smoothstep(0.25, 0.6, px / p)); }
 
 // Strahl gegen die gekrümmte Wasserfläche y = level − r²/2R' (r waagerecht vom Auge): a t² + b t + c = 0; −1: kein Treffer
 float hit(vec3 d, float level) {
@@ -62,10 +65,11 @@ void main() {
     // Normale: zwei Rauschlagen, in der Ferne glatt; je Bildpunkt gemittelt, damit nichts körnig glitzert [G]
     vec2 q = w.xz;
     float pxm = dist * 0.0012;
+    float px = max(length(fwidth(q)), 1e-4);
     float k1 = (1.0 - smoothstep(300.0, 6000.0, dist)) / (1.0 + pxm / 3.0), k2 = (1.0 - smoothstep(30.0, 600.0, dist)) / (1.0 + pxm);
-    vec2 g = vec2(vn(q / 11.0 + uTime * 0.06) - vn(q / 11.0 + vec2(3.1, 0.0) - uTime * 0.045),
-                  vn(q / 8.0 - uTime * 0.05) - vn(q / 8.0 + vec2(0.0, 5.3) + uTime * 0.04)) * 0.30 * k1
-           + vec2(vn(q / 1.7 + uTime * 0.3) - 0.5, vn(q / 1.3 - uTime * 0.25) - 0.5) * 0.20 * k2;
+    vec2 g = vec2(vnf(q, 11.0, vec2(uTime * 0.06), px) - vnf(q, 11.0, vec2(3.1, 0.0) - uTime * 0.045, px),
+                  vnf(q, 8.0, vec2(-uTime * 0.05), px) - vnf(q, 8.0, vec2(0.0, 5.3) + uTime * 0.04, px)) * 0.30 * k1
+           + vec2(vnf(q, 1.7, vec2(uTime * 0.3), px) - 0.5, vnf(q, 1.3, vec2(-uTime * 0.25), px) - 0.5) * 0.20 * k2;
     vec3 n = normalize(vec3(g.x, 1.0, g.y));
     vec3 v = -d;
     float fres = 0.02 + 0.98 * pow(1.0 - max(dot(n, v), 0.0), 5.0);
@@ -84,7 +88,7 @@ void main() {
             float c = clamp((tp.r + tp.g) * 2.5, 0.0, 1.0);
             // Rinde, Äste und Splitter: zwei Rauschlagen, in der Ferne gemittelt [G]
             float kf = 1.0 - smoothstep(200.0, 3000.0, dist);
-            float p = mix(0.5, vn(q / 2.3) * 0.6 + vn(q / 0.7 + 17.0) * 0.4, kf);
+            float p = mix(0.5, vnf(q, 2.3, vec2(0.0), px) * 0.6 + vnf(q, 0.7, vec2(17.0), px) * 0.4, kf);
             float cov = smoothstep(0.0, 0.35, c - (1.0 - p) * 0.6 + 0.15) * c;
             vec3 holz = mix(vec3(0.10, 0.075, 0.05), vec3(0.20, 0.16, 0.11), p);
             vec3 lit = holz * (sunLight() * max(dot(vec3(0.0, 1.0, 0.0), uSun), 0.0) + skyColor(vec3(0.0, 1.0, 0.0)) * 0.8);

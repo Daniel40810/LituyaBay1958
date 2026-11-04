@@ -52,6 +52,9 @@ public final class EreignisGl {
     /** Seit dem letzten Bild gezeichnet: Welle, Strom, Staub. */
     public boolean zeigtWelle, zeigtStrom, zeigtStaub;
 
+    /** Werkbuch Bild, B0: Bildwinkel senkrecht (Grad), vom Renderer vor jedem Bild gesetzt (Brennweite). */
+    public double fovy = com.dan.lituya.camera.Camera.FOVY;
+
     public void build(GL4 gl) { for (Shader s : all) s.build(gl); }
 
     public String info() { return info; }
@@ -159,7 +162,7 @@ public final class EreignisGl {
         gl.glDepthFunc(reversed ? GL.GL_GREATER : GL.GL_LESS);
         gl.glDepthMask(true);
         gl.glDisable(GL.GL_CULL_FACE);
-        double kf = 2 * Math.tan(Math.toRadians(com.dan.lituya.camera.Camera.FOVY) / 2) / Math.max(1, hoehe);
+        double kf = 2 * Math.tan(Math.toRadians(fovy) / 2) / Math.max(1, hoehe);
         List<Wiedergabe.Spur> ws = w.spuren(Wiedergabe.Art.WELLE);
         boolean erste = true;
         for (Wiedergabe.Spur s : ws) {

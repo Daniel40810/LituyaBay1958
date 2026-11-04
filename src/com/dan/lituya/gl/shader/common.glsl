@@ -12,6 +12,7 @@ uniform vec3 uSun;          // Richtung zur Sonne (Einheitsvektor)
 uniform float uTime;        // Laufzeit in s
 uniform float uLevel;       // Wasserstand in m über NAVD88 (Phase 1 fest, ab Phase 5a aus tide)
 uniform int uReversed;      // 1 = umgekehrte Tiefe (0..1), sonst klassisch (-1..1)
+uniform float uBild;        // W0: laufende Nummer des Bilds (0..63) für Rauschen, das von Bild zu Bild wandert (die Kantenglättung mittelt es)
 // Ab Phase 5a: Himmel aus com.dan.sky. uSkyMode = 1: Himmelsfarbe aus dem Rundumbild uPano, Sonnen- und Mondlicht aus
 // uSunColor/uMoonColor, Dunst aus uFogDist; alles schon mit der Vorbelichtung uPre multipliziert. uSkyMode = 0: der
 // Platzhalter-Himmel von Phase 1, Belichtung erst in der Nachbearbeitung. Phase 1 setzt immer 0.

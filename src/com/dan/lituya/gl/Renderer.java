@@ -102,12 +102,14 @@ public final class Renderer implements GLEventListener {
     /** Texturstelle der Höhen der Clipmap. */
     static final int UNIT_CLIP = 3;
 
-    private volatile Quality quality = Quality.MITTEL;
+    /** Werkbuch Welle W0 (K1): die App startet in „Hoch“ mit voller Auflösung (vorher „Mittel“ mit 85 % und Regelung bis 50 %). */
+    private volatile Quality quality = Quality.HOCH;
     public volatile double renderScale = quality.renderScale;
     /** Auflösung nach der Zeit der Grafikkarte regeln (nie unter {@link #MIN_SCALE}, nie über der Stufe). */
     public volatile boolean autoScale = true;
-    public volatile double targetFps = 60;
-    public static final double MIN_SCALE = 0.5;
+    /** W0 (K1): geregelt wird auf 30 Bilder/s (vorher 60) und nie unter 85 % (vorher 50 %); darunter wird das Bild Brei. */
+    public volatile double targetFps = 30;
+    public static final double MIN_SCALE = 0.85;
     private long scaleNanos;
     private int scaleSteps;
     /** HUD an, kurz oder voll (H). */
@@ -134,14 +136,29 @@ public final class Renderer implements GLEventListener {
             meerShader = new Shader("Wasser", null, "fullscreen.vert", "meer.frag"),
             gelaendeShader = new Shader("Gelände", null, "gelaende.vert", "gelaende.frag"),
             post = new Shader("Nachbearbeitung", null, "fullscreen.vert", "post.frag"),
-            overlay = new Shader("Überlagerung", null, "fullscreen.vert", "overlay.frag");
-    private final Shader[] all = {skyShader, gelaendeShader, meerShader, post, overlay, ereignisGl.welle, ereignisGl.strom, ereignisGl.medien, baeche.shader};
+            overlay = new Shader("Überlagerung", null, "fullscreen.vert", "overlay.frag"),
+            taaShader = new Shader("Kantenglättung", null, "fullscreen.vert", "taa.frag");
+    private final Shader[] all = {skyShader, gelaendeShader, meerShader, post, overlay, taaShader, ereignisGl.welle, ereignisGl.strom, ereignisGl.medien, baeche.shader};
     private final HudOverlay hud = new HudOverlay();
     /** Phase 19a: Befunde als Marken, Zeugen als Untertitel (Archiv). */
     public final ArchivSzene archiv = new ArchivSzene();
     private final HudOverlay archivTafel = new HudOverlay();
     private volatile float[] letzteVP;
     private int emptyVao, hdrTex, depthTex, hdrFbo, hdrColorFbo, hdrW, hdrH, surfW = 1, surfH = 1, defaultFbo;
+    /**
+     * Werkbuch Welle W0 (K2): Kantenglättung. {@code taa} = zeitlich (jedes Bild um einen Bruchteil eines Bildpunkts
+     * versetzt, mit dem Verlauf gemischt, taa.frag); aus, dann FXAA in post.frag, wenn {@code fxaa}.
+     */
+    public volatile boolean taa = true, fxaa = true;
+    /** Anteil des neuen Bilds je Bild (0,1: rund 20 Bilder bis zum vollen Ergebnis). */
+    public volatile double taaAlpha = 0.1;
+    private final int[] taaTex = new int[2], taaFbo = new int[2];
+    private int taaIdx, taaFrame;
+    private boolean taaValid;
+    private double[] taaPrevVP;
+    private final double[] taaPrevEye = new double[3];
+    /** Verlauf verwerfen (Sprung der Kamera, Schnitt im Regiebuch). */
+    public void taaReset() { taaValid = false; }
     private boolean reversedZ, ready;
     private final int[][] stamp = new int[2][MARKS];
     private final double[] passMs = new double[MARKS - 1];
@@ -186,7 +203,13 @@ public final class Renderer implements GLEventListener {
     public double[] lastPassTimes() { return passMs.clone(); }
     public long frames() { return frame; }
     public double takeWorstFrameMs() { double w = worstMs; worstMs = 0; return w; }
-    public double fovy() { return Camera.FOVY; }
+    /**
+     * Werkbuch Bild, B0: Brennweite in mm (Kleinbild, Bildhöhe 24 mm); 0 = der alte feste Bildwinkel {@link Camera#FOVY}.
+     * Bis B1 (`lens`) nur für die Bildbank und von Hand; die App startet unverändert.
+     */
+    public volatile double brennweite;
+
+    public double fovy() { return brennweite > 0 ? Math.toDegrees(2 * Math.atan(12.0 / brennweite)) : Camera.FOVY; }
 
     /** Alle Shader-Programme mit ihren Dateien (für die Prüfung). */
     public String[][] shaderFiles() {
@@ -213,7 +236,7 @@ public final class Renderer implements GLEventListener {
     public boolean placeView(Ansichten.Ansicht a) {
         camera.waterLevel = wiring.pegel;
         boolean ok = Ansichten.apply(a, camera, PHASE, this::groundHeight);
-        if (ok) hudMeldung("Ansicht " + a);
+        if (ok) { hudMeldung("Ansicht " + a); taaReset(); }
         return ok;
     }
 
@@ -238,7 +261,8 @@ public final class Renderer implements GLEventListener {
         jahresRaffer = st.jahre();
         rafferTage = 0;
         wiedergabe.an(true);
-        netzblick.inSzene = st.netze();
+        netzblick.inSzene = false;   // W0 (WF11 A): keine Netzlinien im Schaustück, nur über das Menü (vorher st.netze())
+        taaReset();
         wiedergabe.setzen(clock.simSeconds(), clock.lapse);
         int bi = com.dan.lituya.camera.Schaustuecke.boot(st);
         if (bi >= 0) {
@@ -837,7 +861,16 @@ public final class Renderer implements GLEventListener {
         double[] sp = clock.sun();
         double[] sun = Sun.direction(sp[0], sp[1]);
         float[] proj = Mat4.perspective(fovy(), w / (double) h, NEAR, FAR, reversedZ);
-        float[] vp = Mat4.mul(proj, camera.view());
+        float[] view = camera.view();
+        double[] vpN = mulD(proj, view);   // ohne Versatz (für den Verlauf)
+        if (taa) {
+            // W0 (K2): Versatz nach Halton 2/3 um höchstens einen halben Bildpunkt (8 Lagen)
+            int k = (taaFrame++ & 7) + 1;
+            proj = proj.clone();
+            proj[8] += (float) ((halton(k, 2) - 0.5) * 2.0 / w);
+            proj[9] += (float) ((halton(k, 3) - 0.5) * 2.0 / h);
+        }
+        float[] vp = Mat4.mul(proj, view);
         letzteVP = vp;
         float[] inv = Mat4.invert(vp);
         try {
@@ -905,6 +938,7 @@ public final class Renderer implements GLEventListener {
 
         // 2c Welle und Strom der Vorrechnung (Phase 13b) mit Tiefe; im Rechteck der Welle zeichnet das Meer nicht
         wiedergabe.setzen(tE, clock.lapse);
+        ereignisGl.fovy = fovy();
         double[] welleRect = ereignisGl.zeichnen(gl, wiedergabe, tE, vp, camera.eye, h, wiring.pegel, sh -> common(gl, sh, vp, inv, sun), reversedZ);
         gl.glBindVertexArray(emptyVao);
         mark(gl, 5);
@@ -935,13 +969,20 @@ public final class Renderer implements GLEventListener {
         gl.glBindVertexArray(emptyVao);
         mark(gl, 7);
 
+        // 3d Kantenglättung (W0, K2): neues Bild mit dem Verlauf mischen; Zeit unter „Nachbearbeitung“
+        int bild = hdrTex;
+        if (taa) bild = taaPass(gl, w, h, vpN);
+        else taaValid = false;
+
         // 4 Nachbearbeitung ins Fenster
         gl.glBindFramebuffer(GL.GL_FRAMEBUFFER, defaultFbo);
         gl.glViewport(0, 0, surfW, surfH);
         post.use(gl);
         gl.glActiveTexture(GL.GL_TEXTURE0);
-        gl.glBindTexture(GL.GL_TEXTURE_2D, hdrTex);
+        gl.glBindTexture(GL.GL_TEXTURE_2D, bild);
         post.set(gl, "uHdr", 0);
+        post.set(gl, "uFxaa", !taa && fxaa ? 1 : 0);
+        post.set(gl, "uTexel", 1f / w, 1f / h);
         post.set(gl, "uExposure", (float) exposure());
         post.set(gl, "uScotopic", 0f);
         gl.glBindVertexArray(emptyVao);
@@ -1050,6 +1091,7 @@ public final class Renderer implements GLEventListener {
         s.set(gl, "uTime", (float) (clock.t() % 10_000));
         s.set(gl, "uLevel", (float) wiring.pegel);
         s.set(gl, "uReversed", reversedZ ? 1 : 0);
+        s.set(gl, "uBild", (float) (taaFrame & 63));
     }
 
     private void resizeTargets(GL4 gl, int w, int h) {
@@ -1063,8 +1105,107 @@ public final class Renderer implements GLEventListener {
         gl.glBindTexture(GL.GL_TEXTURE_2D, 0);
         hdrFbo = Gpu.fbo(gl, hdrTex, depthTex);
         hdrColorFbo = Gpu.fbo(gl, hdrTex, 0);
+        // W0 (K2): zwei Verläufe der Kantenglättung im Wechsel
+        Gpu.deleteFbos(gl, taaFbo[0], taaFbo[1]);
+        Gpu.deleteTextures(gl, taaTex[0], taaTex[1]);
+        for (int i = 0; i < 2; i++) {
+            taaTex[i] = Gpu.texture(gl, w, h, GL.GL_RGBA16F, false);
+            taaFbo[i] = Gpu.fbo(gl, taaTex[i], 0);
+        }
+        taaValid = false;
         hdrW = w;
         hdrH = h;
+    }
+
+    /**
+     * W0 (K2): die Kantenglättung. Schreibt in den einen Verlauf aus dem anderen und gibt die Textur des Ergebnisses
+     * zurück. Der Verlauf gilt nicht nach einem Sprung der Kamera (über 200 m in einem Bild) oder neuer Größe.
+     */
+    private int taaPass(GL4 gl, int w, int h, double[] vpN) {
+        double dx = camera.eye[0] - taaPrevEye[0], dy = camera.eye[1] - taaPrevEye[1], dz = camera.eye[2] - taaPrevEye[2];
+        if (dx * dx + dy * dy + dz * dz > 200 * 200) taaValid = false;
+        int dst = taaIdx ^ 1;
+        float[] reproj = new float[16];
+        if (taaValid && taaPrevVP != null) {
+            double[] m = mulDD(taaPrevVP, invertD(vpN));
+            for (int i = 0; i < 16; i++) reproj[i] = (float) m[i];
+        }
+        gl.glBindFramebuffer(GL.GL_FRAMEBUFFER, taaFbo[dst]);
+        gl.glViewport(0, 0, w, h);
+        gl.glDisable(GL.GL_DEPTH_TEST);
+        gl.glDisable(GL.GL_BLEND);
+        taaShader.use(gl);
+        gl.glActiveTexture(GL.GL_TEXTURE0);
+        gl.glBindTexture(GL.GL_TEXTURE_2D, hdrTex);
+        gl.glActiveTexture(GL.GL_TEXTURE1);
+        gl.glBindTexture(GL.GL_TEXTURE_2D, taaTex[taaIdx]);
+        gl.glActiveTexture(GL.GL_TEXTURE2);
+        gl.glBindTexture(GL.GL_TEXTURE_2D, depthTex);
+        gl.glActiveTexture(GL.GL_TEXTURE0);
+        taaShader.set(gl, "uCur", 0);
+        taaShader.set(gl, "uHist", 1);
+        taaShader.set(gl, "uDepth", 2);
+        taaShader.mat(gl, "uReproj", reproj);
+        taaShader.set(gl, "uReversed", reversedZ ? 1 : 0);
+        taaShader.set(gl, "uValid", taaValid && taaPrevVP != null ? 1 : 0);
+        taaShader.set(gl, "uTexel", 1f / w, 1f / h);
+        taaShader.set(gl, "uAlpha", (float) taaAlpha);
+        gl.glBindVertexArray(emptyVao);
+        gl.glDrawArrays(GL.GL_TRIANGLES, 0, 3);
+        taaIdx = dst;
+        taaValid = true;
+        taaPrevVP = vpN;
+        System.arraycopy(camera.eye, 0, taaPrevEye, 0, 3);
+        return taaTex[dst];
+    }
+
+    public static double halton(int i, int b) {
+        double f = 1, r = 0;
+        while (i > 0) { f /= b; r += f * (i % b); i /= b; }
+        return r;
+    }
+
+    /** a · b (Spalten, 4 × 4) in double. */
+    public static double[] mulD(float[] a, float[] b) {
+        double[] da = new double[16], db = new double[16];
+        for (int i = 0; i < 16; i++) { da[i] = a[i]; db[i] = b[i]; }
+        return mulDD(da, db);
+    }
+
+    public static double[] mulDD(double[] a, double[] b) {
+        double[] r = new double[16];
+        for (int c = 0; c < 4; c++)
+            for (int row = 0; row < 4; row++) {
+                double v = 0;
+                for (int k = 0; k < 4; k++) v += a[k * 4 + row] * b[c * 4 + k];
+                r[c * 4 + row] = v;
+            }
+        return r;
+    }
+
+    /** Inverse 4 × 4 (Gauß-Jordan mit Pivot) in double. */
+    public static double[] invertD(double[] m) {
+        double[][] a = new double[4][8];
+        for (int r = 0; r < 4; r++) {
+            for (int c = 0; c < 4; c++) a[r][c] = m[c * 4 + r];
+            a[r][4 + r] = 1;
+        }
+        for (int c = 0; c < 4; c++) {
+            int p = c;
+            for (int r = c + 1; r < 4; r++) if (Math.abs(a[r][c]) > Math.abs(a[p][c])) p = r;
+            double[] t = a[c]; a[c] = a[p]; a[p] = t;
+            double d = a[c][c];
+            if (Math.abs(d) < 1e-300) return new double[16];
+            for (int k = 0; k < 8; k++) a[c][k] /= d;
+            for (int r = 0; r < 4; r++) {
+                if (r == c) continue;
+                double f = a[r][c];
+                if (f != 0) for (int k = 0; k < 8; k++) a[r][k] -= f * a[c][k];
+            }
+        }
+        double[] inv = new double[16];
+        for (int r = 0; r < 4; r++) for (int c = 0; c < 4; c++) inv[c * 4 + r] = a[r][4 + c];
+        return inv;
     }
 
     // ------------------------------------------------------------------ Zeitmessung (Tempo)
@@ -1374,6 +1515,8 @@ public final class Renderer implements GLEventListener {
         wiedergabe.close();
         Gpu.deleteFbos(gl, hdrFbo, hdrColorFbo);
         Gpu.deleteTextures(gl, hdrTex, depthTex);
+        Gpu.deleteFbos(gl, taaFbo[0], taaFbo[1]);
+        Gpu.deleteTextures(gl, taaTex[0], taaTex[1]);
         if (emptyVao != 0) gl.glDeleteVertexArrays(1, new int[]{emptyVao}, 0);
         for (int[] s : stamp) if (s[0] != 0) gl.glDeleteQueries(MARKS, s, 0);
         ready = false;
