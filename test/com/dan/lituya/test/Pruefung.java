@@ -3,6 +3,7 @@ package com.dan.lituya.test;
 import com.dan.lituya.app.Bibliothek;
 import com.dan.lituya.camera.Ansichten;
 import com.dan.lituya.camera.Camera;
+import com.dan.lituya.gl.Licht;
 import com.dan.lituya.gl.Mat4;
 import com.dan.lituya.gl.Quality;
 import com.dan.lituya.gl.Renderer;
@@ -134,6 +135,19 @@ public final class Pruefung {
             double err = 0;
             for (int i = 0; i < 16; i++) err = Math.max(err, Math.abs(e[i] - (i % 5 == 0 ? 1 : 0)));
             check(err < 1e-9, f("W0: Rückprojektion des Verlaufs in double umkehrbar (Fehler %.1e)", err));
+        }
+        // Werkbuch Welle W1: Licht aus com.dan.sky, Horizontkarten über Kern und Szene, die Gipfel im groben Gitter
+        {
+            double[] lfr = rd.licht.feinRect(), gr = rd.licht.grobRect();
+            boolean drin = true;
+            for (Site.Ort o : new Site.Ort[]{Site.FAIRWEATHER, Site.CRILLON, Site.GILBERT, Site.CENOTAPH})
+                drin &= o.x() > gr[0] && o.x() < gr[0] + gr[2] && o.z() > gr[1] && o.z() < gr[1] + gr[2];
+            check(rd.licht.an && drin && lfr[2] == Licht.FEIN_KANTE, f("W1: Licht an, Horizontkarten %.0f km (fein) und %.0f km (grob) decken Fairweather, Crillon, Gilbert Inlet", lfr[2] / 1000, gr[2] / 1000));
+            for (String sh : new String[]{"schatten.comp", "sonnenkarte.comp"})
+                check(Renderer.class.getResource("/com/dan/lituya/gl/shader/" + sh) != null, "W1: Shader " + sh + " im Klassenpfad");
+            // Kimm aus 4 000 m (mit Brechung): rund 1,9°; das Alpenglühen hält dort bis gut 1,5° unter der Kimm
+            double dip = Math.toDegrees(Math.sqrt(2 * 4000 / Licht.R_EFF));
+            check(dip > 1.7 && dip < 2.1, f("W1: Kimm aus 4 000 m %.2f° unter der Waagerechten", dip));
         }
         // W0 (K6, WF11 A): keine Karte und keine Netzlinien beim Start
         check(!rd.netzblick.bildImBild && !rd.netzblick.inSzene && !rd.showHud && !rd.showMarks, "W0: beim Start weder Netzblick noch HUD noch Marken");

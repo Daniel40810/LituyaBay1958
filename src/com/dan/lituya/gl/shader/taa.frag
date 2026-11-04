@@ -32,11 +32,11 @@ vec3 histCR(vec2 uv) {
     vec2 w3 = f * f * (-0.5 + 0.5 * f);
     vec2 w12 = w1 + w2, o12 = w2 / w12;
     vec2 a = (t1 - 1.0) * uTexel, b = (t1 + 2.0) * uTexel, c = (t1 + o12) * uTexel;
-    vec3 r = texture(uHist, vec2(c.x, a.y)).rgb * w12.x * w0.y
-           + texture(uHist, vec2(a.x, c.y)).rgb * w0.x * w12.y
-           + texture(uHist, c).rgb * w12.x * w12.y
-           + texture(uHist, vec2(b.x, c.y)).rgb * w3.x * w12.y
-           + texture(uHist, vec2(c.x, b.y)).rgb * w12.x * w3.y;
+    vec3 r = textureLod(uHist, vec2(c.x, a.y), 0.0).rgb * w12.x * w0.y
+           + textureLod(uHist, vec2(a.x, c.y), 0.0).rgb * w0.x * w12.y
+           + textureLod(uHist, c, 0.0).rgb * w12.x * w12.y
+           + textureLod(uHist, vec2(b.x, c.y), 0.0).rgb * w3.x * w12.y
+           + textureLod(uHist, vec2(c.x, b.y), 0.0).rgb * w12.x * w3.y;
     float n = w12.x * w0.y + w0.x * w12.y + w12.x * w12.y + w3.x * w12.y + w12.x * w3.y;
     return max(r / n, vec3(0.0));
 }

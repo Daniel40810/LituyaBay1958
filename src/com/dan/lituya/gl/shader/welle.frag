@@ -53,14 +53,14 @@ void main() {
         col = mix(body, sky, fres);
         vec3 hv = normalize(uSun + v);
         float shin = mix(400.0, 60.0, smoothstep(100.0, 8000.0, dist));
-        col += sunLight() * pow(max(dot(n, hv), 0.0), shin) * (shin / 400.0) * 3.0 * (1.0 - gischt);
+        col += sunAt(vW) * pow(max(dot(n, hv), 0.0), shin) * (shin / 400.0) * 3.0 * (1.0 - gischt);
     } else {
         // von unten: im Snellschen Fenster (48,6°) der Himmel gebrochen, sonst der Körper gespiegelt
         float c = dot(-v, n);
         float fenster = smoothstep(0.62, 0.70, c);
         col = mix(body * 0.6, skyColor(normalize(vec3(-v.x, 1.0, -v.z))) * 0.5, fenster);
     }
-    vec3 weiss = (sunLight() * max(dot(n, uSun), 0.0) + skyColor(vec3(0.0, 1.0, 0.0)) * 0.8) * mix(0.8, 0.55, trueb);
+    vec3 weiss = (sunAt(vW) * max(dot(n, uSun), 0.0) + skyColor(vec3(0.0, 1.0, 0.0)) * 0.8) * mix(0.8, 0.55, trueb);
     col = mix(col, weiss, gischt * 0.85);
     col = aerial(col, d, dist);
     frag = vec4(col, 1.0);

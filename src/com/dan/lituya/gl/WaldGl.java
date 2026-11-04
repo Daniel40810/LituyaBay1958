@@ -358,7 +358,12 @@ public final class WaldGl {
     static double smooth(double a, double b, double x) { double t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); }
 
     /** Licht wie der Platzhalter-Himmel der App (common.glsl): Sonne, Himmel im Zenit, Dunst an der Kimm. */
+    /** W1: das Licht aus com.dan.sky (gl/Licht), je Bild vom Renderer gesetzt; null = der Platzhalter unten. */
+    static volatile ForestGl.Light himmel;
+
     static ForestGl.Light licht(double[] sun) {
+        ForestGl.Light hl = himmel;
+        if (hl != null) return hl;
         ForestGl.Light l = new ForestGl.Light();
         double e = sun[1], el = Math.toDegrees(Math.asin(Math.max(-1, Math.min(1, e))));
         double f = smooth(0.02, 0.35, e), k = 2.6 * smooth(-0.015, 0.01, e) * smooth(-0.02, 0.12, e);

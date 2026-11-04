@@ -29,7 +29,7 @@ void main() {
     alb *= 0.75 + 0.5 * blk;
     alb = mix(alb, hell, smoothstep(0.75, 0.95, blk) * 0.6);
     vec3 sky = skyColor(vec3(0.0, 1.0, 0.0));
-    vec3 col = alb * (sunLight() * max(dot(n, uSun), 0.0) + sky * (0.55 + 0.45 * n.y));
+    vec3 col = alb * (sunAt(vW) * max(dot(n, uSun), 0.0) + sky * (0.55 + 0.45 * n.y));
     vec3 d = vW - uCam;
     float dist = length(d);
     col = aerial(col, d / max(dist, 1e-3), dist);

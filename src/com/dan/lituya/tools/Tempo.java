@@ -136,6 +136,12 @@ public final class Tempo {
             while (!r.wald.bereit() && System.nanoTime() - t0 < 300e9) { d.display(); Thread.sleep(100); }
             System.out.printf(Locale.GERMAN, "Wald %s in %.1f s: %s%n", r.wald.bereit() ? "bereit" : "NICHT bereit", (System.nanoTime() - t0) / 1e9, r.wald.status());
         } else r.wald.an = false;
+        // W1: Himmel und Horizontkarten abwarten (Höhen im Hintergrund, dann ein Rechenaufruf)
+        if (r.licht.an && !"aus".equals(opt("licht"))) {
+            long t0 = System.nanoTime();
+            while (!r.licht.schattenBereit() && System.nanoTime() - t0 < 180e9) { d.display(); Thread.sleep(100); }
+            System.out.printf(Locale.GERMAN, "Licht %s in %.1f s: %s%n", r.licht.schattenBereit() ? "bereit" : "NICHT bereit", (System.nanoTime() - t0) / 1e9, r.licht.status());
+        } else r.licht.an = false;
         // Phase 13b: die Bilder der Vorrechnung um die Zeit abwarten
         if (r.wiedergabe.an() && clock.simSeconds() > -60 && clock.simSeconds() < 3600) {
             long t0 = System.nanoTime();

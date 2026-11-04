@@ -76,7 +76,7 @@ void main() {
     vec3 sky = skyColor(vec3(0.0, 1.0, 0.0));
     // im Kronendach fällt weniger Himmelslicht zwischen die Kronen, die Sonne trifft die Kronen auch am flachen Hang [G]
     float ndl = mix(max(dot(n, uSun), 0.0), max(dot(normalize(n + vec3(0.0, 0.6, 0.0)), uSun), 0.0), krone);
-    vec3 col = alb * (sunLight() * ndl + sky * (0.55 + 0.45 * n.y) * (1.0 - 0.25 * krone));
+    vec3 col = alb * (sunAt(vW) * ndl + sky * (0.55 + 0.45 * n.y) * (1.0 - 0.25 * krone));
     vec3 d = vW - uCam;
     float dist = length(d);
     col = applyMarks(col, vW.xz, dist, B);

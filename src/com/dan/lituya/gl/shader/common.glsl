@@ -21,6 +21,12 @@ uniform sampler2D uPano;
 uniform vec3 uSunColor, uMoonColor, uMoonDir;
 uniform float uFogDist, uPre;
 uniform vec3 uSkyAmb;     // ab Phase 5a: Himmelslicht als Bestrahlung/π (vorbelichtet), für das Umgebungslicht
+// Werkbuch Welle W1 (gl/Licht): Sonne außerhalb der Luft (vorbelichtet) und die Horizontkarten (r = Horizontwinkel in
+// Richtung Sonne, g = Boden), fein über den Kern und grob über die Szene; Rechtecke x0, z0, Kante.
+uniform vec3 uSunToa;
+uniform int uSchattenAn;
+uniform sampler2D uSchattenF, uSchattenG;
+uniform vec4 uSchattenFRect, uSchattenGRect;
 
 // Tiefenwert für einen Punkt der Szene, passend zur Projektion.
 float depthOf(vec3 p) {
@@ -60,7 +66,13 @@ vec3 sunLight() {
 
 // Helligkeit des Himmels nach der Sonnenhöhe in Grad (log10, lineare Stützstellen): Tag 1, Sonnenuntergang 0,1,
 // bürgerliche Dämmerung 0,005, nautische 0,0003, Nacht ohne Mond 0,00005. Gleiche Tabelle wie Sun.skyBrightness().
+float skyBrightnessPH(float elevDeg);
+// W1: mit com.dan.sky aus dem Himmelslicht (vorbelichtet), so dass Formeln mit B / 0,32 in denselben Einheiten bleiben
 float skyBrightness(float elevDeg) {
+    if (uSkyMode == 1) return 1.85 * dot(uSkyAmb, vec3(0.2126, 0.7152, 0.0722));
+    return skyBrightnessPH(elevDeg);
+}
+float skyBrightnessPH(float elevDeg) {
     const float E[6] = float[6](-18.0, -12.0, -6.0, 0.0, 10.0, 30.0);
     const float V[6] = float[6](-4.3, -3.5, -2.3, -1.0, -0.3, 0.0);
     float v = elevDeg <= E[0] ? V[0] : V[5];
@@ -130,6 +142,60 @@ vec3 hazeColor(vec3 dir) {
 
 vec3 aerial(vec3 col, vec3 dir, float dist) {
     float hm = max(0.0, uCam.y + dir.y * dist * 0.5);
-    float f = 1.0 - exp(-dist * exp(-hm / 8000.0) / (uSkyMode == 1 ? uFogDist : 120000.0));
+    if (uSkyMode == 1) {
+        // W1 (L3): zwei Schichten wie in com.dan.sky: Luft (8 km Skalenhöhe, rund 150 km Sicht) und Dunst (1,2 km, aus der
+        // Sicht). Gezählt in der mittleren Höhe des Wegs; so stehen die Gipfel klar über dem Dunst der Bucht.
+        // Dunst mit 0,45 gewichtet: com.dan.sky rechnet die Auslöschung am Boden (Licht und Streuung); sichtbar wird
+        // davon rund die Hälfte als Schleier (erste Probe auf der Radeon: der Mittelgrund war grau verwaschen)
+        float od = dist * (exp(-hm / 8000.0) / 150000.0 + 0.45 * exp(-hm / 1200.0) / uFogDist);
+        return mix(col, hazeColor(dir), 1.0 - exp(-od));
+    }
+    float f = 1.0 - exp(-dist * exp(-hm / 8000.0) / 120000.0);
     return mix(col, hazeColor(dir), f);
+}
+
+// ------------------------------------------------------------------ W1: Sonne am Punkt
+
+// Durchlässigkeit der Luft für die Sonne an einem Punkt der Höhe h (m) bei Sonnenhöhe sinEl. Rayleigh (Zenit-Dicke
+// 0,046/0,108/0,265, 8 km) und Dunst (0,10, 1,2 km [G]); Luftmasse nach Kasten und Young, unter der Waagerechten der
+// streifende Strahl nach Chapman (Tangentenhöhe). Auf 4 000 m und 1° unter der Kimm: rot, rund ein Zehntel der Sonne.
+float luftmasse(float h, float sinEl, float H) {
+    float el = asin(clamp(sinEl, -1.0, 1.0));
+    float R = 6371000.0;
+    if (el >= 0.0) {
+        float e = degrees(el);
+        return exp(-h / H) / (sin(el) + 0.50572 * pow(e + 6.07995, -1.6364));
+    }
+    float ht = (R + h) * cos(el) - R;                       // Tangentenhöhe
+    float voll = sqrt(6.2831853 * R / H);
+    return max(voll * exp(-max(ht, -200.0) / H) - 0.5 * voll * exp(-h / H), 0.5 * voll * exp(-h / H));
+}
+vec3 sonnenDurchlass(float h, float sinEl) {
+    vec3 tauR = vec3(0.046, 0.108, 0.265);
+    float tauA = 0.10;
+    vec3 od = tauR * luftmasse(h, sinEl, 8000.0) + vec3(tauA * luftmasse(h, sinEl, 1200.0));
+    return exp(-od);
+}
+
+// Sonne ja/nein (0..1) am Punkt w aus den Horizontkarten: Horizontwinkel gegen Sonnenhöhe, Halbschatten der Scheibe
+// (0,53°); ein Punkt über dem Boden (Welle, Staub, Baumkrone) sieht etwas mehr (Hindernis in rund 2 km angenommen).
+float bergSchatten(vec3 w) {
+    if (uSchattenAn == 0) return 1.0;
+    vec2 hz;
+    vec2 uf = (w.xz - uSchattenFRect.xy) / uSchattenFRect.z;
+    if (all(greaterThan(uf, vec2(0.0))) && all(lessThan(uf, vec2(1.0)))) hz = textureLod(uSchattenF, uf, 0.0).rg;
+    else {
+        vec2 ug = (w.xz - uSchattenGRect.xy) / uSchattenGRect.z;
+        if (all(greaterThan(ug, vec2(0.0))) && all(lessThan(ug, vec2(1.0)))) hz = textureLod(uSchattenG, ug, 0.0).rg;
+        else return 1.0;
+    }
+    float el = asin(clamp(uSun.y, -1.0, 1.0));
+    float lift = max(w.y - hz.y, 0.0) / 2000.0;
+    return smoothstep(-0.0046, 0.0046, el - hz.x + lift);
+}
+
+// Licht der Sonne am Punkt w: mit com.dan.sky Durchlässigkeit nach Höhe und Bergschatten, sonst der Platzhalter.
+vec3 sunAt(vec3 w) {
+    if (uSkyMode != 1) return sunLight();
+    return uSunToa * sonnenDurchlass(max(w.y, 0.0), uSun.y) * bergSchatten(w);
 }

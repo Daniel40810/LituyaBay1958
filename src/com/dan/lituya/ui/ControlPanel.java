@@ -526,6 +526,16 @@ public final class ControlPanel extends JPanel implements javax.swing.Scrollable
             autoBox.setSelected(false);
             r.renderScale = scaleSl.getValue() / 100.0;
         });
+        // W1: Himmel und Licht aus com.dan.sky, Glühen
+        FCheckBox lichtBox = new FCheckBox("Himmel und Licht aus com.dan.sky (W1)");
+        lichtBox.setSelected(r.licht.an);
+        lichtBox.setToolTipText("Dämmerhimmel, Alpenglühen, Schatten der Kette, Dunst in zwei Schichten; aus: der Platzhalter von Phase 1");
+        lichtBox.addActionListener(e -> { r.licht.an = lichtBox.isSelected(); view.requestFocusInWindow(); });
+        put(lichtBox);
+        FCheckBox bloomBox = new FCheckBox("Glühen um Helles (Bloom)");
+        bloomBox.setSelected(r.bloom > 0);
+        bloomBox.addActionListener(e -> { r.bloom = bloomBox.isSelected() ? 0.35 : 0; view.requestFocusInWindow(); });
+        put(bloomBox);
         put(label("Belichtung (Blenden von Hand)"));
         put(expSl);
         expSl.addChangeListener(e -> { if (!fromScene) r.exposureBias = expSl.getValue() / 10.0; });

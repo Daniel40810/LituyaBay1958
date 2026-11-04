@@ -80,7 +80,7 @@ void main() {
     vec3 col = mix(body, sky, fres);
     vec3 hv = normalize(uSun + v);
     float shin = mix(400.0, 60.0, smoothstep(100.0, 8000.0, dist));
-    col += sunLight() * pow(max(dot(n, hv), 0.0), shin) * (shin / 400.0) * 3.0;
+    col += sunAt(w) * pow(max(dot(n, hv), 0.0), shin) * (shin / 400.0) * 3.0;
     if (uTeppichAn == 1) {
         vec2 tu = (q - uTeppichRect.xy) / uTeppichRect.zw;
         if (tu.x > 0.0 && tu.y > 0.0 && tu.x < 1.0 && tu.y < 1.0) {
@@ -91,7 +91,7 @@ void main() {
             float p = mix(0.5, vnf(q, 2.3, vec2(0.0), px) * 0.6 + vnf(q, 0.7, vec2(17.0), px) * 0.4, kf);
             float cov = smoothstep(0.0, 0.35, c - (1.0 - p) * 0.6 + 0.15) * c;
             vec3 holz = mix(vec3(0.10, 0.075, 0.05), vec3(0.20, 0.16, 0.11), p);
-            vec3 lit = holz * (sunLight() * max(dot(vec3(0.0, 1.0, 0.0), uSun), 0.0) + skyColor(vec3(0.0, 1.0, 0.0)) * 0.8);
+            vec3 lit = holz * (sunAt(w) * max(dot(vec3(0.0, 1.0, 0.0), uSun), 0.0) + skyColor(vec3(0.0, 1.0, 0.0)) * 0.8);
             col = mix(col, lit, clamp(cov, 0.0, 0.92));
         }
     }

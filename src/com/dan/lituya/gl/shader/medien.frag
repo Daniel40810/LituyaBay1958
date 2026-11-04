@@ -49,7 +49,7 @@ void main() {
             float j = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453 + uBild * 0.61803399);
             float cs = dot(d, uSun), g = 0.6;
             float hg = (1.0 - g * g) / (4.0 * 3.14159265 * pow(1.0 + g * g - 2.0 * g * cs, 1.5));
-            vec3 sonne = sunLight() * hg * 4.0 * 3.14159265;
+            vec3 sonneHG = vec3(hg * 4.0 * 3.14159265);   // W1: Sonne je Schritt am Ort (Bergschatten, Glühen oben)
             vec3 himmel = skyColor(vec3(0.0, 1.0, 0.0)) * 0.6 + hazeColor(d) * 0.6 * (0.5 + 0.5 * cs);
             vec3 alb = vec3(0.62, 0.57, 0.50) * 0.8;
             for (int i = 0; i < N; i++) {
@@ -64,7 +64,7 @@ void main() {
                 float sigma = s.y / dicke;
                 // Schatten der Wolke selbst: der Anteil der Säule über dem Punkt, schräg zur Sonne
                 float ueber = s.y * (s.x - p.y) / dicke / max(uSun.y + 0.15, 0.1);
-                vec3 Li = alb * (sonne * exp(-ueber) + himmel);
+                vec3 Li = alb * (sunAt(p) * sonneHG * exp(-ueber) + himmel);
                 float tr = exp(-sigma * ds);
                 L += T * Li * (1.0 - tr);
                 T *= tr;

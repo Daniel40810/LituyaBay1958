@@ -10,6 +10,7 @@ uniform sampler2D uHdr;
 uniform float uExposure;
 uniform float uScotopic;
 uniform int uFxaa;
+uniform float uBloom;     // W1: Glühen um Helles aus den Mip-Stufen 2–6 des Bilds (nur mit Kantenglättung, die die Stufen baut)
 uniform vec2 uTexel;
 
 vec3 aces(vec3 x) {
@@ -19,7 +20,12 @@ vec3 aces(vec3 x) {
 
 // das fertige Bild an der Stelle uv (ohne Rauschen)
 vec3 tone(vec2 uv) {
-    vec3 hdr = texture(uHdr, uv).rgb * uExposure;
+    vec3 hdr = textureLod(uHdr, uv, 0.0).rgb * uExposure;
+    if (uBloom > 0.0) {
+        vec3 bl = (textureLod(uHdr, uv, 2.0).rgb * 0.30 + textureLod(uHdr, uv, 3.0).rgb * 0.25 + textureLod(uHdr, uv, 4.0).rgb * 0.20
+                 + textureLod(uHdr, uv, 5.0).rgb * 0.15 + textureLod(uHdr, uv, 6.0).rgb * 0.10) * uExposure;
+        hdr += max(bl - vec3(0.9), vec3(0.0)) * uBloom;
+    }
     float ys = dot(hdr, vec3(0.02, 0.62, 0.36));
     // Befund aus Rungholt: was im Bild hell ist (in LituyaBay1958 die Laternen der Kutter vor Anker), sehen die Zapfen weiter in Farbe;
     // nur das Dunkle wird farblos und blau

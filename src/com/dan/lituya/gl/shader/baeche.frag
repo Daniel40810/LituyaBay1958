@@ -35,17 +35,17 @@ void main() {
     vec3 alb = mix(klar, milch, smoothstep(0.1, 0.6, vEis));
     alb = mix(alb, trueb, clamp(uRegen / 20.0, 0.0, 1.0) * 0.55 * (1.0 - vEis));
     vec3 sky = skyColor(vec3(0.0, 1.0, 0.0));
-    vec3 body = alb * (sunLight() * max(uSun.y, 0.0) + sky * 0.9);
+    vec3 body = alb * (sunAt(vW) * max(uSun.y, 0.0) + sky * 0.9);
     vec3 v = -dir;
     float fres = 0.02 + 0.98 * pow(1.0 - max(dot(n, v), 0.0), 5.0);
     vec3 r = reflect(dir, n);
     vec3 col = mix(body, skyColor(vec3(r.x, max(r.y, 0.01), r.z)), fres * 0.8);
     vec3 hv = normalize(uSun + v);
-    col += sunLight() * pow(max(dot(n, hv), 0.0), 180.0) * 1.2 * k;
+    col += sunAt(vW) * pow(max(dot(n, hv), 0.0), 180.0) * 1.2 * k;
     // Schaum an steilen Stücken mit viel Wasser
     float f = 0.65 * vn(q / vec2(1.6, 0.7) + 5.0) + 0.35 * vn(q / vec2(0.5, 0.3) + 9.0);
     float s = smoothstep(0.62, 0.9, f) * vSchaum * 0.6 * k;
-    col = mix(col, vec3(0.75) * (sunLight() * max(uSun.y, 0.0) + sky), s);
+    col = mix(col, vec3(0.75) * (sunAt(vW) * max(uSun.y, 0.0) + sky), s);
     float rand = 1.0 - smoothstep(0.55, 1.0, abs(vSeite));
     col = aerial(col, dir, dist);
     frag = vec4(col, vAlpha * mix(0.35, 0.92, rand));

@@ -79,6 +79,11 @@ public final class Renderer implements GLEventListener {
     public final Netzblick netzblick = new Netzblick();
     /** Phase 16c: die Bäche aus LB_NET_WASSER als eigener Wasser-Pass (Bänder auf dem Gelände, Breite nach Regen). */
     public final BaecheGl baeche = new BaecheGl();
+    /** Werkbuch Welle W1: Himmel aus com.dan.sky, Belichtung, Horizontkarten für den Schatten der Kette, Alpenglühen. */
+    public final Licht licht = new Licht();
+    /** W1: Glühen um Helles (Sonne, Glanz, Gischt im Gegenlicht), Stärke; 0 aus. */
+    public volatile double bloom = 0.35;
+    private double letztesDt = 1 / 60.0;
     /** Das Gelände zeigen (G … im Bedienfeld TECHNIK). */
     public volatile boolean showGelaende = true;
     /** Phase 13b: das Abspielen der Vorrechnung (daten/ereignis) mit Vorrat und die Durchgänge dazu. */
@@ -319,6 +324,7 @@ public final class Renderer implements GLEventListener {
 
     /** Belichtung aus der Sonnenhöhe des Platzhalter-Himmels (am Tag rund 1,9), dazu die Blenden von Hand. */
     public double exposure() {
+        if (licht.aktiv()) return 1;   // W1: die Szene ist mit licht.pre() vorbelichtet
         double b = Sun.skyBrightness(clock.sun()[0]);
         return 0.6 * Math.pow(b, -0.85) * Math.pow(2, exposureBias);
     }
@@ -362,6 +368,7 @@ public final class Renderer implements GLEventListener {
         emptyVao = v[0];
         for (int[] s : stamp) gl.glGenQueries(MARKS, s, 0);
         compute = ComputeProbe.run(gl);
+        licht.init(gl);   // W1
         try {
             netzblick.init(gl);
             wiedergabe.start();
@@ -830,6 +837,7 @@ public final class Renderer implements GLEventListener {
         double rawMs = (now - lastNanos) / 1e6;
         if (frame > 2 && rawMs > worstMs) worstMs = rawMs;
         double dt = Math.min(0.1, (now - lastNanos) / 1e9);
+        letztesDt = frozen ? 1 / 60.0 : dt;
         lastNanos = now;
         if (!frozen) step(dt);
 
@@ -859,7 +867,18 @@ public final class Renderer implements GLEventListener {
             echtzeit.aus();
         }
         double[] sp = clock.sun();
-        double[] sun = Sun.direction(sp[0], sp[1]);
+        double[] sunPh = Sun.direction(sp[0], sp[1]);
+        // W1: Himmel und Licht aus com.dan.sky (Sonne mit Strahlenbrechung), Horizontkarten, Rundumbild
+        try {
+            licht.vorbereiten(gl, clock, camera.eye, camera.fwd, fovy(), w / (double) h, exposureBias, letztesDt, frozen,
+                    this::stapelHoehe, land.stapel() != null);
+            licht.sonnenKarte(gl);
+        } catch (RuntimeException e) {
+            System.err.println("LituyaBay1958: Licht: " + e);
+            licht.an = false;
+        }
+        WaldGl.himmel = licht.waldLicht();
+        final double[] sun = licht.aktiv() ? licht.state().sunDir.clone() : sunPh;
         float[] proj = Mat4.perspective(fovy(), w / (double) h, NEAR, FAR, reversedZ);
         float[] view = camera.view();
         double[] vpN = mulD(proj, view);   // ohne Versatz (für den Verlauf)
@@ -890,8 +909,13 @@ public final class Renderer implements GLEventListener {
         gl.glDisable(GL.GL_DEPTH_TEST);
         gl.glDisable(GL.GL_BLEND);
         gl.glBindVertexArray(emptyVao);
-        common(gl, skyShader, vp, inv, sun);
-        gl.glDrawArrays(GL.GL_TRIANGLES, 0, 3);
+        if (licht.aktiv()) {
+            licht.himmel(gl, vp, inv, reversedZ, w, h, fovy(), clock.t());   // W1: com.dan.sky statt des Platzhalters
+            gl.glBindVertexArray(emptyVao);
+        } else {
+            common(gl, skyShader, vp, inv, sun);
+            gl.glDrawArrays(GL.GL_TRIANGLES, 0, 3);
+        }
         mark(gl, 1);
 
         // 2 Gelände (Phase 4): alle Stufen der Clipmap mit Tiefe, Rückseiten weg
@@ -984,7 +1008,8 @@ public final class Renderer implements GLEventListener {
         post.set(gl, "uFxaa", !taa && fxaa ? 1 : 0);
         post.set(gl, "uTexel", 1f / w, 1f / h);
         post.set(gl, "uExposure", (float) exposure());
-        post.set(gl, "uScotopic", 0f);
+        post.set(gl, "uScotopic", licht.aktiv() ? (float) licht.state().scotopic() : 0f);
+        post.set(gl, "uBloom", taa ? (float) bloom : 0f);
         gl.glBindVertexArray(emptyVao);
         gl.glDrawArrays(GL.GL_TRIANGLES, 0, 3);
         mark(gl, 8);
@@ -1092,6 +1117,7 @@ public final class Renderer implements GLEventListener {
         s.set(gl, "uLevel", (float) wiring.pegel);
         s.set(gl, "uReversed", reversedZ ? 1 : 0);
         s.set(gl, "uBild", (float) (taaFrame & 63));
+        licht.uniforms(gl, s);   // W1: uSkyMode, Rundumbild, Sonne am Punkt, Horizontkarten
     }
 
     private void resizeTargets(GL4 gl, int w, int h) {
@@ -1109,7 +1135,7 @@ public final class Renderer implements GLEventListener {
         Gpu.deleteFbos(gl, taaFbo[0], taaFbo[1]);
         Gpu.deleteTextures(gl, taaTex[0], taaTex[1]);
         for (int i = 0; i < 2; i++) {
-            taaTex[i] = Gpu.texture(gl, w, h, GL.GL_RGBA16F, false);
+            taaTex[i] = Gpu.texture(gl, w, h, GL.GL_RGBA16F, true);   // W1: Mip-Stufen für das Glühen (bloom)
             taaFbo[i] = Gpu.fbo(gl, taaTex[i], 0);
         }
         taaValid = false;
@@ -1152,6 +1178,9 @@ public final class Renderer implements GLEventListener {
         taaShader.set(gl, "uAlpha", (float) taaAlpha);
         gl.glBindVertexArray(emptyVao);
         gl.glDrawArrays(GL.GL_TRIANGLES, 0, 3);
+        gl.glBindTexture(GL.GL_TEXTURE_2D, taaTex[dst]);
+        gl.glGenerateMipmap(GL.GL_TEXTURE_2D);
+        gl.glBindTexture(GL.GL_TEXTURE_2D, 0);
         taaIdx = dst;
         taaValid = true;
         taaPrevVP = vpN;
@@ -1362,7 +1391,8 @@ public final class Renderer implements GLEventListener {
                 passTimes(),
                 (c == null ? "!Compute-Test läuft …" : (c.ok() ? "" : "!") + c.line()),
                 uhrenZeile(),
-                String.format(Locale.GERMAN, "Belichtung %.2g (Platzhalter-Himmel bis Phase 5a) · Zeitraffer %.0f×", exposure(), clock.lapse),
+                (licht.aktiv() ? String.format(Locale.GERMAN, "Vorbelichtung %.3g · %s · Zeitraffer %.0f×", licht.pre(), licht.status(), clock.lapse)
+                        : String.format(Locale.GERMAN, "Belichtung %.2g (Platzhalter-Himmel, Licht aus) · Zeitraffer %.0f×", exposure(), clock.lapse)),
                 wiring.zeile(),
                 physik.describe(),
                 land.zeile(),
@@ -1517,6 +1547,7 @@ public final class Renderer implements GLEventListener {
         Gpu.deleteTextures(gl, hdrTex, depthTex);
         Gpu.deleteFbos(gl, taaFbo[0], taaFbo[1]);
         Gpu.deleteTextures(gl, taaTex[0], taaTex[1]);
+        licht.dispose(gl);
         if (emptyVao != 0) gl.glDeleteVertexArrays(1, new int[]{emptyVao}, 0);
         for (int[] s : stamp) if (s[0] != 0) gl.glDeleteQueries(MARKS, s, 0);
         ready = false;
