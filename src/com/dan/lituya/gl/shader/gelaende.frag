@@ -11,6 +11,7 @@
 in vec3 vW;
 in vec3 vN;
 in float vH;
+in float vGletscher;   // W3c: Eis der Gletscherzunge 1958 [G]
 out vec4 frag;
 // ab Phase 14a: der Boden im Band der Welle 1958 (Fels, Mineralboden, Waldboden des gezeigten Jahrs, linear) aus WaldGl;
 // Deckel 1 im Band. Rechteck x0, z0, Breite, Tiefe (Szene).
@@ -51,6 +52,19 @@ float knf(vec2 q, float p, float px) { return mix(kn(q / p), 0.5, smoothstep(0.2
 // gestrecktes Rauschen: quer Periode pa, längs pb (m), gefiltert nach der kurzen Periode
 float rinne(vec2 q, float pa, float pb, float px) { return mix(kn(vec2(q.x / pa, q.y / pb)), 0.5, smoothstep(0.25, 0.6, px / pa)); }
 
+// W3c: Zellen (Voronoi) für Blöcke im Grund: Helligkeit, Fuge (Abstand zur nächsten Zelle), Abstand
+vec3 gBloecke(vec2 q, float g) {
+    vec2 i = floor(q / g), f = q / g - i;
+    float d1 = 9.0, d2 = 9.0, id = 0.0;
+    for (int y = -1; y <= 1; y++)
+        for (int x = -1; x <= 1; x++) {
+            vec2 c = vec2(x, y), o = vec2(kh(i + c), kh(i + c + 17.3));
+            float d = length(c + o - f);
+            if (d < d1) { d2 = d1; d1 = d; id = kh(i + c + 5.1); } else if (d < d2) d2 = d;
+        }
+    return vec3(id, d2 - d1, d1);
+}
+
 // W3b: ein Material aus com.dan.surface (Ableitungen vorher genommen); Gewicht w ≤ 0 tastet nicht ab
 Surf mat(int L, vec3 p, vec3 dpw, vec3 dpv, vec3 n, float px) { return surfSampleD(L, p, dpw, dpv, n, px); }
 
@@ -68,21 +82,29 @@ vec3 hang(vec3 p, inout vec3 n, float px, float pyx, vec3 dpw, vec3 dpv, float f
     vec2 quer = vec2(-fall.y, fall.x);
     vec2 q = vec2(dot(p.xz, quer), dot(p.xz, fall));
     float fl = knf(p.xz + 91.0, 150.0, px) * 0.6 + knf(p.xz + 17.0, 45.0, px) * 0.4;
-    float f = clamp(fels + (fl - 0.5) * 1.3, 0.0, 1.0);
+    float f = clamp(fels + (fl - 0.5) * 0.9, 0.0, 1.0);
     float r1 = rinne(q + 5.0, 6.0, 55.0, px), r2 = rinne(q + 31.0, 22.0, 170.0, px);
     float rin = r1 * 0.45 + r2 * 0.55;                      // 0 Rinne, 1 Rippe
     float r1b = rinne(q + vec2(7.0, 5.0), 6.0, 55.0, px), r2b = rinne(q + vec2(33.0, 31.0), 22.0, 170.0, px);
     float drin = (r1b * 0.45 + r2b * 0.55 - rin) * 0.5;      // Steigung quer (über 2 m)
     float bank = fract((p.y + 7.0 * knf(p.xz + 3.0, 70.0, px)) / 9.0);
     float bk = mix(smoothstep(0.62, 0.92, bank) - smoothstep(0.92, 1.0, bank), 0.3, smoothstep(0.2, 0.5, pyx / 9.0));
-    vec3 felsF = mix(vec3(0.24, 0.235, 0.22), vec3(0.50, 0.49, 0.46), frisch);
-    vec3 schuttF = mix(vec3(0.22, 0.19, 0.15), vec3(0.36, 0.31, 0.24), frisch);
-    vec3 kiesF = vec3(0.30, 0.29, 0.26);
+    // W3c: wärmer und mit mehr Unterschied (vorher grau in grau: im Dämmerlicht nicht vom Wasser zu unterscheiden) [G]
+    vec3 felsF = mix(vec3(0.25, 0.245, 0.225), vec3(0.52, 0.50, 0.46), frisch);
+    vec3 schuttF = mix(vec3(0.25, 0.19, 0.13), vec3(0.42, 0.33, 0.22), frisch);
+    vec3 kiesF = vec3(0.33, 0.31, 0.27);
     vec3 c = mix(schuttF, felsF, f);
     c *= mix(1.0, 0.82 + 0.36 * bk, f);                      // Bänke im Fels: Stirn hell, Absatz mit Schutt dunkler
     c *= 0.5 + 0.85 * rin;                                   // Rinne dunkel, Rippe hell
     c *= 0.85 + 0.3 * knf(p.xz + 55.0, 12.0, px);
     c = mix(c, kiesF * (0.85 + 0.3 * knf(p.xz, 7.0, px)), kies);
+    // W3c: Blöcke und Steine (4 m und 1,2 m) mit dunklen Fugen: rauer Grund statt glatter Flecken, die wie Spiegelungen
+    // aussahen; in der Ferne gemittelt [G]
+    vec3 b4 = gBloecke(p.xz + 3.7, 4.0), b1 = gBloecke(p.xz + 19.0, 1.2);
+    float k4 = 1.0 - smoothstep(0.5, 1.6, px / 4.0 * 3.0), k1 = 1.0 - smoothstep(0.5, 1.6, px / 1.2 * 3.0);
+    c *= mix(1.0, 0.72 + 0.56 * b4.x, k4 * 0.8) * mix(1.0, mix(0.55, 1.0, smoothstep(0.02, 0.14, b4.y)), k4);
+    c *= mix(1.0, (0.8 + 0.4 * b1.x) * mix(0.7, 1.0, smoothstep(0.02, 0.16, b1.y)), k1);
+    c *= mix(1.0, 0.86, smoothstep(1.6, 6.0, px) * (1.0 - smoothstep(6.0, 30.0, px)));   // Mittel der Fugen in der Ferne
     n = normalize(gn + vec3(quer.x, 0.0, quer.y) * (-drin) * 1.6 * (1.0 - smoothstep(4.0, 20.0, px)));
     if (uSurfAn == 1 && px < 0.9) {
         // Nähe: Muster der Texturen (Verhältnis zum Mittel des Materials) auf der Farbe der Großform
@@ -95,11 +117,39 @@ vec3 hang(vec3 p, inout vec3 n, float px, float pyx, vec3 dpw, vec3 dpv, float f
         vec3 ra = a.albedo / max(uSurfMean[La].rgb, vec3(0.02)), rb = b.albedo / max(uSurfMean[Lb].rgb, vec3(0.02));
         vec3 det = clamp(mix(rb, ra, wa), vec3(0.25), vec3(2.5));
         c *= mix(vec3(1.0), det, near);
+        // W3c: Hohlräume dunkler (aus der Höhe der Materialien): Relief auch ohne Sonne
+        c *= mix(1.0, 0.62 + 0.62 * clamp(mix(b.height, a.height, wa), 0.0, 1.0), near);
         n = normalize(mix(n, normalize(mix(b.normal, a.normal, wa)), near));
     }
-    // nass: dunkler, in den Rinnen zuerst [G]
-    c *= 1.0 - nass * (0.18 + 0.17 * (1.0 - rin));
+    // nass: dunkler, in den Rinnen zuerst, Schlamm bräunlich [G]
+    c *= 1.0 - nass * (0.14 + 0.16 * (1.0 - rin));
+    c = mix(c, c * vec3(1.06, 0.97, 0.86), nass * 0.6);
     return c;
+}
+
+/*
+ * Werkbuch Welle W3c: Stämme auf dem abgeschürften Hang [G]. Die Welle brach den Wald und schälte die Stämme (Fotos 1958:
+ * helle, entrindete Stämme kreuz und quer). Kurze helle Striche, grob in der Falllinie, mit Schatten daneben; in der Ferne
+ * als leichte Aufhellung gemittelt. frisch: 1 im Jahr 1958, mit den Jahren grau und weniger.
+ */
+vec3 holz(vec3 c, vec3 p, vec3 n, float px, float frisch) {
+    vec2 fall = length(n.xz) > 1e-3 ? normalize(n.xz) : vec2(0.0, 1.0);
+    float i = floor(dot(p.xz, vec2(0.7, 0.3)) / 11.0);
+    float wink = (kh(vec2(i, 3.1)) - 0.5) * 1.4;                    // Streuung der Lage um die Falllinie
+    vec2 a = vec2(cos(wink) * fall.x - sin(wink) * fall.y, sin(wink) * fall.x + cos(wink) * fall.y);
+    vec2 b = vec2(-a.y, a.x);
+    vec2 q = vec2(dot(p.xz, a), dot(p.xz, b));
+    vec2 zelle = floor(vec2(q.x / 22.0, q.y / 3.0));
+    float da = kh(zelle + 7.0), lage = kh(zelle + 13.0);
+    vec2 f = vec2(q.x / 22.0, q.y / 3.0) - zelle;
+    float stamm = step(0.55, da) * (1.0 - smoothstep(0.08, 0.16, abs(f.y - 0.5))) * smoothstep(0.05, 0.12, f.x) * (1.0 - smoothstep(0.75 + 0.2 * lage, 0.9 + 0.1 * lage, f.x));
+    float schatten = step(0.55, da) * (1.0 - smoothstep(0.16, 0.30, abs(f.y - 0.62))) * (1.0 - stamm) * smoothstep(0.05, 0.12, f.x) * (1.0 - smoothstep(0.8, 0.95, f.x));
+    float nah = 1.0 - smoothstep(0.35, 1.1, px);
+    vec3 hell = mix(vec3(0.42, 0.40, 0.37), vec3(0.62, 0.56, 0.47), frisch);
+    c = mix(c, c * 0.55, schatten * nah * 0.8);
+    c = mix(c, hell, stamm * nah);
+    // fern: der Anteil der Stämme als Aufhellung
+    return mix(c, mix(c, hell, 0.12), 1.0 - nah);
 }
 
 void main() {
@@ -150,6 +200,7 @@ void main() {
             if (flut > 0.0) {
                 vec3 nh = n;
                 vec3 c = hang(vW, nh, pxh, pyx, dpw, dpv, smoothstep(0.22, 0.5, slope), 1.0 - smoothstep(3.0, 14.0, h), 0.55, 1.0);
+                c = holz(c, vW, n, pxh, 1.0);
                 alb = mix(alb, c, flut);
                 nL = normalize(mix(nL, nh, flut));
                 krone *= 1.0 - flut;
@@ -167,6 +218,7 @@ void main() {
                 float fe = smoothstep(0.12, 0.155, b.b);
                 vec3 nh = n;
                 vec3 c = hang(vW, nh, pxh, pyx, dpw, dpv, max(fe, smoothstep(0.3, 0.55, slope)), 1.0 - smoothstep(3.0, 14.0, h), uAbrissFrisch, 0.0);
+                c = holz(c, vW, n, pxh, uAbrissFrisch);
                 alb = mix(alb, mix(c, b.rgb, wb), k);
                 nL = normalize(mix(nL, nh, k * (1.0 - wb)));
                 krone *= 1.0 - k * (1.0 - wb);
@@ -174,7 +226,11 @@ void main() {
         }
     }
     if (uAbrissAn == 1) {
-        vec2 au = vec2((vW.x - uAbrissRect.x) / uAbrissRect.z, (uAbrissRect.y - vW.z) / uAbrissRect.w);
+        // W3c: Rand ausgefranst (die Platte der Rechnung ist ein Rechteck mit geraden Kanten) [G]
+        vec2 jit = (vec2(knf(vW.xz + 5.0, 90.0, pxh), knf(vW.xz + 77.0, 90.0, pxh)) - 0.5) * 90.0
+                 + (vec2(knf(vW.xz + 9.0, 22.0, pxh), knf(vW.xz + 41.0, 22.0, pxh)) - 0.5) * 26.0;
+        vec2 aw = vW.xz + jit;
+        vec2 au = vec2((aw.x - uAbrissRect.x) / uAbrissRect.z, (uAbrissRect.y - aw.y) / uAbrissRect.w);
         if (au.x > 0.0 && au.y > 0.0 && au.x < 1.0 && au.y < 1.0) {
             float a = smoothstep(0.05, 0.6, texture(uAbriss, au).r);
             if (a > 0.0) {
@@ -187,12 +243,51 @@ void main() {
             }
         }
     }
+    // W3c: die Zunge des Lituya-Gletschers 1958 [G]: oben weißes, zerrissenes Eis mit Spalten quer zum Fluss und dunklen
+    // Moränenbändern längs, an der Front blaues Eis mit senkrechten Bruchflächen. Vorher stand hier ein brauner Tafelberg.
+    float eis = vGletscher * smoothstep(-0.5, 1.0, h);
+    if (eis > 0.0 && uKroneAn == 1) {
+        // wo Wald steht, ist kein Eis (die Zunge im Norden ist ein Rechteck; Hänge mit Wald bleiben Wald)
+        vec2 ku = (vW.xz - uKroneRect.xy) / uKroneRect.zw;
+        if (ku.x > 0.0 && ku.y > 0.0 && ku.x < 1.0 && ku.y < 1.0) {
+            vec3 dn = texture(uKrone, ku).rgb;
+            eis *= 1.0 - smoothstep(0.06, 0.25, dn.r + dn.g + dn.b);
+        }
+    }
+    if (eis > 0.0) {
+        vec2 fl = vec2(0.35, 0.94);                                     // Fluss nach SSO (Szene: x Ost, z Süd)
+        vec2 qe = vec2(dot(vW.xz, fl), dot(vW.xz, vec2(-fl.y, fl.x)));  // längs, quer
+        float front = smoothstep(0.22, 0.45, slope);
+        vec3 oben = vec3(0.70, 0.75, 0.80) * (0.88 + 0.24 * knf(vW.xz + 3.0, 40.0, pxh));
+        float band = smoothstep(0.60, 0.80, rinne(vec2(qe.y, qe.x) + 11.0, 38.0, 600.0, pxh));
+        oben = mix(oben, vec3(0.22, 0.20, 0.18), band * 0.75);
+        // Spalten: quer zum Fluss, 15–25 m, zur Front hin dichter und offener; fern gemittelt
+        float sp = fract(qe.x / 19.0 + 0.7 * knf(vW.xz + 51.0, 70.0, pxh));
+        float spalte = (1.0 - smoothstep(0.03, 0.09, abs(sp - 0.5))) * smoothstep(0.35, 0.6, knf(vW.xz + 7.0, 45.0, pxh) + 0.2);
+        spalte *= 1.0 - smoothstep(2.0, 7.0, pxh);
+        oben = mix(oben, vec3(0.10, 0.20, 0.30), spalte * 0.85);
+        oben = mix(oben, oben * 0.84, smoothstep(7.0, 20.0, pxh) * (1.0 - smoothstep(20.0, 60.0, pxh)));
+        // Front: blaues Eis, senkrecht gebrochen; Bänder in der Höhe [G]
+        vec2 seite = length(n.xz) > 1e-3 ? normalize(vec2(-n.z, n.x)) : vec2(1.0, 0.0);
+        float bruch = knf(vec2(dot(vW.xz, seite) / 2.5, vW.y / 45.0), 1.0, pxh / 2.5);
+        float schicht = knf(vec2(dot(vW.xz, seite) / 60.0, vW.y / 4.0), 1.0, pyx / 4.0);
+        vec3 blau = mix(vec3(0.20, 0.38, 0.52), vec3(0.52, 0.68, 0.78), bruch) * (0.8 + 0.35 * schicht);
+        vec3 ice = mix(oben, blau, front);
+        alb = mix(alb, ice, eis);
+        krone *= 1.0 - eis;
+    }
     alb = mix(grund, alb, smoothstep(-1.0, 0.5, h));
     float B = skyBrightness(sunElevDeg());
     vec3 sky = skyColor(vec3(0.0, 1.0, 0.0));
     // im Kronendach fällt weniger Himmelslicht zwischen die Kronen, die Sonne trifft die Kronen auch am flachen Hang [G]
     float ndl = mix(max(dot(nL, uSun), 0.0), max(dot(normalize(n + vec3(0.0, 0.6, 0.0)), uSun), 0.0), krone);
-    vec3 col = alb * (sunAt(vW) * ndl + sky * (0.55 + 0.45 * nL.y) * (1.0 - 0.25 * krone));
+    // W3c: Himmelslicht nach der Richtung der Fläche (common.umgebung) statt überall der Farbe des Zenits
+    vec3 col = alb * (sunAt(vW) * ndl + umgebung(nL) * (1.0 - 0.25 * krone));
+    if (eis > 0.0) {
+        vec3 vv = normalize(uCam - vW);
+        float fr = 0.03 + 0.25 * pow(1.0 - max(dot(nL, vv), 0.0), 5.0);
+        col += skyColor(reflect(-vv, nL) * vec3(1.0, 1.0, 1.0) + vec3(0.0, 0.02, 0.0)) * fr * eis * 0.6;
+    }
     vec3 d = vW - uCam;
     float dist = length(d);
     col = applyMarks(col, vW.xz, dist, B);

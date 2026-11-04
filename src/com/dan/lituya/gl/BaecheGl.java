@@ -139,6 +139,10 @@ public final class BaecheGl {
     }
 
     /** Im Bildlauf: laden, sobald die Bänder fertig sind, dann zeichnen (in den gebundenen HDR-Puffer, Tiefe gegen das Gelände). */
+    /** W3c: Rückbau des Gilbert Inlet im Bild (Szene x0, z0, x1, z1) und ob er gerade gilt; vom Renderer je Bild gesetzt. */
+    volatile double[] rueckbauRect;
+    volatile boolean rueckbauAn;
+
     void zeichnen(GL4 gl, Consumer<Shader> common, com.dan.clipmap.Clipmap cm, boolean reversed, int h, double fovy) {
         if (!an || cm == null) return;
         if (!init) {
@@ -171,6 +175,14 @@ public final class BaecheGl {
         if (!oben || nIndex == 0) return;
         common.accept(shader);
         shader.set(gl, "uRegen", (float) regen);
+        // W3c: im Rückbau des Gilbert Inlet (1958) liegen die Bäche von heute unter Wasser: dort nicht zeichnen
+        double[] rr = rueckbauRect;
+        shader.set(gl, "uRueckbauAn", rueckbauAn && rr != null ? 1 : 0);
+        if (rr != null) {
+            shader.set(gl, "uRueckbauRect", (float) rr[0], (float) rr[1], (float) rr[2], (float) rr[3]);
+            shader.set(gl, "uRueckbauW", (float) com.dan.lituya.scene.Boden1958.BILD_UNTEN, (float) com.dan.lituya.scene.Boden1958.BILD_OBEN,
+                    (float) com.dan.lituya.scene.Boden1958.BILD_UFER);
+        }
         shader.set(gl, "uKruemmung", cm.curvatureRadius > 0 ? (float) (1 / (2 * cm.curvatureRadius)) : 0f);
         // Welt je Bildpunkt in 1 m Abstand: 2·tan(fovy/2)/h
         shader.set(gl, "uPx", (float) (2 * Math.tan(Math.toRadians(fovy) / 2) / Math.max(1, h)));

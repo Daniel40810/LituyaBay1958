@@ -1,0 +1,2 @@
+nr=1;name=Dbg_Fahne_t150_vom_Inlet;ort=GILBERT;versatz=210,3200;auge=60;blickauf=GILBERT;neigung=-9;zeitstand=welle;ereignis=150;brennweite=28;warum=debug
+nr=2;name=Dbg_Fahne_von_oben;ort=GILBERT;versatz=210,6000;auge=2500;blickauf=GILBERT;neigung=18;zeitstand=welle;ereignis=150;brennweite=28;warum=debug

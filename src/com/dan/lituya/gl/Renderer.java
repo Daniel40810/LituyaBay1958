@@ -950,6 +950,7 @@ public final class Renderer implements GLEventListener {
         boolean meerJetzt = showMeer && meer.aktiv(licht, unterWasser, marksJetzt());
         try { ereignisGl.sturzDaten(gl, wiedergabe, wiring.pegel); } catch (RuntimeException e) { System.err.println("LituyaBay1958: Sturz: " + e); }
         try { ereignisGl.flutDaten(gl, wiedergabe, wiring.pegel); } catch (RuntimeException e) { System.err.println("LituyaBay1958: Flut: " + e); }
+        try { ereignisGl.grund58(gl, wiedergabe); } catch (RuntimeException e) { System.err.println("LituyaBay1958: Grund 1958: " + e); }
         if (meerJetzt) {
             try {
                 // W3 (E1): der Spiegel zerfällt beim Beben in Ringe, rund 8 je Sekunde bei voller Stärke, im Umkreis von 3 km [G]
@@ -1000,7 +1001,13 @@ public final class Renderer implements GLEventListener {
         if (showGelaende) wald.zeichnen(gl, vp, camera.eye, reversedZ, sun, clock.t());
         gl.glBindVertexArray(emptyVao);
         // 2a' Bäche (Phase 16c): eigener Wasser-Pass auf dem Gelände, Tiefe gegen Gelände und Wald (Zeit unter „Wald“)
-        if (showGelaende) baeche.zeichnen(gl, sh -> common(gl, sh, vp, inv, sun), cm, reversedZ, h, fovy());
+        if (showGelaende) {
+            baeche.rueckbauAn = rueckbauJetzt && clock.zeitstand != SceneClock.Zeitstand.HEUTE;
+            double[] rb0 = Site.fromUtm(com.dan.lituya.scene.Boden1958.RUECKBAU_E0, com.dan.lituya.scene.Boden1958.RUECKBAU_N0),
+                    rb1 = Site.fromUtm(com.dan.lituya.scene.Boden1958.RUECKBAU_E1, com.dan.lituya.scene.Boden1958.RUECKBAU_N1);
+            baeche.rueckbauRect = new double[]{rb0[0], rb0[1], rb1[0], rb1[1]};
+            baeche.zeichnen(gl, sh -> common(gl, sh, vp, inv, sun), cm, reversedZ, h, fovy());
+        }
         gl.glBindVertexArray(emptyVao);
         gl.glUseProgram(0);
         mark(gl, 3);
@@ -1015,6 +1022,13 @@ public final class Renderer implements GLEventListener {
         // 2c Welle und Strom der Vorrechnung (Phase 13b) mit Tiefe; im Rechteck der Welle zeichnet das Meer nicht
         wiedergabe.setzen(tE, clock.lapse);
         ereignisGl.fovy = fovy();
+        ereignisGl.spiegelTex = meerJetzt ? meer.spiegelTextur() : 0;   // W3c: Spiegel der Berge auch auf der Welle
+        ereignisGl.bildPx = new double[]{w, h};
+        ereignisGl.rueckbauAn = rueckbauJetzt && clock.zeitstand != SceneClock.Zeitstand.HEUTE;
+        {
+            double wr = Math.toRadians(wiring.windFromDeg + 180);   // weht nach
+            ereignisGl.windXZ = new double[]{Math.sin(wr), -Math.cos(wr)};
+        }
         double[] welleRect = ereignisGl.zeichnen(gl, wiedergabe, tE, vp, camera.eye, h, wiring.pegel, sh -> common(gl, sh, vp, inv, sun), reversedZ);
         gl.glBindVertexArray(emptyVao);
         mark(gl, 5);
@@ -1149,11 +1163,11 @@ public final class Renderer implements GLEventListener {
         else { gelaendeShader.set(gl, "uSurfA", 5); gelaendeShader.set(gl, "uSurfN", 6); gelaendeShader.set(gl, "uSurfR", 7); }
         gl.glUniform4i(gelaendeShader.loc(gl, "uMat"), surfMat[0], surfMat[1], surfMat[2], surfMat[3]);
         boolean rb = rueckbauJetzt && clock.zeitstand != SceneClock.Zeitstand.HEUTE;
-        gelaendeShader.set(gl, "uRueckbauAn", rb ? 1 : 0);
-        double[] r0 = Site.fromUtm(com.dan.lituya.scene.Boden1958.RUECKBAU_E0, com.dan.lituya.scene.Boden1958.RUECKBAU_N0),
-                r1 = Site.fromUtm(com.dan.lituya.scene.Boden1958.RUECKBAU_E1, com.dan.lituya.scene.Boden1958.RUECKBAU_N1);
-        gelaendeShader.set(gl, "uRueckbauRect", (float) r0[0], (float) r0[1], (float) r1[0], (float) r1[1]);
-        gelaendeShader.set(gl, "uRueckbau", (float) com.dan.lituya.scene.Boden1958.RUECKBAU_UNTER, (float) com.dan.lituya.scene.Boden1958.RUECKBAU_TIEFE);
+        ereignisGl.rueckbau(gl, gelaendeShader, rb);   // W3c: weicher Rückbau, Gletscherzunge, Grund 1958 der Vorrechnung
+        double[] k0 = Site.fromUtm(com.dan.lituya.scene.Boden1958.ZUNGE_E0, com.dan.lituya.scene.Boden1958.ZUNGE_N0),
+                k1 = Site.fromUtm(com.dan.lituya.scene.Boden1958.ZUNGE_E1, com.dan.lituya.scene.Boden1958.ZUNGE_N1);
+        gelaendeShader.set(gl, "uZungeRect", (float) k0[0], (float) k0[1], (float) k1[0], (float) k1[1]);
+        gelaendeShader.set(gl, "uGletscherW", (float) com.dan.lituya.scene.Boden1958.GLETSCHER_UNTER, (float) com.dan.lituya.scene.Boden1958.GLETSCHER_FRONT);
         clipGl.draw(gl, gelaendeShader.id(), cm, vp, eye, UNIT_CLIP);
         gl.glDisable(GL4.GL_CLIP_DISTANCE0);
         gl.glFrontFace(GL.GL_CCW);

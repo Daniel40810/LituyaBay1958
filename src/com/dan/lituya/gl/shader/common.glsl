@@ -194,6 +194,25 @@ float bergSchatten(vec3 w) {
     return smoothstep(-0.0046, 0.0046, el - hz.x + lift);
 }
 
+// Werkbuch Welle W3c: Himmelslicht auf eine Fläche mit Normale n. Vorher überall die Farbe des Zenits mal (0,55 + 0,45 n.y):
+// in der Dämmerung ein kaltes Violett auf allem, Hang und Wasser in derselben Farbe. Jetzt mit com.dan.sky aus dem
+// Rundumbild, stark gemittelt (Mip-Stufe 6, rund 45°) in Richtung der Normale (etwas angehoben): Hänge zum hellen Himmel im
+// Nordwesten bekommen das warme Licht der Kimm, Hänge zur Erdschattenseite das kühle; dazu Licht vom Boden zurück [G].
+vec3 umgebung(vec3 n) {
+    vec3 z = skyColor(vec3(0.0, 1.0, 0.0));
+    float sicht = 0.55 + 0.45 * n.y;
+    if (uSkyMode != 1) return z * sicht;
+    vec3 dd = normalize(vec3(n.x, max(n.y, 0.0) + 0.35, n.z));
+    float az = atan(dd.x, -dd.z) / 6.28318530718 + 0.5;
+    float el = asin(clamp(dd.y, -1.0, 1.0)) / 3.14159265359 + 0.5;
+    vec3 c = textureLod(uPano, vec2(az, el), 6.0).rgb;
+    // in der Helligkeit an das bisherige Mittel gebunden (die Szene bleibt gleich hell, nur die Farbe folgt der Richtung)
+    float lz = dot(z, vec3(0.2126, 0.7152, 0.0722)) + 1e-6, lc = dot(c, vec3(0.2126, 0.7152, 0.0722)) + 1e-6;
+    c *= clamp(lz / lc, 0.6, 1.6);
+    vec3 boden = uSkyAmb * vec3(1.05, 0.95, 0.8) * 0.35;   // Licht vom Boden (warm, schwach)
+    return mix(z, c, 0.75) * sicht + boden * (1.0 - sicht);
+}
+
 // Licht der Sonne am Punkt w: mit com.dan.sky Durchlässigkeit nach Höhe und Bergschatten, sonst der Platzhalter.
 vec3 sunAt(vec3 w) {
     if (uSkyMode != 1) return sunLight();

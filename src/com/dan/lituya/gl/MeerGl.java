@@ -49,6 +49,8 @@ public final class MeerGl {
     private int bftGebaut = -1;
 
     public String status() { return status; }
+    /** W3c: das Spiegelbild der Berge (für die Welle), 0 ohne. */
+    public int spiegelTextur() { return spiegel && ok ? reflTex : 0; }
     public boolean bereit() { return ok; }
 
     public void init(GL4 g) {

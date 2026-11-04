@@ -22,11 +22,82 @@ out float vNass;
 out float vH;
 out float vSteig;           // Steigen in m/s (Brandung an der Front)
 out float vTiefe;           // W3b: Wasser über dem Grund (m); 99 ohne Grund
+out float vQuelle;          // W3c: Wasser des Nahfelds [G] (0 … 1, Stärke des Aufruhrs), sonst 0
+// Werkbuch Welle W3c („Schwimmbecken“): das Nahfeld hinter der Linie der Quelle rechnet die Vorrechnung nicht (Fels, damit
+// die Quelle frei einspeist). Im Bild war es ein leeres Becken mit Wänden. Jetzt liegt dort Wasser [G]: je Zelle der Stand
+// jenseits des nächsten Rands des Nahfelds (Linie, Seiten, hinten), zum Inneren hin zum Pegel abklingend, dazu Aufruhr ab
+// dem Einschlag (Wogen bis rund 8 m, klingt in Minuten ab). Nur wo der Grund unter dem Pegel liegt.
+uniform int uNahAn;
+uniform vec4 uNah;          // Mitte der Linie (Szene x, z), Richtung in die Bucht (Szene x, z)
+uniform vec2 uNahMass;      // halbe Länge, Tiefe hinter der Linie (m)
+uniform float uEreignisT;   // Ereigniszeit (s)
+// W3c: der Felssturz liegt auf demselben Grund wie das Gelände (Rückbau im Bild); vorher auf dem harten Rückbau der
+// Rechnung, der an der 60-m-Linie senkrecht abbricht: die Masse stand dort als Tafelberg über dem Wasser
+#include "rueckbau.glsl"
 
 const int TROCKEN = -32768;
 
-// roher Wert einer Zelle, gemischt; nass = 0 trocken, 1 nass
+float vh2(vec2 i) { return fract(sin(dot(i, vec2(127.1, 311.7))) * 43758.5453); }
+float vvn(vec2 x) {
+    vec2 i = floor(x), f = x - i;
+    f = f * f * (3.0 - 2.0 * f);
+    return mix(mix(vh2(i), vh2(i + vec2(1, 0)), f.x), mix(vh2(i + vec2(0, 1)), vh2(i + vec2(1, 1)), f.x), f.y);
+}
+
+// roher Wert einer Zelle aus der Vorrechnung, gemischt; nass = 0 trocken, 1 nass
+float wertRoh(ivec2 c, out float nass);
+float nahStaerke;   // Aufruhr der zuletzt gefüllten Zelle
+
+// W3c: Szenenort der Zelle
+vec2 zellOrt(ivec2 c) { return vec2(uGeo.x + float(c.x) * uGeo.z, uGeo.y - float(c.y) * uGeo.z); }
+ivec2 ortZelle(vec2 xz) { return ivec2(int(floor((xz.x - uGeo.x) / uGeo.z + 0.5)), int(floor((uGeo.y - xz.y) / uGeo.z + 0.5))); }
+
+// W3c: Wasser im Nahfeld; false außerhalb oder über Land
+bool nahfeld(ivec2 c, out float v) {
+    v = 0.0;
+    nahStaerke = 0.0;
+    if (uNahAn == 0) return false;
+    vec2 xz = zellOrt(c);
+    vec2 dir = uNah.zw, quer = vec2(-dir.y, dir.x);
+    vec2 q = xz - uNah.xy;
+    float along = dot(q, dir), across = dot(q, quer);
+    if (!(along < 2.0 * uGeo.z && along > -uNahMass.y && abs(across) < uNahMass.x)) return false;
+#ifndef STROM
+    if (uBodenAn == 1 && texelFetch(uBoden, clamp(c, ivec2(0), uN - 1), 0).r > uLevel - 0.5) return false;
+#endif
+    // nächster Rand: Linie (vorn), hinten, die beiden Seiten; dort knapp außerhalb den Stand der Vorrechnung nehmen
+    float dl = max(-along, 0.0), dh = along + uNahMass.y, ds1 = uNahMass.x - across, ds2 = uNahMass.x + across;
+    float d = min(min(dl, dh), min(ds1, ds2));
+    vec2 aus = d == dl ? dir : d == dh ? -dir : d == ds1 ? quer : -quer;
+    float rand = uLevel, nr;
+    float x = wertRoh(ortZelle(xz + aus * (d + 3.0 * uGeo.z)), nr);
+    if (nr > 0.5) rand = x;
+    // zum Inneren hin schnell weg vom Stand am Rand (vierte Probe: mit 260 m stand hinter der Linie ein Wasserberg wie ein
+    // Tafelberg); dahinter die Kaverne, in die der Fels fährt, und Wogen ab dem Einschlag [G]
+    float k = exp(-d / 70.0);
+    float t = uEreignisT;
+    float auf = smoothstep(104.0, 108.0, t) * (1.0 - smoothstep(150.0, 420.0, t));
+    float tief = smoothstep(0.0, 260.0, d);   // zum Rand hin null: dort schließt die Fläche an die Vorrechnung an
+    vec2 w = xz / 70.0;
+    float wog = (vvn(w + vec2(t * 0.11, -t * 0.07)) - 0.5) * 2.0 + (vvn(w * 2.3 + vec2(-t * 0.23, t * 0.19) + 7.0) - 0.5) * 0.9;
+    float kaverne = smoothstep(104.0, 107.0, t) * (1.0 - smoothstep(118.0, 175.0, t));
+    v = uLevel + (rand - uLevel) * k - 26.0 * kaverne * tief + wog * 7.0 * auf * tief;
+    nahStaerke = (auf * 0.9 + 0.2 * (1.0 - k) * smoothstep(104.0, 108.0, t) * (1.0 - smoothstep(600.0, 1500.0, t))) * tief;
+    return true;
+}
+
 float wert(ivec2 c, out float nass) {
+    float v = wertRoh(c, nass);
+#ifndef STROM
+    if (nass < 0.5) {
+        float f;
+        if (nahfeld(clamp(c, ivec2(0), uN - 1), f)) { nass = 1.0; return f; }
+    }
+#endif
+    return v;
+}
+
+float wertRoh(ivec2 c, out float nass) {
     c = clamp(c, ivec2(0), uN - 1);
     int a = texelFetch(uA, c, 0).r, b = texelFetch(uB, c, 0).r;
     bool na = a != TROCKEN, nb = b != TROCKEN;
@@ -49,14 +120,26 @@ float wert(ivec2 c, out float nass) {
 float hoehe(ivec2 c, out float nass) {
     float v = wert(c, nass);
 #ifdef STROM
+    // W3c: Mächtigkeit leicht geglättet (Kreuz über eine Zelle), damit der Rand ausläuft statt als senkrechte Wand zu
+    // stehen; trocken: 1 m unter den Grund
+    float w1, w2, w3, w4;
+    float vs = v * 0.4 + 0.15 * (wert(c + ivec2(1, 0), w1) + wert(c - ivec2(1, 0), w2) + wert(c + ivec2(0, 1), w3) + wert(c - ivec2(0, 1), w4));
+    nass = vs > 0.3 ? 1.0 : 0.0;
     float g = texelFetch(uBoden, clamp(c, ivec2(0), uN - 1), 0).r;
-    return g + (nass > 0.5 ? v : -1.0);
+    if (uRueckbauAn == 1) g = rbHoehe(zellOrt(clamp(c, ivec2(0), uN - 1)), g);
+    // W3c: im Wasser bleibt der Strom unter dem Pegel (die Rechnung des Felssturzes kennt kein Wasser und türmte die
+    // Masse im Inlet zu einem trockenen Tafelberg auf; die Ablagerung von 1958 liegt unter Wasser). Weich über 30 m Grund.
+    float top = g + (nass > 0.5 ? vs : -1.0);
+    float unter = 1.0 - smoothstep(uLevel - 30.0, uLevel + 2.0, g);
+    return mix(top, min(top, uLevel - 14.0), unter);
 #else
     if (nass > 0.5) return v;
     float s = 0.0, n = 0.0, w;
     ivec2 d[4] = ivec2[4](ivec2(uSchritt, 0), ivec2(-uSchritt, 0), ivec2(0, uSchritt), ivec2(0, -uSchritt));
     for (int i = 0; i < 4; i++) { float x = wert(c + d[i], w); s += x * w; n += w; }
-    return n > 0.0 ? s / n - 1.5 : uLevel - 30.0;
+    // W3c: ohne nasse Nachbarn unter den Grund (vorher 30 m unter den Pegel: an Stufengrenzen senkrechte Schürzen)
+    if (n > 0.0) return s / n - 1.5;
+    return uBodenAn == 1 ? min(texelFetch(uBoden, clamp(c, ivec2(0), uN - 1), 0).r, uLevel) - 2.0 : uLevel - 30.0;
 #endif
 }
 
@@ -104,8 +187,10 @@ void main() {
 #ifdef STROM
     vSteig = 0.0;
     vTiefe = 99.0;
+    vQuelle = 0.0;
 #else
     vTiefe = uBodenAn == 1 ? h - texelFetch(uBoden, cc, 0).r : 99.0;
+    { float f; vQuelle = 0.0; float nr; wertRoh(cc, nr); if (nr < 0.5 && nahfeld(cc, f)) vQuelle = max(nahStaerke, 0.001); }
     // Steigen zwischen den Bildern (m je Bild); die Zeit je Bild gibt uGeo nicht, der Bildpunkt nimmt es als Maß
     int a = texelFetch(uA, cc, 0).r, b = texelFetch(uB, cc, 0).r;
     vSteig = (a != TROCKEN && b != TROCKEN) ? float(b - a) * uStufe : 0.0;

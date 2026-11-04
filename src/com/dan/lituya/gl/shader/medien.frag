@@ -29,6 +29,12 @@ uniform vec3 uGrundRect;
 uniform vec4 uGischtBox;   // Rechteck der wirksamen Gischt jetzt: x0, z0, x1, z1 (Szene)
 uniform vec2 uGischtY;     // unten, oben
 
+// Werkbuch Welle W3c, Frage WF15 B: die Staubfahne über dem Abriss bis rund 1 200 m [G]. uFahne: Achse x, z, Oberkante
+// jetzt (m), Alter seit dem Abbruch (s); uFahneR: Halbmesser der Platte (m), Wind (Richtung x, z, nach der er weht).
+uniform int uFahneAn;
+uniform vec4 uFahne;
+uniform vec3 uFahneR;
+
 // 3D-Rauschen aus einer kachelbaren Textur 64³ (W3: mit Sinus-Hashes kostete der Vorhang über 100 ms je Bild)
 uniform sampler3D uRausch;
 float vn3(vec3 x) { return texture(uRausch, x / 64.0).r; }
@@ -40,13 +46,16 @@ float fbm2(vec3 p) { return vn3(p) * 0.67 + vn3(p * 2.03 + 7.1) * 0.33; }
 float staubDichte(vec3 p, vec2 s, float base) {
     if (s.y < 1e-3) return 0.0;
     float dicke = max(s.x - base, 5.0);
-    float n = vn3(p / 70.0 + vec3(0.0, -uTime * 0.012, uTime * 0.008));
-    float oben = s.x + (n - 0.45) * 0.45 * dicke;
-    float f = smoothstep(base - 2.0, base + 0.12 * dicke, p.y) * (1.0 - smoothstep(oben - 0.35 * dicke, oben, p.y));
+    // W3c (fünfte Probe): die dichte Wolke stand mit glatter Oberkante und dunklem Inneren wie ein Tafelberg im Inlet.
+    // Jetzt quillt die Oberkante in Ballen (3D), sie läuft weicher aus, und das Innere bekommt mehr Himmelslicht (unten)
+    float n = fbm3(p / 85.0 + vec3(0.0, -uTime * 0.012, uTime * 0.008));
+    float n2 = vn3(p / 30.0 + vec3(uTime * 0.01, -uTime * 0.02, 0.0));
+    float oben = s.x + (n - 0.5) * 1.6 * dicke + (n2 - 0.5) * 0.35 * dicke;
+    float f = smoothstep(base - 2.0, base + 0.12 * dicke, p.y) * (1.0 - smoothstep(oben - 0.6 * dicke, oben, p.y));
     // Turbulenz mit Lücken (erste Probe auf der Radeon: 0,35–1,65 ließ die dichte Wolke eine glatte Fläche bleiben)
     float t = fbm3(p / 28.0 + vec3(uTime * 0.02, -uTime * 0.03, 0.0));
     t = pow(t, 2.2) * 3.2 * (0.6 + 0.8 * vn3(p / 90.0 + 3.7));
-    return s.y / dicke * f * t;
+    return s.y / dicke * f * t * 0.7;
 }
 
 // Gischt an p (Dichte 1/m), Schlamm im Fuß der Wand (y) [G]
@@ -78,12 +87,42 @@ vec2 gischtDichte(vec3 p) {
     float d = wand + schleier;
     if (d < 1e-3) return vec2(0.0);
     // zerrissen: Fetzen, die steigen (Wand) und verwehen; senkrechte Strähnen [G]
-    vec3 q = p / vec3(26.0, 48.0, 26.0) + vec3(0.0, -uGischt.y * 0.35, 0.0);
+    // W3c: stärker senkrecht gestreift (Strähnen, die steigen und fallen), Fetzen schärfer begrenzt [G]
+    vec3 q = p / vec3(20.0, 64.0, 20.0) + vec3(0.0, -uGischt.y * 0.35, 0.0);
     float nv = fbm2(q + vec3(am.x * 0.05));
-    float f = smoothstep(0.38, 0.72, nv) * (0.4 + 1.1 * vn3(p / 9.0 + vec3(0.0, -uGischt.y * 0.8, 0.0)));
+    float f = smoothstep(0.42, 0.66, nv) * (0.25 + 1.4 * smoothstep(0.3, 0.75, vn3(p / vec3(6.0, 26.0, 6.0) + vec3(0.0, -uGischt.y * 0.8, 0.0))));
     float dichte = d * f * k * 0.05;
     float schlamm = wand * f * k * 0.02 * (1.0 - smoothstep(fuss + 10.0, fuss + 60.0, y)) * smoothstep(5.0, 40.0, hw);
     return vec2(dichte, schlamm);
+}
+
+// Fahne (WF15 B): Dichte (1/m) und Tiefe zur Sonne (für das Glühen oben und das Blau unten) [G]
+vec2 fahneDichte(vec3 p) {
+    float alter = uFahne.w, top = uFahne.z;
+    float y = p.y - uLevel;
+    if (y < -5.0 || p.y > top + 220.0) return vec2(0.0);
+    float hrel = clamp(y / max(top - uLevel, 30.0), 0.0, 1.2);
+    // die Achse neigt sich mit der Höhe in den Wind, zum Kopf hin stärker
+    vec2 ax = uFahne.xy + uFahneR.yz * y * 0.10 * smoothstep(0.0, 90.0, alter) * (0.6 + 0.8 * hrel);
+    if (length(p.xz - ax) > uFahneR.x * 2.6 + 60.0) return vec2(0.0);   // grob außerhalb: ohne Rauschen weiter
+    // Säule über der Platte, nach oben breiter, Kopf quillt pilzförmig auf [G]
+    float R = uFahneR.x * (0.55 + 0.6 * hrel) * (0.6 + 0.4 * smoothstep(0.0, 40.0, alter));
+    R *= 1.0 + 0.7 * smoothstep(0.72, 1.0, hrel);
+    float bq = fbm3(p / 150.0 + vec3(0.0, -alter * 0.02, alter * 0.006));
+    float bq2 = vn3(p / 55.0 + vec3(0.0, -alter * 0.06, 0.0));
+    float r = length(p.xz - ax) + (bq - 0.5) * 2.6 * R + (bq2 - 0.5) * 0.5 * R;   // ausgefranster Rand
+    float form = 1.0 - smoothstep(0.45 * R, R, r);
+    float kopf = 1.0 - smoothstep(top - 0.18 * (top - uLevel), top + 60.0, p.y + (bq - 0.5) * 380.0 + (bq2 - 0.5) * 90.0);
+    float fuss = smoothstep(-5.0, 60.0, y);
+    if (form * kopf * fuss < 1e-3) return vec2(0.0);   // außerhalb der Hülle: die Ballen sparen
+    // Ballen (Blumenkohl): zwei Lagen, die mitsteigen; dazwischen Lücken
+    float ballen = fbm3(p / 95.0 + vec3(alter * 0.01, -alter * 0.045, 0.0));
+    ballen = smoothstep(0.40, 0.60, ballen) * (0.45 + 1.1 * smoothstep(0.3, 0.7, vn3(p / 26.0 + vec3(0.0, -alter * 0.11, 0.0))));
+    float lebt = smoothstep(0.0, 6.0, alter) * (1.0 - smoothstep(200.0, 900.0, alter));
+    float dichte = form * kopf * fuss * ballen * lebt * 0.0045 * mix(1.3, 0.55, hrel);
+    // Tiefe zur Sonne: bis zur Oberkante und zum Rand (grob) [G]
+    float zurSonne = 0.0045 * lebt * (max(top - p.y, 0.0) * 0.35 + max(R - r, 0.0) * 0.6);
+    return vec2(dichte, zurSonne);
 }
 
 float hg(float cs, float g) { return (1.0 - g * g) / (4.0 * 3.14159265 * pow(1.0 + g * g - 2.0 * g * cs, 1.5)); }
@@ -126,6 +165,14 @@ void main() {
         float aa = max(max(tn.x, tn.y), max(tn.z, 0.0)), bb = min(min(tf.x, tf.y), min(tf.z, dist));
         if (bb > aa) { a = min(a, aa); b = max(b, bb); }
     }
+    if (uFahneAn == 1) {
+        float Rm = uFahneR.x * 2.2 + 0.25 * uFahne.z + 120.0;
+        vec3 lo = vec3(uFahne.x - Rm, uLevel - 5.0, uFahne.y - Rm), hi = vec3(uFahne.x + Rm, uFahne.z + 240.0, uFahne.y + Rm);
+        vec3 t0 = (lo - uCam) * inv, t1 = (hi - uCam) * inv;
+        vec3 tn = min(t0, t1), tf = max(t0, t1);
+        float aa = max(max(tn.x, tn.y), max(tn.z, 0.0)), bb = min(min(tf.x, tf.y), min(tf.z, dist));
+        if (bb > aa) { a = min(a, aa); b = max(b, bb); }
+    }
     if (b > a) {
         const int N = 64;
         float ds = (b - a) / float(N);
@@ -151,14 +198,21 @@ void main() {
                 }
             }
             vec2 v = uGischt.x > 0.5 ? gischtDichte(p) : vec2(0.0);
-            float sig = sigS + v.x + v.y;
+            vec2 fh = uFahneAn == 1 ? fahneDichte(p) : vec2(0.0);
+            float sig = sigS + v.x + v.y + fh.x;
             if (sig < 1e-6) continue;
             vec3 sonne = sunAt(p);
             // Himmelslicht dringt nur ein Stück ein: innen und unten dunkler (gibt der dichten Wolke Form) [G]
-            vec3 Ls = albStaub * (sonne * phStaub * exp(-ueber) + himmel * (0.18 + 0.82 * exp(-ueber * 0.35)));
-            vec3 Lg = albGischt * (sonne * phGischt * exp(-v.x * 120.0) + himmel * 1.1);
+            vec3 Ls = albStaub * 1.25 * (sonne * phStaub * exp(-ueber) + himmel * (0.42 + 0.58 * exp(-ueber * 0.25)));
+            vec3 Lg = albGischt * (sonne * phGischt * exp(-v.x * 120.0) + himmel * (0.55 + 0.6 * exp(-v.x * 40.0)));   // W3c: innen dunkler
             vec3 Lm = albSchlamm * (sonne * phStaub * exp(-v.y * 150.0) + himmel);
-            vec3 Li = (Ls * sigS + Lg * v.x + Lm * v.y) / sig;
+            // Fahne: oben in der letzten Sonne warm (sunAt gibt dort Rot), innen und unten blaugrau vom Himmel
+            // Fahne: feiner Staub, hell (Albedo 0,85); oben sieht sie mehr vom hellen Abendhimmel im Nordwesten und glüht
+            // warm, unten bleibt sie blaugrau; wo die Sonne hinkommt, glüht sie rot [G]
+            vec3 glut = hazeColor(normalize(vec3(uSun.x, 0.04, uSun.z))) * (0.35 + 0.65 * hg(cs, 0.45) * 4.0 * 3.14159265 * 0.35)
+                      * smoothstep(250.0, 1150.0, p.y - uLevel);
+            vec3 Lf = vec3(0.86, 0.82, 0.76) * (sonne * phStaub * exp(-fh.y) * 1.3 + himmel * (0.5 + 0.5 * exp(-fh.y * 0.25)) + glut * 1.6 * exp(-fh.y * 0.12));
+            vec3 Li = (Ls * sigS + Lg * v.x + Lm * v.y + Lf * fh.x) / sig;
             float tr = exp(-sig * ds);
             // Dunst zwischen Auge und Punkt wie die übrige Szene
             float tp = a + (float(i) + j) * ds;

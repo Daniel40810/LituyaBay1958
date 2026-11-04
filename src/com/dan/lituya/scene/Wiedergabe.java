@@ -65,6 +65,12 @@ public final class Wiedergabe implements AutoCloseable {
         public int ntx, ntz;
         /** Rechteck des nächstfeineren Gitters (Szene x0, z0, x1, z1) oder null. */
         public double[] feiner;
+        /**
+         * Werkbuch Welle W3c, nur für die Welle: das Nahfeld hinter der Linie der Quelle (UTM-Mitte e, n, Richtung in die
+         * Bucht re, rn, halbe Länge, Tiefe hinter der Linie). Dort rechnet die Vorrechnung nicht (Fels, damit die Quelle
+         * frei einspeist); im Bild war es ein leeres Becken. Null ohne Linie.
+         */
+        public double[] nahfeld;
 
         Spur(int id, Art art, String lauf, int k, EreignisDaten.Leser leser) { this(id, art, lauf, k, leser.gitter.get(k), leser.zeiten(k), leser::roh); }
 
@@ -340,6 +346,8 @@ public final class Wiedergabe implements AutoCloseable {
                 try { s.ankunft = l.raster(dw, "ankunft", k); } catch (IOException e) { s.ankunft = null; }
                 if (k + 1 < ws.size()) s.feiner = ws.get(k + 1).szene();
             }
+            double[] nf = nahfeld(l.p.getProperty("linie"));
+            if (nf != null) for (Spur s : ws) { s.nahfeld = nf; nahfeldKacheln(s, nf); }
             neu.addAll(ws);
             sb.append(String.format(Locale.GERMAN, "%s: %d Gitter, %.0f–%.0f s", w, ws.size(), ws.get(0).t0(), ws.get(0).t1()));
         } else sb.append(w).append(": fehlt (ant ereignis)");
@@ -367,7 +375,7 @@ public final class Wiedergabe implements AutoCloseable {
         stand = sb.toString();
         geladen = key;
         // der Grund unter Strom und Staub (einmal gerechnet, dann aus dem Ordner)
-        if (strom != null) strom.boden = boden(ds, strom.g, 0, false);
+        if (strom != null) strom.boden = stromAufWasser(boden(ds, strom.g, 0, false), strom.g);
         if (oben != null) { float[] b = boden(dd, oben.g, 0, true); oben.boden = b; dichte.boden = b; }
         // W3b: Grund unter den Gittern der Welle (dünner Film am Hang, K11); einmal gerechnet, dann aus dem Ordner
         List<Spur> wsb = new ArrayList<>();
@@ -377,6 +385,75 @@ public final class Wiedergabe implements AutoCloseable {
             th.setDaemon(true);
             th.start();
         }
+    }
+
+    /**
+     * W3c: Der Felssturz ist auf einem eigenen, gerechneten Gelände gelaufen [G], das am Kopf des Gilbert Inlet Land hat,
+     * wo 1958 Wasser war (die Welle läuft auf {@link Boden1958}). Dort stand die Masse im Bild als Tafelberg über dem
+     * Wasser. Wo der Grund 1958 unter dem Pegel liegt, gilt für das Bild dieser Grund (die Masse liegt dann unter Wasser);
+     * die Mächtigkeit bleibt die der Rechnung.
+     */
+    private float[] stromAufWasser(float[] b, EreignisDaten.Gitter g) {
+        try {
+            Boden1958 bo;
+            synchronized (this) {
+                if (boden1958 == null) boden1958 = new Boden1958(daten);
+                bo = boden1958;
+            }
+            float[] v = b.clone();
+            java.util.stream.IntStream.range(0, g.nz()).parallel().forEach(j -> {
+                for (int i = 0; i < g.nx(); i++) {
+                    double h = bo.hoehe(g.e(i), g.n(j));
+                    int c = j * g.nx() + i;
+                    if (h < -1 && h < v[c]) v[c] = (float) h;
+                }
+            });
+            return v;
+        } catch (IOException | RuntimeException e) {
+            System.err.println("LituyaBay1958: Grund des Stroms: " + e.getMessage());
+            return b;
+        }
+    }
+
+    /** Tiefe des Nahfelds hinter der Linie (m), wie {@code tools.Ereignis.NAHFELD}. */
+    public static final double NAHFELD_HINTEN = 1_000;
+
+    /**
+     * W3c: das Nahfeld aus der Zeile {@code linie} von EREIGNIS.txt ("E 354504 N 6506353, Richtung -0.80 -0.60, halbe Länge
+     * 600 m, frei nach 60 s"): {e, n, re, rn, halb, hinten} oder null.
+     */
+    public static double[] nahfeld(String linie) {
+        if (linie == null) return null;
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("E\\s*([-\\d.]+)\\s*N\\s*([-\\d.]+),\\s*Richtung\\s*([-\\d.]+)\\s+([-\\d.]+),\\s*halbe L\\S*nge\\s*([\\d.]+)").matcher(linie);
+        if (!m.find()) return null;
+        try {
+            double re = Double.parseDouble(m.group(3)), rn = Double.parseDouble(m.group(4)), l = Math.hypot(re, rn);
+            return new double[]{Double.parseDouble(m.group(1)), Double.parseDouble(m.group(2)), re / l, rn / l, Double.parseDouble(m.group(5)), NAHFELD_HINTEN};
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    /** W3c: Liegt der Ort (UTM) im Nahfeld nf (wie {@code Ereignis.Quelle.nahfeld}, ohne den Streifen an der Linie)? */
+    public static boolean imNahfeld(double[] nf, double e, double n) {
+        double qe = e - nf[0], qn = n - nf[1], along = qe * nf[2] + qn * nf[3], across = -qe * nf[3] + qn * nf[2];
+        return along < 0 && along > -nf[5] && Math.abs(across) < nf[4];
+    }
+
+    /** W3c: Kacheln, die das Nahfeld berühren, zählen als nass (dort zeichnet die Welle das Wasser der Quelle [G]). */
+    static void nahfeldKacheln(Spur s, double[] nf) {
+        int nx = s.g.nx(), nz = s.g.nz();
+        for (int tj = 0; tj < s.ntz; tj++)
+            for (int ti = 0; ti < s.ntx; ti++) {
+                int c = tj * s.ntx + ti;
+                boolean drin = false;
+                for (int b = 0; b <= 8 && !drin; b++)
+                    for (int a = 0; a <= 8 && !drin; a++) {
+                        int i = Math.min(nx - 1, ti * KACHEL + a * KACHEL / 8), j = Math.min(nz - 1, tj * KACHEL + b * KACHEL / 8);
+                        drin = imNahfeld(nf, s.g.e(i), s.g.n(j));
+                    }
+                if (drin) s.kachelMax[c] = Float.isNaN(s.kachelMax[c]) ? 40f : Math.max(s.kachelMax[c], 40f);
+            }
     }
 
     /** Je Kachel der höchste Stand aus max_g<k>.r32. */

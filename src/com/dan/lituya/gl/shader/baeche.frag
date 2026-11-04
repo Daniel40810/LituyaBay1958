@@ -6,6 +6,7 @@ in vec3 vW;
 in vec2 vT;
 in float vU, vSeite, vEis, vV, vAlpha, vZufall, vSchaum, vB;
 uniform float uRegen;
+in float vRb;   // W3c: Gewicht des Rückbaus 1958 (dort kein Bach)
 out vec4 frag;
 
 float h21(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
@@ -16,6 +17,7 @@ float vn(vec2 x) {
 }
 
 void main() {
+    if (vRb > 0.02) discard;
     vec3 d = vW - uCam;
     float dist = length(d);
     vec3 dir = d / max(dist, 1e-3);

@@ -1,0 +1,16 @@
+# Werkbuch Welle W3c: deine Aufnahmen W03.1–W03.7 vom 04.11.2026 (docs/status), nachgestellt. Kamera und Zeit aus
+# LB_SCHNAPPSCHUSS (w3c_fotokamera.cmd → _transfer/w3c/fotokamera.txt); Szene x = E − 352 000, z = −(N − 6 503 000),
+# neigung = −(Neigung der App). Dazu zwei Blicke auf die Staubfahne (WF15 B). Vorher-Bilder: docs/bild/W3C0.
+# Aufruf: ant bildbank -Dbildbank=src/com/dan/lituya/scene/aufnahmen_w3.txt -Dbild.phase=W3CA -Dvorher=W3C0 -Dbreite=1495 -Dhoehe=940
+nr=1;name=Becken_t107;xz=2539.29,-2865.35;hoehe=115.40;blick=35;neigung=-5.54;zeitstand=welle;ereignis=106.79;warum=W03.4, Kanten wie ein Schwimmbecken
+nr=2;name=Becken_t106;xz=2454.66,-2744.49;hoehe=98.81;blick=35;neigung=-4;zeitstand=welle;ereignis=105.96;warum=W03.7, Kanten wie ein Schwimmbecken
+nr=3;name=Hang_t823;xz=1842.84,-2324.84;hoehe=198.61;blick=29.44;neigung=15.72;zeitstand=welle;ereignis=823.06;warum=W03.5, Hang wie Wasser
+nr=4;name=Hang_t156;xz=1842.84,-2324.84;hoehe=198.61;blick=36.48;neigung=7.58;zeitstand=welle;ereignis=155.62;warum=W03.6, Hang wie Wasser
+nr=5;name=Sturz_t106;xz=2329.92,-2566.35;hoehe=83.60;blick=35;neigung=-4;zeitstand=welle;ereignis=106.22;warum=W03.1
+nr=6;name=Sturz_t107;xz=2531.84,-2664.66;hoehe=107.99;blick=64.04;neigung=-6.2;zeitstand=welle;ereignis=107.37;warum=W03.2
+nr=7;name=Sturz_t107b;xz=2329.92,-2566.35;hoehe=80;blick=13.88;neigung=-4.44;zeitstand=welle;ereignis=106.65;warum=W03.3
+nr=8;name=Fahne_t150_von_Cenotaph;ort=CENOTAPH;auge=40;blickauf=GILBERT;neigung=-6;zeitstand=welle;ereignis=150;brennweite=35;warum=WF15 B, Staubfahne im letzten Licht
+nr=9;name=Fahne_t125_vom_Inlet;ort=GILBERT;versatz=210,3200;auge=60;blickauf=GILBERT;neigung=-11;zeitstand=welle;ereignis=125;brennweite=24;warum=WF15 B, Fahne und Wasser im Nahfeld
+nr=10;name=Fahne_t150_vom_Inlet;ort=GILBERT;versatz=210,3200;auge=60;blickauf=GILBERT;neigung=-9;zeitstand=welle;ereignis=150;brennweite=28;warum=WF15 B, Fahne ausgewachsen
+nr=11;name=Sturz_t100;ort=GILBERT;versatz=230,2400;auge=120;blickauf=GILBERT;neigung=-4;zeitstand=welle;ereignis=100;brennweite=35;warum=Platte rutscht, Staub
+nr=12;name=Gilbert_von_oben_t150;ort=GILBERT;versatz=210,6000;auge=2500;blickauf=GILBERT;neigung=18;zeitstand=welle;ereignis=150;brennweite=28;warum=Überblick: Nahfeld, Gletscherfront, Fahne, Gischt

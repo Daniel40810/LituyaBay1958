@@ -55,6 +55,79 @@ public final class EreignisGl {
 
     // ------------------------------------------------------------------ Werkbuch Welle W3: Abriss, Einschlag, Vorhang
 
+    /** W3c: ob der Rückbau des Gilbert Inlet gilt (vom Renderer je Bild, wie beim Gelände). */
+    public volatile boolean rueckbauAn;
+
+    /**
+     * W3c: der Grund 1958 der Vorrechnung (feinstes Gitter der Welle, R32F), damit Gelände und Felssturz dort, wo die
+     * Welle Wasser hat, nicht darüber stehen (dritte Probe: ein Sander aus dem Gelände von heute stand als Tafelberg im
+     * Wasser, wo der Grund 1958 aus den Lotungen −122 m hat). Einmal je Lauf hochgeladen; Stelle {@link #UNIT_GRUND58}.
+     */
+    private int grund58Tex;
+    private volatile double[] grund58Rect;
+    private String grund58Lauf;
+    public static final int UNIT_GRUND58 = 18;
+
+    void grund58(GL4 gl, Wiedergabe w) {
+        if (w == null) return;
+        List<Wiedergabe.Spur> ws = w.spuren(Wiedergabe.Art.WELLE);
+        if (ws.isEmpty()) return;
+        Wiedergabe.Spur s = ws.get(ws.size() - 1);
+        if (s.boden == null) return;
+        String key = s.toString();
+        if (key.equals(grund58Lauf)) return;
+        grund58Lauf = key;
+        if (grund58Tex == 0) {
+            int[] t = new int[1];
+            gl.glGenTextures(1, t, 0);
+            grund58Tex = t[0];
+        }
+        gl.glBindTexture(GL.GL_TEXTURE_2D, grund58Tex);
+        gl.glPixelStorei(GL.GL_UNPACK_ALIGNMENT, 4);
+        gl.glTexImage2D(GL.GL_TEXTURE_2D, 0, GL4.GL_R32F, s.g.nx(), s.g.nz(), 0, GL4.GL_RED, GL.GL_FLOAT, FloatBuffer.wrap(s.boden));
+        gl.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR);
+        gl.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_LINEAR);
+        gl.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_S, GL.GL_CLAMP_TO_EDGE);
+        gl.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_T, GL.GL_CLAMP_TO_EDGE);
+        gl.glBindTexture(GL.GL_TEXTURE_2D, 0);
+        double[] o = Site.fromUtm(s.g.e0(), s.g.n0());
+        grund58Rect = new double[]{o[0], o[1], s.g.nx() * s.g.zelle(), s.g.nz() * s.g.zelle()};
+        System.out.println(String.format(Locale.GERMAN, "LituyaBay1958: Grund 1958 für Gelände und Strom aus %s", key));
+    }
+
+    /** W3c: Uniforms des Rückbaus im Bild ({@code rueckbau.glsl}) für ein gebundenes Programm. */
+    public void rueckbau(GL4 gl, Shader sh, boolean an) {
+        double[] gr = grund58Rect;
+        boolean g = an && gr != null && grund58Tex != 0;
+        sh.set(gl, "uGrund58An", g ? 1 : 0);
+        sh.set(gl, "uGrund58", UNIT_GRUND58);
+        if (g) {
+            gl.glActiveTexture(GL.GL_TEXTURE0 + UNIT_GRUND58);
+            gl.glBindTexture(GL.GL_TEXTURE_2D, grund58Tex);
+            gl.glActiveTexture(GL.GL_TEXTURE0);
+            sh.set(gl, "uGrund58Rect", (float) gr[0], (float) gr[1], (float) gr[2], (float) gr[3]);
+        }
+        sh.set(gl, "uRueckbauAn", an ? 1 : 0);
+        double[] r0 = Site.fromUtm(com.dan.lituya.scene.Boden1958.RUECKBAU_E0, com.dan.lituya.scene.Boden1958.RUECKBAU_N0),
+                r1 = Site.fromUtm(com.dan.lituya.scene.Boden1958.RUECKBAU_E1, com.dan.lituya.scene.Boden1958.RUECKBAU_N1);
+        sh.set(gl, "uRueckbauRect", (float) r0[0], (float) r0[1], (float) r1[0], (float) r1[1]);
+        sh.set(gl, "uRueckbau", (float) com.dan.lituya.scene.Boden1958.RUECKBAU_UNTER, (float) com.dan.lituya.scene.Boden1958.RUECKBAU_TIEFE);
+        sh.set(gl, "uRueckbauW", (float) com.dan.lituya.scene.Boden1958.BILD_UNTEN, (float) com.dan.lituya.scene.Boden1958.BILD_OBEN,
+                (float) com.dan.lituya.scene.Boden1958.BILD_UFER);
+        double[] g0 = Site.fromUtm(com.dan.lituya.scene.Boden1958.GLETSCHER_E0, com.dan.lituya.scene.Boden1958.GLETSCHER_N0),
+                g1 = Site.fromUtm(com.dan.lituya.scene.Boden1958.GLETSCHER_E1, com.dan.lituya.scene.Boden1958.GLETSCHER_N1);
+        sh.set(gl, "uGletscherRect", (float) g0[0], (float) g0[1], (float) g1[0], (float) g1[1]);
+        sh.set(gl, "uGletscherW", (float) com.dan.lituya.scene.Boden1958.GLETSCHER_UNTER, (float) com.dan.lituya.scene.Boden1958.GLETSCHER_FRONT);
+    }
+
+    /** W3c: Spiegelbild der Berge aus W2 (0: keins), Größe des HDR-Bilds, Richtung, in die der Wind weht (Szene x, z). */
+    public int spiegelTex;
+    public double[] bildPx = {1920, 1080}, windXZ = {0.8, 0.6};
+    static final int UNIT_SPIEGEL = 16;
+    /** W3c: Wasser im Nahfeld hinter der Linie der Quelle zeigen (sonst ein leeres Becken). */
+    public volatile boolean nahfeldAn = true;
+    private double zeitJetzt;
+
     /** Zeit des Abbruchs und des Einschlags (s nach dem ersten Stoß; Strom ab 93 s, Eintauchen 105 s). */
     public static final double ABBRUCH_S = 93, EINSCHLAG_S = com.dan.lituya.scene.Band1958.EINTAUCHEN;
     /** Gischt an der Front zeigen (E4, E5; seit W3b aus den Daten der Welle statt einer Kuppel). */
@@ -122,6 +195,18 @@ public final class EreignisGl {
     private volatile String sturzInfo = "Sturz: noch keine Daten";
 
     public String sturzInfo() { return sturzInfo; }
+
+    /**
+     * Werkbuch Welle W3c, Frage WF15 B: über dem Abriss steigt eine Staubfahne bis rund {@link #FAHNE_HOCH} m auf [G]. Die
+     * Wolke der Vorrechnung reicht nur bis 226 m; die Fahne ist gestaltet. Oben steht sie noch in der Sonne (1° unter der
+     * Kimm, sichtbar ab rund 1 000 m) und glüht, unten bleibt sie blaugrau. Platte: Mitte x, z, Halbmesser, mittlere Höhe.
+     */
+    public volatile boolean fahne = true;
+    public static final double FAHNE_HOCH = 1_200, FAHNE_STEIG = 38, FAHNE_DAUER = 900;
+    private volatile double[] platte;
+    private volatile String fahneInfo = "Fahne: aus";
+    private long fahneGedruckt;
+    public String fahneInfo() { return fahneInfo; }
     /** Einschlag {x, z, Richtung x, Richtung z} aus den Daten (oder null). */
     public double[] einschlag() { return einschlag; }
 
@@ -172,6 +257,16 @@ public final class EreignisGl {
             } else {
                 einschlag = new double[]{Site.GILBERT.x(), Site.GILBERT.z(), -0.7, 0.7};
             }
+            // W3c (WF15 B): Mitte, Halbmesser und mittlere Höhe der Platte für die Staubfahne
+            if (sn > 0) {
+                double hs = 0;
+                for (int j = 0; j < nz; j++)
+                    for (int i = 0; i < nx; i++) {
+                        int c = j * nx + i;
+                        if (r0[c] != EreignisDaten.TROCKEN && r0[c] * EreignisDaten.STUFE > 0.3) hs += boden[c];
+                    }
+                platte = new double[]{sx / sn, sz / sn, Math.sqrt(sn * so.g.zelle() * so.g.zelle() / Math.PI), hs / sn};
+            }
             sturzInfo = String.format(Locale.GERMAN, "Sturz: Abriss %.0f Zellen (%.2f km²), Einschlag %.0f m O, %.0f m S, Richtung %.0f°",
                     sn, sn * so.g.zelle() * so.g.zelle() / 1e6, einschlag[0], einschlag[1], (Math.toDegrees(Math.atan2(einschlag[2], -einschlag[3])) + 360) % 360);
             System.out.println("LituyaBay1958: " + sturzInfo);
@@ -189,7 +284,9 @@ public final class EreignisGl {
         if (w == null) return;
         List<Wiedergabe.Spur> ws = w.spuren(Wiedergabe.Art.WELLE);
         if (ws.isEmpty() || ws.get(0).max == null || ws.get(0).ankunft == null) return;
-        String key = ws.get(0).toString() + "/" + ws.size();
+        boolean stromBereit = false;
+        for (Wiedergabe.Spur sp : w.spuren(Wiedergabe.Art.STROM)) stromBereit = sp.boden != null && sp.t.length > 0;
+        String key = ws.get(0).toString() + "/" + ws.size() + "/" + stromBereit;   // W3c: neu, sobald der Strom bereit ist
         if (key.equals(flutLauf)) return;
         flutLauf = key;
         Wiedergabe.Spur g0 = ws.get(0);
@@ -226,6 +323,41 @@ public final class EreignisGl {
                 M[j * nx + i] = m;
             }
         });
+        // W3c: das Nahfeld hinter der Linie (dort rechnet die Vorrechnung nicht): Ankunft vom Einschlag aus mit rund 60 m/s,
+        // Stand 160 m über dem Pegel (Nahfeld des Laborfalls) [G]; für die Gischt und die abgeschürften Wände
+        // Seit der zweiten Probe nicht mehr als Ring um einen Punkt (das gab wieder den „Ball im Becken“), sondern dort, wo
+        // der Fels ins Wasser fährt: Ankunft = erstes Bild des Stroms mit mehr als 3 m Fels über Grund unter dem Pegel.
+        double[] nf = g0.nahfeld;
+        Wiedergabe.Spur so = null;
+        for (Wiedergabe.Spur sp : w.spuren(Wiedergabe.Art.STROM)) so = sp;
+        if (nf != null && so != null && so.boden != null && so.t.length > 0) {
+            int snx = so.g.nx(), snz = so.g.nz();
+            float[] sa = new float[snx * snz];
+            java.util.Arrays.fill(sa, Float.NaN);
+            try {
+                for (int b = 0; b < so.t.length; b++) {
+                    short[] r = so.roh(b);
+                    for (int c = 0; c < r.length; c++)
+                        if (Float.isNaN(sa[c]) && r[c] != EreignisDaten.TROCKEN && r[c] * EreignisDaten.STUFE > 3 && so.boden[c] < pegel - 2) sa[c] = (float) so.t[b];
+                }
+            } catch (java.io.IOException e) {
+                System.err.println("LituyaBay1958: Flut: Strom " + e);
+            }
+            int gesetzt = 0;
+            for (int j = 0; j < nz; j++)
+                for (int i = 0; i < nx; i++) {
+                    int c = j * nx + i;
+                    if (!Float.isNaN(A[c])) continue;
+                    double e = fe0 + (i + 0.5) * z, n = fn0 + (j + 0.5) * z;
+                    if (!Wiedergabe.imNahfeld(nf, e, n)) continue;
+                    int sc = so.g.index(e, n);
+                    if (sc < 0 || Float.isNaN(sa[sc])) continue;
+                    A[c] = sa[sc];
+                    M[c] = (float) (pegel + 160);
+                    gesetzt++;
+                }
+            System.out.println(String.format(Locale.GERMAN, "LituyaBay1958: Flut: Nahfeld %d Zellen mit Gischt, wo der Fels ins Wasser fährt [G]", gesetzt));
+        }
         // trockene Zellen: Ankunft der nassen Nachbarn, Stand weit unten
         for (int runde = 0; runde < 2; runde++) {
             float[] B = A.clone();
@@ -434,6 +566,7 @@ public final class EreignisGl {
      * zeichnet, oder null.
      */
     public double[] zeichnen(GL4 gl, Wiedergabe w, double t, float[] vp, double[] eye, int hoehe, double pegel, Consumer<Shader> common, boolean reversed) {
+        zeitJetzt = t;
         kacheln = 0;
         dreiecke = 0;
         hochgeladen = 0;
@@ -459,6 +592,15 @@ public final class EreignisGl {
             erste = false;
             ladeBoden(gl, x, s);
             common.accept(welle);
+            // W3c: Spiegel der Berge aus W2, Flutkarte (Schaum, Treibgut, Schlamm hinter der Front), Wind
+            gl.glActiveTexture(GL.GL_TEXTURE0 + UNIT_SPIEGEL);
+            gl.glBindTexture(GL.GL_TEXTURE_2D, spiegelTex);
+            welle.set(gl, "uRefl", UNIT_SPIEGEL);
+            welle.set(gl, "uSpiegelAn", spiegelTex != 0 ? 1 : 0);
+            welle.set(gl, "uBildPx", (float) bildPx[0], (float) bildPx[1]);
+            welle.set(gl, "uWindXZ", (float) windXZ[0], (float) windXZ[1]);
+            welle.set(gl, "uRueckbauAn", 0);
+            flut(gl, welle.id(), t);
             // W3b (K11): Grund unter dem Gitter, sobald gerechnet (dünner Film am Hang fällt weg)
             gl.glActiveTexture(GL.GL_TEXTURE2);
             gl.glBindTexture(GL.GL_TEXTURE_2D, x.boden);
@@ -477,6 +619,7 @@ public final class EreignisGl {
             gl.glBindTexture(GL.GL_TEXTURE_2D, x.boden);
             strom.set(gl, "uBoden", 2);
             strom.set(gl, "uBodenAn", 1);
+            rueckbau(gl, strom, rueckbauAn);   // W3c: auf demselben Grund wie das Gelände
             spur(gl, strom, s, p, x, vp, eye, kf, -1000);
             zeigtStrom = true;
         }
@@ -506,6 +649,15 @@ public final class EreignisGl {
         double[] f = s.feiner;
         if (f != null) sh.set(gl, "uFeiner", (float) f[0], (float) f[1], (float) f[2], (float) f[3]);
         else sh.set(gl, "uFeiner", 1, 0, -1, 0);
+        // W3c: Wasser im Nahfeld hinter der Linie der Quelle [G] (nur die Welle)
+        double[] nf = s.nahfeld;
+        sh.set(gl, "uNahAn", nf != null && nahfeldAn && s.art == Wiedergabe.Art.WELLE ? 1 : 0);
+        if (nf != null) {
+            double[] m = Site.fromUtm(nf[0], nf[1]);
+            sh.set(gl, "uNah", (float) m[0], (float) m[1], (float) nf[2], (float) -nf[3]);
+            sh.set(gl, "uNahMass", (float) nf[4], (float) nf[5]);
+        }
+        sh.set(gl, "uEreignisT", (float) zeitJetzt);
         int[] schritt = stufen(s, vp, eye, kf, pegel);
         int K = Wiedergabe.KACHEL;
         for (int tj = 0; tj < s.ntz; tj++)
@@ -599,7 +751,10 @@ public final class EreignisGl {
         boolean unter = ueberAuge > 0;
         double[] gh = vorhang && w != null && w.an() && grundTex != 0 ? gischtHuelle(t, pegel) : null;
         boolean vh = gh != null;
-        if (!staub && !unter && !vh) return;
+        double[] pl = platte, es = einschlag;
+        double alter = t - ABBRUCH_S;
+        boolean fa = fahne && w != null && w.an() && pl != null && es != null && alter > 0 && alter < FAHNE_DAUER;
+        if (!staub && !unter && !vh && !fa) return;
         // erst laden (bindet auf der aktiven Stelle), dann die Stellen belegen
         Tex x = null;
         if (staub) {
@@ -638,6 +793,17 @@ public final class EreignisGl {
             medien.set(gl, "uGrundRect", (float) grundRect[0], (float) grundRect[1], (float) grundRect[2]);
             medien.set(gl, "uGischtBox", (float) gh[0], (float) gh[1], (float) gh[2], (float) gh[3]);
             medien.set(gl, "uGischtY", (float) gh[4], (float) gh[5]);
+        }
+        medien.set(gl, "uFahneAn", fa ? 1 : 0);
+        if (fa) {
+            // Achse über der Platte, ein Stück zum Einschlag hin; Fuß am Pegel
+            double cx = pl[0] + (es[0] - pl[0]) * 0.3, cz = pl[1] + (es[1] - pl[1]) * 0.3;
+            double top = FAHNE_HOCH * (1 - Math.exp(-alter * FAHNE_STEIG / FAHNE_HOCH));
+            medien.set(gl, "uFahne", (float) cx, (float) cz, (float) Math.max(top, 30), (float) alter);
+            medien.set(gl, "uFahneR", (float) pl[2], (float) windXZ[0], (float) windXZ[1]);
+            fahneInfo = String.format(Locale.GERMAN, "Fahne [G]: Achse %.0f m O, %.0f m S, Kopf %.0f m, Halbmesser %.0f m, %.0f s alt", cx, cz, top, pl[2], alter);
+            long jetzt = System.currentTimeMillis();
+            if (jetzt - fahneGedruckt > 5000) { fahneGedruckt = jetzt; System.out.println("LituyaBay1958: " + fahneInfo); }
         }
         medien.set(gl, "uStaubA", 1);
         medien.set(gl, "uStaubB", 2);
@@ -682,6 +848,7 @@ public final class EreignisGl {
         if (abrissTex != 0) gl.glDeleteTextures(1, new int[]{abrissTex}, 0);
         if (rauschTex != 0) gl.glDeleteTextures(1, new int[]{rauschTex}, 0);
         if (flutTex != 0) gl.glDeleteTextures(1, new int[]{flutTex}, 0);
+        if (grund58Tex != 0) gl.glDeleteTextures(1, new int[]{grund58Tex}, 0);
         for (Tex t : tex.values()) Gpu.deleteTextures(gl, t.a, t.b, t.boden);
         tex.clear();
     }

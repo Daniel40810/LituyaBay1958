@@ -9,6 +9,11 @@ layout(location = 0) in vec4 aP;   // x, y, z, Weg längs (m)
 layout(location = 1) in vec4 aS;   // Seite x, Seite z, ±1, Eisanteil
 layout(location = 2) in vec4 aQ;   // Fläche (km²), Gefälle, frei, Zufall
 uniform float uRegen, uKruemmung, uPx;
+// W3c: Rückbau des Gilbert Inlet 1958 wie in gelaende.vert; dort liegen die Bäche von heute unter Wasser
+uniform int uRueckbauAn;
+uniform vec4 uRueckbauRect;
+uniform vec3 uRueckbauW;
+out float vRb;
 out vec3 vW;
 out vec2 vT;
 out float vU, vSeite, vEis, vV, vAlpha, vZufall, vSchaum, vB;
@@ -21,6 +26,13 @@ void main() {
     float d = 0.3 * pow(max(q, 1e-3), 0.4);
     float v = clamp(pow(d, 2.0 / 3.0) * sqrt(max(aQ.y, 1e-5)) / 0.045, 0.1, 6.0);
     vec3 p = aP.xyz;
+    vRb = 0.0;
+    if (uRueckbauAn == 1) {
+        float x0 = min(uRueckbauRect.x, uRueckbauRect.z), x1 = max(uRueckbauRect.x, uRueckbauRect.z);
+        float z0 = min(uRueckbauRect.y, uRueckbauRect.w), z1 = max(uRueckbauRect.y, uRueckbauRect.w);
+        float dd = min(min(p.x - x0, x1 - p.x), min(p.z - z0, z1 - p.z));
+        if (dd > -uRueckbauW.z) vRb = (dd >= 0.0 ? 1.0 : 1.0 - smoothstep(0.0, uRueckbauW.z, -dd)) * (1.0 - smoothstep(uRueckbauW.x, uRueckbauW.y + 40.0, p.y));
+    }
     vec2 r = p.xz - uCam.xz;
     float dist = length(vec3(r.x, p.y - uCam.y, r.y));
     float hb = 0.5 * b, minHalf = 0.75 * dist * uPx;

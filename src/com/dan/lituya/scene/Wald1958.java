@@ -134,8 +134,9 @@ public final class Wald1958 {
         double e = e(x), n = n(z);
         if (boden.wasserHeute(e, n)) return;
         double gh = grundHeute(x, z);
-        if (e >= Boden1958.RUECKBAU_E0 && e <= Boden1958.RUECKBAU_E1 && n >= Boden1958.RUECKBAU_N0 && n <= Boden1958.RUECKBAU_N1
-                && !(gh >= Boden1958.RUECKBAU_UNTER)) return;
+        // W3c: Rückbau im Bild weich (Boden1958.rueckbauBild); kein Wald, wo er den Grund merklich senkt oder unter Wasser legt
+        if (Boden1958.rueckbauGewicht(e, n, gh) > 0.04 || Boden1958.rueckbauBild(e, n, gh) < 2) return;
+        if (Boden1958.gletscher(e, n) > 0.2 && gh > Boden1958.GLETSCHER_UNTER - 6 && gh < 160) return;   // W3c: auf der Zunge Eis, kein Wald
         double c = krone(x, z);
         if (imBand(x, z) || Double.isNaN(c)) {
             for (int s = 0; s < 3; s++) d[s] = bestand1958(x, z, s);
