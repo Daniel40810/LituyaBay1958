@@ -85,13 +85,35 @@ vec2 gischtDichte(vec3 p) {
     float schleier = smoothstep(2.0, 8.0, alter) * exp(-alter / 18.0) * 0.07
                * smoothstep(fuss - 3.0, fuss + 8.0, y) * (1.0 - smoothstep(fuss + 0.2 * (schleierTop - fuss), schleierTop + 30.0, y));
     float d = wand + schleier;
-    if (d < 1e-3) return vec2(0.0);
+    // W4b (E9) Kammgischt [G]: von der Krone reißt Gischt ab und weht gegen die Laufrichtung zurück. Dicht über dem
+    // höchsten Stand, steigt in rund 1 s bis gut die halbe Wellenhöhe, lebt einige Sekunden hinter der Front; Fäden
+    // längs der Laufrichtung (aus dem Gefälle der Ankunft), nicht senkrecht wie der Vorhang aus W3b.
+    float kammG = 0.0;
+    if (alter > -0.2 && alter < 7.0 && hw > 8.0) {
+        float e = 16.0;
+        vec2 ex = vec2(e / uFlutRect.z, 0.0), ez = vec2(0.0, e / uFlutRect.w);
+        float ax = textureLod(uFlut, fu + ex, 0.0).r, bx = textureLod(uFlut, fu - ex, 0.0).r;
+        float zp = textureLod(uFlut, fu - ez, 0.0).r, zm = textureLod(uFlut, fu + ez, 0.0).r;   // +z ist −v
+        if (ax < 1e5 && bx < 1e5 && zp < 1e5 && zm < 1e5) {
+            vec2 g = vec2(ax - bx, zp - zm);
+            vec2 T = length(g) > 1e-5 ? normalize(g) : vec2(1.0, 0.0), Tq = vec2(-T.y, T.x);
+            float lo = am.y - 0.25 * hw, hi = am.y + hw * (0.12 + 0.55 * (1.0 - exp(-max(alter, 0.0) / 1.0)));
+            float env = smoothstep(-0.2, 0.3, alter) * exp(-max(alter, 0.0) / 2.2)
+                      * smoothstep(lo, lo + 0.2 * hw, p.y) * (1.0 - smoothstep(mix(lo, hi, 0.55), hi, p.y));
+            if (env > 1e-3) {
+                vec3 qk = vec3(dot(p.xz, T) / 40.0 + uGischt.y * 0.9, p.y / 9.0, dot(p.xz, Tq) / 13.0);
+                float fil = smoothstep(0.40, 0.72, fbm2(qk)) * (0.5 + 0.9 * smoothstep(0.35, 0.8, vn3(vec3(dot(p.xz, T) / 14.0 + uGischt.y * 2.0, p.y / 3.0, dot(p.xz, Tq) / 4.0))));
+                kammG = env * fil * smoothstep(8.0, 30.0, hw) * 0.25;   // W4b Probe 1: mit 0,09 unsichtbar
+            }
+        }
+    }
+    if (d < 1e-3 && kammG < 1e-4) return vec2(0.0);
     // zerrissen: Fetzen, die steigen (Wand) und verwehen; senkrechte Strähnen [G]
     // W3c: stärker senkrecht gestreift (Strähnen, die steigen und fallen), Fetzen schärfer begrenzt [G]
     vec3 q = p / vec3(20.0, 64.0, 20.0) + vec3(0.0, -uGischt.y * 0.35, 0.0);
     float nv = fbm2(q + vec3(am.x * 0.05));
     float f = smoothstep(0.42, 0.66, nv) * (0.25 + 1.4 * smoothstep(0.3, 0.75, vn3(p / vec3(6.0, 26.0, 6.0) + vec3(0.0, -uGischt.y * 0.8, 0.0))));
-    float dichte = d * f * k * 0.05;
+    float dichte = d * f * k * 0.05 + kammG;
     float schlamm = wand * f * k * 0.02 * (1.0 - smoothstep(fuss + 10.0, fuss + 60.0, y)) * smoothstep(5.0, 40.0, hw);
     return vec2(dichte, schlamm);
 }
@@ -204,7 +226,10 @@ void main() {
             vec3 sonne = sunAt(p);
             // Himmelslicht dringt nur ein Stück ein: innen und unten dunkler (gibt der dichten Wolke Form) [G]
             vec3 Ls = albStaub * 1.25 * (sonne * phStaub * exp(-ueber) + himmel * (0.42 + 0.58 * exp(-ueber * 0.25)));
-            vec3 Lg = albGischt * (sonne * phGischt * exp(-v.x * 120.0) + himmel * (0.55 + 0.6 * exp(-v.x * 40.0)));   // W3c: innen dunkler
+            // W3c: innen dunkler; W4b: die dichte Kammgischt (bis 0,25/m) dunkelte sich damit selbst zu Gesprenkel vor dem
+            // Himmel ab, daher zählt für das Dunkeln nur die Dichte, die der Vorhang aus W3b hat (bis rund 0,02/m)
+            float vg = min(v.x, 0.02);
+            vec3 Lg = albGischt * (sonne * phGischt * exp(-vg * 120.0) + himmel * (0.55 + 0.6 * exp(-vg * 40.0)));
             vec3 Lm = albSchlamm * (sonne * phStaub * exp(-v.y * 150.0) + himmel);
             // Fahne: oben in der letzten Sonne warm (sunAt gibt dort Rot), innen und unten blaugrau vom Himmel
             // Fahne: feiner Staub, hell (Albedo 0,85); oben sieht sie mehr vom hellen Abendhimmel im Nordwesten und glüht

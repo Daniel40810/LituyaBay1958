@@ -120,6 +120,13 @@ void main() {
         vec3 hv = normalize(uSun + v);
         float shin = mix(600.0, 80.0, smoothstep(100.0, 8000.0, dist));
         col += sunAt(vW) * pow(max(dot(n, hv), 0.0), shin) * (shin / 600.0) * 2.0;
+    } else if (uCam.y > uLevel + 0.5 && hoch > 1.0) {
+        // W4b: die Unterseite der Lippe, von vorn in die Röhre gesehen: Licht kommt durch das dünne Wasser der Lippe
+        // (türkis, wo klar, braun im Schlamm), innen dunkel, zur Spitze hin heller [G]
+        vec3 durch = skyColor(vec3(0.0, 1.0, 0.0)) * mix(vec3(0.16, 0.48, 0.42), vec3(0.36, 0.28, 0.16), clamp(schlamm * 0.8, 0.0, 1.0));
+        float spitze = clamp(vLippe * 1.6, 0.0, 1.0);
+        col = mix(body * 0.7, durch * 0.55, 0.35 + 0.5 * spitze);
+        fres = 0.0;
     } else {
         // von unten: im Snellschen Fenster (48,6°) der Himmel gebrochen, sonst der Körper gespiegelt
         float c = dot(-v, n);

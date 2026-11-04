@@ -92,6 +92,21 @@ float lippe(float seit, float H, float stand) {
     float glocke = smoothstep(-0.8, 1.0, seit) * (1.0 - smoothstep(2.5, 9.0, seit));
     return glocke * smoothstep(6.0, 30.0, H) * smoothstep(0.45, 0.95, hrel);
 }
+
+float vvn(vec2 x);
+float lipAnteil;   // Anteil der Lippe der zuletzt gerechneten Ecke
+// W4b: Lage einer Ecke mit Lippe: (x, z, Höhe). Abschnitte längs der Front (rund 100 m, wandern seitlich) brechen
+// zu verschiedenen Zeiten; die Spitze sinkt um bis zu 0,35 des Vorlaufs.
+vec3 lippeVor(vec2 xz, float h, float seit, float stand, vec2 T, float k, float kap, float frei) {
+    float H = h - uLevel;
+    float a = dot(xz, vec2(-T.y, T.x));
+    float ab = 0.35 + 0.65 * smoothstep(0.30, 0.62, vvn(vec2(a / 95.0 + uEreignis * 0.05, 3.7)));
+    float lp = lippe(seit, H, stand) * ab;
+    // dazu frei: über die Breite der Wand hinaus (sonst bleibt der Kamm über dem Fuß und nichts hängt über, W4b Probe 1)
+    float vor = min(k * max(H, 0.0) * lp + frei * lp, kap);
+    lipAnteil = lp;
+    return vec3(xz + T * vor, h - vor * 0.35 * smoothstep(0.45, 1.0, lp));
+}
 #endif
 
 float vh2(vec2 i) { return fract(sin(dot(i, vec2(127.1, 311.7))) * 43758.5453); }
@@ -321,24 +336,35 @@ void main() {
         float ds = gx * lf.x - gn * lf.y;   // dh/ds längs T (gn ist nach Norden, −z)
         abfall = smoothstep(0.25, 0.7, -ds);
     }
+    float sinkt = 0.0;   // W4b: die Spitze der Lippe sinkt (m)
     if (uLippe > 0.0 && nass > 0.5 && abfall > 0.0 && lf.z > -2.0 && lf.z < 10.0) {
-        float k = 0.22 * uLippe * abfall;   // Vorlauf in Teilen der Höhe über dem Pegel [G]
-        float lp = lippe(lf.z, h - uLevel, lf.w);
+        // W4b (E7) Lippe als Form [G]: auf der aufgesteilten Wand zieht der Kamm über den Fuß hinaus vor (bis rund 0,4 der
+        // Höhe), die Spitze sinkt ein; darunter bleibt die Wand stehen und kehrt sich zur Röhre (Dreiecke mit der
+        // Unterseite nach vorn, welle.frag zeichnet sie als Innenseite). Die Front bricht in Abschnitten von rund 100 m, die
+        // seitlich wandern; die Kappe hält den Vorlauf unter 0,45 der Welle + 4 m.
+        float k = 0.40 * uLippe * abfall;
         vec2 T = lf.xy;
+        float frei = 1.6 * d * abfall * uLippe;
+        float Hs = max(lf.w - uLevel, 1.0), kap = 0.45 * Hs + 4.0 + frei;
         float tR = lf.z - d * T.x / LAUF_C, tL = lf.z + d * T.x / LAUF_C, tN = lf.z + d * T.y / LAUF_C, tS = lf.z - d * T.y / LAUF_C;
-        vec3 pR = vec3(xz + vec2(d, 0.0) + T * min(k * max(hR - uLevel, 0.0) * lippe(tR, hR - uLevel, lf.w), 2.5 * d + 6.0), hR);
-        vec3 pL = vec3(xz - vec2(d, 0.0) + T * min(k * max(hL - uLevel, 0.0) * lippe(tL, hL - uLevel, lf.w), 2.5 * d + 6.0), hL);
-        vec3 pN = vec3(xz - vec2(0.0, d) + T * min(k * max(hNo - uLevel, 0.0) * lippe(tN, hNo - uLevel, lf.w), 2.5 * d + 6.0), hNo);
-        vec3 pS = vec3(xz + vec2(0.0, d) + T * min(k * max(hSu - uLevel, 0.0) * lippe(tS, hSu - uLevel, lf.w), 2.5 * d + 6.0), hSu);
+        vec3 vR = lippeVor(xz + vec2(d, 0.0), hR, tR, lf.w, T, k, kap, frei);
+        vec3 vL = lippeVor(xz - vec2(d, 0.0), hL, tL, lf.w, T, k, kap, frei);
+        vec3 vNo = lippeVor(xz - vec2(0.0, d), hNo, tN, lf.w, T, k, kap, frei);
+        vec3 vSu = lippeVor(xz + vec2(0.0, d), hSu, tS, lf.w, T, k, kap, frei);
+        vec3 v0 = lippeVor(xz, h, lf.z, lf.w, T, k, kap, frei);
         // p = (x, z, Höhe); Tangenten in Szenenachsen (x, Höhe, z)
-        vec3 tx = vec3(pR.x - pL.x, pR.z - pL.z, pR.y - pL.y), tz = vec3(pS.x - pN.x, pS.z - pN.z, pS.y - pN.y);
+        vec3 tx = vec3(vR.x - vL.x, vR.z - vL.z, vR.y - vL.y), tz = vec3(vSu.x - vNo.x, vSu.z - vNo.z, vSu.y - vNo.y);
         vec3 nn = cross(tz, tx);
         if (dot(nn, nn) > 1e-8) vN = normalize(nn);
-        xz += T * min(k * max(h - uLevel, 0.0) * lp, 2.5 * d + 6.0);
-        vLippe = lp * abfall;
+        sinkt = h - v0.z;
+        xz = v0.xy;
+        vLippe = lipAnteil * abfall;
     }
 #endif
     vec2 r = xz - uCam.xz;
+#ifndef STROM
+    h -= sinkt;
+#endif
     vW = vec3(xz.x, h - dot(r, r) * uKruemmung, xz.y);
     vH = h;
     vNass = nass;
