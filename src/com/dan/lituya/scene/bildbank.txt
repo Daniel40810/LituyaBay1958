@@ -19,3 +19,4 @@ nr=9;name=Der_Morgen_danach;schaustueck=10;brennweite=35;warum=Narbe, Holzteppic
 nr=10;name=Millers_Standort;offen=wartet auf Millers Foto und Standort (FB9 A: Fotos von Hand nach docs/bild/referenz);warum=Abgleich mit dem Foto
 nr=11;name=Narbe_heute;xz=1000,-1300;auge=20;blick=2;neigung=-4;zeitstand=heute;datum=2026-07-20;uhr=15.0;brennweite=85;warum=hellgrünes Band
 nr=12;name=Heute_im_Regen;ort=ANCHORAGE;auge=3;blick=62;neigung=-2;zeitstand=heute;datum=2026-07-20;uhr=11.0;regen=8;wetter=Regen, Nebel in den Hängen (erst ab B10 im Bild);brennweite=35;warum=Wetter, Stimmung
+nr=13;name=Die_Roehre;xz=168,-870;auge=4;blick=98;neigung=-3;ereignis=180;brennweite=85;warum=Werkbuch Welle W4b: die Front schräg von vorn aus Bootshöhe, 35° zur Laufrichtung, im 4-m-Gitter: Lippe, Röhre, Vorhang [G]

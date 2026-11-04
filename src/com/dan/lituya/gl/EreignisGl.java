@@ -66,6 +66,11 @@ public final class EreignisGl {
 
     /** Werkbuch Welle W4 (E7): die Lippe an der Front (Scheitel kurz hinter der Front wandern nach vorn) [G]. */
     public volatile boolean lippe = true;
+    /** W4b: die Lippe als eigenes Netz längs der Front (LippeGl); die Ecken der Wellenfläche ziehen dann nicht mehr vor. */
+    public volatile boolean lippeNetz = true;
+    final LippeGl lippeGl = new LippeGl();
+    private volatile float[] flutA, flutM;
+    private volatile double flutE0, flutN0;
 
     /** W3c: ob der Rückbau des Gilbert Inlet gilt (vom Renderer je Bild, wie beim Gelände). */
     public volatile boolean rueckbauAn;
@@ -422,6 +427,7 @@ public final class EreignisGl {
         gl.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_T, GL.GL_CLAMP_TO_EDGE);
         gl.glBindTexture(GL.GL_TEXTURE_2D, 0);
         feldMinA = fa; feldMaxA = fb; feldMax = fm;
+        flutA = A; flutM = M; flutE0 = e0; flutN0 = n0;
         flutNx = nx; flutNz = nz;
         double[] o = Site.fromUtm(e0, n0);
         flutRect = new double[]{o[0], o[1], nx * z, nz * z};
@@ -613,6 +619,8 @@ public final class EreignisGl {
             welle.set(gl, "uWindXZ", (float) windXZ[0], (float) windXZ[1]);
             welle.set(gl, "uRueckbauAn", 0);
             welle.set(gl, "uLippe", lippe ? 1f : 0f);   // W4 (E7)
+            welle.set(gl, "uLipVor", lippe && lippeNetz ? 0f : 1f);   // W4b: Vorlauf der Ecken nur ohne das Netz der Lippe
+            welle.set(gl, "uLipNetz", lippe && lippeNetz ? 1 : 0);
             flut(gl, welle.id(), t);
             // W3b (K11): Grund unter dem Gitter, sobald gerechnet (dünner Film am Hang fällt weg)
             gl.glActiveTexture(GL.GL_TEXTURE2);
@@ -621,6 +629,24 @@ public final class EreignisGl {
             welle.set(gl, "uBodenAn", x.boden != 0 ? 1 : 0);
             spur(gl, welle, s, p, x, vp, eye, kf, pegel);
             zeigtWelle = true;
+        }
+        // W4b: die Lippe als eigenes Netz über der Wand (E7) [G]
+        lippeGl.info = "Lippe: aus";
+        if (zeigtWelle && lippe && lippeNetz && flutA != null) {
+            final List<Wiedergabe.Spur> wsf = ws;
+            LippeGl.Grund grund = (gx, gz) -> {
+                double e = gx + Site.E0, n = Site.N0 - gz;
+                for (int k = wsf.size() - 1; k >= 0; k--) {
+                    Wiedergabe.Spur sp = wsf.get(k);
+                    float[] b = sp.boden;
+                    if (b == null) continue;
+                    int c = sp.g.index(e, n);
+                    if (c >= 0) return b[c];
+                }
+                return Double.NaN;
+            };
+            lippeGl.zeichnen(gl, flutA, flutM, flutNx, flutNz, flutE0, flutN0, FLUT_ZELLE, feldMinA, feldMaxA, FELD, t, eye, pegel, grund,
+                    common, (float) (1 / (2 * Site.EARTH_R_OPTICAL)), 1 / kf);
         }
         for (Wiedergabe.Spur s : w.spuren(Wiedergabe.Art.STROM)) {
             Wiedergabe.Paar p = w.paar(s, t);
@@ -640,8 +666,8 @@ public final class EreignisGl {
         gl.glDisable(GL.GL_DEPTH_TEST);
         double e = w.eta(eye[0], eye[2], t);
         ueberAuge = Double.isNaN(e) ? Double.NaN : e - eye[1];
-        info = String.format(Locale.GERMAN, "%d Kacheln, %.1f Mio. Dreiecke, %d Bilder geladen%s", kacheln, dreiecke / 1e6, hochgeladen,
-                zeigtStrom ? " · Strom" : "");
+        info = String.format(Locale.GERMAN, "%d Kacheln, %.1f Mio. Dreiecke, %d Bilder geladen%s · %s", kacheln, dreiecke / 1e6, hochgeladen,
+                zeigtStrom ? " · Strom" : "", lippeGl.info);
         return rect;
     }
 
@@ -672,6 +698,7 @@ public final class EreignisGl {
         }
         sh.set(gl, "uEreignisT", (float) zeitJetzt);
         int[] schritt = stufen(s, vp, eye, kf, pegel);
+        if (s.art == Wiedergabe.Art.WELLE && lippe) frontFein(s, schritt, eye, pegel);
         int K = Wiedergabe.KACHEL;
         for (int tj = 0; tj < s.ntz; tj++)
             for (int ti = 0; ti < s.ntx; ti++) {
@@ -685,6 +712,41 @@ public final class EreignisGl {
                 gl.glDrawArrays(GL.GL_TRIANGLES, 0, q * q * 6);
                 kacheln++;
                 dreiecke += q * q * 2;
+            }
+    }
+
+    /**
+     * W4b „Die Röhre“: Kacheln, durch die die Front gerade läuft, in voller Auflösung bis 2,5 km (halber bis 5 km); sonst
+     * zeichnete die Stufe die steile Wand in der Ferne mit Dreiecken zu 16 m, ihre Diagonalen standen als Sägezahn auf der
+     * ganzen Wand (Probe Röhre). Aus den Feldern der Flutkarte (früheste, späteste Ankunft, höchster Stand je 256 m).
+     */
+    private void frontFein(Wiedergabe.Spur s, int[] schritt, double[] eye, double pegel) {
+        float[] fa = feldMinA, fb = feldMaxA, fm = feldMax;
+        double[] fr = flutRect;
+        if (fa == null || fr == null) return;
+        int ftx = (flutNx + FELD - 1) / FELD, ftz = (flutNz + FELD - 1) / FELD;
+        double fz = FELD * FLUT_ZELLE, t = zeitJetzt;
+        int K = Wiedergabe.KACHEL;
+        double[] o = Site.fromUtm(s.g.e(0), s.g.n(0));
+        double c = s.g.zelle();
+        for (int tj = 0; tj < s.ntz; tj++)
+            for (int ti = 0; ti < s.ntx; ti++) {
+                int k = tj * s.ntx + ti;
+                if (schritt[k] <= 1) continue;
+                double x0 = o[0] + ti * K * c, x1 = x0 + K * c, zS = o[1] - tj * K * c, zN = zS - K * c;
+                double dx = Math.max(0, Math.max(x0 - eye[0], eye[0] - x1)), dz = Math.max(0, Math.max(zN - eye[2], eye[2] - zS));
+                double d = Math.hypot(dx, dz);
+                if (d > 5000) continue;
+                // Felder der Flutkarte unter der Kachel (Flutkarte: x ab fr[0], Zeilen nach Norden ab fr[1])
+                int i0 = (int) Math.floor((x0 - fr[0]) / fz), i1 = (int) Math.floor((x1 - fr[0]) / fz);
+                int j0 = (int) Math.floor((fr[1] - zS) / fz), j1 = (int) Math.floor((fr[1] - zN) / fz);
+                boolean front = false;
+                for (int j = Math.max(0, j0); j <= Math.min(ftz - 1, j1) && !front; j++)
+                    for (int i = Math.max(0, i0); i <= Math.min(ftx - 1, i1) && !front; i++) {
+                        int f = j * ftx + i;
+                        front = fa[f] <= t + 3 && fb[f] >= t - 3 && fm[f] > pegel + 8 && fm[f] < pegel + 80;   // wie die Lippe: nicht im Inlet
+                    }
+                if (front) schritt[k] = Math.min(schritt[k], d < 1500 ? 1 : 2);
             }
     }
 
@@ -902,6 +964,7 @@ public final class EreignisGl {
 
     public void dispose(GL4 gl) {
         for (Shader s : all) s.dispose(gl);
+        lippeGl.dispose(gl);
         if (abrissTex != 0) gl.glDeleteTextures(1, new int[]{abrissTex}, 0);
         if (rauschTex != 0) gl.glDeleteTextures(1, new int[]{rauschTex}, 0);
         if (flutTex != 0) gl.glDeleteTextures(1, new int[]{flutTex}, 0);

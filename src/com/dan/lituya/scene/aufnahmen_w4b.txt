@@ -1,0 +1,11 @@
+# Werkbuch Welle W4b: Suche nach dem Heldenbild „Die Röhre“ (Front von vorn aus Bootshöhe, im 4-m-Gitter der Vorrechnung).
+# Kamera E 352 300, N 6 503 600 (Szene x 300, z −600), Auge 4 m, Blick 064° gegen die Laufrichtung (244°, rund 37 m/s);
+# die Front erreicht die Kamera bei t = 186 s. Gestaltet [G]: Ort, Zeit, Brennweite.
+# Aufruf: ant bildbank -Dbildbank=src/com/dan/lituya/scene/aufnahmen_w4b.txt -Dbild.phase=W4bR -Dbreite=1920 -Dhoehe=1080
+nr=1;name=Roehre_t168_50mm;xz=300,-600;auge=4;blick=64;neigung=-3;zeitstand=welle;ereignis=168;brennweite=50;warum=Front rund 650 m vor der Kamera
+nr=2;name=Roehre_t172_50mm;xz=300,-600;auge=4;blick=64;neigung=-3;zeitstand=welle;ereignis=172;brennweite=50;warum=Front rund 500 m
+nr=3;name=Roehre_t176_85mm;xz=300,-600;auge=4;blick=64;neigung=-4;zeitstand=welle;ereignis=176;brennweite=85;warum=Front rund 370 m
+nr=4;name=Roehre_t180_35mm;xz=300,-600;auge=4;blick=64;neigung=-8;zeitstand=welle;ereignis=180;brennweite=35;warum=Front rund 220 m
+nr=5;name=Roehre_t176_50mm_hoch;xz=300,-600;auge=25;blick=64;neigung=0;zeitstand=welle;ereignis=176;brennweite=50;warum=von etwas höher in die Röhre
+nr=6;name=Roehre_schraeg_t176_50mm;xz=168,-870;auge=4;blick=101;neigung=-3;zeitstand=welle;ereignis=176;brennweite=50;warum=schräg von Nordwest, 35° zur Laufrichtung: in die Röhre
+nr=7;name=Roehre_schraeg_t180_85mm;xz=168,-870;auge=4;blick=98;neigung=-3;zeitstand=welle;ereignis=180;brennweite=85;warum=schräg, näher, lang
