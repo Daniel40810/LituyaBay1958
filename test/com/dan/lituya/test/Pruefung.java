@@ -149,6 +149,10 @@ public final class Pruefung {
             double dip = Math.toDegrees(Math.sqrt(2 * 4000 / Licht.R_EFF));
             check(dip > 1.7 && dip < 2.1, f("W1: Kimm aus 4 000 m %.2f° unter der Waagerechten", dip));
         }
+        // Werkbuch Welle W2: Wasser aus com.dan.ocean (Gletschersee), Spiegel der Berge
+        check(rd.meer.an && rd.meer.spiegel && rd.meer.ocean.fetchLimited && rd.meer.ocean.swellHeight == 0,
+                f("W2: Meer aus com.dan.ocean, Gletschersee ohne Dünung, H_s %.2f m, Spiegel an", rd.meer.ocean.state().totalHs()));
+        check(Renderer.class.getResource("/com/dan/lituya/gl/shader/spiegel.frag") != null, "W2: Shader spiegel.frag im Klassenpfad");
         // W0 (K6, WF11 A): keine Karte und keine Netzlinien beim Start
         check(!rd.netzblick.bildImBild && !rd.netzblick.inSzene && !rd.showHud && !rd.showMarks, "W0: beim Start weder Netzblick noch HUD noch Marken");
         // W0 (Befund K8): keine leeren Versprechen im Bedienfeld

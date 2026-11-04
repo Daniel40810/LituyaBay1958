@@ -11,6 +11,8 @@ out float vH;
 uniform int uRueckbauAn;
 uniform vec4 uRueckbauRect;   // x0, z0, x1, z1 (Szene)
 uniform vec2 uRueckbau;       // Grenze, Tiefe (m über NAVD88)
+// Werkbuch Welle W2: für das Spiegelbild am Wasserspiegel nur, was darüber liegt (GL_CLIP_DISTANCE0 nur dort an)
+uniform float uClipY;
 void main() {
     ClipVertex c = clipmapVertex();
     if (uRueckbauAn == 1 && c.height < uRueckbau.x && c.world.x > min(uRueckbauRect.x, uRueckbauRect.z) && c.world.x < max(uRueckbauRect.x, uRueckbauRect.z)
@@ -21,5 +23,6 @@ void main() {
     vW = c.world;
     vN = c.normal;
     vH = c.height;
+    gl_ClipDistance[0] = c.world.y - uClipY;
     gl_Position = uVP * vec4(c.world, 1.0);
 }

@@ -342,6 +342,9 @@ public final class WaldGl {
         gl.glUniform4f(gl.glGetUniformLocation(p, "uBandRect"), (float) (su.i0 * su.spacing), (float) (su.j0 * su.spacing), (float) (w * 2 * su.spacing), (float) (h * 2 * su.spacing));
     }
 
+    /** W2: ob gerade der Holzteppich auf dem Wasser liegt (am Morgen danach). */
+    public boolean teppichJetzt() { return an && d != null && mitTreibgut && d.teppich != null; }
+
     /** Uniforms des Holzteppichs für das Wasser (Shader ist gebunden). */
     public void meer(GL4 gl, Shader s) {
         boolean on = an && d != null && mitTreibgut && d.teppich != null;

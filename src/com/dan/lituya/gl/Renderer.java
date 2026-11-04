@@ -81,6 +81,8 @@ public final class Renderer implements GLEventListener {
     public final BaecheGl baeche = new BaecheGl();
     /** Werkbuch Welle W1: Himmel aus com.dan.sky, Belichtung, Horizontkarten für den Schatten der Kette, Alpenglühen. */
     public final Licht licht = new Licht();
+    /** Werkbuch Welle W2: das Wasser aus com.dan.ocean, Spiegel der Berge, Gletschermilch. */
+    public final MeerGl meer = new MeerGl();
     /** W1: Glühen um Helles (Sonne, Glanz, Gischt im Gegenlicht), Stärke; 0 aus. */
     public volatile double bloom = 0.35;
     private double letztesDt = 1 / 60.0;
@@ -369,6 +371,7 @@ public final class Renderer implements GLEventListener {
         for (int[] s : stamp) gl.glGenQueries(MARKS, s, 0);
         compute = ComputeProbe.run(gl);
         licht.init(gl);   // W1
+        meer.init(gl);    // W2
         try {
             netzblick.init(gl);
             wiedergabe.start();
@@ -899,6 +902,20 @@ public final class Renderer implements GLEventListener {
             wald.an = false;
         }
 
+        // 0b W2: das Meer (FFT) und das Spiegelbild der Berge, bevor das Hauptbild beginnt
+        boolean unterWasser = camera.eye[1] < wiring.pegel + 0.05;
+        boolean meerJetzt = showMeer && meer.aktiv(licht, unterWasser, marksJetzt());
+        if (meerJetzt) {
+            try {
+                meer.schritt(gl, frozen ? 0 : letztesDt, wiring.pegel, wiring.windSpeed, wiring.windFromDeg);
+                if (meer.spiegel) spiegelBild(gl, w, h, proj, view, sun);
+            } catch (RuntimeException e) {
+                System.err.println("LituyaBay1958: Meer: " + e);
+                meer.an = false;
+                meerJetzt = false;
+            }
+        }
+
         // 1 Himmel: der Verlauf nach der Sonnenhöhe (Platzhalter bis com.dan.sky in Phase 5a)
         gl.glBindFramebuffer(GL.GL_FRAMEBUFFER, hdrFbo);
         gl.glViewport(0, 0, w, h);
@@ -920,28 +937,7 @@ public final class Renderer implements GLEventListener {
 
         // 2 Gelände (Phase 4): alle Stufen der Clipmap mit Tiefe, Rückseiten weg
         com.dan.clipmap.Clipmap cm = land.clipmap();
-        if (showGelaende && cm != null) {
-            clipGl.upload(gl, cm);
-            gl.glEnable(GL.GL_DEPTH_TEST);
-            gl.glDepthFunc(reversedZ ? GL.GL_GREATER : GL.GL_LESS);
-            gl.glDepthMask(true);
-            gl.glEnable(GL.GL_CULL_FACE);
-            gl.glCullFace(GL.GL_BACK);
-            gl.glFrontFace(GL.GL_CCW);
-            common(gl, gelaendeShader, vp, inv, sun);
-            bindMarks(gl, gelaendeShader);
-            wald.gelaende(gl, gelaendeShader);
-            boolean rb = rueckbauJetzt && clock.zeitstand != SceneClock.Zeitstand.HEUTE;
-            gelaendeShader.set(gl, "uRueckbauAn", rb ? 1 : 0);
-            double[] r0 = Site.fromUtm(com.dan.lituya.scene.Boden1958.RUECKBAU_E0, com.dan.lituya.scene.Boden1958.RUECKBAU_N0),
-                    r1 = Site.fromUtm(com.dan.lituya.scene.Boden1958.RUECKBAU_E1, com.dan.lituya.scene.Boden1958.RUECKBAU_N1);
-            gelaendeShader.set(gl, "uRueckbauRect", (float) r0[0], (float) r0[1], (float) r1[0], (float) r1[1]);
-            gelaendeShader.set(gl, "uRueckbau", (float) com.dan.lituya.scene.Boden1958.RUECKBAU_UNTER, (float) com.dan.lituya.scene.Boden1958.RUECKBAU_TIEFE);
-            clipGl.draw(gl, gelaendeShader.id(), cm, vp, camera.eye, UNIT_CLIP);
-            gl.glDisable(GL.GL_CULL_FACE);
-            gl.glDisable(GL.GL_DEPTH_TEST);
-            gl.glBindVertexArray(emptyVao);
-        }
+        if (showGelaende && cm != null) gelaende(gl, cm, vp, inv, sun, camera.eye, false);
         mark(gl, 2);
 
         // 2a Wald (Phase 14a): forest über den Kern mit den Zuständen der Welle und der Wiederbewaldung
@@ -969,13 +965,36 @@ public final class Renderer implements GLEventListener {
 
         // 3 Wasser: die Fläche im Pegel mit Erdkrümmung bis zur Kimm (Platzhalter bis ocean in Phase 5a), mit den Marken;
         //   seit Phase 4 mit Tiefe gegen das Gelände
-        if (showMeer) {
+        if (meerJetzt) {
+            // W2: com.dan.ocean; dann der Holzteppich am Morgen danach aus meer.frag als Auflage
+            meer.zeichnen(gl, vp, camera.eye, reversedZ, licht, welleRect);
+            if (wald.teppichJetzt()) {
+                gl.glEnable(GL.GL_DEPTH_TEST);
+                gl.glDepthFunc(reversedZ ? GL.GL_GEQUAL : GL.GL_LEQUAL);
+                gl.glDepthMask(false);
+                gl.glEnable(GL.GL_BLEND);
+                gl.glBlendFunc(GL.GL_SRC_ALPHA, GL.GL_ONE_MINUS_SRC_ALPHA);
+                common(gl, meerShader, vp, inv, sun);
+                bindMarks(gl, meerShader);
+                wald.meer(gl, meerShader);
+                meerShader.set(gl, "uNurTeppich", 1);
+                meerShader.set(gl, "uWelle", welleRect != null ? 1 : 0);
+                if (welleRect != null) meerShader.set(gl, "uWelleRect", (float) welleRect[0], (float) welleRect[1], (float) welleRect[2], (float) welleRect[3]);
+                gl.glBindVertexArray(emptyVao);
+                gl.glDrawArrays(GL.GL_TRIANGLES, 0, 3);
+                gl.glDisable(GL.GL_BLEND);
+                gl.glDepthMask(true);
+                gl.glDisable(GL.GL_DEPTH_TEST);
+            }
+            gl.glBindVertexArray(emptyVao);
+        } else if (showMeer) {
             gl.glEnable(GL.GL_DEPTH_TEST);
             gl.glDepthFunc(reversedZ ? GL.GL_GEQUAL : GL.GL_LEQUAL);
             gl.glDepthMask(false);
             common(gl, meerShader, vp, inv, sun);
             bindMarks(gl, meerShader);
             wald.meer(gl, meerShader);
+            meerShader.set(gl, "uNurTeppich", 0);
             meerShader.set(gl, "uWelle", welleRect != null ? 1 : 0);
             if (welleRect != null) meerShader.set(gl, "uWelleRect", (float) welleRect[0], (float) welleRect[1], (float) welleRect[2], (float) welleRect[3]);
             gl.glDrawArrays(GL.GL_TRIANGLES, 0, 3);
@@ -985,6 +1004,14 @@ public final class Renderer implements GLEventListener {
         // 3b Netze auf dem Wasser (Phase 7a, Netzblick „in der Szene“): Linien in Bildpunkten, Tiefe gegen das Gelände
         netzblick.szene(gl, vp, camera.eye, w, h, reversedZ, exposure());
         gl.glBindVertexArray(emptyVao);
+        // 3c' W2: Spiegel der Berge und Gletschermilch auf das Wasser (Tiefe als Textur, deshalb ohne Tiefe im Ziel)
+        if (meerJetzt) {
+            gl.glBindFramebuffer(GL.GL_FRAMEBUFFER, hdrColorFbo);
+            final double[] wr = welleRect;
+            meer.spiegelLegen(gl, depthTex, sh -> common(gl, sh, vp, inv, sun), wr, (float) NEAR, (float) FAR);
+            gl.glBindFramebuffer(GL.GL_FRAMEBUFFER, hdrFbo);
+            gl.glBindVertexArray(emptyVao);
+        }
         mark(gl, 6);
 
         // 3c Staub und Trübe unter Wasser (Phase 13b): über das HDR-Bild, die Tiefe als Textur
@@ -1041,6 +1068,60 @@ public final class Renderer implements GLEventListener {
         gl.glBindVertexArray(0);
         gl.glUseProgram(0);
         mark(gl, 9);
+    }
+
+    /** Das Gelände (Phase 4) mit Tiefe; gespiegelt (W2): Auge unter dem Spiegel, Wicklung umgekehrt, nur über dem Wasser. */
+    private void gelaende(GL4 gl, com.dan.clipmap.Clipmap cm, float[] vp, float[] inv, double[] sun, double[] eye, boolean gespiegelt) {
+        clipGl.upload(gl, cm);
+        gl.glEnable(GL.GL_DEPTH_TEST);
+        gl.glDepthFunc(reversedZ ? GL.GL_GREATER : GL.GL_LESS);
+        gl.glDepthMask(true);
+        gl.glEnable(GL.GL_CULL_FACE);
+        gl.glCullFace(GL.GL_BACK);
+        gl.glFrontFace(gespiegelt ? GL.GL_CW : GL.GL_CCW);
+        if (gespiegelt) gl.glEnable(GL4.GL_CLIP_DISTANCE0);
+        common(gl, gelaendeShader, vp, inv, sun, eye);
+        bindMarks(gl, gelaendeShader);
+        wald.gelaende(gl, gelaendeShader);
+        gelaendeShader.set(gl, "uClipY", gespiegelt ? (float) (wiring.pegel - 0.3) : -1e9f);
+        boolean rb = rueckbauJetzt && clock.zeitstand != SceneClock.Zeitstand.HEUTE;
+        gelaendeShader.set(gl, "uRueckbauAn", rb ? 1 : 0);
+        double[] r0 = Site.fromUtm(com.dan.lituya.scene.Boden1958.RUECKBAU_E0, com.dan.lituya.scene.Boden1958.RUECKBAU_N0),
+                r1 = Site.fromUtm(com.dan.lituya.scene.Boden1958.RUECKBAU_E1, com.dan.lituya.scene.Boden1958.RUECKBAU_N1);
+        gelaendeShader.set(gl, "uRueckbauRect", (float) r0[0], (float) r0[1], (float) r1[0], (float) r1[1]);
+        gelaendeShader.set(gl, "uRueckbau", (float) com.dan.lituya.scene.Boden1958.RUECKBAU_UNTER, (float) com.dan.lituya.scene.Boden1958.RUECKBAU_TIEFE);
+        clipGl.draw(gl, gelaendeShader.id(), cm, vp, eye, UNIT_CLIP);
+        gl.glDisable(GL4.GL_CLIP_DISTANCE0);
+        gl.glFrontFace(GL.GL_CCW);
+        gl.glDisable(GL.GL_CULL_FACE);
+        gl.glDisable(GL.GL_DEPTH_TEST);
+        gl.glBindVertexArray(emptyVao);
+    }
+
+    /**
+     * W2: das Spiegelbild am Wasserspiegel (halbe Größe): Gelände und, ab „Hoch“, der Wald, vom Auge unter dem Spiegel.
+     * Spiegelung y → 2·Pegel − y als Matrix hinter der Blickmatrix; Gelände unter dem Wasser wird abgeschnitten.
+     */
+    private void spiegelBild(GL4 gl, int w, int h, float[] proj, float[] view, double[] sun) {
+        meer.spiegelZiel(gl, w, h);
+        gl.glClearColor(0, 0, 0, 0);
+        gl.glClearDepth(reversedZ ? 0 : 1);
+        gl.glDepthMask(true);
+        gl.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT);
+        float L = (float) wiring.pegel;
+        float[] S = {1, 0, 0, 0, 0, -1, 0, 0, 0, 0, 1, 0, 0, 2 * L, 0, 1};
+        float[] vpR = Mat4.mul(proj, Mat4.mul(view, S));
+        float[] invR = Mat4.invert(vpR);
+        double[] eyeR = {camera.eye[0], 2 * L - camera.eye[1], camera.eye[2]};
+        com.dan.clipmap.Clipmap cm = land.clipmap();
+        if (showGelaende && cm != null) gelaende(gl, cm, vpR, invR, sun, eyeR, true);
+        if (showGelaende && meer.waldImSpiegel && quality.ordinal() >= Quality.HOCH.ordinal()) {
+            gl.glFrontFace(GL.GL_CW);
+            wald.zeichnen(gl, vpR, eyeR, reversedZ, sun, clock.t());
+            gl.glFrontFace(GL.GL_CCW);
+        }
+        gl.glBindVertexArray(emptyVao);
+        gl.glUseProgram(0);
     }
 
     /**
@@ -1106,12 +1187,15 @@ public final class Renderer implements GLEventListener {
         return p;
     }
 
-    private void common(GL4 gl, Shader s, float[] vp, float[] inv, double[] sun) {
+    private void common(GL4 gl, Shader s, float[] vp, float[] inv, double[] sun) { common(gl, s, vp, inv, sun, camera.eye); }
+
+    /** Wie oben mit eigenem Auge (W2: das gespiegelte Auge für das Spiegelbild). */
+    private void common(GL4 gl, Shader s, float[] vp, float[] inv, double[] sun, double[] eye) {
         s.use(gl);
         s.set(gl, "uSkyMode", 0);
         s.mat(gl, "uVP", vp);
         s.mat(gl, "uInvVP", inv);
-        s.set(gl, "uCam", camera.eye);
+        s.set(gl, "uCam", eye);
         s.set(gl, "uSun", sun);
         s.set(gl, "uTime", (float) (clock.t() % 10_000));
         s.set(gl, "uLevel", (float) wiring.pegel);
@@ -1548,6 +1632,7 @@ public final class Renderer implements GLEventListener {
         Gpu.deleteFbos(gl, taaFbo[0], taaFbo[1]);
         Gpu.deleteTextures(gl, taaTex[0], taaTex[1]);
         licht.dispose(gl);
+        meer.dispose(gl);
         if (emptyVao != 0) gl.glDeleteVertexArrays(1, new int[]{emptyVao}, 0);
         for (int[] s : stamp) if (s[0] != 0) gl.glDeleteQueries(MARKS, s, 0);
         ready = false;

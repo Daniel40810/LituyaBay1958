@@ -532,6 +532,16 @@ public final class ControlPanel extends JPanel implements javax.swing.Scrollable
         lichtBox.setToolTipText("Dämmerhimmel, Alpenglühen, Schatten der Kette, Dunst in zwei Schichten; aus: der Platzhalter von Phase 1");
         lichtBox.addActionListener(e -> { r.licht.an = lichtBox.isSelected(); view.requestFocusInWindow(); });
         put(lichtBox);
+        // W2: Wasser aus com.dan.ocean, Spiegel der Berge
+        FCheckBox meerBox = new FCheckBox("Wasser aus com.dan.ocean (W2)"), spiegelBox = new FCheckBox("Spiegel der Berge im Wasser");
+        meerBox.setSelected(r.meer.an);
+        spiegelBox.setSelected(r.meer.spiegel);
+        meerBox.setToolTipText("Gletschersee mit Grund und Ufer, Gletschermilch zum Inlet; aus: das Wasser von Phase 1");
+        spiegelBox.setToolTipText("Gelände und Wald gespiegelt in halber Auflösung (rund 3–5 ms auf der Radeon 680M)");
+        meerBox.addActionListener(e -> { r.meer.an = meerBox.isSelected(); view.requestFocusInWindow(); });
+        spiegelBox.addActionListener(e -> { r.meer.spiegel = spiegelBox.isSelected(); view.requestFocusInWindow(); });
+        put(meerBox);
+        put(spiegelBox);
         FCheckBox bloomBox = new FCheckBox("Glühen um Helles (Bloom)");
         bloomBox.setSelected(r.bloom > 0);
         bloomBox.addActionListener(e -> { r.bloom = bloomBox.isSelected() ? 0.35 : 0; view.requestFocusInWindow(); });

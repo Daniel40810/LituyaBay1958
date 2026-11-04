@@ -15,6 +15,8 @@ uniform int uTeppichAn;
 uniform sampler2D uTeppich;
 uniform vec4 uTeppichRect;
 uniform vec4 uWelleRect;   // x0, z0, x1, z1 (Szene)
+// Werkbuch Welle W2: zeichnet com.dan.ocean das Wasser, legt dieser Shader nur noch den Holzteppich darüber (Alpha)
+uniform int uNurTeppich;
 
 float h2(vec2 i) { return fract(sin(dot(i, vec2(127.1, 311.7))) * 43758.5453); }
 float vn(vec2 x) {
@@ -93,8 +95,14 @@ void main() {
             vec3 holz = mix(vec3(0.10, 0.075, 0.05), vec3(0.20, 0.16, 0.11), p);
             vec3 lit = holz * (sunAt(w) * max(dot(vec3(0.0, 1.0, 0.0), uSun), 0.0) + skyColor(vec3(0.0, 1.0, 0.0)) * 0.8);
             col = mix(col, lit, clamp(cov, 0.0, 0.92));
+            if (uNurTeppich == 1) {
+                gl_FragDepth = depthOf(w);
+                frag = vec4(aerial(lit, d, dist), clamp(cov, 0.0, 0.92));
+                return;
+            }
         }
     }
+    if (uNurTeppich == 1) discard;
     col = applyMarks(col, q, dist, B);
     col = aerial(col, d, dist);
     // ab Phase 4: die Tiefe der Wasserfläche, damit das Gelände davor und darüber das Wasser verdeckt

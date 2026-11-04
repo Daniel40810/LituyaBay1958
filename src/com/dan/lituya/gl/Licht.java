@@ -60,7 +60,7 @@ public final class Licht {
     private long panoNanos;
     private int panoTex, panoFbo;
     private final Shader schatten = new Shader("Horizont", null, "schatten.comp");
-    private int hoeheF, hoeheG, schattenF, schattenG;
+    private int hoeheF, hoeheG, schattenF, schattenG, grundF;
     private double schattenAz = Double.NaN;
     private final double[] feinRect, grobRect;
     private final ExecutorService exec = Executors.newSingleThreadExecutor(r -> { Thread t = new Thread(r, "Licht"); t.setDaemon(true); return t; });
@@ -129,6 +129,7 @@ public final class Licht {
                 float[][] h = hoehen.get();
                 hoeheF = hoehenTextur(gl, h[0], FEIN_N);
                 hoeheG = hoehenTextur(gl, h[1], GROB_N);
+                grundF = hoehenTextur(gl, h[2], FEIN_N);
                 hoehenDa = true;
             } catch (Exception e) {
                 status = "Licht: Höhen nicht gerechnet (" + e + ")";
@@ -170,18 +171,19 @@ public final class Licht {
     /** Höhen über NAVD88 für beide Gitter (Meer und Lücken 0), auf allen Kernen. */
     float[][] hoehenRechnen(DoubleBinaryOperator stapel) {
         long t0 = System.nanoTime();
-        float[] f = gitter(stapel, feinRect, FEIN_N), g = gitter(stapel, grobRect, GROB_N);
+        float[] f = gitter(stapel, feinRect, FEIN_N, false), g = gitter(stapel, grobRect, GROB_N, false), r = gitter(stapel, feinRect, FEIN_N, true);
         System.out.printf(Locale.GERMAN, "LituyaBay1958: Licht: Höhen %d² und %d² in %.1f s%n", FEIN_N, GROB_N, (System.nanoTime() - t0) / 1e9);
-        return new float[][]{f, g};
+        return new float[][]{f, g, r};
     }
 
-    static float[] gitter(DoubleBinaryOperator stapel, double[] r, int n) {
+    /** Höhen eines Gitters; roh = mit Wassertiefen (W2: Grund für das Meer), sonst Meer und Lücken 0. */
+    static float[] gitter(DoubleBinaryOperator stapel, double[] r, int n, boolean roh) {
         float[] v = new float[n * n];
         double c = r[2] / n;
         java.util.stream.IntStream.range(0, n).parallel().forEach(j -> {
             for (int i = 0; i < n; i++) {
                 double h = stapel.applyAsDouble(r[0] + (i + 0.5) * c, r[1] + (j + 0.5) * c);
-                v[j * n + i] = (float) (Double.isNaN(h) ? 0 : Math.max(0, h));
+                v[j * n + i] = (float) (roh ? (Double.isNaN(h) ? -200 : h) : (Double.isNaN(h) ? 0 : Math.max(0, h)));
             }
         });
         return v;
@@ -314,9 +316,16 @@ public final class Licht {
         schatten.dispose(gl);
         sonne.dispose(gl);
         Gpu.deleteFbos(gl, panoFbo);
-        Gpu.deleteTextures(gl, panoTex, hoeheF, hoeheG, schattenF, schattenG, sonnenKarte);
+        Gpu.deleteTextures(gl, panoTex, hoeheF, hoeheG, schattenF, schattenG, sonnenKarte, grundF);
         exec.shutdownNow();
     }
+
+    /** W2: Grund mit Wassertiefen über das feine Gitter (R32F, m über NAVD88; Lücken −200), 0 solange nicht da. */
+    public int grundTextur() { return hoehenDa ? grundF : 0; }
+    /** W2: das Rundumbild des Himmels (vorbelichtet). */
+    public int panoTextur() { return panoTex; }
+    /** W2: Karte „Sonne“ für Dinge auf dem feinen Gitter (Wald, Meer), 0 solange nicht da. */
+    public int sonnenTextur() { return schattenDa && sonneGebaut ? sonnenKarte : 0; }
 
     /** Für Prüfungen: die Gitter (x0, z0, Kante). */
     public double[] feinRect() { return feinRect.clone(); }
