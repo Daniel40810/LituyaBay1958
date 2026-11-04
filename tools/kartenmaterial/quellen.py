@@ -23,6 +23,7 @@ from dataclasses import dataclass, field
 
 import geo
 import netz
+import tiff
 
 QUELLEN = {}
 
@@ -590,16 +591,30 @@ def _p(ctx):
 # ===========================================================================
 # GLETSCHER
 # ===========================================================================
-@quelle("itslive_geschwindigkeit", "gletscher", "ITS_LIVE Gletschergeschwindigkeit (Mosaik v2, Alaska)",
-        "NASA MEaSUREs ITS_LIVE", "CC BY 4.0", "120 m", "1985–2022 (Mittel)", "fern", "gross",
-        """Fließgeschwindigkeit der Gletscher (Betrag v, Komponenten vx/vy, Fehler), ganz Alaska
-        (RGI-Region 01), Alaska Albers. Für Lituya-, Nord-Crillon- und Cascade-Gletscher.""",
+@quelle("itslive_geschwindigkeit", "gletscher", "ITS_LIVE Gletschergeschwindigkeit (Mosaik v2, Ausschnitt Szene)",
+        "NASA MEaSUREs ITS_LIVE", "CC BY 4.0", "120 m", "2014–2022 (Mittel, v02 static)", "szene", "standard",
+        """Fließgeschwindigkeit der Gletscher (Betrag v, Komponenten vx/vy in der Abbildung der Datei, Fehler, Eismaske)
+        aus dem Mosaik der RGI-Region 01 Alaska. Geladen wird nur der Ausschnitt des Gebiets mit 5 km Rand (HTTP-Range aus
+        den COGs, Abbildung wie die Datei, EPSG:3413 oder 3338). Für Lituya-, Nord-Crillon- und Cascade-Gletscher und die
+        Fließlinien in LB_NET_WASSER (Phase 16).""",
         "https://its-live.jpl.nasa.gov/")
 def _p(ctx):
     out = []
     for k, n in netz.s3_liste(ITSLIVE, "velocity_mosaic/v2/static/cog/ITS_LIVE_velocity_120m_RGI01A_0000_v02_")[0]:
-        if k.endswith(("_v.tif", "_vx.tif", "_vy.tif", "_v_error.tif", "_landice.tif")):
-            out.append(Datei(netz.s3_url(ITSLIVE, k), _name(k), n))
+        if not k.endswith(("_v.tif", "_vx.tif", "_vy.tif", "_v_error.tif", "_landice.tif")):
+            continue
+        url = netz.s3_url(ITSLIVE, k)
+        # Phase 16: nur der Ausschnitt; die Abbildung steht im Kopf der Datei (gelesen per HTTP-Range)
+        t = tiff.GeoTiff(url)
+        proj = {3413: geo.EPSG_3413, 3338: geo.ALASKA_ALBERS}.get(t.epsg)
+        t.schliessen()
+        if proj is None:
+            raise ValueError(f"{_name(k)}: Abbildung EPSG:{t.epsg} unbekannt (erwartet 3413 oder 3338)")
+        g = ctx.gebiet
+        rand = geo.Gebiet(g.name, g.ost0 - 5000, g.nord0 - 5000, g.ost1 + 5000, g.nord1 + 5000, g.zweck)
+        pts = [proj.vorwaerts(*geo.utm_rueckwaerts(e, n)) for e, n in rand.rand_utm()]
+        aus = (min(p[0] for p in pts), min(p[1] for p in pts), max(p[0] for p in pts), max(p[1] for p in pts))
+        out.append(Datei(url, _name(k).replace(".tif", f"_{g.name}.tif"), notiz="ausschnitt", ausschnitt=aus))
     return out
 
 
@@ -623,3 +638,4 @@ def _p(ctx):
 
 # Feste Adressen (ausserhalb von AWS) stehen in quellen_web.py.
 import quellen_web  # noqa: E402,F401  (registriert die Web-Quellen)
+import quellen_texturen  # noqa: E402,F401  (registriert die Texturen, Phase 5)

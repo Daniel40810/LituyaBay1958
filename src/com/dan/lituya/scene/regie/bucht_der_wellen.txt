@@ -1,0 +1,39 @@
+# Lituya Bay 1958 · Regiebuch (Phase 17a). Die Wellen der Lituya Bay nach Miller (1960) und Fritz u. a. (2001): 1786
+# La Pérouse, 1853 oder 1854 (120 m, Felssturz von der Südwand), 1874 und 1899 (unsicher), 1936 (150 m im Crillon Inlet),
+# 1958 (524 m). Die früheren Wellen in Echtzeit nachgerechnet (Phase 13c, Grund 1940): Volumen gestaltet [G]; die Uhr der
+# Echtzeit läuft wie 1958 ab 22:17 (nur Ereigniszeit), das Jahr steht im Untertitel.
+Regiebuch: Die Bucht der Wellen
+Beschreibung: Von La Pérouse 1786 bis heute: fünf große Wellen in 180 Jahren; die früheren in Echtzeit nachgerechnet, ihre Volumen gestaltet
+Länge: 5:30
+0:00 netzblick aus
+0:00 zeit 13.07.1786 10:00 | 13. Juli 1786: Jean-François de La Pérouse ankert in der Bucht
+0:00 ansicht Von See
+0:00 raffer 60
+0:16 foto Vor dem Eingang, 1786
+0:20 ansicht Eingang | Im Gezeitenstrom am Eingang kentern zwei Boote, 21 Männer ertrinken
+0:40 foto Der Eingang, wo La Pérouses Boote kenterten
+0:45 sage La Pérouse beschreibt kahle Hänge unter dem Wald: vielleicht die Spur einer früheren Welle
+1:00 ansicht Mudslide Creek > Nordufer gegenüber Mudslide Creek (120 m) | 1853 oder 1854: ein Felssturz von der Südwand, 120 m Auflauf am Nordufer
+1:00 echtzeit mudslide 5
+1:00 warte echtzeit
+1:40 foto 1853/54 nachgerechnet [G]
+1:45 echtzeit aus
+1:45 zeitstand vor
+1:45 ansicht Cenotaph Island | 1874 und 1899, beim Beben in der Yakutat Bay: Wellen sind beschrieben, Ort und Höhe unsicher
+2:00 ansicht Crillon Inlet > NE-Wand des Crillon Inlet (150 m) | 27. Oktober 1936: drei Wellen wachsender Höhe im Crillon Inlet, bis 150 m
+2:00 echtzeit crillon 3
+2:00 warte echtzeit
+2:45 foto 1936 nachgerechnet [G]
+2:50 echtzeit aus
+2:55 schaustueck 4 | 9. Juli 1958: 30 Millionen Kubikmeter ins Gilbert Inlet
+3:15 schaustueck 5
+3:35 foto 1958: 524 m am Sporn
+3:40 zeitstand heute | Heute: die Bucht der Wellen mit LB_NET_SICHT
+3:40 ansicht Draufsicht
+3:40 netzblick sicht
+4:00 foto Die Bucht heute
+4:05 netzblick aus
+4:05 fahrt Rundflug 50
+4:55 foto Rundflug
+5:05 sage Steile Hänge, Gletscher und die Fairweather-Störung: die Bucht bleibt eine Bucht der Wellen
+5:25 blatt Die Bucht der Wellen

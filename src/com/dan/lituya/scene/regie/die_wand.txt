@@ -1,0 +1,12 @@
+# Lituya Bay 1958 · Regiebuch (Werkbuch Welle W4, Abnahme): 20 s in Echtzeit, die Front läuft an Cenotaph Island vorbei.
+# Welle aus der Vorrechnung (Lauf kette), Blick wie Heldenbild H7 aus Bootshöhe; Aufsteilen, Lippe, Durchlicht, Walze, Kamm und Schaum gestaltet [G].
+Regiebuch: Die Wand
+Beschreibung: 22:18 Uhr, 20 Sekunden in Echtzeit aus Bootshöhe vor Cenotaph Island: die Front kommt das Inlet herab, eine Wand mit brechendem Kamm und Weißwasser, dahinter Schaum
+Länge: 0:20
+0:00 netzblick aus
+0:00 ansicht Cenotaph Island @ 60, 1500, 4, 50, -2
+0:00 ereignis 156
+0:00 raffer 1
+0:10 sage Die Wand kommt
+0:19 foto Die Wand
+0:20 blatt

@@ -70,4 +70,1098 @@
     nbproject/build-impl.xml file. 
 
     -->
+    <!--
+        Phase 1 (aus Sylt und Timmendorf): Prüfung von lib/Renderer.jar. Die Element-Packages liegen nicht im Projekt: ihre
+        Quelle ist das Projekt Renderer (Werkbuch 4.1). Hier prüft tools/JarPruefung.java nach jedem Übersetzen, ob
+        lib/Renderer.jar alles hat, was LituyaBay1958 braucht (jedes gebrauchte Package mit Klassen und README, Java 21,
+        von den 14 neuen die, deren Phase erreicht ist); abschalten mit -Dohne.paketpruefung=true.
+    -->
+    <property name="lituya.phase" value="20"/>
+    <target name="check-packages" description="Prüft lib/Renderer.jar: die gebrauchten Packages mit README, Java 21, die fälligen neuen." unless="ohne.paketpruefung">
+        <property name="platform.java" value="java"/>
+        <exec executable="${platform.java}" dir="${basedir}" failonerror="true">
+            <arg value="-Dstdout.encoding=UTF-8"/>
+            <arg value="-Dstderr.encoding=UTF-8"/>
+            <arg value="tools/JarPruefung.java"/>
+            <arg value="lib/Renderer.jar"/>
+            <arg value="${lituya.phase}"/>
+        </exec>
+    </target>
+    <target name="-post-compile" depends="check-packages"/>
+    <!-- Phase 1: Prüfprogramm der App ohne Grafikkarte und Datenbank (endet mit "ERGEBNIS: alles in Ordnung"). -->
+    <target name="pruefung" depends="compile-test" description="Startet die Prüfung com.dan.lituya.test.Pruefung.">
+        <property name="platform.java" value="java"/>
+        <java classname="com.dan.lituya.test.Pruefung" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="true">
+            <jvmarg value="-Dstdout.encoding=UTF-8"/>
+            <jvmarg value="-Djava.awt.headless=true"/>
+            <jvmarg value="-Xmx4g"/>
+            <classpath><pathelement path="${run.test.classpath}"/></classpath>
+        </java>
+    </target>
+    <!-- Phase 1: das Statusbild auf der Grafikkarte: docs/status/Status_Phase1.png (Grundansicht, 9.7.1958 22:00 PST,
+         Stufe Mittel, Full HD, volles HUD mit den Zeiten jedes Durchgangs). Auf der Radeon laufen lassen; die Zeiten
+         stehen auch in der Ausgabe. -Dansicht=Name wählt eine der neun Ansichten (etwa -Dansicht=AnchorageCove),
+         -Dbild=… einen anderen Dateinamen. -->
+    <target name="statusbild" depends="jar" description="docs/status/Status_Phase${lituya.phase}.png (Grundansicht, volles HUD; seit Phase 4 mit Gelände).">
+        <property name="platform.java" value="java"/>
+        <property name="ansicht" value=""/>
+        <property name="bild" value="docs/status/Status_Phase${lituya.phase}.png"/>
+        <java classname="com.dan.lituya.tools.Tempo" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="true">
+            <jvmarg value="-Dstdout.encoding=UTF-8"/>
+            <jvmarg value="--enable-native-access=ALL-UNNAMED"/>
+            <jvmarg value="-Xmx4g"/>
+            <jvmarg value="-Dhud=voll"/>
+            <jvmarg value="-Dansicht=${ansicht}"/>
+            <arg line="120 1920 1080 ${bild} MITTEL 22 1958-07-09"/>
+            <classpath><pathelement path="${run.classpath}"/></classpath>
+        </java>
+    </target>
+    <!-- Phase 16c: netzbilder: Standbilder des Netzblicks für Wasser und Weg und der Bäche in der Szene nach
+         docs/status/Netzblick_*_Phase16c.png, volles HUD mit den Zeiten jedes Durchgangs (die Bäche stehen unter „Wald“),
+         Ausgabe in docs/status/netzbilder_Phase16c.txt. Auf der Radeon laufen lassen. -->
+    <macrodef name="netzbild">
+        <attribute name="name"/>
+        <attribute name="netz"/>
+        <attribute name="ansicht"/>
+        <attribute name="regen" default="0"/>
+        <attribute name="ereignis" default=""/>
+        <attribute name="netzblick" default="an"/>
+        <attribute name="fahrt" default=""/>
+        <attribute name="fahrtanteil" default=""/>
+        <attribute name="liste" default="netzbilder"/>
+        <attribute name="netzszene" default="an"/>
+        <sequential>
+            <java classname="com.dan.lituya.tools.Tempo" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="false" output="docs/status/@{liste}_Phase${lituya.phase}.txt" append="true" logError="true">
+                <jvmarg value="-Dstdout.encoding=UTF-8"/>
+                <jvmarg value="--enable-native-access=ALL-UNNAMED"/>
+                <jvmarg value="-Xmx6g"/>
+                <jvmarg value="-Dhud=voll"/>
+                <jvmarg value="-Dnetz=@{netz}"/>
+                <jvmarg value="-Dnetzszene=@{netzszene}"/>
+                <jvmarg value="-Dnetzblick=@{netzblick}"/>
+                <jvmarg value="-Dregen=@{regen}"/>
+                <jvmarg value="-Dansicht=@{ansicht}"/>
+                <jvmarg value="-Dereignis=@{ereignis}"/>
+                <jvmarg value="-Dfahrt=@{fahrt}"/>
+                <jvmarg value="-Dfahrtanteil=@{fahrtanteil}"/>
+                <arg line="60 1920 1080 docs/status/Netzblick_@{name}_Phase${lituya.phase}.png MITTEL 20 1958-07-09"/>
+                <classpath><pathelement path="${run.classpath}"/></classpath>
+            </java>
+        </sequential>
+    </macrodef>
+    <target name="netzbilder" depends="jar" description="Phase 16c: Netzblick Wasser und Weg, Bäche in der Szene (docs/status/Netzblick_*.png).">
+        <property name="platform.java" value="java"/>
+        <delete file="docs/status/netzbilder_Phase${lituya.phase}.txt" quiet="true"/>
+        <netzbild name="Wasser" netz="wasser" ansicht="MudslideCreek" regen="10"/>
+        <netzbild name="Weg" netz="weg" ansicht="AnchorageCove" ereignis="900"/>
+        <netzbild name="Baeche_0mm" netz="wasser" ansicht="MudslideCreek" netzblick="aus" netzszene="aus"/>
+        <netzbild name="Baeche_20mm" netz="wasser" ansicht="MudslideCreek" regen="20" netzblick="aus" netzszene="aus"/>
+    </target>
+    <!-- Phase 17: sichtbilder: der Netzblick für LB_NET_SICHT und Standbilder auf dem Rundflug und der Kamerafahrt nach
+         docs/status/Netzblick_Sicht*_Phase17.png, Zeiten in docs/status/sichtbilder_Phase17.txt. -->
+    <target name="sichtbilder" depends="jar" description="Phase 17: Netzblick Sicht, Rundflug und Kamerafahrt (docs/status/Netzblick_Sicht*.png).">
+        <property name="platform.java" value="java"/>
+        <delete file="docs/status/sichtbilder_Phase${lituya.phase}.txt" quiet="true"/>
+        <netzbild name="Sicht" netz="sicht" ansicht="Draufsicht" liste="sichtbilder"/>
+        <netzbild name="Sicht_Rundflug_30" netz="sicht" ansicht="" fahrt="rundflug" fahrtanteil="0.3" liste="sichtbilder"/>
+        <netzbild name="Sicht_Rundflug_70" netz="sicht" ansicht="" fahrt="rundflug" fahrtanteil="0.7" netzblick="aus" liste="sichtbilder"/>
+        <netzbild name="Sicht_Kamerafahrt_50" netz="sicht" ansicht="" fahrt="kamerafahrt" fahrtanteil="0.5" liste="sichtbilder"/>
+    </target>
+    <!-- Phase 17a: regiebuecher: die fünf Regiebücher im Kino ohne Fenster ganz durchspielen (30 Bilder je Sekunde
+         Regiezeit), je ein Blatt mit den Fotos nach docs/status/Regiebuch_*.png, Zeiten in docs/status/regiebuecher_Phase17a.txt.
+         -Dbuch=Name spielt nur eins, -Dkino=aus im Fenster mit HUD. Auf der Radeon laufen lassen (zusammen gut 20 min). -->
+    <macrodef name="regiebuch">
+        <attribute name="buch"/>
+        <sequential>
+            <java classname="com.dan.lituya.tools.Tempo" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="false" output="docs/status/regiebuecher_Phase${lituya.phase}.txt" append="true" logError="true">
+                <jvmarg value="-Dstdout.encoding=UTF-8"/>
+                <jvmarg value="--enable-native-access=ALL-UNNAMED"/>
+                <jvmarg value="-Xmx8g"/>
+                <jvmarg value="-Dregiebuch=@{buch}"/>
+                <jvmarg value="-Dkino=${kino}"/>
+                <arg line="1 1920 1080 docs/status/Regiebuch.png MITTEL"/>
+                <classpath><pathelement path="${run.classpath}"/></classpath>
+            </java>
+        </sequential>
+    </macrodef>
+    <target name="regiebuecher" depends="jar" description="Phase 17a: die fünf Regiebücher im Kino durchspielen, je ein Blatt nach docs/status (Regiebuch_*.png).">
+        <property name="platform.java" value="java"/>
+        <property name="kino" value="an"/>
+        <property name="buch" value=""/>
+        <delete file="docs/status/regiebuecher_Phase${lituya.phase}.txt" quiet="true"/>
+        <condition property="nur.eins"><not><equals arg1="${buch}" arg2=""/></not></condition>
+        <antcall target="-regiebuch-eins"/>
+        <antcall target="-regiebuch-alle"/>
+    </target>
+    <target name="-regiebuch-eins" if="nur.eins"><regiebuch buch="${buch}"/></target>
+    <target name="-regiebuch-alle" unless="nur.eins">
+        <regiebuch buch="Zehn Minuten"/>
+        <regiebuch buch="Die drei Boote"/>
+        <regiebuch buch="Die Nacht der Welle"/>
+        <regiebuch buch="68 Jahre"/>
+        <regiebuch buch="Die Bucht der Wellen"/>
+    </target>
+    <!-- Phase 18: hoerproben: fünf Hörproben ohne Fenster (Anchorage Cove, Cenotaph Island, gegenüber dem Sturz, Abend vor Anker,
+         heute) als WAV mit Spektrogramm nach docs/hoerproben, Bericht docs/hoerproben/hoerproben.txt und
+         docs/status/hoerproben_Phase18.txt. -Dnur=sturz rechnet nur eine (anchorage, cenotaph, sturz, abend, heute). Gut 1 min. -->
+    <target name="hoerproben" depends="jar" description="Phase 18: Hörproben (WAV + Spektrogramm) nach docs/hoerproben.">
+        <property name="platform.java" value="java"/>
+        <property name="nur" value=""/>
+        <mkdir dir="docs/hoerproben"/>
+        <java classname="com.dan.lituya.tools.Hoerproben" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="true" output="docs/status/hoerproben_Phase${lituya.phase}.txt" logError="true">
+            <jvmarg value="-Dstdout.encoding=UTF-8"/>
+            <jvmarg value="-Djava.awt.headless=true"/>
+            <jvmarg value="-Xmx6g"/>
+            <arg value="docs/hoerproben"/>
+            <arg value="${nur}"/>
+            <classpath><pathelement path="${run.classpath}"/></classpath>
+        </java>
+    </target>
+    <!-- Phase 1 (F26 A, wie Timmendorf): den JDBC-Treiber 21 für LOD aus ORACLE_HOME\jdbc\lib nach lib/lod/ holen und im
+         eigenen Klassenlader mit sdonm.jar probieren. Ohne ORACLE_HOME: ant lod -Dtreiber=C:\…\jdbc\lib\ojdbc11.jar -->
+    <target name="lod" depends="compile" description="Phase 1: Treiber 21 nach lib/lod holen und LOD im eigenen Klassenlader probieren.">
+        <property name="platform.java" value="java"/>
+        <property name="treiber" value=""/>
+        <java classname="com.dan.lituya.netz.Lod" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="true">
+            <jvmarg value="-Dstdout.encoding=UTF-8"/>
+            <arg value="${treiber}"/>
+            <classpath><pathelement path="${run.classpath}"/></classpath>
+        </java>
+    </target>
+    <!-- Phase 2 (Werkbuch 3.3, 3.4): die Aufbereitung liest das Kartenmaterial (Pfad in daten/rohdaten.properties, Vorgabe
+         download/) einmal und schreibt nach daten/. ant aufbereitung rechnet alle Schritte (gelaende, grund, namen, texturen,
+         herkunft, bilder, inhalt); -Dschritte=gelaende+grund nur diese (Komma nur in Anführungszeichen, cmd.exe trennt daran); -Dneu=true rechnet fertige Kacheln neu; -Dausschnitt=OstMin,NordMin,OstMax,NordMax
+         nur die Kacheln dort; -Dfaeden=n. Prüfbilder nach docs/status/, Protokoll daten/aufbereitung.log. -->
+    <target name="aufbereitung" depends="compile" description="Phase 2: Kartenmaterial einmal nach daten/ aufbereiten (Gelände, Grund, Namen, Prüfbilder, INHALT.txt).">
+        <property name="platform.java" value="java"/>
+        <property name="schritte" value=""/>
+        <property name="neu" value="false"/>
+        <property name="ausschnitt" value=""/>
+        <property name="faeden" value="0"/>
+        <java classname="com.dan.lituya.tools.Aufbereitung" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="true">
+            <jvmarg value="-Dstdout.encoding=UTF-8"/>
+            <jvmarg value="-Djava.awt.headless=true"/>
+            <jvmarg value="-Xmx24g"/>
+            <jvmarg value="-Dneu=${neu}"/>
+            <jvmarg value="-Dlituya.ausschnitt=${ausschnitt}"/>
+            <jvmarg value="-Dlituya.cache.mb=4000"/>
+            <arg value="${schritte}"/>
+            <syspropertyset><propertyref name="faeden"/></syspropertyset>
+            <classpath><pathelement location="lib/Renderer.jar"/><pathelement path="${run.classpath}"/></classpath>
+        </java>
+    </target>
+    <!-- Phase 3 (Werkbuch 2.8, 7.7, 7.9): Schema LITUYABAY1958 neu aufbauen (db/netz/99, 01, 02), LB_NET_HERKUNFT aus
+         daten/netz/herkunft laden, NDM-Funktionsprobe (03_probe.sql und Java/LOD im eigenen Lader), Probenetze weg (98),
+         Partitionen und Sichten (04, 05), VALIDATE_NETWORK, Gegenrechnung (CONNECT BY und traceIn gegen pruefwege.tsv),
+         LB_NETZ_STAND. Vorher einmal als SYS: db/netz/00_sys.sql. Seit Phase 7a dazu LB_NET_WELLE und LB_NET_UFER aus
+         daten/netz/welle und daten/netz/ufer (vorher ant aufbereitung "-Dschritte=welle,ufer"), die Partitionen der Welle
+         und die Zweitrechnung wie ant netzvergleich. Protokoll docs/status/netzdb_Phase7a.txt. -->
+    <target name="netzdb" depends="compile" description="Phase 3/7a: Netze nach Oracle laden (Herkunft, Welle, Ufer), NDM-Funktionsprobe, Gegenrechnung.">
+        <property name="platform.java" value="java"/>
+        <java classname="com.dan.lituya.tools.NetzDb" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="true">
+            <jvmarg value="-Dstdout.encoding=UTF-8"/>
+            <jvmarg value="-Djava.awt.headless=true"/>
+            <jvmarg value="-Xmx3g"/>
+            <arg value="laden"/>
+            <classpath><pathelement location="lib/Renderer.jar"/><pathelement path="${run.classpath}"/></classpath>
+        </java>
+    </target>
+    <!-- Phase 19 (Werkbuch 13.1): szenedb legt die Tabellen von db/szene an (nur, was fehlt; -Dneu=ja baut vorher alles ab, auch
+         Sitzungen, eigene Regiebücher und Fotos), lädt Quellen, Befunde, Zeugen, Boote, Läufe mit Kennzahlen, Bootslagen, Regiebücher,
+         Kamerafahrten, Texturen, die neuesten Blätter und was die App in daten/speicher gesichert hat, und prüft. Ausgabe nach
+         docs/status/szenedb_Phase19.txt. szenedbpruefung prüft nur (mit einer Probesitzung, die danach wieder weg ist). -->
+    <target name="szenedb" depends="compile" description="Phase 19: Tabellen von db/szene anlegen, befüllen und prüfen.">
+        <property name="platform.java" value="java"/>
+        <property name="neu" value="nein"/>
+        <java classname="com.dan.lituya.tools.SzeneDb" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="true" output="docs/status/szenedb_Phase${lituya.phase}.txt" logError="true">
+            <jvmarg value="-Dstdout.encoding=UTF-8"/>
+            <jvmarg value="-Djava.awt.headless=true"/>
+            <jvmarg value="-Xmx3g"/>
+            <jvmarg value="-Dneu=${neu}"/>
+            <arg value="laden"/>
+            <classpath><pathelement location="lib/Renderer.jar"/><pathelement path="${run.classpath}"/></classpath>
+        </java>
+        <loadfile property="szenedb.text" srcFile="docs/status/szenedb_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${szenedb.text}"/>
+    </target>
+    <target name="szenedbpruefung" depends="compile" description="Phase 19: die Tabellen von db/szene prüfen.">
+        <property name="platform.java" value="java"/>
+        <java classname="com.dan.lituya.tools.SzeneDb" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="true" output="docs/status/szenedbpruefung_Phase${lituya.phase}.txt" logError="true">
+            <jvmarg value="-Dstdout.encoding=UTF-8"/>
+            <jvmarg value="-Djava.awt.headless=true"/>
+            <arg value="pruefen"/>
+            <classpath><pathelement location="lib/Renderer.jar"/><pathelement path="${run.classpath}"/></classpath>
+        </java>
+        <loadfile property="szenedbpruefung.text" srcFile="docs/status/szenedbpruefung_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${szenedbpruefung.text}"/>
+    </target>
+    <!-- Phase 3: nur prüfen, ob Oracle und daten/netz zusammenpassen (Prüfsumme, Zahlen, VALIDATE_NETWORK, LB_NDM_PROBE). -->
+    <target name="dbpruefung" depends="compile" description="Phase 3: prüfen, ob die Netze in Oracle zu daten/netz passen.">
+        <property name="platform.java" value="java"/>
+        <java classname="com.dan.lituya.tools.NetzDb" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="true">
+            <jvmarg value="-Dstdout.encoding=UTF-8"/>
+            <jvmarg value="-Djava.awt.headless=true"/>
+            <arg value="pruefen"/>
+            <classpath><pathelement path="${run.classpath}"/></classpath>
+        </java>
+    </target>
+    <!-- Phase 7a (Werkbuch 7.9): nur die Zweitrechnung, ohne neu zu laden: LOD auf LB_NET_WELLE gegen route (Ankunft je
+         Knoten und Kostenart aus daten/netz/welle/ankunft.tsv; schreibt LB_ANKUNFT und LB_ISOCHRONE neu) und SDO_LRS auf
+         LB_NET_UFER gegen route.Measure. Protokoll docs/status/netzvergleich_Phase7a.txt. -->
+    <target name="netzvergleich" depends="compile" description="Phase 7a: LOD gegen route (Welle) und SDO_LRS gegen Measure (Ufer), ohne neu zu laden.">
+        <property name="platform.java" value="java"/>
+        <java classname="com.dan.lituya.tools.NetzDb" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="true">
+            <jvmarg value="-Dstdout.encoding=UTF-8"/>
+            <jvmarg value="-Djava.awt.headless=true"/>
+            <jvmarg value="-Xmx3g"/>
+            <arg value="vergleich"/>
+            <classpath><pathelement location="lib/Renderer.jar"/><pathelement path="${run.classpath}"/></classpath>
+        </java>
+    </target>
+    <!-- Phase 4 (Werkbuch 5.11): das Package com.dan.clipmap aus lib/Renderer.jar über daten/gelaende (Ursprung E 352 000,
+         N 6 503 000). clipmapcheck: ClipmapCheck mit 1 000 Stichproben an den Kacheln und dem Baustein auf der Grafikkarte
+         gegen Java (Ausgabe auch nach docs/status/clipmapcheck_Phase4.txt); clipmapdemo: die Vorschau des Packages, Auge in
+         der Bucht vor dem Gilbert Inlet; clipmapbild: vier Ansichten mit der Zeit je Bild nach docs/status/Phase4_Clipmap.png. -->
+    <target name="clipmapcheck" depends="compile" description="Phase 4: ClipmapCheck über daten/gelaende, mit Grafikkarte.">
+        <property name="platform.java" value="java"/>
+        <java classname="com.dan.clipmap.demo.ClipmapCheck" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="true" output="docs/status/clipmapcheck_Phase4.txt" logError="true">
+            <jvmarg value="-Dstdout.encoding=UTF-8"/>
+            <jvmarg value="--enable-native-access=ALL-UNNAMED"/>
+            <jvmarg value="-Xmx4g"/>
+            <arg line="--gpu --daten daten/gelaende 352000 6503000"/>
+            <classpath><pathelement path="${run.classpath}"/></classpath>
+        </java>
+        <loadfile property="clipmapcheck.text" srcFile="docs/status/clipmapcheck_Phase4.txt" encoding="UTF-8"/>
+        <echo message="${clipmapcheck.text}"/>
+    </target>
+    <target name="clipmapdemo" depends="compile" description="Phase 4: die Vorschau von com.dan.clipmap über daten/gelaende.">
+        <property name="platform.java" value="java"/>
+        <java classname="com.dan.clipmap.demo.ClipmapDemo" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="true">
+            <jvmarg value="-Dstdout.encoding=UTF-8"/>
+            <jvmarg value="--enable-native-access=ALL-UNNAMED"/>
+            <jvmarg line="--add-opens java.desktop/sun.awt=ALL-UNNAMED --add-opens java.desktop/sun.awt.windows=ALL-UNNAMED --add-opens java.desktop/sun.java2d=ALL-UNNAMED"/>
+            <jvmarg value="-Xmx4g"/>
+            <arg line="--daten daten/gelaende 352000 6503000 --auge 2300 -1900 60 30"/>
+            <classpath><pathelement path="${run.classpath}"/></classpath>
+        </java>
+    </target>
+    <target name="clipmapbild" depends="compile" description="Phase 4: vier Ansichten der Clipmap mit der Zeit je Bild nach docs/status/Phase4_Clipmap.png.">
+        <property name="platform.java" value="java"/>
+        <java classname="com.dan.clipmap.demo.ClipmapDemo" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="true">
+            <jvmarg value="-Dstdout.encoding=UTF-8"/>
+            <jvmarg value="--enable-native-access=ALL-UNNAMED"/>
+            <jvmarg value="-Xmx4g"/>
+            <arg line="--daten daten/gelaende 352000 6503000 --auge 2300 -1900 60 30 --bild docs/status/Phase4_Clipmap.png"/>
+            <classpath><pathelement path="${run.classpath}"/></classpath>
+        </java>
+    </target>
+    <!-- Phase 5 (Werkbuch 5.10, 8): das Package com.dan.surface aus lib/Renderer.jar. Ablauf: python tools/kartenmaterial/
+         kartenmaterial.py laden, Gruppe texturen (13 CC0-Sätze von ambientCG nach download/texturen), dann
+         ant aufbereitung "-Dschritte=texturen,herkunft,inhalt" (gebacken nach daten/texturen). surfacecheck: SurfaceCheck mit
+         dem echten Strandkies (1 km ohne Wiederholung); texturbild: Kontaktbogen docs/status/Texturen.png (beim ersten Mal
+         packt der Treiber die Karten, das dauert); surfacedemo: die Vorschau mit Reglern. -->
+    <target name="surfacecheck" depends="compile" description="Phase 5: SurfaceCheck mit daten/texturen.">
+        <property name="platform.java" value="java"/>
+        <java classname="com.dan.surface.demo.SurfaceCheck" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="true" output="docs/status/surfacecheck_Phase${lituya.phase}.txt" logError="true">
+            <jvmarg value="-Dstdout.encoding=UTF-8"/>
+            <jvmarg value="-Xmx4g"/>
+            <arg line="--texturen daten/texturen"/>
+            <classpath><pathelement path="${run.classpath}"/></classpath>
+        </java>
+        <loadfile property="surfacecheck.text" srcFile="docs/status/surfacecheck_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${surfacecheck.text}"/>
+    </target>
+    <target name="texturbild" depends="compile" description="Phase 5: Kontaktbogen der Materialien nach docs/status/Texturen.png.">
+        <property name="platform.java" value="java"/>
+        <property name="kante" value="1024"/>
+        <java classname="com.dan.surface.demo.SurfaceDemo" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="true">
+            <jvmarg value="-Dstdout.encoding=UTF-8"/>
+            <jvmarg value="--enable-native-access=ALL-UNNAMED"/>
+            <jvmarg value="-Xmx6g"/>
+            <arg line="--texturen daten/texturen --kante ${kante} --bild docs/status/Texturen.png"/>
+            <classpath><pathelement path="${run.classpath}"/></classpath>
+        </java>
+    </target>
+    <target name="surfacedemo" depends="compile" description="Phase 5: die Vorschau von com.dan.surface über daten/texturen.">
+        <property name="platform.java" value="java"/>
+        <java classname="com.dan.surface.demo.SurfaceDemo" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="true">
+            <jvmarg value="-Dstdout.encoding=UTF-8"/>
+            <jvmarg value="--enable-native-access=ALL-UNNAMED"/>
+            <jvmarg line="--add-opens java.desktop/sun.awt=ALL-UNNAMED --add-opens java.desktop/sun.awt.windows=ALL-UNNAMED --add-opens java.desktop/sun.java2d=ALL-UNNAMED"/>
+            <jvmarg value="-Xmx6g"/>
+            <arg line="--texturen daten/texturen"/>
+            <classpath><pathelement path="${run.classpath}"/></classpath>
+        </java>
+    </target>
+    <!-- Phase 6 (Werkbuch 6.4, 5.7): com.dan.forest mit ForestGpu (Kultur auf der Grafikkarte, Oktaeder-Impostors, Zustand je
+         Baum, Sitka-Fichte und Hemlocktanne) und das neue Package com.dan.understory, beide aus lib/Renderer.jar.
+         waldcheck: ForestCheck (ohne Grafikkarte) und ForestGpuCheck (Grafikkarte = Prozessor) nach docs/status/waldcheck_Phase6.txt;
+         waldbild: vier Ansichten der gerechneten Bucht nach docs/status/Wald.png (-Dqualitaet=HIGH); waldzeiten: die fps-Tabelle je
+         Qualität und Ansicht nach docs/status/waldzeiten_Phase6.txt; walddemo: Fenster. waldvergleich: Paketvertrag 14, die Wälder
+         der anderen Szenen unverändert (vorher das alte Jar als lib/Renderer_phase5.jar sichern). unterwuchscheck,
+         unterwuchsbild (docs/status/Unterwuchs.png), unterwuchsdemo. -->
+    <macrodef name="renderer-java">
+        <attribute name="klasse"/>
+        <attribute name="args" default=""/>
+        <attribute name="ausgabe"/>
+        <attribute name="speicher" default="-Xmx6g"/>
+        <sequential>
+            <property name="platform.java" value="java"/>
+            <java classname="@{klasse}" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="true" output="@{ausgabe}" logError="true">
+                <jvmarg value="-Dstdout.encoding=UTF-8"/>
+                <jvmarg value="--enable-native-access=ALL-UNNAMED"/>
+                <jvmarg line="--add-opens java.desktop/sun.awt=ALL-UNNAMED --add-opens java.desktop/sun.awt.windows=ALL-UNNAMED --add-opens java.desktop/sun.java2d=ALL-UNNAMED"/>
+                <jvmarg value="@{speicher}"/>
+                <arg line="@{args}"/>
+                <!-- Renderer.jar zuerst: FStyle.jar bringt ältere Kopien von com.dan.forest, ground, river und road mit -->
+                <classpath><pathelement location="lib/Renderer.jar"/><pathelement path="${run.classpath}"/></classpath>
+            </java>
+        </sequential>
+    </macrodef>
+    <macrodef name="renderer-fenster">
+        <attribute name="klasse"/>
+        <attribute name="speicher" default="-Xmx6g"/>
+        <sequential>
+            <property name="platform.java" value="java"/>
+            <java classname="@{klasse}" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="true">
+                <jvmarg value="-Dstdout.encoding=UTF-8"/>
+                <jvmarg value="--enable-native-access=ALL-UNNAMED"/>
+                <jvmarg line="--add-opens java.desktop/sun.awt=ALL-UNNAMED --add-opens java.desktop/sun.awt.windows=ALL-UNNAMED --add-opens java.desktop/sun.java2d=ALL-UNNAMED"/>
+                <jvmarg value="@{speicher}"/>
+                <!-- Renderer.jar zuerst: FStyle.jar bringt ältere Kopien von com.dan.forest, ground, river und road mit -->
+                <classpath><pathelement location="lib/Renderer.jar"/><pathelement path="${run.classpath}"/></classpath>
+            </java>
+        </sequential>
+    </macrodef>
+    <target name="waldcheck" depends="compile" description="Phase 6: ForestCheck und ForestGpuCheck nach docs/status/waldcheck_Phase6.txt.">
+        <renderer-java klasse="com.dan.forest.demo.ForestCheck" ausgabe="docs/status/waldcheck_Phase${lituya.phase}.txt"/>
+        <renderer-java klasse="com.dan.forest.demo.ForestGpuCheck" ausgabe="docs/status/waldcheck_gpu_Phase${lituya.phase}.txt"/>
+        <concat destfile="docs/status/waldcheck_Phase${lituya.phase}.txt" append="true" encoding="UTF-8" outputencoding="UTF-8">
+            <header>&#10;--- ForestGpuCheck (Grafikkarte)&#10;</header>
+            <fileset file="docs/status/waldcheck_gpu_Phase${lituya.phase}.txt"/>
+        </concat>
+        <delete file="docs/status/waldcheck_gpu_Phase${lituya.phase}.txt"/>
+        <loadfile property="waldcheck.text" srcFile="docs/status/waldcheck_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${waldcheck.text}"/>
+    </target>
+    <target name="waldbild" depends="compile" description="Phase 6: vier Ansichten der gerechneten Bucht nach docs/status/Wald.png.">
+        <property name="qualitaet" value="HIGH"/>
+        <renderer-java klasse="com.dan.forest.demo.ForestGpuDemo" args="--bild docs/status/Wald.png ${qualitaet}" ausgabe="docs/status/waldbild_Phase${lituya.phase}.txt"/>
+        <loadfile property="waldbild.text" srcFile="docs/status/waldbild_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${waldbild.text}"/>
+    </target>
+    <target name="waldzeiten" depends="compile" description="Phase 6: fps-Tabelle des Walds nach docs/status/waldzeiten_Phase6.txt.">
+        <renderer-java klasse="com.dan.forest.demo.ForestGpuDemo" args="--zeiten" ausgabe="docs/status/waldzeiten_Phase${lituya.phase}.txt"/>
+        <loadfile property="waldzeiten.text" srcFile="docs/status/waldzeiten_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${waldzeiten.text}"/>
+    </target>
+    <target name="walddemo" depends="compile" description="Phase 6: ForestGpuDemo im Fenster.">
+        <renderer-fenster klasse="com.dan.forest.demo.ForestGpuDemo"/>
+    </target>
+    <target name="waldvergleich" description="Phase 6: die Wälder der anderen Szenen unverändert (lib/Renderer_phase5.jar gegen lib/Renderer.jar).">
+        <property name="platform.java" value="java"/>
+        <property name="alt" value="lib/Renderer_phase5.jar"/>
+        <exec executable="${platform.java}" dir="${basedir}" failonerror="true" output="docs/status/waldvergleich_Phase${lituya.phase}.txt">
+            <arg value="-Dstdout.encoding=UTF-8"/>
+            <arg value="tools/WaldVergleich.java"/>
+            <arg value="${alt}"/>
+            <arg value="lib/Renderer.jar"/>
+        </exec>
+        <loadfile property="waldvergleich.text" srcFile="docs/status/waldvergleich_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${waldvergleich.text}"/>
+    </target>
+    <target name="unterwuchscheck" depends="compile" description="Phase 6: UnderstoryCheck nach docs/status/unterwuchscheck_Phase6.txt.">
+        <renderer-java klasse="com.dan.understory.demo.UnderstoryCheck" ausgabe="docs/status/unterwuchscheck_Phase${lituya.phase}.txt" speicher="-Xmx2g"/>
+        <loadfile property="unterwuchscheck.text" srcFile="docs/status/unterwuchscheck_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${unterwuchscheck.text}"/>
+    </target>
+    <target name="unterwuchsbild" depends="compile" description="Phase 6: die sieben Arten und der Waldboden nach docs/status/Unterwuchs.png.">
+        <renderer-java klasse="com.dan.understory.demo.UnderstoryDemo" args="--bild docs/status/Unterwuchs.png" ausgabe="docs/status/unterwuchsbild_Phase${lituya.phase}.txt" speicher="-Xmx2g"/>
+        <loadfile property="unterwuchsbild.text" srcFile="docs/status/unterwuchsbild_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${unterwuchsbild.text}"/>
+    </target>
+    <target name="unterwuchsdemo" depends="compile" description="Phase 6: UnderstoryDemo im Fenster.">
+        <renderer-fenster klasse="com.dan.understory.demo.UnderstoryDemo" speicher="-Xmx2g"/>
+    </target>
+    <!-- Phase 7 (Werkbuch 6.9, 5.12): com.dan.route mit TravelGrid (Laufzeitgitter 4/8/16/32 Nachbarn, Isochronen, Messstrecke)
+         und das neue Package com.dan.netview, beide aus lib/Renderer.jar. routecheck: RouteCheck (Gitterfehler 2,75 % / 0,75 %,
+         T = L/√(g h) auf konstantem Grund) nach docs/status/routecheck_Phase7.txt; isochronendemo: gerechnete Fjordbucht nach
+         docs/status/Isochronen_Demo.png (Fenster: -Dfenster=ja); isochronenbild: die Front über dem echten Grund heute und 1940,
+         linear und nichtlinear, nach docs/status/Isochronen.png mit Ankunftszeiten; netviewcheck, netviewbild
+         (docs/status/Netzblick.png), netviewdemo. -->
+    <target name="routecheck" depends="compile" description="Phase 7: RouteCheck nach docs/status/routecheck_Phase7.txt.">
+        <renderer-java klasse="com.dan.route.demo.RouteCheck" ausgabe="docs/status/routecheck_Phase${lituya.phase}.txt" speicher="-Xmx2g"/>
+        <loadfile property="routecheck.text" srcFile="docs/status/routecheck_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${routecheck.text}"/>
+    </target>
+    <target name="isochronendemo" depends="compile" description="Phase 7: IsochroneDemo (gerechnete Bucht) nach docs/status/Isochronen_Demo.png.">
+        <renderer-java klasse="com.dan.route.demo.IsochroneDemo" args="--bild docs/status/Isochronen_Demo.png" ausgabe="docs/status/isochronendemo_Phase${lituya.phase}.txt" speicher="-Xmx2g"/>
+        <loadfile property="isochronendemo.text" srcFile="docs/status/isochronendemo_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${isochronendemo.text}"/>
+    </target>
+    <target name="isochronenfenster" depends="compile" description="Phase 7: IsochroneDemo im Fenster (Front mit Regler).">
+        <renderer-fenster klasse="com.dan.route.demo.IsochroneDemo" speicher="-Xmx2g"/>
+    </target>
+    <target name="isochronenbild" depends="compile" description="Phase 7: die Front über dem Grund heute und 1940 nach docs/status/Isochronen.png.">
+        <renderer-java klasse="com.dan.lituya.tools.Isochronenbild" args="daten docs/status/Isochronen.png" ausgabe="docs/status/isochronenbild_Phase${lituya.phase}.txt" speicher="-Xmx3g"/>
+        <loadfile property="isochronenbild.text" srcFile="docs/status/isochronenbild_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${isochronenbild.text}"/>
+    </target>
+    <target name="netviewcheck" depends="compile" description="Phase 7: NetviewCheck nach docs/status/netviewcheck_Phase7.txt.">
+        <renderer-java klasse="com.dan.netview.demo.NetviewCheck" ausgabe="docs/status/netviewcheck_Phase${lituya.phase}.txt" speicher="-Xmx1g"/>
+        <loadfile property="netviewcheck.text" srcFile="docs/status/netviewcheck_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${netviewcheck.text}"/>
+    </target>
+    <target name="netviewbild" depends="compile" description="Phase 7: vier Ansichten des Netzblicks nach docs/status/Netzblick.png.">
+        <renderer-java klasse="com.dan.netview.demo.NetviewDemo" args="--bild docs/status/Netzblick.png" ausgabe="docs/status/netviewbild_Phase${lituya.phase}.txt" speicher="-Xmx2g"/>
+        <loadfile property="netviewbild.text" srcFile="docs/status/netviewbild_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${netviewbild.text}"/>
+    </target>
+    <target name="netviewdemo" depends="compile" description="Phase 7: NetviewDemo im Fenster.">
+        <renderer-fenster klasse="com.dan.netview.demo.NetviewDemo" speicher="-Xmx2g"/>
+    </target>
+    <!-- Phase 8 (Werkbuch 5.1, 9.1): das neue Package com.dan.quake aus lib/Renderer.jar. quakecheck: QuakeCheck (Laufzeiten,
+         WELLS94, BSSA14 von Hand, Newmark-Rechteckimpuls, Merian) nach docs/status/quakecheck_Phase8.txt; quakebild: der Bogen
+         von QuakeDemo (Preset fairweather1958) nach docs/status/Quake_Demo.png; quakedemo: Fenster; grollen: das Grollen am
+         Gilbert Inlet als docs/status/Grollen.wav; bebenbild: das Beben über daten/ereignis (Schritt stoerung) nach
+         docs/status/Beben.png mit Newmark je Sicherheitsfaktor. -->
+    <target name="quakecheck" depends="compile" description="Phase 8: QuakeCheck nach docs/status/quakecheck_Phase8.txt.">
+        <renderer-java klasse="com.dan.quake.demo.QuakeCheck" ausgabe="docs/status/quakecheck_Phase${lituya.phase}.txt" speicher="-Xmx1g"/>
+        <loadfile property="quakecheck.text" srcFile="docs/status/quakecheck_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${quakecheck.text}"/>
+    </target>
+    <target name="quakebild" depends="compile" description="Phase 8: QuakeDemo (fairweather1958) nach docs/status/Quake_Demo.png.">
+        <property name="zeit" value="30"/>
+        <renderer-java klasse="com.dan.quake.demo.QuakeDemo" args="--bild docs/status/Quake_Demo.png ${zeit}" ausgabe="docs/status/quakebild_Phase${lituya.phase}.txt" speicher="-Xmx2g"/>
+        <loadfile property="quakebild.text" srcFile="docs/status/quakebild_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${quakebild.text}"/>
+    </target>
+    <target name="quakedemo" depends="compile" description="Phase 8: QuakeDemo im Fenster.">
+        <renderer-fenster klasse="com.dan.quake.demo.QuakeDemo" speicher="-Xmx2g"/>
+    </target>
+    <target name="grollen" depends="compile" description="Phase 8: das Grollen am Gilbert Inlet nach docs/status/Grollen.wav.">
+        <renderer-java klasse="com.dan.quake.demo.QuakeDemo" args="--wav docs/status/Grollen.wav" ausgabe="docs/status/grollen_Phase${lituya.phase}.txt" speicher="-Xmx1g"/>
+    </target>
+    <target name="bebenbild" depends="compile" description="Phase 8: das Beben über daten/ereignis nach docs/status/Beben.png.">
+        <property name="zeit" value="30"/>
+        <renderer-java klasse="com.dan.lituya.tools.Bebenbild" args="daten docs/status/Beben.png ${zeit}" ausgabe="docs/status/bebenbild_Phase${lituya.phase}.txt" speicher="-Xmx2g"/>
+        <loadfile property="bebenbild.text" srcFile="docs/status/bebenbild_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${bebenbild.text}"/>
+    </target>
+    <!-- Phase 9 (Werkbuch 6.2, 9.2): das neue Package com.dan.landslide aus lib/Renderer.jar. landslidecheck: LandslideCheck
+         (Block, Coulomb, Fahrböschung, Volumen, Lituya 96–110 m/s) nach docs/status/landslidecheck_Phase9.txt; landslidebild:
+         der Bogen von LandslideDemo (-Dfall=gilbertInlet1958|vajont1963|spiritLake1980, -Dzeit, -Dqualitaet) nach
+         docs/status/Landslide_Demo.png; landslidedemo: Fenster; fracturecheck: FractureCheck mit der Übergabe (Glacier und Sylt
+         unverändert) nach docs/status/fracturecheck_Phase9.txt; sturz: Auslösung (Newmark mit Entfestigung über daten/ereignis),
+         Abbruch (fracture) und Strom (landslide) nach docs/status/Sturz.png (-Dzeit nach der Auslösung, -Dmodus=zeuge|newmark). -->
+    <target name="landslidecheck" depends="compile" description="Phase 9: LandslideCheck nach docs/status/landslidecheck_Phase9.txt.">
+        <renderer-java klasse="com.dan.landslide.demo.LandslideCheck" ausgabe="docs/status/landslidecheck_Phase${lituya.phase}.txt" speicher="-Xmx3g"/>
+        <loadfile property="landslidecheck.text" srcFile="docs/status/landslidecheck_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${landslidecheck.text}"/>
+    </target>
+    <target name="landslidebild" depends="compile" description="Phase 9: LandslideDemo nach docs/status/Landslide_Demo.png.">
+        <property name="zeit" value="18"/>
+        <property name="fall" value="gilbertInlet1958"/>
+        <property name="qualitaet" value="MEDIUM"/>
+        <renderer-java klasse="com.dan.landslide.demo.LandslideDemo" args="--bild docs/status/Landslide_Demo.png ${zeit} ${fall} ${qualitaet}" ausgabe="docs/status/landslidebild_Phase${lituya.phase}.txt" speicher="-Xmx3g"/>
+        <loadfile property="landslidebild.text" srcFile="docs/status/landslidebild_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${landslidebild.text}"/>
+    </target>
+    <target name="landslidedemo" depends="compile" description="Phase 9: LandslideDemo im Fenster.">
+        <renderer-fenster klasse="com.dan.landslide.demo.LandslideDemo" speicher="-Xmx4g"/>
+    </target>
+    <target name="fracturecheck" depends="compile" description="Phase 9: FractureCheck (mit Übergabe) nach docs/status/fracturecheck_Phase9.txt.">
+        <renderer-java klasse="com.dan.fracture.demo.FractureCheck" ausgabe="docs/status/fracturecheck_Phase${lituya.phase}.txt" speicher="-Xmx2g"/>
+        <loadfile property="fracturecheck.text" srcFile="docs/status/fracturecheck_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${fracturecheck.text}"/>
+    </target>
+    <target name="sturz" depends="compile" description="Phase 9: Auslösung, Abbruch und Strom nach docs/status/Sturz.png.">
+        <property name="zeit" value="18"/>
+        <property name="qualitaet" value="MEDIUM"/>
+        <property name="modus" value="zeuge"/>
+        <renderer-java klasse="com.dan.lituya.tools.Sturz" args="daten docs/status/Sturz.png ${zeit} ${qualitaet} ${modus}" ausgabe="docs/status/sturz_Phase${lituya.phase}.txt" speicher="-Xmx4g"/>
+        <loadfile property="sturz.text" srcFile="docs/status/sturz_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${sturz.text}"/>
+    </target>
+    <!-- Phase 10 (Werkbuch 5.3, 9.3): das neue Package com.dan.impact aus lib/Renderer.jar. impactcheck: ImpactCheck (Becken,
+         Einzelwelle, Mohr-Coulomb, Kanal, Laborfall FRITZ01, -Dqualitaet=MEDIUM rund 10 min, LOW rund 2 min) nach
+         docs/status/impactcheck_Phase10.txt; impactbild: der Bogen von ImpactDemo nach docs/status/Impact_Demo.png (-Dzeit,
+         -Dqualitaet); impactdemo: Fenster; eintauchen: der Strom aus landslide je Meter Breite in den Schnitt, gegen den
+         Laborfall, nach docs/status/Eintauchen.png. -->
+    <target name="impactcheck" depends="compile" description="Phase 10: ImpactCheck nach docs/status/impactcheck_Phase10.txt.">
+        <property name="qualitaet" value="MEDIUM"/>
+        <renderer-java klasse="com.dan.impact.demo.ImpactCheck" args="${qualitaet}" ausgabe="docs/status/impactcheck_Phase${lituya.phase}.txt" speicher="-Xmx3g"/>
+        <loadfile property="impactcheck.text" srcFile="docs/status/impactcheck_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${impactcheck.text}"/>
+    </target>
+    <target name="impactbild" depends="compile" description="Phase 10: ImpactDemo nach docs/status/Impact_Demo.png.">
+        <property name="zeit" value="12"/>
+        <property name="qualitaet" value="MEDIUM"/>
+        <renderer-java klasse="com.dan.impact.demo.ImpactDemo" args="--bild docs/status/Impact_Demo.png ${zeit} ${qualitaet}" ausgabe="docs/status/impactbild_Phase${lituya.phase}.txt" speicher="-Xmx3g"/>
+        <loadfile property="impactbild.text" srcFile="docs/status/impactbild_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${impactbild.text}"/>
+    </target>
+    <target name="impactdemo" depends="compile" description="Phase 10: ImpactDemo im Fenster.">
+        <renderer-fenster klasse="com.dan.impact.demo.ImpactDemo" speicher="-Xmx4g"/>
+    </target>
+    <target name="eintauchen" depends="compile" description="Phase 10: Strom aus landslide in den Schnitt nach docs/status/Eintauchen.png.">
+        <property name="zeit" value="12"/>
+        <property name="qualitaet" value="LOW"/>
+        <property name="strom" value="MEDIUM"/>
+        <renderer-java klasse="com.dan.lituya.tools.Eintauchen" args="docs/status/Eintauchen.png ${zeit} ${qualitaet} ${strom}" ausgabe="docs/status/eintauchen_Phase${lituya.phase}.txt" speicher="-Xmx4g"/>
+        <loadfile property="eintauchen.text" srcFile="docs/status/eintauchen_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${eintauchen.text}"/>
+    </target>
+    <!-- Phase 11 (Werkbuch 6.1, 9.4, 9.5): der neue Löser com.dan.wave.Bay (HLL, geschachtelte Gitter) aus lib/Renderer.jar,
+         das alte Wave unverändert. wavecheck: WaveCheck (alte Zeilen wie vorher, dazu Bucht: Ruhe, Stoker, Synolakis,
+         drei Gitter, Einlass, Laborfall-Auflauf 526 ± 50 m) nach docs/status/wavecheck_Phase11.txt; baybild: der Bogen von
+         BayDemo nach docs/status/Bay_Demo.png (-Dzeit); baydemo: Fenster; auflauf: impact (Laborfall) über Impact.Far in
+         den Schnitt von Bay, gegen die Messwelle (-Dqualitaet=LOW|MEDIUM). -->
+    <target name="wavecheck" depends="compile" description="Phase 11: WaveCheck nach docs/status/wavecheck_Phase11.txt.">
+        <renderer-java klasse="com.dan.wave.demo.WaveCheck" ausgabe="docs/status/wavecheck_Phase${lituya.phase}.txt" speicher="-Xmx3g"/>
+        <loadfile property="wavecheck.text" srcFile="docs/status/wavecheck_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${wavecheck.text}"/>
+    </target>
+    <target name="baybild" depends="compile" description="Phase 11: BayDemo nach docs/status/Bay_Demo.png.">
+        <property name="zeit" value="24"/>
+        <renderer-java klasse="com.dan.wave.demo.BayDemo" args="--bild docs/status/Bay_Demo.png ${zeit}" ausgabe="docs/status/baybild_Phase${lituya.phase}.txt" speicher="-Xmx3g"/>
+        <loadfile property="baybild.text" srcFile="docs/status/baybild_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${baybild.text}"/>
+    </target>
+    <target name="baydemo" depends="compile" description="Phase 11: BayDemo im Fenster.">
+        <renderer-fenster klasse="com.dan.wave.demo.BayDemo" speicher="-Xmx4g"/>
+    </target>
+    <target name="auflauf" depends="compile" description="Phase 11: impact über Impact.Far in Bay, Auflauf am Gegenhang.">
+        <property name="qualitaet" value="LOW"/>
+        <renderer-java klasse="com.dan.lituya.tools.Auflauf" args="${qualitaet}" ausgabe="docs/status/auflauf_Phase${lituya.phase}.txt" speicher="-Xmx3g"/>
+        <loadfile property="auflauf.text" srcFile="docs/status/auflauf_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${auflauf.text}"/>
+    </target>
+    <!-- Phase 11b (Werkbuch 6.1, 15.2): wave.Bay auf der Grafikkarte (com.dan.wave.gl.BayGpu, Compute Shader bay_*.comp)
+         aus lib/Renderer.jar. baygpucheck: BayGpuCheck, Prozessor (double) gegen Grafikkarte (float) mit denselben Schritten:
+         ruhender See mit Insel, Dammbruch nach Stoker, Fjordbucht in drei Gittern, Laborfall bis 50 s (auch mit eigenem
+         Zeitschritt), dazu die Rechenzeiten je Gitter (Tabelle 15.2) nach docs/status/baygpucheck_Phase11b.txt. -->
+    <target name="baygpucheck" depends="compile" description="Phase 11b: BayGpuCheck nach docs/status/baygpucheck_Phase11b.txt.">
+        <renderer-java klasse="com.dan.wave.demo.BayGpuCheck" ausgabe="docs/status/baygpucheck_Phase${lituya.phase}.txt" speicher="-Xmx3g"/>
+        <loadfile property="baygpucheck.text" srcFile="docs/status/baygpucheck_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${baygpucheck.text}"/>
+    </target>
+    <!-- Phase 12 (Werkbuch 5.4, 5.5, 9.2): die neuen Packages com.dan.dustcloud (Staubwolke als Schwerestrom) und
+         com.dan.debris (Treibgut: Stämme als Körper, Holzteppich als Feld) aus lib/Renderer.jar. staubcheck, treibgutcheck:
+         DustcloudCheck und DebrisCheck nach docs/status/…_Phase12.txt; staubbild, treibgutbild: die Bögen der Demos nach
+         docs/status/Staub_Demo.png und Treibgut_Demo.png; staubdemo, treibgutdemo: Fenster; treibgut: wave.Bay (Fjordbucht)
+         treibt 300 Stämme vom Hang (docs/status/Treibgut.png, -Dzeit); staubwolke: landslide (Gilbert Inlet) gibt Staub an
+         dustcloud (docs/status/Staubwolke.png, -Dzeit, -Dqualitaet). -->
+    <target name="staubcheck" depends="compile" description="Phase 12: DustcloudCheck nach docs/status/staubcheck_Phase12.txt.">
+        <renderer-java klasse="com.dan.dustcloud.demo.DustcloudCheck" ausgabe="docs/status/staubcheck_Phase${lituya.phase}.txt" speicher="-Xmx2g"/>
+        <loadfile property="staubcheck.text" srcFile="docs/status/staubcheck_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${staubcheck.text}"/>
+    </target>
+    <target name="treibgutcheck" depends="compile" description="Phase 12: DebrisCheck nach docs/status/treibgutcheck_Phase12.txt.">
+        <renderer-java klasse="com.dan.debris.demo.DebrisCheck" ausgabe="docs/status/treibgutcheck_Phase${lituya.phase}.txt" speicher="-Xmx2g"/>
+        <loadfile property="treibgutcheck.text" srcFile="docs/status/treibgutcheck_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${treibgutcheck.text}"/>
+    </target>
+    <target name="staubbild" depends="compile" description="Phase 12: DustcloudDemo nach docs/status/Staub_Demo.png.">
+        <property name="zeit" value="240"/>
+        <renderer-java klasse="com.dan.dustcloud.demo.DustcloudDemo" args="--bild docs/status/Staub_Demo.png ${zeit}" ausgabe="docs/status/staubbild_Phase${lituya.phase}.txt" speicher="-Xmx2g"/>
+        <loadfile property="staubbild.text" srcFile="docs/status/staubbild_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${staubbild.text}"/>
+    </target>
+    <target name="treibgutbild" depends="compile" description="Phase 12: DebrisDemo nach docs/status/Treibgut_Demo.png.">
+        <property name="zeit" value="1800"/>
+        <renderer-java klasse="com.dan.debris.demo.DebrisDemo" args="--bild docs/status/Treibgut_Demo.png ${zeit}" ausgabe="docs/status/treibgutbild_Phase${lituya.phase}.txt" speicher="-Xmx2g"/>
+        <loadfile property="treibgutbild.text" srcFile="docs/status/treibgutbild_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${treibgutbild.text}"/>
+    </target>
+    <target name="staubdemo" depends="compile" description="Phase 12: DustcloudDemo im Fenster.">
+        <renderer-fenster klasse="com.dan.dustcloud.demo.DustcloudDemo" speicher="-Xmx2g"/>
+    </target>
+    <target name="treibgutdemo" depends="compile" description="Phase 12: DebrisDemo im Fenster.">
+        <renderer-fenster klasse="com.dan.debris.demo.DebrisDemo" speicher="-Xmx2g"/>
+    </target>
+    <target name="treibgut" depends="compile" description="Phase 12: Fjordbucht (wave.Bay) treibt Stämme vom Hang, docs/status/Treibgut.png.">
+        <property name="zeit" value="60"/>
+        <renderer-java klasse="com.dan.lituya.tools.Treibgut" args="docs/status/Treibgut.png ${zeit}" ausgabe="docs/status/treibgut_Phase${lituya.phase}.txt" speicher="-Xmx3g"/>
+        <loadfile property="treibgut.text" srcFile="docs/status/treibgut_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${treibgut.text}"/>
+    </target>
+    <target name="staubwolke" depends="compile" description="Phase 12: Sturz (landslide) gibt Staub an dustcloud, docs/status/Staubwolke.png.">
+        <property name="zeit" value="300"/>
+        <property name="qualitaet" value="LOW"/>
+        <renderer-java klasse="com.dan.lituya.tools.Staubwolke" args="docs/status/Staubwolke.png ${zeit} ${qualitaet}" ausgabe="docs/status/staubwolke_Phase${lituya.phase}.txt" speicher="-Xmx3g"/>
+        <loadfile property="staubwolke.text" srcFile="docs/status/staubwolke_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${staubwolke.text}"/>
+    </target>
+    <!-- Phase 13 (Werkbuch 4.4, 6.1, 9.4, 9.5): das Ereignis vorgerechnet. ereignis: impact (Laborfall) gibt bei 885 m an
+         eine Linie quer über den Gilbert Inlet, wave.Bay rechnet in drei Gittern über den Kern auf dem Grund von 1958
+         (Lauf kette), dasselbe mit der Messwelle FRITZ01 (Lauf messwelle), dazu der Felssturz und seine Staubwolke (Lauf
+         staub); nach daten/ereignis/<lauf>/ und docs/status/Ereignis_<lauf>.png. -Dlauf=alle|beide|kette|messwelle|staub,
+         -Dqualitaet=LOW|MEDIUM (32/8/4 oder 16/4/2 m), -Dzeit (s Welle), -Drechner=gpu|cpu, -Dpegel (m NAVD88). -->
+    <target name="ereignis" depends="compile" description="Phase 13: Vorrechnung des Ereignisses nach daten/ereignis und docs/status/Ereignis_*.png.">
+        <property name="lauf" value="alle"/>
+        <property name="qualitaet" value="MEDIUM"/>
+        <property name="zeit" value="600"/>
+        <property name="rechner" value="gpu"/>
+        <property name="pegel" value="0"/>
+        <renderer-java klasse="com.dan.lituya.tools.Ereignis" args="daten ${lauf} ${qualitaet} ${zeit} ${rechner} ${pegel}" ausgabe="docs/status/ereignis_Phase${lituya.phase}_${lauf}_${qualitaet}.txt" speicher="-Xmx6g"/>
+        <loadfile property="ereignis.text" srcFile="docs/status/ereignis_Phase${lituya.phase}_${lauf}_${qualitaet}.txt" encoding="UTF-8"/>
+        <echo message="${ereignis.text}"/>
+    </target>
+    <!-- Phase 13a (Werkbuch 7.2, 9.5, 9.6, 2.2): vergleich: die vorgerechneten Läufe (daten/ereignis/kette, messwelle)
+         gegen LB_NET_UFER (belegte Aufläufe), LB_NET_WELLE (Ankunft) und die Zeitleiste; schreibt
+         daten/netz/ufer/spurlinie_<lauf>.tsv (ant netzdb lädt sie nach LB_SPURLINIE_LRS) und docs/status/Vergleich.png. -->
+    <target name="vergleich" depends="compile" description="Phase 13a: Spurlinie gerechnet gegen belegt, Ankunft gegen LB_NET_WELLE.">
+        <property name="laeufe" value="kette,messwelle"/>
+        <renderer-java klasse="com.dan.lituya.tools.Vergleich" args="daten ${laeufe}" ausgabe="docs/status/vergleich_Phase${lituya.phase}.txt" speicher="-Xmx4g"/>
+        <loadfile property="vergleich.text" srcFile="docs/status/vergleich_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${vergleich.text}"/>
+    </target>
+    <!-- Phase 13b (Werkbuch 10.3, 4.4): schaustuecke: Standbilder der Schaustücke 2 bis 7 aus der Vorrechnung
+         (daten/ereignis) nach docs/status/Schaustueck_<n>_Phase13b.png, volles HUD mit den Zeiten jedes Durchgangs (Welle,
+         Staub); Ausgabe in docs/status/schaustuecke_Phase13b.txt. -Dlauf=messwelle wählt den Lauf der Welle,
+         -Dereignis=<s> eine andere Zeit für alle. Auf der Radeon laufen lassen. -->
+    <macrodef name="schaustueck">
+        <attribute name="nr"/>
+        <attribute name="liste" default="schaustuecke"/>
+        <sequential>
+            <java classname="com.dan.lituya.tools.Tempo" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="false" output="docs/status/@{liste}_Phase${lituya.phase}.txt" append="true" logError="true">
+                <jvmarg value="-Dstdout.encoding=UTF-8"/>
+                <jvmarg value="--enable-native-access=ALL-UNNAMED"/>
+                <jvmarg value="-Xmx6g"/>
+                <jvmarg value="-Dhud=voll"/>
+                <jvmarg value="-Dschaustueck=@{nr}"/>
+                <jvmarg value="-Dlauf=${lauf}"/>
+                <jvmarg value="-Dereignis=${ereignis}"/>
+                <arg line="60 1920 1080 docs/status/Schaustueck_@{nr}_Phase${lituya.phase}.png MITTEL"/>
+                <classpath><pathelement path="${run.classpath}"/></classpath>
+            </java>
+        </sequential>
+    </macrodef>
+    <target name="schaustuecke" depends="jar" description="Phase 13b/14a: Standbilder und Zeiten der Schaustücke 2 bis 7, 10 und 11 (docs/status/Schaustueck_*.png).">
+        <property name="platform.java" value="java"/>
+        <property name="lauf" value="kette"/>
+        <property name="ereignis" value=""/>
+        <delete file="docs/status/schaustuecke_Phase${lituya.phase}.txt" quiet="true"/>
+        <schaustueck nr="2"/>
+        <schaustueck nr="3"/>
+        <schaustueck nr="4"/>
+        <schaustueck nr="5"/>
+        <schaustueck nr="6"/>
+        <schaustueck nr="7"/>
+        <schaustueck nr="10"/>
+        <schaustueck nr="11"/>
+        <loadfile property="schaustuecke.text" srcFile="docs/status/schaustuecke_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${schaustuecke.text}"/>
+    </target>
+    <!-- Phase 13c (Werkbuch 4.4, 14): echtzeit: Abnahme „Was wäre wenn“ in Echtzeit (LOW) ohne Fenster in Full HD; die Uhr
+         läuft ab 93 s in Echtzeit, die Welle rechnet hinter ihr her. Zwei Läufe: die Wand von 1958 (Ganglinie der Kette,
+         Blick wie Schaustück 6) und der Nordhang des Crillon Inlet (Impuls-Quelle). Ausgabe docs/status/echtzeit_Phase13c.txt,
+         Bilder Echtzeit_Phase13c_<ort>_a/b.png. -Dsekunden=90, -Dvolumen=30.6, -Dgrund=1940|heute, -Dtide=0.
+         Vorher einmal ant ereignis -Dlauf=linie (Ganglinie der Kette, rund 1 min), sonst rechnet die App sie beim ersten Mal. -->
+    <macrodef name="echtzeitlauf">
+        <attribute name="ort"/>
+        <sequential>
+            <java classname="com.dan.lituya.tools.EchtzeitTempo" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="false" output="docs/status/echtzeit_Phase${lituya.phase}.txt" append="true" logError="true">
+                <jvmarg value="-Dstdout.encoding=UTF-8"/>
+                <jvmarg value="--enable-native-access=ALL-UNNAMED"/>
+                <jvmarg value="-Xmx8g"/>
+                <arg line="${sekunden} @{ort} ${volumen} ${grund} ${tide}"/>
+                <classpath><pathelement path="${run.classpath}"/></classpath>
+            </java>
+        </sequential>
+    </macrodef>
+    <target name="echtzeit" depends="jar" description="Phase 13c: Was wäre wenn in Echtzeit (LOW), Bilder je Sekunde und Rückstand der Rechnung.">
+        <property name="platform.java" value="java"/>
+        <property name="sekunden" value="90"/>
+        <property name="volumen" value="30.6"/>
+        <property name="grund" value="1940"/>
+        <property name="tide" value="0"/>
+        <delete file="docs/status/echtzeit_Phase${lituya.phase}.txt" quiet="true"/>
+        <echtzeitlauf ort="0"/>
+        <echtzeitlauf ort="2"/>
+        <loadfile property="echtzeit.text" srcFile="docs/status/echtzeit_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${echtzeit.text}"/>
+    </target>
+    <!-- Phase 14 (Werkbuch 5.6, 9.7): succession im Renderer; Prüfung ohne Fenster, dazu ForestGpuCheck (Nachwuchs in
+         TreeStates, fünfter Blick); die Vorführung mit forest steht in der App (tools.Wiederbewaldung), weil ein Package
+         kein anderes kennt: im Fenster (Jahresregler, Zeitraffer 68 Jahre in einer Minute) oder als zwei Bögen der
+         Jahre 0, 10, 30, 68 nach docs/status/Wiederbewaldung_Spurlinie.png und Wiederbewaldung_Band.png. -->
+    <target name="successioncheck" depends="compile" description="Phase 14: SuccessionCheck und ForestGpuCheck nach docs/status/successioncheck_Phase14.txt.">
+        <renderer-java klasse="com.dan.succession.demo.SuccessionCheck" ausgabe="docs/status/successioncheck_Phase${lituya.phase}.txt" speicher="-Xmx2g"/>
+        <renderer-java klasse="com.dan.forest.demo.ForestGpuCheck" ausgabe="docs/status/successioncheck_gpu_Phase${lituya.phase}.txt"/>
+        <concat destfile="docs/status/successioncheck_Phase${lituya.phase}.txt" append="true" encoding="UTF-8" outputencoding="UTF-8">
+            <header>&#10;--- ForestGpuCheck (Grafikkarte, mit Nachwuchs)&#10;</header>
+            <fileset file="docs/status/successioncheck_gpu_Phase${lituya.phase}.txt"/>
+        </concat>
+        <delete file="docs/status/successioncheck_gpu_Phase${lituya.phase}.txt"/>
+        <loadfile property="successioncheck.text" srcFile="docs/status/successioncheck_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${successioncheck.text}"/>
+    </target>
+    <target name="wiederbewaldungbild" depends="compile" description="Phase 14: Bögen der Wiederbewaldung (Jahre 0, 10, 30, 68) nach docs/status/Wiederbewaldung_*.png.">
+        <renderer-java klasse="com.dan.lituya.tools.Wiederbewaldung" args="--bild docs/status/Wiederbewaldung_Spurlinie.png 2" ausgabe="docs/status/wiederbewaldung_Phase${lituya.phase}.txt" speicher="-Xmx4g"/>
+        <renderer-java klasse="com.dan.lituya.tools.Wiederbewaldung" args="--bild docs/status/Wiederbewaldung_Band.png 1" ausgabe="docs/status/wiederbewaldung_band_Phase${lituya.phase}.txt" speicher="-Xmx4g"/>
+        <concat destfile="docs/status/wiederbewaldung_Phase${lituya.phase}.txt" append="true" encoding="UTF-8" outputencoding="UTF-8">
+            <fileset file="docs/status/wiederbewaldung_band_Phase${lituya.phase}.txt"/>
+        </concat>
+        <delete file="docs/status/wiederbewaldung_band_Phase${lituya.phase}.txt"/>
+        <loadfile property="wiederbewaldung.text" srcFile="docs/status/wiederbewaldung_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${wiederbewaldung.text}"/>
+    </target>
+    <target name="wiederbewaldung" depends="compile" description="Phase 14: Wiederbewaldung im Fenster (succession + forest).">
+        <renderer-fenster klasse="com.dan.lituya.tools.Wiederbewaldung" speicher="-Xmx4g"/>
+    </target>
+    <!-- Phase 14a (Werkbuch 3.4, 5.5, 5.6, 9.7, 10.3): der Wald in der Szene.
+         ant aufbereitung -Dschritte=wald: Kronenhöhe ArcticDEM − Gelände nach daten/wald (braucht download/hoehe/arcticdem_10m).
+         treibgut1958: das Treibgut der Welle bis zum Morgen nach daten/ereignis/treibgut (rund 2 min).
+         waldkarte: Karte des Bands 1958 mit den Folgen der Welle und dem Treibgut (docs/status/Wald1958.png) und heute.
+         waldszene: Schaustücke 10 und 11 mit Zeiten (docs/status/waldszene_Phase14a.txt, Schaustueck_10/11_*.png). -->
+    <target name="treibgut1958" depends="compile" description="Phase 14a: Treibgut der Welle 1958 bis zum Morgen nach daten/ereignis/treibgut.">
+        <renderer-java klasse="com.dan.lituya.tools.Treibgut1958" args="daten" ausgabe="docs/status/treibgut1958_Phase${lituya.phase}.txt" speicher="-Xmx6g"/>
+        <loadfile property="treibgut1958.text" srcFile="docs/status/treibgut1958_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${treibgut1958.text}"/>
+    </target>
+    <target name="waldkarte" depends="compile" description="Phase 14a: Karte des Walds (Band 1958, Folgen, Treibgut; heute) nach docs/status/Wald1958*.png.">
+        <renderer-java klasse="com.dan.lituya.tools.Waldkarte" args="daten docs/status/Wald1958.png 0" ausgabe="docs/status/waldkarte_Phase${lituya.phase}.txt" speicher="-Xmx6g"/>
+        <renderer-java klasse="com.dan.lituya.tools.Waldkarte" args="daten docs/status/Wald1958_2025.png 67" ausgabe="docs/status/waldkarte_heute_Phase${lituya.phase}.txt" speicher="-Xmx6g"/>
+        <concat destfile="docs/status/waldkarte_Phase${lituya.phase}.txt" append="true" encoding="UTF-8" outputencoding="UTF-8">
+            <fileset file="docs/status/waldkarte_heute_Phase${lituya.phase}.txt"/>
+        </concat>
+        <delete file="docs/status/waldkarte_heute_Phase${lituya.phase}.txt"/>
+        <loadfile property="waldkarte.text" srcFile="docs/status/waldkarte_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${waldkarte.text}"/>
+    </target>
+    <target name="waldszene" depends="jar" description="Phase 14a: Schaustücke 10 und 11 (Wald, Treibgut, 68 Jahre) mit Zeiten.">
+        <property name="platform.java" value="java"/>
+        <property name="lauf" value="kette"/>
+        <property name="ereignis" value=""/>
+        <delete file="docs/status/waldszene_Phase${lituya.phase}.txt" quiet="true"/>
+        <schaustueck nr="10" liste="waldszene"/>
+        <schaustueck nr="11" liste="waldszene"/>
+        <loadfile property="waldszene.text" srcFile="docs/status/waldszene_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${waldszene.text}"/>
+    </target>
+    <!-- Phase 15 (Werkbuch 5.9, 2.3): com.dan.vessel – Kutter als Starrkörper, Ankerkette aus Massenpunkten, die Edrie in
+         einer Einzelwelle. vesselcheck: VesselCheck nach docs/status/vesselcheck_Phase15.txt; vesselbild: der Bogen der
+         Vorführung nach docs/status/Vessel_Demo.png (Grafikkarte); vesseldemo: im Fenster. -->
+    <target name="vesselcheck" depends="compile" description="Phase 15: VesselCheck nach docs/status/vesselcheck_Phase15.txt.">
+        <renderer-java klasse="com.dan.vessel.demo.VesselCheck" ausgabe="docs/status/vesselcheck_Phase${lituya.phase}.txt" speicher="-Xmx2g"/>
+        <loadfile property="vesselcheck.text" srcFile="docs/status/vesselcheck_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${vesselcheck.text}"/>
+    </target>
+    <target name="vesselbild" depends="compile" description="Phase 15: VesselDemo (Edrie in der Welle) nach docs/status/Vessel_Demo.png.">
+        <renderer-java klasse="com.dan.vessel.demo.VesselDemo" args="--bild docs/status/Vessel_Demo.png" ausgabe="docs/status/vesselbild_Phase${lituya.phase}.txt" speicher="-Xmx2g"/>
+        <loadfile property="vesselbild.text" srcFile="docs/status/vesselbild_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${vesselbild.text}"/>
+    </target>
+    <target name="vesseldemo" depends="compile" description="Phase 15: VesselDemo im Fenster.">
+        <renderer-fenster klasse="com.dan.vessel.demo.VesselDemo" speicher="-Xmx2g"/>
+    </target>
+    <!-- Phase 18a (Werkbuch 5.14): com.dan.bear im Renderer. bearcheck: BearCheck nach docs/status/bearcheck_Phase18a.txt;
+         bearbild: Gangarten, Haltungen und die Demobucht nach docs/status/Bear_Demo.png (ohne Grafikkarte);
+         bearglbild: dieselben Haltungen mit gl/BearGl nach docs/status/Bear_GL.png (Grafikkarte); beardemo: im Fenster. -->
+    <target name="bearcheck" depends="compile" description="Phase 18a: BearCheck nach docs/status/bearcheck_Phase18a.txt.">
+        <renderer-java klasse="com.dan.bear.demo.BearCheck" ausgabe="docs/status/bearcheck_Phase${lituya.phase}.txt" speicher="-Xmx2g"/>
+        <loadfile property="bearcheck.text" srcFile="docs/status/bearcheck_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${bearcheck.text}"/>
+    </target>
+    <target name="bearbild" depends="compile" description="Phase 18a: BearDemo --bild nach docs/status/Bear_Demo.png.">
+        <renderer-java klasse="com.dan.bear.demo.BearDemo" args="--bild docs/status/Bear_Demo.png" ausgabe="docs/status/bearbild_Phase${lituya.phase}.txt" speicher="-Xmx2g"/>
+        <loadfile property="bearbild.text" srcFile="docs/status/bearbild_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${bearbild.text}"/>
+    </target>
+    <target name="bearglbild" depends="compile" description="Phase 18a: die Haltungen mit gl/BearGl nach docs/status/Bear_GL.png.">
+        <renderer-java klasse="com.dan.bear.demo.BearDemo" args="--glbild docs/status/Bear_GL.png" ausgabe="docs/status/bearglbild_Phase${lituya.phase}.txt" speicher="-Xmx2g"/>
+        <loadfile property="bearglbild.text" srcFile="docs/status/bearglbild_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${bearglbild.text}"/>
+    </target>
+    <target name="beardemo" depends="compile" description="Phase 18a: BearDemo im Fenster.">
+        <renderer-fenster klasse="com.dan.bear.demo.BearDemo" speicher="-Xmx2g"/>
+    </target>
+    <!-- Phase 15a (Werkbuch 7.3, 10.3): die Boote in der Szene und LB_NET_SEE.
+         Vorher ant ereignis -Dlauf=kette (und messwelle) neu: seit 15a schreibt die Vorrechnung die Strömung mit.
+         boote1958: Edrie, Badger, Sunmore mit vessel über der Vorrechnung nach daten/ereignis/boote/<lauf> (-Dlauf=kette).
+         ant aufbereitung -Dschritte=see: LB_NET_SEE als Datei nach daten/netz/see mit der Flucht (flucht.tsv, wege.tsv).
+         fluchtkarte: „Wer hätte entkommen können?“ nach docs/status/Flucht.png. ant netzdb lädt LB_NET_SEE und LB_FLUCHT. -->
+    <target name="boote1958" depends="compile" description="Phase 15a: die drei Troller in der vorgerechneten Welle nach daten/ereignis/boote.">
+        <property name="lauf" value="kette"/>
+        <renderer-java klasse="com.dan.lituya.tools.Boote1958" args="daten ${lauf}" ausgabe="docs/status/boote1958_Phase${lituya.phase}_${lauf}.txt" speicher="-Xmx6g"/>
+        <loadfile property="boote1958.text" srcFile="docs/status/boote1958_Phase${lituya.phase}_${lauf}.txt" encoding="UTF-8"/>
+        <echo message="${boote1958.text}"/>
+    </target>
+    <target name="fluchtkarte" depends="compile" description="Phase 15a: Flucht vor der Front (daten/netz/see) nach docs/status/Flucht.png.">
+        <renderer-java klasse="com.dan.lituya.tools.Fluchtkarte" args="daten docs/status/Flucht.png" ausgabe="docs/status/fluchtkarte_Phase${lituya.phase}.txt" speicher="-Xmx2g"/>
+        <loadfile property="fluchtkarte.text" srcFile="docs/status/fluchtkarte_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${fluchtkarte.text}"/>
+    </target>
+    <!-- Phase 16 (Werkbuch 7.4): ant aufbereitung -Dschritte=wasser schreibt LB_NET_WASSER als Datei nach daten/netz/wasser
+         (Bäche, Gletscher, Teileinzugsgebiete; braucht daten/gelaende/szene_5m, download/gletscher/rgi7, wahlweise ITS_LIVE).
+         wasserkarte: „Welche Fläche entwässert in die Bucht?“ nach docs/status/Wasser.png. ant netzdb lädt LB_NET_WASSER,
+         LB_EINZUG, LB_SEE und LB_SENKE und rechnet LOD und CONNECT BY gegen die Dateien. -->
+    <target name="wasserkarte" depends="compile" description="Phase 16: Einzugsgebiete, Bäche und Gletscher (daten/netz/wasser) nach docs/status/Wasser.png.">
+        <renderer-java klasse="com.dan.lituya.tools.Wasserkarte" args="daten docs/status/Wasser.png" ausgabe="docs/status/wasserkarte_Phase${lituya.phase}.txt" speicher="-Xmx2g"/>
+        <loadfile property="wasserkarte.text" srcFile="docs/status/wasserkarte_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${wasserkarte.text}"/>
+    </target>
+    <!-- Phase 16a (Werkbuch 7.5): ant aufbereitung -Dschritte=klassen+weg schreibt die Geländeklassen (daten/klassen) und
+         LB_NET_WEG (daten/netz/weg, binär). wegkarte: 1 h vom Strand und Washburn 1934 nach docs/status/Weg.png.
+         ant wegdb lädt LB_NET_WEG (Millionen Kanten); ant netzdb lässt es stehen (Phase 16b). -->
+    <!-- Phase 16b: LB_NET_WEG für sich (97_weg_abbau, 11, Laden, 12, Prüfung, LB_LANDFLUCHT); braucht ein Schema aus ant netzdb. -->
+    <target name="wegdb" depends="compile" description="Phase 16b: LB_NET_WEG nach Oracle laden und prüfen (eigenes Ziel, lange).">
+        <property name="platform.java" value="java"/>
+        <java classname="com.dan.lituya.tools.NetzDb" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="true">
+            <jvmarg value="-Dstdout.encoding=UTF-8"/>
+            <jvmarg value="-Djava.awt.headless=true"/>
+            <jvmarg value="-Xmx12g"/>
+            <arg value="weg"/>
+            <classpath><pathelement location="lib/Renderer.jar"/><pathelement path="${run.classpath}"/></classpath>
+        </java>
+    </target>
+    <target name="wegkarte" depends="compile" description="Phase 16a: Geländeklassen, 1 h vom Strand und Washburn 1934 (daten/netz/weg) nach docs/status/Weg.png.">
+        <renderer-java klasse="com.dan.lituya.tools.Wegkarte" args="daten docs/status/Weg.png" ausgabe="docs/status/wegkarte_Phase${lituya.phase}.txt" speicher="-Xmx3g"/>
+        <loadfile property="wegkarte.text" srcFile="docs/status/wegkarte_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${wegkarte.text}"/>
+    </target>
+    <!-- ================================================================== Phase 20: Schliff
+         symbol: das Programmsymbol (ui.AppIcon) als PNGs ins Jar und als icon/LituyaBay1958.ico.
+         verknuepfung: start.cmd und Verknüpfungen auf dem Desktop und im Startmenü (javaw ohne Konsole, im Projektordner,
+         mit dem Symbol); -Dwo=desktop|startmenue|beide.
+         film: ein Regiebuch als MP4 (ohne Fenster, fester Zeitschritt, Klang offline; ffmpeg aus dem PATH oder -Dffmpeg=…,
+         sonst PNG-Bilder und WAV); -Dbuch=Name, -Dqualitaet=HOCH, -Dpreset=veryfast (slow: beste Güte), -Dbis=Sekunden.
+         auslagerung: daten/ gegen INHALT.txt, Regel 3.3, Kartenmaterial nach inventar.csv, docs/QUELLEN.md; mit
+         -Dziel=E:\… nach dem Verschieben auch daten/rohdaten.properties.
+         auslagerungsprobe: download/ kurz umbenannt, dann Prüfung und Statusbild; danach wieder zurück.
+         qualitaet: Tempo je Stufe und drei Ansichten, Tabelle für das Werkbuch 15.
+         dauerlauf: die Regiebücher immer wieder im Kino, je Minute eine Zeile; -Dminuten=60 (über Nacht 480). -->
+    <target name="symbol" depends="compile" description="Phase 20: Programmsymbol nach src/com/dan/lituya/ui/icon und icon/LituyaBay1958.ico.">
+        <property name="platform.java" value="java"/>
+        <java classname="com.dan.lituya.tools.Symbol" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="true">
+            <jvmarg value="-Dstdout.encoding=UTF-8"/>
+            <jvmarg value="-Djava.awt.headless=true"/>
+            <arg value="src/com/dan/lituya/ui/icon"/>
+            <arg value="icon/LituyaBay1958.ico"/>
+            <classpath><pathelement path="${run.classpath}"/></classpath>
+        </java>
+    </target>
+    <target name="verknuepfung" depends="jar" description="Phase 20: start.cmd und Verknüpfungen (Desktop, Startmenü) mit dem Symbol; -Dwo=desktop|startmenue|beide.">
+        <property name="wo" value="beide"/>
+        <fail message="icon/LituyaBay1958.ico fehlt: erst ant symbol">
+            <condition><not><available file="icon/LituyaBay1958.ico"/></not></condition>
+        </fail>
+        <pathconvert property="start.cp" pathsep=";" dirsep="\">
+            <path><pathelement location="${dist.jar}"/><pathelement path="${javac.classpath}"/></path>
+            <map from="${basedir}${file.separator}" to=""/>
+        </pathconvert>
+        <property name="start.javaw" location="${platform.home}/bin/javaw.exe"/>
+        <property name="start.args" value="${run.jvmargs} -Dlituya.start=verknuepfung -cp &quot;${start.cp}&quot; ${main.class}"/>
+        <echo file="start.cmd" encoding="UTF-8">@echo off&#13;&#10;rem LituyaBay1958 starten (Phase 20, ant verknuepfung): javaw ohne Konsole im Projektordner.&#13;&#10;cd /d "%~dp0"&#13;&#10;start "Lituya Bay 1958" "${start.javaw}" ${start.args}&#13;&#10;</echo>
+        <mkdir dir="build"/>
+        <echo file="build/verknuepfung.txt" encoding="UTF-8">${start.javaw}&#10;${start.args}&#10;${basedir}&#10;${basedir}\icon\LituyaBay1958.ico&#10;Lituya Bay 1958&#10;</echo>
+        <exec executable="powershell" failonerror="true">
+            <arg value="-NoProfile"/>
+            <arg value="-ExecutionPolicy"/>
+            <arg value="Bypass"/>
+            <arg value="-File"/>
+            <arg file="tools/verknuepfung.ps1"/>
+            <arg value="-Datei"/>
+            <arg file="build/verknuepfung.txt"/>
+            <arg value="-Wo"/>
+            <arg value="${wo}"/>
+        </exec>
+        <echo message="start.cmd im Projektordner; Ziel ${start.javaw}"/>
+    </target>
+    <target name="film" depends="jar" description="Phase 20: ein Regiebuch als Film nach docs/film (MP4 mit Ton); -Dbuch=Name.">
+        <property name="platform.java" value="java"/>
+        <property name="buch" value="Zehn Minuten"/>
+        <property name="qualitaet" value="HOCH"/>
+        <property name="preset" value="veryfast"/>
+        <property name="crf" value="18"/>
+        <property name="bis" value="0"/>
+        <property name="ffmpeg" value=""/>
+        <property name="breite" value="1920"/>
+        <property name="hoehe" value="1080"/>
+        <mkdir dir="docs/film"/>
+        <java classname="com.dan.lituya.tools.Film" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="true" output="docs/status/film_Phase${lituya.phase}.txt" append="true" logError="true">
+            <jvmarg value="-Dstdout.encoding=UTF-8"/>
+            <jvmarg value="--enable-native-access=ALL-UNNAMED"/>
+            <jvmarg value="-Xmx10g"/>
+            <jvmarg value="-Dregiebuch=${buch}"/>
+            <jvmarg value="-Dqualitaet=${qualitaet}"/>
+            <jvmarg value="-Dpreset=${preset}"/>
+            <jvmarg value="-Dcrf=${crf}"/>
+            <jvmarg value="-Dbis=${bis}"/>
+            <jvmarg value="-Dffmpeg=${ffmpeg}"/>
+            <jvmarg value="-Dbreite=${breite}"/>
+            <jvmarg value="-Dhoehe=${hoehe}"/>
+            <classpath><pathelement path="${run.classpath}"/></classpath>
+        </java>
+        <loadfile property="film.text" srcFile="docs/status/film_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${film.text}"/>
+    </target>
+    <target name="auslagerung" depends="compile" description="Phase 20: daten/ und Kartenmaterial prüfen, docs/QUELLEN.md; -Dziel=E:\… nach dem Verschieben.">
+        <property name="platform.java" value="java"/>
+        <property name="ziel" value=""/>
+        <property name="sha" value="ja"/>
+        <java classname="com.dan.lituya.tools.Auslagerung" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="true" output="docs/status/auslagerung_Phase${lituya.phase}.txt" logError="true">
+            <jvmarg value="-Dstdout.encoding=UTF-8"/>
+            <jvmarg value="-Djava.awt.headless=true"/>
+            <jvmarg value="-Dziel=${ziel}"/>
+            <jvmarg value="-Dsha=${sha}"/>
+            <classpath><pathelement path="${run.classpath}"/></classpath>
+        </java>
+        <loadfile property="auslagerung.text" srcFile="docs/status/auslagerung_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${auslagerung.text}"/>
+    </target>
+    <target name="auslagerungsprobe" depends="jar,compile-test" description="Phase 20: Prüfung und Statusbild ohne download/ (kurz umbenannt).">
+        <property name="platform.java" value="java"/>
+        <available file="download" type="dir" property="download.da"/>
+        <antcall target="-download-weg"/>
+        <java classname="com.dan.lituya.test.Pruefung" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="false" resultproperty="probe.pruefung"
+              output="docs/status/auslagerungsprobe_Phase${lituya.phase}.txt" logError="true">
+            <jvmarg value="-Dstdout.encoding=UTF-8"/>
+            <jvmarg value="-Djava.awt.headless=true"/>
+            <jvmarg value="-Xmx6g"/>
+            <classpath><pathelement path="${run.test.classpath}"/></classpath>
+        </java>
+        <java classname="com.dan.lituya.tools.Tempo" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="false" resultproperty="probe.bild"
+              output="docs/status/auslagerungsprobe_Phase${lituya.phase}.txt" append="true" logError="true">
+            <jvmarg value="-Dstdout.encoding=UTF-8"/>
+            <jvmarg value="--enable-native-access=ALL-UNNAMED"/>
+            <jvmarg value="-Xmx6g"/>
+            <jvmarg value="-Dhud=voll"/>
+            <jvmarg value="-Dschaustueck=6"/>
+            <arg line="60 1920 1080 docs/status/Ohne_download_Phase${lituya.phase}.png MITTEL"/>
+            <classpath><pathelement path="${run.classpath}"/></classpath>
+        </java>
+        <antcall target="-download-zurueck"/>
+        <loadfile property="probe.text" srcFile="docs/status/auslagerungsprobe_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${probe.text}"/>
+        <fail message="Probe ohne download/: Prüfung ${probe.pruefung}, Statusbild ${probe.bild} (0 = in Ordnung)">
+            <condition><not><and><equals arg1="${probe.pruefung}" arg2="0"/><equals arg1="${probe.bild}" arg2="0"/></and></not></condition>
+        </fail>
+        <echo message="Probe ohne download/: Prüfung und Statusbild in Ordnung (docs/status/Ohne_download_Phase${lituya.phase}.png)"/>
+    </target>
+    <target name="-download-weg" if="download.da">
+        <move file="download" tofile="download.probe"/>
+        <echo message="download/ umbenannt in download.probe/ (kommt nach der Probe zurück)"/>
+    </target>
+    <target name="-download-zurueck" if="download.da">
+        <move file="download.probe" tofile="download"/>
+        <echo message="download/ wieder da"/>
+    </target>
+    <macrodef name="qualitaetslauf">
+        <attribute name="name"/>
+        <attribute name="stufe"/>
+        <attribute name="schaustueck" default=""/>
+        <sequential>
+            <echo file="docs/status/qualitaet_Phase${lituya.phase}.txt" append="true" encoding="UTF-8">### @{name} · @{stufe}&#10;</echo>
+            <java classname="com.dan.lituya.tools.Tempo" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="false" output="docs/status/qualitaet_Phase${lituya.phase}.txt" append="true" logError="true">
+                <jvmarg value="-Dstdout.encoding=UTF-8"/>
+                <jvmarg value="--enable-native-access=ALL-UNNAMED"/>
+                <jvmarg value="-Xmx8g"/>
+                <jvmarg value="-Dschaustueck=@{schaustueck}"/>
+                <arg line="240 1920 1080 - @{stufe}"/>
+                <classpath><pathelement path="${run.classpath}"/></classpath>
+            </java>
+        </sequential>
+    </macrodef>
+    <macrodef name="qualitaetsstufe">
+        <attribute name="stufe"/>
+        <sequential>
+            <qualitaetslauf name="Grundansicht 22 Uhr" stufe="@{stufe}"/>
+            <qualitaetslauf name="Die Front (Schaustück 6)" stufe="@{stufe}" schaustueck="6"/>
+            <qualitaetslauf name="68 Jahre (Schaustück 11)" stufe="@{stufe}" schaustueck="11"/>
+        </sequential>
+    </macrodef>
+    <target name="qualitaet" depends="jar" description="Phase 20: Bildzeiten je Qualitätsstufe in drei Ansichten (docs/status/qualitaet_Phase20.txt).">
+        <property name="platform.java" value="java"/>
+        <delete file="docs/status/qualitaet_Phase${lituya.phase}.txt" quiet="true"/>
+        <qualitaetsstufe stufe="NIEDRIG"/>
+        <qualitaetsstufe stufe="MITTEL"/>
+        <qualitaetsstufe stufe="HOCH"/>
+        <qualitaetsstufe stufe="ULTRA"/>
+        <java classname="com.dan.lituya.tools.QualitaetTabelle" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="true">
+            <jvmarg value="-Dstdout.encoding=UTF-8"/>
+            <arg value="docs/status/qualitaet_Phase${lituya.phase}.txt"/>
+            <classpath><pathelement path="${run.classpath}"/></classpath>
+        </java>
+    </target>
+    <!-- Werkbuch Bild, B0 (Abschnitt 3.1): bildbank: die zwölf festen Ansichten aus src/com/dan/lituya/scene/bildbank.txt,
+         je eine JVM mit Tempo, ohne HUD und Marken, nach docs/bild/${bild.phase}/NN_Name.png, dazu Kontaktbogen
+         Bildbank_<Phase>.png, Tafeln „Ist gegen Foto“ (Fotos unter docs/bild/referenz/NN_….jpg) und bildbank_<Phase>.txt.
+         -Dbild.phase=B0, -Dnur=1,5,9, -Dgross=an (zusätzlich 4K), -Dvorher=B0 (Vergleich vorher/nachher), -Dstufe=HOCH. -->
+    <target name="bildbank" depends="jar" description="Werkbuch Bild B0: die zwölf Ansichten der Bildbank nach docs/bild/&lt;Phase&gt; (-Dbild.phase, -Dnur, -Dgross=an, -Dvorher; seit W0 -Dbildbank=Liste, -Dbreite, -Dhoehe).">
+        <property name="platform.java" value="java"/>
+        <property name="bild.phase" value="B0"/>
+        <property name="nur" value=""/>
+        <property name="gross" value="aus"/>
+        <property name="vorher" value=""/>
+        <property name="stufe" value="HOCH"/>
+        <property name="bildbank" value=""/>
+        <property name="breite" value="1920"/>
+        <property name="hoehe" value="1080"/>
+        <mkdir dir="docs/bild/referenz"/>
+        <java classname="com.dan.lituya.tools.Bildbank" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="true">
+            <jvmarg value="-Dstdout.encoding=UTF-8"/>
+            <jvmarg value="-Dbild.phase=${bild.phase}"/>
+            <jvmarg value="-Dnur=${nur}"/>
+            <jvmarg value="-Dgross=${gross}"/>
+            <jvmarg value="-Dvorher=${vorher}"/>
+            <jvmarg value="-Dstufe=${stufe}"/>
+            <jvmarg value="-Dbildbank=${bildbank}"/>
+            <jvmarg value="-Dbreite=${breite}"/>
+            <jvmarg value="-Dhoehe=${hoehe}"/>
+            <classpath><pathelement path="${run.classpath}"/></classpath>
+        </java>
+    </target>
+    <!-- Phase 20: readmebilder: sieben Standbilder ohne HUD und Marken nach images/readme/*.jpg für README.md (im Git). -->
+    <macrodef name="readmebild">
+        <attribute name="name"/>
+        <attribute name="schaustueck"/>
+        <attribute name="netzblick" default="aus"/>
+        <attribute name="netz" default="welle"/>
+        <sequential>
+            <java classname="com.dan.lituya.tools.Tempo" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="false" output="docs/status/readmebilder_Phase${lituya.phase}.txt" append="true" logError="true">
+                <jvmarg value="-Dstdout.encoding=UTF-8"/>
+                <jvmarg value="--enable-native-access=ALL-UNNAMED"/>
+                <jvmarg value="-Xmx8g"/>
+                <jvmarg value="-Dhud=aus"/>
+                <jvmarg value="-Dmarken=aus"/>
+                <jvmarg value="-Dschaustueck=@{schaustueck}"/>
+                <jvmarg value="-Dnetzblick=@{netzblick}"/>
+                <jvmarg value="-Dnetz=@{netz}"/>
+                <arg line="60 1920 1080 images/readme/@{name}.jpg HOCH"/>
+                <classpath><pathelement path="${run.classpath}"/></classpath>
+            </java>
+        </sequential>
+    </macrodef>
+    <target name="readmebilder" depends="jar" description="Phase 20: Standbilder ohne HUD für README.md nach images/readme/.">
+        <property name="platform.java" value="java"/>
+        <mkdir dir="images/readme"/>
+        <delete file="docs/status/readmebilder_Phase${lituya.phase}.txt" quiet="true"/>
+        <readmebild name="1_abend_vor_anker" schaustueck="1"/>
+        <readmebild name="2_die_wand_aus_wasser" schaustueck="4"/>
+        <readmebild name="3_524_m" schaustueck="5"/>
+        <readmebild name="4_die_front" schaustueck="6"/>
+        <readmebild name="5_netzblick" schaustueck="6" netzblick="an"/>
+        <readmebild name="6_der_morgen_danach" schaustueck="10"/>
+        <readmebild name="7_68_jahre" schaustueck="11"/>
+    </target>
+    <target name="dauerlauf" depends="jar" description="Phase 20: Dauerlauf mit allen Regiebüchern im Kino (docs/status/dauerlauf_Phase20.txt); -Dminuten=60.">
+        <property name="platform.java" value="java"/>
+        <property name="minuten" value="60"/>
+        <property name="qualitaet" value="MITTEL"/>
+        <java classname="com.dan.lituya.tools.Dauerlauf" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="false" resultproperty="dauerlauf.ergebnis"
+              output="docs/status/dauerlauf_Phase${lituya.phase}.txt" logError="true">
+            <jvmarg value="-Dstdout.encoding=UTF-8"/>
+            <jvmarg value="--enable-native-access=ALL-UNNAMED"/>
+            <jvmarg value="-Xmx8g"/>
+            <jvmarg value="-Dminuten=${minuten}"/>
+            <jvmarg value="-Dqualitaet=${qualitaet}"/>
+            <classpath><pathelement path="${run.classpath}"/></classpath>
+        </java>
+        <loadfile property="dauerlauf.text" srcFile="docs/status/dauerlauf_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${dauerlauf.text}"/>
+        <fail message="Dauerlauf nicht bestanden (siehe oben)"><condition><not><equals arg1="${dauerlauf.ergebnis}" arg2="0"/></not></condition></fail>
+    </target>
 </project>

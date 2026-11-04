@@ -1,0 +1,13 @@
+// sonnenkarte.comp — Werkbuch Welle W1 (L2): aus der feinen Horizontkarte die Karte „Sonne“ (0..1) für den Wald, der sie
+// als Schattenkarte von oben liest (ForestGl.Light.shadowTexture). Gemessen in halber Baumhöhe über dem Boden (uBaum).
+layout(local_size_x = 16, local_size_y = 16) in;
+layout(r8, binding = 0) writeonly uniform image2D uOut;
+uniform sampler2D uSchatten;
+uniform float uSonneH, uBaum;
+void main() {
+    ivec2 ij = ivec2(gl_GlobalInvocationID.xy);
+    vec2 hz = texelFetch(uSchatten, ij, 0).rg;
+    // Penumbra der Sonnenscheibe (0,53°) und ein wenig Hub für die Kronen (Hindernis in rund 2 km)
+    float v = smoothstep(-0.0046, 0.0046, uSonneH - hz.x + uBaum * 0.5 / 2000.0);
+    imageStore(uOut, ij, vec4(v));
+}

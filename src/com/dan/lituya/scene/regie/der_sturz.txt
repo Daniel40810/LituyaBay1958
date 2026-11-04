@@ -1,0 +1,12 @@
+# Lituya Bay 1958 · Regiebuch (Werkbuch Welle W3, Abnahme): 20 s in Echtzeit vom Abbruch bis zum Gischtvorhang.
+# Ereignisse aus der Vorrechnung (Lauf kette), Blick von Schaustück 3; Vorhang und Dom gestaltet [G].
+Regiebuch: Der Sturz
+Beschreibung: 22:17 Uhr, 20 Sekunden in Echtzeit: die Wand bricht, der Staub steigt ins letzte Licht, der Fels schlägt ins Gilbert Inlet, ein Vorhang aus Gischt steigt
+Länge: 0:20
+0:00 netzblick aus
+0:00 schaustueck 3 | 22:17 Uhr: die Wand über dem Gilbert Inlet bricht
+0:00 ereignis 92
+0:00 raffer 1
+0:12 sage Der Fels schlägt ins Wasser
+0:19 foto Der Vorhang
+0:20 blatt

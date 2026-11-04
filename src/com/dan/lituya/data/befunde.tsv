@@ -1,0 +1,57 @@
+# LB_BEFUND (Phase 19) aus Werkbuch 2.1-2.7: SCHLUESSEL, THEMA, AUSSAGE, WERT, EINHEIT, ART (belegt, gemessen, gerechnet, gesetzt), ABSCHNITT, ORT (Name aus Site oder E N), ZEIT_S, GILT (1958, heute, beide), QUELLEN (KURZ[:Seite], mit Komma; Rolle Beleg)
+# Die gerechneten Werte der Läufe und Hörproben schreibt tools.SzeneDb dazu (LAUF_*, KLANG_*).
+BEBEN_ZEIT	Beben	Erster Stoß am 9. Juli 1958 um 22:16 Ortszeit (10.07. 06:16 UTC)	0	s	belegt	2.1		0	1958	FRITZ01:6,COMCAT
+BEBEN_MAGNITUDE	Beben	Magnitude 8,3 (Richter, 1959); Mw 7,8 (ISC-GEM)	7.8	Mw	belegt	2.1			1958	FRITZ01,COMCAT
+BEBEN_VERSATZ	Beben	Versatz an der Fairweather-Störung bis 6,4 m horizontal und 1 m vertikal; SW-Seite nach NW und hoch	6.4	m	belegt	2.1			1958	TOCHER59,FRITZ01
+BEBEN_DAUER	Beben	Starkes Schütteln 1 bis 4 min (zwei Zeugen auf Booten)	240	s	belegt	2.1		0	1958	FRITZ01
+STURZ_ZEIT	Felssturz	Felssturz 1 bis 2½ min nach dem ersten Stoß	150	s	belegt	2.1	Gilbert Inlet		1958	FRITZ01
+STURZ_ORT	Felssturz	NE-Wand des Gilbert Inlet, Hang im Mittel 40°, bis 915 m	915	m	belegt	2.1	Gilbert Inlet		1958	MILLER60,FRITZ01
+STURZ_GESTEIN	Felssturz	Amphibol- und Biotitschiefer, Dichte rund 2,7 t/m³	2.7	t/m³	belegt	2.1	Gilbert Inlet		1958	FRITZ01
+STURZ_BREITE	Felssturz	Breite 732 bis 915 m, im Mittel 823 m	823	m	belegt	2.1	Gilbert Inlet		1958	MILLER60,SLINGERLAND79,FRITZ01
+STURZ_LAENGE	Felssturz	Länge am Hang 970 m	970	m	belegt	2.1	Gilbert Inlet		1958	MILLER60,FRITZ01
+STURZ_DICKE	Felssturz	Dicke bis 92 m	92	m	belegt	2.1	Gilbert Inlet		1958	MILLER60,FRITZ01
+STURZ_SCHWERPUNKT	Felssturz	Schwerpunkt in 610 m Höhe	610	m	belegt	2.1	Gilbert Inlet		1958	MILLER60,FRITZ01
+STURZ_VOLUMEN	Felssturz	Volumen 30,6 Millionen m³ (rund 83 Millionen t)	30600000	m³	belegt	2.1	Gilbert Inlet		1958	MILLER60
+AUFSCHLAG_V	Felssturz	Aufschlaggeschwindigkeit 110 m/s (freier Fall vom Schwerpunkt, obere Grenze)	110	m/s	belegt	2.1	Gilbert Inlet		1958	FRITZ01
+AUFSCHLAG_FROUDE	Felssturz	Froude-Zahl des Aufschlags 3,18 bei 122 m Wassertiefe	3.18		belegt	2.1	Gilbert Inlet		1958	FRITZ01
+INLET_BREITE	Bucht	Gilbert Inlet 1 342 m breit, 122 m tief, beide Hänge rund 45°	1342	m	belegt	2.1	Gilbert Inlet		beide	FRITZ01
+WELLE_INLET_885	Welle	Modell 1:675: Amplitude 152 m bei 885 m nach 16 s, Höhe 162 m, H/h = 1,33	152	m	belegt	2.1	Gilbert Inlet		1958	FRITZ01
+WELLE_INLET_600	Welle	Über 200 m Amplitude bei 600 m nach 11 s	200	m	belegt	2.1	Gilbert Inlet		1958	FRITZ01
+AUFLAUF_SPORN	Auflauf	Auflauf am Sporn 524 m (Natur), 526 m im Modell nach 35 s; überspült bis 550 m	524	m	belegt	2.1	Sporn (524 m)		1958	MILLER60,FRITZ01
+FOLGEWELLEN_PERIODE	Welle	Periode der Folgewellen im Inlet 76 bis 91 s	91	s	belegt	2.1	Gilbert Inlet		1958	FRITZ01
+SPURLINIE_SUED	Auflauf	Spurlinie am Südufer 208 m bei Mudslide Creek	208	m	belegt	2.1	Mudslide Creek		1958	MILLER60
+WALD_ZERSTOERT	Wald	Rund 10 km² Wald zerstört zwischen Spurlinie und Hochwasserlinie; bei Fish Lake 1 100 m landeinwärts	10	km²	belegt	2.1	Fish Lake		1958	FRITZ01
+GLETSCHER_FRONT	Gletscher	Bis 400 m Eis an der Front abgeschert, Deltas fortgeschoben; danach eine senkrechte Wand quer zum Inlet	400	m	belegt	2.1	Lituya Glacier		1958	FRITZ01
+BUCHT_MASSE	Bucht	Stamm 12 km lang, 1,2 bis 3,3 km breit, Eingang 300 m breit und 10 m tief, bis 220 m tief; U-Trog	12	km	belegt	2.1	Lituya Bay		beide	FRITZ01
+SONNE_BEBEN	Licht	Sonne 1° unter dem Horizont, 2 min nach Sonnenuntergang (22:14), bürgerliche Dämmerung; tiefster Stand der Nacht −9°	-1	°	gerechnet	2.1		0	1958	APP
+TIDE_BEBEN	Tide	Pegel zur Bebenzeit aus der Vorausberechnung der Gezeiten (Elfin Cove 9452634)			gemessen	2.1	Lituya Bay	0	1958	COOPS
+WETTER_BEBEN	Wetter	Ruhige See, klarer Abend [zu prüfen]			belegt	2.1	Lituya Bay	0	1958	ERA5,MILLER60
+T_SCHUETTELN	Zeitleiste	Erster Stoß; das Schütteln hält 60 bis 240 s	0	s	belegt	2.2		0	1958	FRITZ01
+T_STURZ	Zeitleiste	Der Felssturz löst sich an der NE-Wand des Gilbert Inlet	60	s	belegt	2.2	Gilbert Inlet	60	1958	FRITZ01
+T_EINTAUCHEN	Zeitleiste	Eintauchen, Gleitdauer am Wasser rund 6,8 s im Modell	6.8	s	belegt	2.2	Gilbert Inlet		1958	FRITZ01
+T_SPORN	Zeitleiste	Auflauf am Sporn bis 524 m, Höchststand 35 s nach dem Aufschlag	35	s	belegt	2.2	Sporn (524 m)		1958	FRITZ01
+T_NACHSCHWINGEN	Zeitleiste	Nachschwingen im Inlet, Reflexionen (Zeugen: „jumping and shaking“)	240	s	belegt	2.2	Gilbert Inlet		1958	FRITZ01,MILLER60
+T_FRONT_BUCHT	Zeitleiste	Die Front läuft die Bucht hinab; Cenotaph Island; Südufer bis 208 m	400	s	gerechnet	2.2	Cenotaph Island		1958	APP
+T_FRONT_EINGANG	Zeitleiste	Front am Eingang, die drei Boote; die Badger über die Nehrung	600	s	gerechnet	2.2	La Chaussee Spit		1958	APP,MILLER60
+T_SEICHE	Zeitleiste	Seiche der Bucht, Grundperiode rund 11 min; Treibholz sammelt sich	660	s	gesetzt	2.2	Lituya Bay		1958	APP
+T_TAGE	Zeitleiste	Holzteppiche treiben aus, Staub setzt sich			gesetzt	2.2	Lituya Bay		1958	APP
+T_JAHRE	Zeitleiste	Wiederbewaldung und Gletscherrückzug bis 2026			gemessen	2.2	Lituya Bay		heute	DATEN
+BOOTE_BAUART	Boote	Alle drei Boote Troller, „about 40 feet long“	40	ft	belegt	2.3			1958	MILLER60
+BOOTE_RUMPF	Boote	Rumpfform, Breite 3,6 bis 3,8 m, Tiefgang 1,55 bis 1,65 m, Masse 21 bis 25 t, GM 1,0 m, Kette 3/8″ (Bruchlast 42 kN), Maschine 9 kN Schub	23	t	gesetzt	2.3			1958	APP
+WELLE_1853	Frühere Wellen	1853 oder 1854: 120 m Auflauf am Nordufer gegenüber Mudslide Creek, Felssturz von der Südwand	120	m	belegt	2.4	Mudslide Creek		1958	FRITZ01,MILLER60
+WELLE_1874	Frühere Wellen	1874: Welle beschrieben, Ort und Höhe unsicher [zu prüfen]			belegt	2.4	Lituya Bay		1958	MILLER60
+WELLE_1899	Frühere Wellen	1899 (Beben in der Yakutat Bay): Welle beschrieben, Ort und Höhe unsicher [zu prüfen]			belegt	2.4	Lituya Bay		1958	MILLER60
+WELLE_1936	Frühere Wellen	27. Oktober 1936: 150 m an der NE-Wand des Crillon Inlet, drei Wellen wachsender Höhe; Felssturz vom SW-Ufer (unbestätigt)	150	m	belegt	2.4	Crillon Inlet		1958	MILLER60
+WELLE_1958	Frühere Wellen	9. Juli 1958: 524 m, Felssturz im Gilbert Inlet	524	m	belegt	2.4	Sporn (524 m)		1958	MILLER60,FRITZ01
+VERGLEICH_LOEN	Vergleich	Loen, Norwegen 1936: 75 m, höchster Auflauf in Norwegen	75	m	belegt	2.5			beide	FRITZ01
+VERGLEICH_VAJONT	Vergleich	Vajont, Italien 1963: 270 m über dem Stausee, 245 m über der Dammkrone; 0,24 km³ fast waagerecht mit bis 30 m/s	270	m	belegt	2.5			beide	FRITZ01
+VERGLEICH_SPIRIT	Vergleich	Spirit Lake, Mt. St. Helens 1980: 260 m, Lawine mit 70 bis 80 m/s	260	m	belegt	2.5			beide	FRITZ01
+VERGLEICH_LITUYA	Vergleich	Lituya Bay 1958: 524 m, siebenmal Loen	524	m	belegt	2.5	Sporn (524 m)		beide	FRITZ01
+GRUND_1940	Grund	Grund vor der Welle aus den Vermessungen H06581–83 (1940), danach H08492 (1959); Bathymetrie vor 1958 rekonstruiert	1940	Jahr	gemessen	2.6	Lituya Bay		1958	FRANCO20,DATEN
+WALD_ARTEN	Wald	Sitka-Fichte und Westliche Hemlocktanne, Erle an Ufern und im Vorfeld [zu prüfen]			belegt	2.6	Lituya Bay		beide	DATEN
+WALD_GESCHLEUDERT	Wald	Bäume gebrochen, entrindet und bis 10 m über die Spurlinie geschleudert	10	m	belegt	2.6	Lituya Bay		1958	FRITZ01:14,MILLER60
+GLETSCHER_REST	Gletscher	Lituya-, Nord-Crillon- und Cascade-Gletscher sind Reste des Talgletschers, der die Bucht geformt hat			belegt	2.6	Lituya Glacier		beide	DATEN
+STOERUNG_GRABEN	Gelände	Die Fairweather-Störung bildet den Graben, dessen Teil die beiden Arme am Kopf der Bucht sind			belegt	2.6	Gilbert Inlet		beide	FRITZ01:4
+TIERE	Leben	Küstenbraunbär, Seehund, Seeotter, Möwen, Weißkopfseeadler [zu prüfen]			belegt	2.7			beide	NPS
+NAME_TSALXAAN	Namen	Tlingit: Mount Fairweather heißt Tsalxaan; „Lituya“ ist der See in der Landspitze			belegt	2.7	Mount Fairweather		beide	NPS
+NAMEN_ZAHL	Namen	94 amtliche Namen in der Szene, 42 im Kern	94		gemessen	2.7			beide	DATEN

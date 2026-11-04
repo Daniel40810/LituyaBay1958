@@ -1,0 +1,249 @@
+-- ============================================================================
+-- LituyaBay1958 · Schema LITUYABAY1958 · 03: NDM-Funktionsprobe, SQL-Teil
+-- (als Schema). Werkbuch 2.8: vor dem ersten großen Netz wird geprüft, was die
+-- installierte Datenbank kann. Je Fähigkeit ein Block; jeder Block schreibt
+-- sein Ergebnis mit LB_PROBE_SETZEN nach LB_NDM_PROBE, auch wenn er scheitert
+-- (dann OK = 'N' und die Meldung der Datenbank). Aufrufe der SDO_NET-API laufen
+-- über EXECUTE IMMEDIATE, damit eine fehlende Prozedur oder eine andere
+-- Signatur nur diesen Block trifft.
+--
+-- Die Probenetze heißen LB_PROBE_*; 98_probe_abbau.sql räumt sie nach dem
+-- Java-Teil (tools.NdmProbe, LOD) wieder weg.
+--
+-- Probenetz LB_PROBE_RAUM (UTM 8 N, SRID 26908, mit Höhe), alle Kanten in
+-- beide Richtungen:
+--     4 ---- 3          6 -- 7   (zweite Komponente)
+--     |    / |
+--     |  /   |          Kanten 1-2, 2-3, 3-4, 4-1 je 1000 m,
+--     1 ---- 2          Diagonale 1-3 (Kante 5) 1414,2 m, 6-7 (Kante 6) 500 m
+-- ============================================================================
+
+-- ---------------------------------------------------------------- 1 Version
+DECLARE
+    v VARCHAR2(4000);
+BEGIN
+    SELECT LISTAGG(BANNER_FULL, ' / ') WITHIN GROUP (ORDER BY 1) INTO v FROM V$VERSION;
+    LB_PROBE_SETZEN(1, 'Version', 'select banner_full from v$version', v, 'J');
+EXCEPTION WHEN OTHERS THEN
+    BEGIN
+        SELECT LISTAGG(BANNER, ' / ') WITHIN GROUP (ORDER BY 1) INTO v FROM V$VERSION;
+        LB_PROBE_SETZEN(1, 'Version', 'select banner from v$version', v, 'J');
+    EXCEPTION WHEN OTHERS THEN
+        LB_PROBE_SETZEN(1, 'Version', 'select banner from v$version', SQLERRM, 'N');
+    END;
+END;
+/
+
+-- ---------------------------------------------------------------- 2 räumliches Netz mit Höhe
+DECLARE
+    r VARCHAR2(4000);
+    PROCEDURE x(s VARCHAR2) IS BEGIN EXECUTE IMMEDIATE s; END;
+BEGIN
+    x(q'[BEGIN SDO_NET.CREATE_SDO_NETWORK('LB_PROBE_RAUM', 1, TRUE, FALSE); END;]');
+    x(q'[DELETE FROM USER_SDO_GEOM_METADATA WHERE TABLE_NAME LIKE 'LB\_PROBE\_RAUM\_%' ESCAPE '\']');
+    FOR t IN (SELECT COLUMN_VALUE AS N FROM TABLE(SYS.ODCIVARCHAR2LIST('LB_PROBE_RAUM_NODE$', 'LB_PROBE_RAUM_LINK$', 'LB_PROBE_RAUM_PATH$'))) LOOP
+        x('INSERT INTO USER_SDO_GEOM_METADATA (TABLE_NAME, COLUMN_NAME, DIMINFO, SRID) VALUES (''' || t.N || ''', ''GEOMETRY'', '
+          || 'SDO_DIM_ARRAY(SDO_DIM_ELEMENT(''X'', 220000, 480000, 0.005), SDO_DIM_ELEMENT(''Y'', 6385000, 6625000, 0.005), '
+          || 'SDO_DIM_ELEMENT(''Z'', -500, 5000, 0.005)), 26908)');
+    END LOOP;
+    FOR k IN (SELECT 1 ID, 350000 E, 6500000 N, 0 H FROM DUAL UNION ALL SELECT 2, 351000, 6500000, 10 FROM DUAL
+              UNION ALL SELECT 3, 351000, 6501000, 20 FROM DUAL UNION ALL SELECT 4, 350000, 6501000, 5 FROM DUAL
+              UNION ALL SELECT 6, 352000, 6500000, 0 FROM DUAL UNION ALL SELECT 7, 352500, 6500000, 0 FROM DUAL) LOOP
+        x('INSERT INTO LB_PROBE_RAUM_NODE$ (NODE_ID, NODE_NAME, ACTIVE, GEOMETRY) VALUES (' || k.ID || ', ''K' || k.ID || ''', ''Y'', '
+          || 'SDO_GEOMETRY(3001, 26908, SDO_POINT_TYPE(' || k.E || ', ' || k.N || ', ' || k.H || '), NULL, NULL))');
+    END LOOP;
+    FOR l IN (SELECT 1 ID, 1 A, 2 B FROM DUAL UNION ALL SELECT 2, 2, 3 FROM DUAL UNION ALL SELECT 3, 3, 4 FROM DUAL
+              UNION ALL SELECT 4, 4, 1 FROM DUAL UNION ALL SELECT 5, 1, 3 FROM DUAL UNION ALL SELECT 6, 6, 7 FROM DUAL) LOOP
+        x('INSERT INTO LB_PROBE_RAUM_LINK$ (LINK_ID, START_NODE_ID, END_NODE_ID, ACTIVE, BIDIRECTED, COST, GEOMETRY) '
+          || 'SELECT ' || l.ID || ', a.NODE_ID, b.NODE_ID, ''Y'', ''Y'', '
+          || 'SQRT(POWER(a.GEOMETRY.SDO_POINT.X - b.GEOMETRY.SDO_POINT.X, 2) + POWER(a.GEOMETRY.SDO_POINT.Y - b.GEOMETRY.SDO_POINT.Y, 2)), '
+          || 'SDO_GEOMETRY(3002, 26908, NULL, SDO_ELEM_INFO_ARRAY(1, 2, 1), SDO_ORDINATE_ARRAY(a.GEOMETRY.SDO_POINT.X, a.GEOMETRY.SDO_POINT.Y, '
+          || 'a.GEOMETRY.SDO_POINT.Z, b.GEOMETRY.SDO_POINT.X, b.GEOMETRY.SDO_POINT.Y, b.GEOMETRY.SDO_POINT.Z)) '
+          || 'FROM LB_PROBE_RAUM_NODE$ a, LB_PROBE_RAUM_NODE$ b WHERE a.NODE_ID = ' || l.A || ' AND b.NODE_ID = ' || l.B);
+    END LOOP;
+    -- Befund Phase 3: ohne LINK_LEVEL halten SDO_NET-Partitionierung und Komponenten das Netz für mehrstufig (ORA-06502)
+    BEGIN EXECUTE IMMEDIATE 'UPDATE LB_PROBE_RAUM_LINK$ SET LINK_LEVEL = 1 WHERE LINK_LEVEL IS NULL'; EXCEPTION WHEN OTHERS THEN NULL; END;
+    COMMIT;
+    EXECUTE IMMEDIATE q'[BEGIN :r := SDO_NET.VALIDATE_NETWORK('LB_PROBE_RAUM'); END;]' USING OUT r;
+    LB_PROBE_SETZEN(2, 'räumliches Netz mit Höhe', 'SDO_NET.CREATE_SDO_NETWORK + VALIDATE_NETWORK, Knoten 3001, Kanten 3002, SRID 26908',
+                    'LB_PROBE_RAUM: 6 Knoten, 6 Kanten, VALIDATE_NETWORK = ' || r, CASE WHEN UPPER(r) = 'TRUE' THEN 'J' ELSE 'N' END);
+EXCEPTION WHEN OTHERS THEN
+    LB_PROBE_SETZEN(2, 'räumliches Netz mit Höhe', 'SDO_NET.CREATE_SDO_NETWORK + VALIDATE_NETWORK', SQLERRM, 'N');
+END;
+/
+
+-- ---------------------------------------------------------------- 3 logisches Netz
+DECLARE
+    r VARCHAR2(4000);
+    PROCEDURE x(s VARCHAR2) IS BEGIN EXECUTE IMMEDIATE s; END;
+BEGIN
+    x(q'[BEGIN SDO_NET.CREATE_LOGICAL_NETWORK('LB_PROBE_LOGISCH', 1, TRUE, FALSE); END;]');
+    FOR i IN 1 .. 4 LOOP
+        x('INSERT INTO LB_PROBE_LOGISCH_NODE$ (NODE_ID, NODE_NAME, ACTIVE) VALUES (' || i || ', ''L' || i || ''', ''Y'')');
+    END LOOP;
+    x(q'[INSERT INTO LB_PROBE_LOGISCH_LINK$ (LINK_ID, START_NODE_ID, END_NODE_ID, ACTIVE, COST) VALUES (1, 1, 2, 'Y', 1)]');
+    x(q'[INSERT INTO LB_PROBE_LOGISCH_LINK$ (LINK_ID, START_NODE_ID, END_NODE_ID, ACTIVE, COST) VALUES (2, 2, 3, 'Y', 1)]');
+    x(q'[INSERT INTO LB_PROBE_LOGISCH_LINK$ (LINK_ID, START_NODE_ID, END_NODE_ID, ACTIVE, COST) VALUES (3, 4, 3, 'Y', 1)]');
+    -- Befund Phase 3: ohne LINK_LEVEL halten SDO_NET-Partitionierung und Komponenten das Netz für mehrstufig (ORA-06502)
+    BEGIN EXECUTE IMMEDIATE 'UPDATE LB_PROBE_LOGISCH_LINK$ SET LINK_LEVEL = 1 WHERE LINK_LEVEL IS NULL'; EXCEPTION WHEN OTHERS THEN NULL; END;
+    COMMIT;
+    EXECUTE IMMEDIATE q'[BEGIN :r := SDO_NET.VALIDATE_NETWORK('LB_PROBE_LOGISCH'); END;]' USING OUT r;
+    LB_PROBE_SETZEN(3, 'logisches Netz', 'SDO_NET.CREATE_LOGICAL_NETWORK, gerichtet, 4 Knoten, 3 Kanten',
+                    'VALIDATE_NETWORK = ' || r, CASE WHEN UPPER(r) = 'TRUE' THEN 'J' ELSE 'N' END);
+EXCEPTION WHEN OTHERS THEN
+    LB_PROBE_SETZEN(3, 'logisches Netz', 'SDO_NET.CREATE_LOGICAL_NETWORK', SQLERRM, 'N');
+END;
+/
+
+-- ---------------------------------------------------------------- 4 LRS-Netz und SDO_LRS
+DECLARE
+    r VARCHAR2(4000);
+    lrs VARCHAR2(4000);
+    n NUMBER;
+    PROCEDURE x(s VARCHAR2) IS BEGIN EXECUTE IMMEDIATE s; END;
+BEGIN
+    -- SDO_LRS für sich (die Messstrecke des Ufers, 7.2): Punkt bei 750 m auf einer Linie von 1000 m
+    SELECT 'LOCATE_PT(750) = ' || t.X || ' / ' || t.Y INTO lrs
+      FROM TABLE(SDO_UTIL.GETVERTICES(SDO_LRS.LOCATE_PT(
+               SDO_LRS.CONVERT_TO_LRS_GEOM(SDO_GEOMETRY(2002, 26908, NULL, SDO_ELEM_INFO_ARRAY(1, 2, 1),
+                                                        SDO_ORDINATE_ARRAY(350000, 6500000, 351000, 6500000)), 0, 1000), 750))) t;
+    LB_PROBE_SETZEN(4, 'SDO_LRS', 'SDO_LRS.CONVERT_TO_LRS_GEOM + LOCATE_PT', lrs, CASE WHEN lrs LIKE '%350750%' THEN 'J' ELSE 'N' END);
+    -- LRS-Netz: die Geometrie liegt in einer eigenen Tabelle, Knoten und Kanten verweisen mit GEOM_ID und Messwert darauf
+    x('CREATE TABLE LB_PROBE_LRS_GEOM (GEOM_ID NUMBER PRIMARY KEY, GEOMETRY SDO_GEOMETRY)');
+    x(q'[INSERT INTO USER_SDO_GEOM_METADATA (TABLE_NAME, COLUMN_NAME, DIMINFO, SRID) VALUES ('LB_PROBE_LRS_GEOM', 'GEOMETRY',
+         SDO_DIM_ARRAY(SDO_DIM_ELEMENT('X', 220000, 480000, 0.005), SDO_DIM_ELEMENT('Y', 6385000, 6625000, 0.005),
+                       SDO_DIM_ELEMENT('M', 0, 100000, 0.005)), 26908)]');
+    x(q'[INSERT INTO LB_PROBE_LRS_GEOM VALUES (1, SDO_LRS.CONVERT_TO_LRS_GEOM(SDO_GEOMETRY(2002, 26908, NULL, SDO_ELEM_INFO_ARRAY(1, 2, 1),
+         SDO_ORDINATE_ARRAY(350000, 6500000, 351000, 6500000, 351000, 6501000)), 0, 2000))]');
+    x(q'[BEGIN SDO_NET.CREATE_LRS_NETWORK('LB_PROBE_LRS', 'LB_PROBE_LRS_GEOM', 'GEOMETRY', 1, TRUE, FALSE); END;]');
+    -- Befund Phase 3: VALIDATE_NETWORK verlangt Raum-Metadaten auch für die Pfadtabelle
+    x(q'[INSERT INTO USER_SDO_GEOM_METADATA (TABLE_NAME, COLUMN_NAME, DIMINFO, SRID) VALUES ('LB_PROBE_LRS_PATH$', 'GEOMETRY',
+         SDO_DIM_ARRAY(SDO_DIM_ELEMENT('X', 220000, 480000, 0.005), SDO_DIM_ELEMENT('Y', 6385000, 6625000, 0.005),
+                       SDO_DIM_ELEMENT('M', 0, 100000, 0.005)), 26908)]');
+    x(q'[INSERT INTO LB_PROBE_LRS_NODE$ (NODE_ID, ACTIVE, GEOM_ID, MEASURE) VALUES (1, 'Y', 1, 0)]');
+    x(q'[INSERT INTO LB_PROBE_LRS_NODE$ (NODE_ID, ACTIVE, GEOM_ID, MEASURE) VALUES (2, 'Y', 1, 1000)]');
+    x(q'[INSERT INTO LB_PROBE_LRS_NODE$ (NODE_ID, ACTIVE, GEOM_ID, MEASURE) VALUES (3, 'Y', 1, 2000)]');
+    x(q'[INSERT INTO LB_PROBE_LRS_LINK$ (LINK_ID, START_NODE_ID, END_NODE_ID, ACTIVE, GEOM_ID, START_MEASURE, END_MEASURE, COST)
+         VALUES (1, 1, 2, 'Y', 1, 0, 1000, 1000)]');
+    x(q'[INSERT INTO LB_PROBE_LRS_LINK$ (LINK_ID, START_NODE_ID, END_NODE_ID, ACTIVE, GEOM_ID, START_MEASURE, END_MEASURE, COST)
+         VALUES (2, 2, 3, 'Y', 1, 1000, 2000, 1000)]');
+    -- Befund Phase 3: ohne LINK_LEVEL halten SDO_NET-Partitionierung und Komponenten das Netz für mehrstufig (ORA-06502)
+    BEGIN EXECUTE IMMEDIATE 'UPDATE LB_PROBE_LRS_LINK$ SET LINK_LEVEL = 1 WHERE LINK_LEVEL IS NULL'; EXCEPTION WHEN OTHERS THEN NULL; END;
+    COMMIT;
+    EXECUTE IMMEDIATE q'[BEGIN :r := SDO_NET.VALIDATE_NETWORK('LB_PROBE_LRS'); END;]' USING OUT r;
+    LB_PROBE_SETZEN(4, 'LRS-Netz', 'SDO_NET.CREATE_LRS_NETWORK, Knoten und Kanten mit GEOM_ID und Messwert',
+                    'VALIDATE_NETWORK = ' || r, CASE WHEN UPPER(r) = 'TRUE' THEN 'J' ELSE 'N' END);
+EXCEPTION WHEN OTHERS THEN
+    LB_PROBE_SETZEN(4, 'LRS-Netz', 'SDO_NET.CREATE_LRS_NETWORK', SQLERRM, 'N');
+END;
+/
+
+-- ---------------------------------------------------------------- 5 hierarchisches Netz
+DECLARE
+    r VARCHAR2(4000);
+    PROCEDURE x(s VARCHAR2) IS BEGIN EXECUTE IMMEDIATE s; END;
+BEGIN
+    x(q'[BEGIN SDO_NET.CREATE_LOGICAL_NETWORK('LB_PROBE_HIER', 2, TRUE, FALSE); END;]');
+    -- Ebene 2: zwei Elternknoten (etwa Einzugsgebiete), Ebene 1: je zwei Kinder
+    x(q'[INSERT INTO LB_PROBE_HIER_NODE$ (NODE_ID, NODE_NAME, ACTIVE, HIERARCHY_LEVEL) VALUES (100, 'Gebiet A', 'Y', 2)]');
+    x(q'[INSERT INTO LB_PROBE_HIER_NODE$ (NODE_ID, NODE_NAME, ACTIVE, HIERARCHY_LEVEL) VALUES (200, 'Gebiet B', 'Y', 2)]');
+    x(q'[INSERT INTO LB_PROBE_HIER_NODE$ (NODE_ID, NODE_NAME, ACTIVE, HIERARCHY_LEVEL, PARENT_NODE_ID) VALUES (1, 'a1', 'Y', 1, 100)]');
+    x(q'[INSERT INTO LB_PROBE_HIER_NODE$ (NODE_ID, NODE_NAME, ACTIVE, HIERARCHY_LEVEL, PARENT_NODE_ID) VALUES (2, 'a2', 'Y', 1, 100)]');
+    x(q'[INSERT INTO LB_PROBE_HIER_NODE$ (NODE_ID, NODE_NAME, ACTIVE, HIERARCHY_LEVEL, PARENT_NODE_ID) VALUES (3, 'b1', 'Y', 1, 200)]');
+    x(q'[INSERT INTO LB_PROBE_HIER_NODE$ (NODE_ID, NODE_NAME, ACTIVE, HIERARCHY_LEVEL, PARENT_NODE_ID) VALUES (4, 'b2', 'Y', 1, 200)]');
+    x(q'[INSERT INTO LB_PROBE_HIER_LINK$ (LINK_ID, START_NODE_ID, END_NODE_ID, ACTIVE, COST, LINK_LEVEL) VALUES (1, 1, 2, 'Y', 1, 1)]');
+    x(q'[INSERT INTO LB_PROBE_HIER_LINK$ (LINK_ID, START_NODE_ID, END_NODE_ID, ACTIVE, COST, LINK_LEVEL) VALUES (2, 2, 3, 'Y', 1, 1)]');
+    x(q'[INSERT INTO LB_PROBE_HIER_LINK$ (LINK_ID, START_NODE_ID, END_NODE_ID, ACTIVE, COST, LINK_LEVEL) VALUES (3, 3, 4, 'Y', 1, 1)]');
+    x(q'[INSERT INTO LB_PROBE_HIER_LINK$ (LINK_ID, START_NODE_ID, END_NODE_ID, ACTIVE, COST, LINK_LEVEL) VALUES (10, 100, 200, 'Y', 1, 2)]');
+    COMMIT;
+    EXECUTE IMMEDIATE q'[BEGIN :r := SDO_NET.VALIDATE_NETWORK('LB_PROBE_HIER'); END;]' USING OUT r;
+    LB_PROBE_SETZEN(5, 'hierarchisch', 'CREATE_LOGICAL_NETWORK mit no_of_hierarchy_levels = 2, PARENT_NODE_ID, LINK_LEVEL 1 und 2',
+                    'VALIDATE_NETWORK = ' || r, CASE WHEN UPPER(r) = 'TRUE' THEN 'J' ELSE 'N' END);
+EXCEPTION WHEN OTHERS THEN
+    LB_PROBE_SETZEN(5, 'hierarchisch', 'CREATE_LOGICAL_NETWORK (2 Ebenen)', SQLERRM, 'N');
+END;
+/
+
+-- ---------------------------------------------------------------- 6 Feature-Layer
+DECLARE
+    n NUMBER;
+    PROCEDURE x(s VARCHAR2) IS BEGIN EXECUTE IMMEDIATE s; END;
+BEGIN
+    x('CREATE TABLE LB_PROBE_FEAT (FEATURE_ID NUMBER PRIMARY KEY, NAME VARCHAR2(40))');
+    x(q'[INSERT INTO LB_PROBE_FEAT VALUES (1, 'Spurlinie Probe')]');
+    COMMIT;
+    x(q'[BEGIN SDO_NET.ADD_FEATURE_LAYER('LB_PROBE_RAUM', 'LB_PROBE_FL', SDO_NET.FEAT_TYPE_MPOINT, 'LB_PROBE_FEAT', 'LB_PROBE_FEAT_REL', NULL); END;]');
+    EXECUTE IMMEDIATE q'[SELECT COUNT(*) FROM USER_SDO_NETWORK_FEATURE WHERE NETWORK = 'LB_PROBE_RAUM']' INTO n;
+    LB_PROBE_SETZEN(6, 'Feature-Layer', 'SDO_NET.ADD_FEATURE_LAYER (FEAT_TYPE_MPOINT) auf LB_PROBE_RAUM',
+                    'Layer angelegt, ' || n || ' Eintrag in USER_SDO_NETWORK_FEATURE', CASE WHEN n > 0 THEN 'J' ELSE 'N' END);
+EXCEPTION WHEN OTHERS THEN
+    LB_PROBE_SETZEN(6, 'Feature-Layer', 'SDO_NET.ADD_FEATURE_LAYER', SQLERRM, 'N');
+END;
+/
+
+-- ---------------------------------------------------------------- 7 Partitionen und Partition-BLOBs (für LOD)
+-- räumlich mit Höhe; geht das nicht, logisch (LOD im Java-Teil braucht die BLOBs)
+DECLARE
+    n NUMBER;
+    weg VARCHAR2(4000);
+    PROCEDURE x(s VARCHAR2) IS BEGIN EXECUTE IMMEDIATE s; END;
+BEGIN
+    BEGIN
+        x(q'[BEGIN SDO_NET.SPATIAL_PARTITION('LB_PROBE_RAUM', 'LB_PROBE_RAUM_PART$', 5000, 'DATA_PUMP_DIR', 'lb_probe.log', 'a', 1); END;]');
+        weg := 'SPATIAL_PARTITION (3D) ja';
+    EXCEPTION WHEN OTHERS THEN
+        weg := 'SPATIAL_PARTITION (3D) nein: ' || SQLERRM || '; ersatzweise LOGICAL_PARTITION';
+        x(q'[BEGIN SDO_NET.LOGICAL_PARTITION('LB_PROBE_RAUM', 'LB_PROBE_RAUM_PART$', 5000, 'DATA_PUMP_DIR', 'lb_probe.log', 'a', 1); END;]');
+    END;
+    x(q'[BEGIN SDO_NET.GENERATE_PARTITION_BLOBS('LB_PROBE_RAUM', 1, 'LB_PROBE_RAUM_PBLOB$', FALSE, TRUE, 'DATA_PUMP_DIR', 'lb_probe.log', 'a'); END;]');
+    x(q'[UPDATE USER_SDO_NETWORK_METADATA SET PARTITION_TABLE_NAME = NVL(PARTITION_TABLE_NAME, 'LB_PROBE_RAUM_PART$'),
+         PARTITION_BLOB_TABLE_NAME = NVL(PARTITION_BLOB_TABLE_NAME, 'LB_PROBE_RAUM_PBLOB$') WHERE NETWORK = 'LB_PROBE_RAUM']');
+    BEGIN
+        x(q'[BEGIN SDO_NET.LOGICAL_PARTITION('LB_PROBE_LOGISCH', 'LB_PROBE_LOGISCH_PART$', 5000, 'DATA_PUMP_DIR', 'lb_probe.log', 'a', 1); END;]');
+        x(q'[BEGIN SDO_NET.GENERATE_PARTITION_BLOBS('LB_PROBE_LOGISCH', 1, 'LB_PROBE_LOGISCH_PBLOB$', FALSE, TRUE, 'DATA_PUMP_DIR', 'lb_probe.log', 'a'); END;]');
+        weg := weg || '; LOGICAL_PARTITION ja';
+    EXCEPTION WHEN OTHERS THEN
+        weg := weg || '; LOGICAL_PARTITION nein: ' || SQLERRM;
+    END;
+    COMMIT;
+    EXECUTE IMMEDIATE 'SELECT COUNT(*) FROM LB_PROBE_RAUM_PBLOB$' INTO n;
+    LB_PROBE_SETZEN(7, 'Partitionen', 'SDO_NET.SPATIAL_PARTITION und LOGICAL_PARTITION, GENERATE_PARTITION_BLOBS',
+                    weg || '; ' || n || ' BLOB(s) in LB_PROBE_RAUM_PBLOB$', CASE WHEN n > 0 AND weg NOT LIKE '%nein%' THEN 'J' ELSE 'N' END);
+EXCEPTION WHEN OTHERS THEN
+    LB_PROBE_SETZEN(7, 'Partitionen', 'SPATIAL_PARTITION, LOGICAL_PARTITION, GENERATE_PARTITION_BLOBS', NVL(weg, '') || ' ' || SQLERRM, 'N');
+END;
+/
+
+-- ---------------------------------------------------------------- 8 Zusammenhangskomponenten (PL/SQL)
+DECLARE
+    n NUMBER;
+    PROCEDURE x(s VARCHAR2) IS BEGIN EXECUTE IMMEDIATE s; END;
+BEGIN
+    x(q'[BEGIN SDO_NET.FIND_CONNECTED_COMPONENTS('LB_PROBE_RAUM', 1, 'LB_PROBE_RAUM_KOMP$', 'DATA_PUMP_DIR', 'lb_probe.log', 'a'); END;]');
+    EXECUTE IMMEDIATE 'SELECT COUNT(DISTINCT COMPONENT_ID) FROM LB_PROBE_RAUM_KOMP$' INTO n;
+    LB_PROBE_SETZEN(8, 'Zusammenhangskomponenten', 'SDO_NET.FIND_CONNECTED_COMPONENTS auf LB_PROBE_RAUM (erwartet 2)',
+                    n || ' Komponenten', CASE WHEN n = 2 THEN 'J' ELSE 'N' END);
+EXCEPTION WHEN OTHERS THEN
+    LB_PROBE_SETZEN(8, 'Zusammenhangskomponenten', 'SDO_NET.FIND_CONNECTED_COMPONENTS', SQLERRM, 'N');
+END;
+/
+
+-- ---------------------------------------------------------------- 9 Property Graph, SQL/PGQ
+DECLARE
+    v VARCHAR2(400);
+BEGIN
+    SELECT MAX(VERSION) INTO v FROM PRODUCT_COMPONENT_VERSION WHERE PRODUCT LIKE 'Oracle%Database%';
+    IF DBMS_DB_VERSION.VERSION >= 23 THEN
+        EXECUTE IMMEDIATE q'[CREATE PROPERTY GRAPH LB_PROBE_GRAPH VERTEX TABLES (LB_PROBE_LOGISCH_NODE$ KEY (NODE_ID))
+             EDGE TABLES (LB_PROBE_LOGISCH_LINK$ KEY (LINK_ID) SOURCE KEY (START_NODE_ID) REFERENCES LB_PROBE_LOGISCH_NODE$ (NODE_ID)
+                          DESTINATION KEY (END_NODE_ID) REFERENCES LB_PROBE_LOGISCH_NODE$ (NODE_ID))]';
+        EXECUTE IMMEDIATE 'DROP PROPERTY GRAPH LB_PROBE_GRAPH';
+        LB_PROBE_SETZEN(9, 'Property Graph, SQL/PGQ', 'CREATE PROPERTY GRAPH, GRAPH_TABLE', 'Oracle ' || v || ': angelegt', 'J');
+    ELSE
+        LB_PROBE_SETZEN(9, 'Property Graph, SQL/PGQ', 'nur ab 23ai: CREATE PROPERTY GRAPH, GRAPH_TABLE',
+                        'Oracle ' || v || ' (DBMS_DB_VERSION ' || DBMS_DB_VERSION.VERSION || '): nicht verfügbar, ein Wunsch für 23ai', 'N');
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    LB_PROBE_SETZEN(9, 'Property Graph, SQL/PGQ', 'CREATE PROPERTY GRAPH', SQLERRM, 'N');
+END;
+/

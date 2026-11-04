@@ -1,0 +1,16 @@
+# Werkbuch Welle W0: deine elf Aufnahmen aus der App vom 04.11.2026 (docs/wahrHeeldenbilder), nachgestellt.
+# Kamera und Zeit aus LB_SCHNAPPSCHUSS (F12 speichert sie seit Phase 19): E 353 842,8, N 6 505 324,8, Auge 201,8 m über NAVD88,
+# Blick 40°, 12° nach oben (App: asin(Blick y) = +12, hier neigung = −12), Zeit = s nach dem ersten Stoß (Uhr steht im
+# Standbild). Vorher-Bilder: docs/bild/A0 (deine Aufnahmen, umbenannt).
+# Aufruf: ant bildbank -Dbildbank=src/com/dan/lituya/scene/aufnahmen.txt -Dbild.phase=W0A -Dvorher=A0 -Dbreite=1495 -Dhoehe=940
+nr=1;name=Front_t09s;xz=1842.84,-2324.84;hoehe=201.82;blick=40;neigung=-12;zeitstand=welle;ereignis=113.89;warum=Aufnahme 003229, Welle t = 9 s
+nr=2;name=Front_t15s;xz=1842.84,-2324.84;hoehe=201.82;blick=40;neigung=-12;zeitstand=welle;ereignis=120.23;warum=Aufnahme 003242, Welle t = 15 s
+nr=3;name=Front_t20s;xz=1842.84,-2324.84;hoehe=201.82;blick=40;neigung=-12;zeitstand=welle;ereignis=125.28;warum=Aufnahme 003252, Welle t = 20 s
+nr=4;name=Front_t22s;xz=1842.84,-2324.84;hoehe=201.82;blick=40;neigung=-12;zeitstand=welle;ereignis=126.65;warum=Aufnahme 003255, Welle t = 22 s
+nr=5;name=Front_t24s;xz=1842.84,-2324.84;hoehe=201.82;blick=40;neigung=-12;zeitstand=welle;ereignis=128.62;warum=Aufnahme 003259, Welle t = 24 s
+nr=6;name=Front_t25s;xz=1842.84,-2324.84;hoehe=201.82;blick=40;neigung=-12;zeitstand=welle;ereignis=129.81;warum=Aufnahme 003302, Welle t = 25 s
+nr=7;name=Front_t27s;xz=1842.84,-2324.84;hoehe=201.82;blick=40;neigung=-12;zeitstand=welle;ereignis=131.72;warum=Aufnahme 003305, Welle t = 27 s
+nr=8;name=Front_t32s;xz=1842.84,-2324.84;hoehe=201.82;blick=40;neigung=-12;zeitstand=welle;ereignis=136.98;warum=Aufnahme 003316, Welle t = 32 s
+nr=9;name=Front_t33s;xz=1842.84,-2324.84;hoehe=201.82;blick=40;neigung=-12;zeitstand=welle;ereignis=138.20;warum=Aufnahme 003319, Welle t = 33 s
+nr=10;name=Front_t38s;xz=1842.84,-2324.84;hoehe=201.82;blick=40;neigung=-12;zeitstand=welle;ereignis=142.58;warum=Aufnahme 003327, Welle t = 38 s
+nr=11;name=Front_t46s;xz=1842.84,-2324.84;hoehe=201.82;blick=40;neigung=-12;zeitstand=welle;ereignis=150.66;warum=Aufnahme 003344, Welle t = 46 s
