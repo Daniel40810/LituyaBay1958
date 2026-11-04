@@ -14,14 +14,14 @@ uniform vec3 uGeo;          // Szene x der Spalte 0, Szene z der Zeile 0 (Süden
 uniform ivec2 uKachel;      // erste Zelle der Kachel
 uniform int uSchritt, uQuads;
 uniform ivec4 uNachbar;     // Schritt der Nachbarkacheln W, O, S, N (0: keine)
-#ifdef STROM
-uniform sampler2D uBoden;   // Grund 1958 je Zelle (R32F)
-#endif
+uniform sampler2D uBoden;   // Grund 1958 je Zelle (R32F); bei der Welle seit W3b, wenn uBodenAn
+uniform int uBodenAn;
 out vec3 vW;
 out vec3 vN;
 out float vNass;
 out float vH;
 out float vSteig;           // Steigen in m/s (Brandung an der Front)
+out float vTiefe;           // W3b: Wasser über dem Grund (m); 99 ohne Grund
 
 const int TROCKEN = -32768;
 
@@ -103,7 +103,9 @@ void main() {
     vNass = nass;
 #ifdef STROM
     vSteig = 0.0;
+    vTiefe = 99.0;
 #else
+    vTiefe = uBodenAn == 1 ? h - texelFetch(uBoden, cc, 0).r : 99.0;
     // Steigen zwischen den Bildern (m je Bild); die Zeit je Bild gibt uGeo nicht, der Bildpunkt nimmt es als Maß
     int a = texelFetch(uA, cc, 0).r, b = texelFetch(uB, cc, 0).r;
     vSteig = (a != TROCKEN && b != TROCKEN) ? float(b - a) * uStufe : 0.0;

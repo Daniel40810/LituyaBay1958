@@ -83,6 +83,15 @@ public final class Renderer implements GLEventListener {
     public final Licht licht = new Licht();
     /** Werkbuch Welle W2: das Wasser aus com.dan.ocean, Spiegel der Berge, Gletschermilch. */
     public final MeerGl meer = new MeerGl();
+    /**
+     * Werkbuch Welle W3b: die Materialien aus com.dan.surface (Phase 5 gebacken, bis W3 nie aufs Gelände gelegt) für Hänge
+     * ohne Wald; Schichten Fels frisch, Fels verwittert, Moräne, Strandkies. Texturstellen 5, 6, 7.
+     */
+    public final com.dan.surface.gl.SurfaceGl surface = new com.dan.surface.gl.SurfaceGl();
+    private final int[] surfMat = {0, 0, 0, 0};
+    private String surfStatus = "Texturen: nicht geladen";
+    /** Texturen der Hänge an (W3b). */
+    public volatile boolean texturen = true;
     /** W1: Glühen um Helles (Sonne, Glanz, Gischt im Gegenlicht), Stärke; 0 aus. */
     public volatile double bloom = 0.35;
     private double letztesDt = 1 / 60.0;
@@ -101,6 +110,8 @@ public final class Renderer implements GLEventListener {
     /** Phase 13b: das Abspielen der Vorrechnung (daten/ereignis) mit Vorrat und die Durchgänge dazu. */
     public final com.dan.lituya.scene.Wiedergabe wiedergabe = new com.dan.lituya.scene.Wiedergabe();
     final EreignisGl ereignisGl = new EreignisGl();
+    /** W3b: für das Bedienfeld (Gischt an der Front). */
+    public EreignisGl ereignisGl() { return ereignisGl; }
     /** Phase 13c: „Was wäre wenn“ in Echtzeit (wave.Bay auf der Grafikkarte, LOW). */
     public final Echtzeit echtzeit = new Echtzeit();
     /** Phase 18: der Klang (com.dan.soundscape), Ohr = Kamera; Ton an im Bedienfeld KLANG. */
@@ -382,6 +393,18 @@ public final class Renderer implements GLEventListener {
         compute = ComputeProbe.run(gl);
         licht.init(gl);   // W1
         meer.init(gl);    // W2
+        try {             // W3b: Texturen der Hänge (beim ersten Mal packt der Treiber, danach aus gpu_*_1024.bin)
+            java.util.List<com.dan.surface.Material> kat = com.dan.surface.Katalog.fjord();
+            com.dan.surface.MaterialSet set = new com.dan.surface.MaterialSet(new java.io.File(System.getProperty("lituya.daten", "daten"), "texturen"), kat);
+            surface.load(gl, set, 1024, true);
+            String[] namen = {"schiefer_frisch", "schiefer_verwittert", "moraene", "strandkies"};
+            for (int i = 0; i < namen.length; i++) surfMat[i] = Math.max(0, set.layer(namen[i]));
+            surfStatus = "Texturen: " + surface.info() + (set.missing().isEmpty() ? "" : ", fehlen " + set.missing());
+        } catch (java.io.IOException | RuntimeException e) {
+            surfStatus = "Texturen: ohne (" + e.getMessage() + ")";
+            System.err.println("LituyaBay1958: " + surfStatus);
+        }
+        System.out.println("LituyaBay1958: " + surfStatus);
         try {
             netzblick.init(gl);
             wiedergabe.start();
@@ -926,6 +949,7 @@ public final class Renderer implements GLEventListener {
         boolean unterWasser = camera.eye[1] < wiring.pegel + 0.05;
         boolean meerJetzt = showMeer && meer.aktiv(licht, unterWasser, marksJetzt());
         try { ereignisGl.sturzDaten(gl, wiedergabe, wiring.pegel); } catch (RuntimeException e) { System.err.println("LituyaBay1958: Sturz: " + e); }
+        try { ereignisGl.flutDaten(gl, wiedergabe, wiring.pegel); } catch (RuntimeException e) { System.err.println("LituyaBay1958: Flut: " + e); }
         if (meerJetzt) {
             try {
                 // W3 (E1): der Spiegel zerfällt beim Beben in Ringe, rund 8 je Sekunde bei voller Stärke, im Umkreis von 3 km [G]
@@ -1048,7 +1072,8 @@ public final class Renderer implements GLEventListener {
 
         // 3c Staub und Trübe unter Wasser (Phase 13b): über das HDR-Bild, die Tiefe als Textur
         gl.glBindFramebuffer(GL.GL_FRAMEBUFFER, hdrColorFbo);
-        ereignisGl.medien(gl, wiedergabe, tE, depthTex, sh -> common(gl, sh, vp, inv, sun), forward(camera.view()), reversedZ);
+        ereignisGl.medien(gl, wiedergabe, tE, depthTex, sh -> common(gl, sh, vp, inv, sun), forward(camera.view()), reversedZ,
+                licht.aktiv() ? licht.grundTextur() : 0, licht.feinRect(), wiring.pegel);
         gl.glBindVertexArray(emptyVao);
         mark(gl, 7);
 
@@ -1117,6 +1142,12 @@ public final class Renderer implements GLEventListener {
         wald.gelaende(gl, gelaendeShader);
         gelaendeShader.set(gl, "uClipY", gespiegelt ? (float) (wiring.pegel - 0.3) : -1e9f);
         ereignisGl.abriss(gl, gelaendeShader.id(), clock.simSeconds(), false);   // W3 (E2)
+        ereignisGl.flut(gl, gelaendeShader.id(), clock.simSeconds());            // W3b: abgeschürfte Hänge ab der Ankunft
+        boolean tx = texturen && surface.ready();
+        gelaendeShader.set(gl, "uSurfAn", tx ? 1 : 0);
+        if (tx) surface.bind(gl, gelaendeShader.id(), 5, 6, 7, 0.35);
+        else { gelaendeShader.set(gl, "uSurfA", 5); gelaendeShader.set(gl, "uSurfN", 6); gelaendeShader.set(gl, "uSurfR", 7); }
+        gl.glUniform4i(gelaendeShader.loc(gl, "uMat"), surfMat[0], surfMat[1], surfMat[2], surfMat[3]);
         boolean rb = rueckbauJetzt && clock.zeitstand != SceneClock.Zeitstand.HEUTE;
         gelaendeShader.set(gl, "uRueckbauAn", rb ? 1 : 0);
         double[] r0 = Site.fromUtm(com.dan.lituya.scene.Boden1958.RUECKBAU_E0, com.dan.lituya.scene.Boden1958.RUECKBAU_N0),
@@ -1655,6 +1686,7 @@ public final class Renderer implements GLEventListener {
         if (cm != null) cm.stop();
         hud.dispose(gl);
         netzblick.dispose(gl);
+        surface.dispose(gl);
         if (kinoGl != null) kinoGl.dispose(gl);
         baeche.dispose(gl);
         ereignisGl.dispose(gl);

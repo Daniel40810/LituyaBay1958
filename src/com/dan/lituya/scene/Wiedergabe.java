@@ -57,6 +57,11 @@ public final class Wiedergabe implements AutoCloseable {
         public volatile float[] boden;
         /** Je Kachel der höchste Stand (NaN: nie nass), nur für die Welle. */
         public volatile float[] kachelMax;
+        /**
+         * Werkbuch Welle W3b, nur für die Welle: je Zelle der höchste Stand (m, NaN nie nass) und die Ankunft (Ereigniszeit,
+         * zu der der Stand zuerst 1 m über dem Pegel war, NaN nie) aus {@code max_g<k>.r32} und {@code ankunft_g<k>.r32}.
+         */
+        public volatile float[] max, ankunft;
         public int ntx, ntz;
         /** Rechteck des nächstfeineren Gitters (Szene x0, z0, x1, z1) oder null. */
         public double[] feiner;
@@ -329,7 +334,10 @@ public final class Wiedergabe implements AutoCloseable {
             for (int k = 0; k < l.gitter.size(); k++) ws.add(new Spur(id++, Art.WELLE, w, k, l));
             for (int k = 0; k < ws.size(); k++) {
                 Spur s = ws.get(k);
-                kacheln(s, l.raster(dw, "max", k));
+                float[] mx = l.raster(dw, "max", k);
+                kacheln(s, mx);
+                s.max = mx;
+                try { s.ankunft = l.raster(dw, "ankunft", k); } catch (IOException e) { s.ankunft = null; }
                 if (k + 1 < ws.size()) s.feiner = ws.get(k + 1).szene();
             }
             neu.addAll(ws);
@@ -359,8 +367,16 @@ public final class Wiedergabe implements AutoCloseable {
         stand = sb.toString();
         geladen = key;
         // der Grund unter Strom und Staub (einmal gerechnet, dann aus dem Ordner)
-        if (strom != null) strom.boden = boden(ds, strom.g, false);
-        if (oben != null) { float[] b = boden(dd, oben.g, true); oben.boden = b; dichte.boden = b; }
+        if (strom != null) strom.boden = boden(ds, strom.g, 0, false);
+        if (oben != null) { float[] b = boden(dd, oben.g, 0, true); oben.boden = b; dichte.boden = b; }
+        // W3b: Grund unter den Gittern der Welle (dünner Film am Hang, K11); einmal gerechnet, dann aus dem Ordner
+        List<Spur> wsb = new ArrayList<>();
+        if (lv == null) for (Spur s : neu) if (s.art == Art.WELLE) wsb.add(s);
+        if (!wsb.isEmpty()) {
+            Thread th = new Thread(() -> { for (Spur s : wsb) s.boden = boden(dw, s.g, s.k, false); }, "Wiedergabe-Grund");
+            th.setDaemon(true);
+            th.start();
+        }
     }
 
     /** Je Kachel der höchste Stand aus max_g<k>.r32. */
@@ -388,11 +404,11 @@ public final class Wiedergabe implements AutoCloseable {
     }
 
     /**
-     * Grund je Zelle des Gitters: aus boden_g0.r32 (ab Phase 13b schreibt ihn {@code tools.Ereignis}) oder einmal aus
+     * Grund je Zelle des Gitters k: aus boden_g&lt;k&gt;.r32 (ab Phase 13b schreibt ihn {@code tools.Ereignis}) oder einmal aus
      * Boden1958 gerechnet und abgelegt; wasserNull: Wasser zählt als 0 (die Wolke liegt dort auf dem Wasser).
      */
-    private float[] boden(File dir, EreignisDaten.Gitter g, boolean wasserNull) {
-        File f = new File(dir, "boden_g0.r32");
+    private float[] boden(File dir, EreignisDaten.Gitter g, int k, boolean wasserNull) {
+        File f = new File(dir, "boden_g" + k + ".r32");
         int n = g.nx() * g.nz();
         try {
             if (f.isFile() && f.length() == n * 4L) {
@@ -401,13 +417,18 @@ public final class Wiedergabe implements AutoCloseable {
                 ByteBuffer.wrap(b).order(ByteOrder.LITTLE_ENDIAN).asFloatBuffer().get(v);
                 return v;
             }
-            if (boden1958 == null) boden1958 = new Boden1958(daten);
+            Boden1958 bo;
+            synchronized (this) {
+                if (boden1958 == null) boden1958 = new Boden1958(daten);
+                bo = boden1958;
+            }
             float[] v = new float[n];
-            for (int j = 0; j < g.nz(); j++)
+            java.util.stream.IntStream.range(0, g.nz()).parallel().forEach(j -> {
                 for (int i = 0; i < g.nx(); i++) {
-                    double h = boden1958.hoehe(g.e(i), g.n(j));
+                    double h = bo.hoehe(g.e(i), g.n(j));
                     v[j * g.nx() + i] = Double.isNaN(h) ? (wasserNull ? 0f : -200f) : (float) (wasserNull ? Math.max(0, h) : h);
                 }
+            });
             ByteBuffer b = ByteBuffer.allocate(n * 4).order(ByteOrder.LITTLE_ENDIAN);
             b.asFloatBuffer().put(v);
             try { Files.write(f.toPath(), b.array()); } catch (IOException e) { System.err.println("LituyaBay1958: Grund nicht abgelegt: " + e.getMessage()); }

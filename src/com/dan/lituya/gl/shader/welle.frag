@@ -9,6 +9,7 @@ in vec3 vN;
 in float vNass;
 in float vH;
 in float vSteig;
+in float vTiefe;
 out vec4 frag;
 uniform vec4 uFeiner;     // Rechteck des feineren Gitters (x0, z0, x1, z1), x0 > x1: keins
 
@@ -24,6 +25,10 @@ float vnf(vec2 q, float p, vec2 o, float px) { return mix(vn(q / p + o), 0.5, sm
 
 void main() {
     if (vNass < 0.35) discard;
+    // Werkbuch Welle W3b (K11): was nach dem Ablaufen als dünner Film am Hang liegen bleibt (unter rund 1 m), ist kein
+    // Wasser mehr im Bild, sondern nasser Grund: weg, das Gelände zeigt den abgeschürften Hang. Solange die Front aufläuft
+    // (der Stand steigt), bleibt der Film als weißes Wasser. Feste Grenze (erste Probe gestreut: Gesprenkel am Hang).
+    if (vTiefe < 1.2 && vSteig < 0.15) discard;
     if (vW.x > min(uFeiner.x, uFeiner.z) && vW.x < max(uFeiner.x, uFeiner.z) && vW.z > min(uFeiner.y, uFeiner.w) && vW.z < max(uFeiner.y, uFeiner.w)) discard;
     vec3 d = vW - uCam;
     float dist = length(d);

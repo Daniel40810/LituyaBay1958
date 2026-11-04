@@ -542,6 +542,16 @@ public final class ControlPanel extends JPanel implements javax.swing.Scrollable
         spiegelBox.addActionListener(e -> { r.meer.spiegel = spiegelBox.isSelected(); view.requestFocusInWindow(); });
         put(meerBox);
         put(spiegelBox);
+        // W3b: Texturen der Hänge und Gischt aus den Daten der Welle
+        FCheckBox texBox = new FCheckBox("Texturen der Hänge aus com.dan.surface (W3b)"), gischtBox = new FCheckBox("Gischt an der Front (W3b)");
+        texBox.setSelected(r.texturen);
+        gischtBox.setSelected(r.ereignisGl().vorhang);
+        texBox.setToolTipText("Fels, Schutt und Kies im abgeschürften Band und auf der Abrissfläche; aus: nur die Großform");
+        gischtBox.setToolTipText("Gischtwand, wo die Front ankommt, so hoch, wie die Welle dort aufläuft; verweht in rund 40 s");
+        texBox.addActionListener(e -> { r.texturen = texBox.isSelected(); view.requestFocusInWindow(); });
+        gischtBox.addActionListener(e -> { r.ereignisGl().vorhang = gischtBox.isSelected(); view.requestFocusInWindow(); });
+        put(texBox);
+        put(gischtBox);
         FCheckBox bloomBox = new FCheckBox("Glühen um Helles (Bloom)");
         bloomBox.setSelected(r.bloom > 0);
         bloomBox.addActionListener(e -> { r.bloom = bloomBox.isSelected() ? 0.35 : 0; view.requestFocusInWindow(); });

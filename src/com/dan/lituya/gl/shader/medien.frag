@@ -16,10 +16,18 @@ uniform vec3 uFwd;
 uniform int uStaub, uUnter;
 uniform vec4 uStaubGeo;    // x der Spalte 0, z der Zeile 0 (Süden), Zelle, Zellen je Seite
 uniform vec2 uStaubY;      // Hülle in der Höhe: unten, oben
-// Werkbuch Welle W3 (E4, E5): Dom aus Wasser und Schlamm und Gischtvorhang über dem Einschlag; Ort, Zeit seit dem
-// Eintauchen (s), an; Richtung des Sturzes (x, z). Ort und Richtung aus der Vorrechnung, Form und Höhe [G].
-uniform vec4 uVorhang;
-uniform vec2 uVorhangDir;
+// Werkbuch Welle W3b (E4, E5): Gischt aus den Daten der Welle statt einer Kuppel um einen Punkt (W3: „ein Ball, der ins
+// Schwimmbecken fällt“). Je Ort Ankunft der Front (Ereigniszeit) und höchster Stand aus der Vorrechnung (uFlut, RG32F,
+// Rechteck x0, z0 Süden, Breite, Tiefe); Grund aus Licht (uGrund, Rechteck x0, z0, Kante). Wo die Front ankommt, steht
+// über dem Wasser eine Wand aus Gischt, umso höher, je höher die Welle dort über dem Pegel aufläuft (am Hang gegenüber bis
+// über 500 m); sie fällt in Sekunden zurück und verweht als Schleier [G]. So läuft der Vorhang mit der Front durch die
+// Bucht und den Hang hinauf. uGischt: an, Ereigniszeit jetzt, Nachlauf (s).
+uniform vec3 uGischt;
+uniform sampler2D uFlut, uGrund;
+uniform vec4 uFlutRect;
+uniform vec3 uGrundRect;
+uniform vec4 uGischtBox;   // Rechteck der wirksamen Gischt jetzt: x0, z0, x1, z1 (Szene)
+uniform vec2 uGischtY;     // unten, oben
 
 // 3D-Rauschen aus einer kachelbaren Textur 64³ (W3: mit Sinus-Hashes kostete der Vorhang über 100 ms je Bild)
 uniform sampler3D uRausch;
@@ -41,39 +49,41 @@ float staubDichte(vec3 p, vec2 s, float base) {
     return s.y / dicke * f * t;
 }
 
-// Vorhang und Dom (E4, E5) um den Einschlag, tau s nach dem Eintauchen [G]: der Dom aus Wasser und Schlamm steigt in
-// rund 7 s auf 280 m und fällt in sich zusammen; der Vorhang läuft als Ring mit rund 55 m/s nach außen, vor allem in
-// Richtung des Sturzes, steigt auf über 400 m und fällt nach 10 s als Regen zurück; nach 30 s verweht er.
-// Rückgabe: Dichte Gischt (x), Dichte Schlamm (y).
-vec2 vorhangDichte(vec3 p) {
-    float tau = uVorhang.z;
-    if (uVorhang.w < 0.5 || tau < 0.0) return vec2(0.0);
-    vec3 q = p - vec3(uVorhang.x, uLevel, uVorhang.y);
-    if (q.y < -10.0 || q.y > 520.0) return vec2(0.0);
-    float r = length(q.xz);
-    float aus = 1.0 - smoothstep(20.0, 45.0, tau);
-    // Dom (Rauschen nur, wo er ist)
-    float rd = 260.0 * (1.0 - exp(-tau / 2.5)) + 40.0, hd = 290.0 * sin(clamp(tau / 15.0, 0.0, 1.0) * 3.14159) + 5.0;
-    float ell = (r * r) / (rd * rd) + (q.y * q.y) / (hd * hd);
-    float dom = 0.0;
-    if (ell < 1.3 && q.y > -5.0) dom = 1.0 - smoothstep(0.55, 1.0, ell + (vn3(p / 35.0 + vec3(0.0, -tau * 0.15, 0.0)) - 0.5) * 0.5);
-    // Vorhang (Ring), vorn stärker
-    vec2 dir = r > 1.0 ? q.xz / r : vec2(0.0);
-    float vorn = 0.35 + 0.65 * max(0.0, dot(dir, uVorhangDir));
-    float rc = 140.0 + 55.0 * tau * mix(0.6, 1.0, vorn);
-    float th = 40.0 + 4.0 * tau;
-    float band = exp(-pow((r - rc) / th, 2.0));
-    float top = 430.0 * vorn * (1.0 - exp(-tau / 3.5)) - 2.4 * max(0.0, tau - 9.0) * max(0.0, tau - 9.0);
-    top = max(top, 0.0);
-    float hoch = q.y > -3.0 && top > 1.0 ? (1.0 - smoothstep(top * 0.55, top * 1.1, q.y)) : 0.0;
-    float gischt = 0.0;
-    if (band * hoch > 0.01) {
-        float nv = fbm2(p / 22.0 + vec3(tau * 0.2, -tau * 0.6, 0.0));
-        gischt = band * hoch * (0.25 + 1.5 * nv * nv) * 0.012;
-    }
-    // fallende Gischt: ein Schleier über dem Ring, nachdem der Vorhang zurückfällt
-    float regen = smoothstep(8.0, 14.0, tau) * exp(-pow((r - rc * 0.8) / (rc * 0.45), 2.0)) * (1.0 - smoothstep(0.0, 260.0, q.y)) * 0.0025;
-    return vec2((gischt + regen + dom * 0.006) * aus, dom * 0.03 * aus);
+// Gischt an p (Dichte 1/m), Schlamm im Fuß der Wand (y) [G]
+vec2 gischtDichte(vec3 p) {
+    // Ort der Abfrage um bis zu 25 m verschoben, damit die Wand keine senkrechten Kanten aus dem Gitter bekommt
+    vec2 jit = (vec2(vn3(p / 40.0 + 11.0), vn3(p / 40.0 + 29.0)) - 0.5) * 50.0;
+    vec2 fu = vec2((p.x + jit.x - uFlutRect.x) / uFlutRect.z, (uFlutRect.y - p.z - jit.y) / uFlutRect.w);
+    if (any(lessThan(fu, vec2(0.0))) || any(greaterThan(fu, vec2(1.0)))) return vec2(0.0);
+    vec2 am = textureLod(uFlut, fu, 0.0).rg;
+    float alter = uGischt.y - am.x;
+    if (alter < -0.3 || alter > uGischt.z) return vec2(0.0);
+    float hw = am.y - uLevel;                       // wie hoch die Welle hier über dem Pegel stand
+    if (hw < 2.0) return vec2(0.0);
+    vec2 gu = (p.xz - uGrundRect.xy) / uGrundRect.z;
+    float grund = textureLod(uGrund, gu, 0.0).r;
+    float fuss = max(grund, uLevel);
+    float k = pow(clamp((hw - 2.0) / 60.0, 0.0, 1.0), 0.7);
+    // Wand: in rund 1,5 s auf ihre Höhe über dem höchsten Stand, dann fällt sie zurück; danach ein Schleier
+    float H = 12.0 + 110.0 * k;
+    float auf = 1.0 - exp(-max(alter, 0.0) / 1.5);
+    float top = am.y + H * auf - 4.9 * max(alter - 3.0, 0.0) * max(alter - 3.0, 0.0) * 0.35;
+    float schleierTop = am.y + H * 0.8;
+    float y = p.y;
+    if (y < fuss - 3.0) return vec2(0.0);
+    float wand = smoothstep(-0.3, 0.4, alter) * exp(-max(alter, 0.0) / 4.0)
+               * smoothstep(fuss - 3.0, fuss + 4.0, y) * (1.0 - smoothstep(top - 0.45 * H, top, y));
+    float schleier = smoothstep(2.0, 8.0, alter) * exp(-alter / 18.0) * 0.07
+               * smoothstep(fuss - 3.0, fuss + 8.0, y) * (1.0 - smoothstep(fuss + 0.2 * (schleierTop - fuss), schleierTop + 30.0, y));
+    float d = wand + schleier;
+    if (d < 1e-3) return vec2(0.0);
+    // zerrissen: Fetzen, die steigen (Wand) und verwehen; senkrechte Strähnen [G]
+    vec3 q = p / vec3(26.0, 48.0, 26.0) + vec3(0.0, -uGischt.y * 0.35, 0.0);
+    float nv = fbm2(q + vec3(am.x * 0.05));
+    float f = smoothstep(0.38, 0.72, nv) * (0.4 + 1.1 * vn3(p / 9.0 + vec3(0.0, -uGischt.y * 0.8, 0.0)));
+    float dichte = d * f * k * 0.05;
+    float schlamm = wand * f * k * 0.02 * (1.0 - smoothstep(fuss + 10.0, fuss + 60.0, y)) * smoothstep(5.0, 40.0, hw);
+    return vec2(dichte, schlamm);
 }
 
 float hg(float cs, float g) { return (1.0 - g * g) / (4.0 * 3.14159265 * pow(1.0 + g * g - 2.0 * g * cs, 1.5)); }
@@ -108,16 +118,16 @@ void main() {
         float aa = max(max(tn.x, tn.y), max(tn.z, 0.0)), bb = min(min(tf.x, tf.y), min(tf.z, dist));
         if (bb > aa) { a = min(a, aa); b = max(b, bb); }
     }
-    if (uVorhang.w > 0.5 && uVorhang.z >= 0.0) {
-        float R = 140.0 + 55.0 * uVorhang.z + 200.0;
-        vec3 lo = vec3(uVorhang.x - R, uLevel - 10.0, uVorhang.y - R), hi = vec3(uVorhang.x + R, uLevel + 520.0, uVorhang.y + R);
+    if (uGischt.x > 0.5) {
+        vec3 lo = vec3(min(uGischtBox.x, uGischtBox.z), uGischtY.x, min(uGischtBox.y, uGischtBox.w)),
+             hi = vec3(max(uGischtBox.x, uGischtBox.z), uGischtY.y, max(uGischtBox.y, uGischtBox.w));
         vec3 t0 = (lo - uCam) * inv, t1 = (hi - uCam) * inv;
         vec3 tn = min(t0, t1), tf = max(t0, t1);
         float aa = max(max(tn.x, tn.y), max(tn.z, 0.0)), bb = min(min(tf.x, tf.y), min(tf.z, dist));
         if (bb > aa) { a = min(a, aa); b = max(b, bb); }
     }
     if (b > a) {
-        const int N = 48;
+        const int N = 64;
         float ds = (b - a) / float(N);
         // W0 (K4): der Versatz wandert von Bild zu Bild; die Kantenglättung mittelt ihn
         float j = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453 + uBild * 0.61803399);
@@ -140,7 +150,7 @@ void main() {
                     ueber = s.y * clamp((s.x - p.y) / dicke, 0.0, 1.0) / max(uSun.y + 0.15, 0.1);
                 }
             }
-            vec2 v = vorhangDichte(p);
+            vec2 v = uGischt.x > 0.5 ? gischtDichte(p) : vec2(0.0);
             float sig = sigS + v.x + v.y;
             if (sig < 1e-6) continue;
             vec3 sonne = sunAt(p);

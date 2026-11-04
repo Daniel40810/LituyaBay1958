@@ -57,11 +57,65 @@ public final class EreignisGl {
 
     /** Zeit des Abbruchs und des Einschlags (s nach dem ersten Stoß; Strom ab 93 s, Eintauchen 105 s). */
     public static final double ABBRUCH_S = 93, EINSCHLAG_S = com.dan.lituya.scene.Band1958.EINTAUCHEN;
-    /** Gischtvorhang und Dom zeigen (E4, E5). */
+    /** Gischt an der Front zeigen (E4, E5; seit W3b aus den Daten der Welle statt einer Kuppel). */
     public volatile boolean vorhang = true;
+    /** W3b: wie lange die Gischt nach der Ankunft der Front in der Luft bleibt (s) [G]. */
+    public static final double GISCHT_NACHLAUF = 40;
+    /** W3b: Texturstelle der Flutkarte (Ankunft, höchster Stand) im Gelände. */
+    public static final int UNIT_FLUT = 15;
+    /** W3b: Flutkarte zu 8 m über der Bucht (RG32F: Ankunft s, höchster Stand m), Rechteck x0, z0 (Süden), Breite, Tiefe. */
+    private int flutTex;
+    private volatile double[] flutRect;
+    private String flutLauf;
+    /** Je Feld zu 32 × 32 Zellen der Flutkarte: früheste und späteste Ankunft, höchster Stand (für die Hülle der Gischt). */
+    private float[] feldMinA, feldMaxA, feldMax;
+    private int flutNx, flutNz;
+    private static final int FELD = 32;
+    private static final double FLUT_ZELLE = 8;
     /** Texturstelle der Abrissfläche im Gelände. */
     public static final int UNIT_ABRISS = 9;
-    private int abrissTex;
+    private int abrissTex, rauschTex;
+    /** Texturstelle des 3D-Rauschens für Staub und Vorhang. */
+    static final int UNIT_RAUSCH = 4;
+
+    /** Kachelbares Wertrauschen 64³ (R8, trilinear, wiederholt), einmal gebaut. */
+    private int rausch(GL4 gl) {
+        if (rauschTex != 0) return rauschTex;
+        int n = 64;
+        float[] v = new float[n * n * n];
+        java.util.Random r = new java.util.Random(1958);
+        for (int i = 0; i < v.length; i++) v[i] = r.nextFloat();
+        // einmal weich (3er-Kasten, kachelbar), damit die Lagen nicht körnig werden
+        float[] w = new float[v.length];
+        for (int z = 0; z < n; z++)
+            for (int y = 0; y < n; y++)
+                for (int x = 0; x < n; x++) {
+                    float sum = 0;
+                    for (int dz = -1; dz <= 1; dz++)
+                        for (int dy = -1; dy <= 1; dy++)
+                            for (int dx = -1; dx <= 1; dx++)
+                                sum += v[(((z + dz) & 63) * n + ((y + dy) & 63)) * n + ((x + dx) & 63)];
+                    w[(z * n + y) * n + x] = sum / 27;
+                }
+        float lo = 1, hi = 0;
+        for (float f : w) { lo = Math.min(lo, f); hi = Math.max(hi, f); }
+        java.nio.ByteBuffer b = Buffers.newDirectByteBuffer(w.length);
+        for (float f : w) b.put((byte) Math.round((f - lo) / (hi - lo) * 255));
+        b.flip();
+        int[] t = new int[1];
+        gl.glGenTextures(1, t, 0);
+        gl.glBindTexture(GL4.GL_TEXTURE_3D, t[0]);
+        gl.glPixelStorei(GL.GL_UNPACK_ALIGNMENT, 1);
+        gl.glTexImage3D(GL4.GL_TEXTURE_3D, 0, GL.GL_R8, n, n, n, 0, GL4.GL_RED, GL.GL_UNSIGNED_BYTE, b);
+        gl.glPixelStorei(GL.GL_UNPACK_ALIGNMENT, 4);
+        gl.glGenerateMipmap(GL4.GL_TEXTURE_3D);
+        gl.glTexParameteri(GL4.GL_TEXTURE_3D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR_MIPMAP_LINEAR);
+        gl.glTexParameteri(GL4.GL_TEXTURE_3D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_LINEAR);
+        for (int pn : new int[]{GL.GL_TEXTURE_WRAP_S, GL.GL_TEXTURE_WRAP_T, GL4.GL_TEXTURE_WRAP_R}) gl.glTexParameteri(GL4.GL_TEXTURE_3D, pn, GL.GL_REPEAT);
+        gl.glBindTexture(GL4.GL_TEXTURE_3D, 0);
+        rauschTex = t[0];
+        return rauschTex;
+    }
     private String abrissLauf;
     /** Rechteck der Abrissfläche: Szene x0, z0 (Süden), Breite, Tiefe; Einschlag x, z und Richtung des Sturzes (x, z). */
     private volatile double[] abrissRect, einschlag;
@@ -124,6 +178,145 @@ public final class EreignisGl {
         } catch (java.io.IOException | RuntimeException e) {
             sturzInfo = "Sturz: " + e;
         }
+    }
+
+    /**
+     * W3b: einmal je Lauf die Flutkarte aus {@code ankunft_g<k>} und {@code max_g<k>} der Welle (das feinste Gitter, das den
+     * Ort enthält), zu 8 m über dem Rechteck, in dem die Welle mehr als 1 m über dem Pegel stand. Trockene Zellen bekommen
+     * die Ankunft ihrer nassen Nachbarn (zwei Runden), damit die Spurlinie beim Mischen der Texel nicht zerfällt.
+     */
+    void flutDaten(GL4 gl, Wiedergabe w, double pegel) {
+        if (w == null) return;
+        List<Wiedergabe.Spur> ws = w.spuren(Wiedergabe.Art.WELLE);
+        if (ws.isEmpty() || ws.get(0).max == null || ws.get(0).ankunft == null) return;
+        String key = ws.get(0).toString() + "/" + ws.size();
+        if (key.equals(flutLauf)) return;
+        flutLauf = key;
+        Wiedergabe.Spur g0 = ws.get(0);
+        // Rechteck (UTM) der Zellen von Gitter 0 mit Ankunft
+        double e0 = Double.MAX_VALUE, n0 = Double.MAX_VALUE, e1 = -Double.MAX_VALUE, n1 = -Double.MAX_VALUE;
+        for (int j = 0; j < g0.g.nz(); j++)
+            for (int i = 0; i < g0.g.nx(); i++) {
+                int c = j * g0.g.nx() + i;
+                if (Float.isNaN(g0.ankunft[c]) || !(g0.max[c] > pegel + 1)) continue;
+                e0 = Math.min(e0, g0.g.e(i)); e1 = Math.max(e1, g0.g.e(i));
+                n0 = Math.min(n0, g0.g.n(j)); n1 = Math.max(n1, g0.g.n(j));
+            }
+        if (e0 > e1) { flutRect = null; return; }
+        double z = FLUT_ZELLE, rand = 3 * g0.g.zelle();
+        e0 -= rand; n0 -= rand; e1 += rand; n1 += rand;
+        int nx = (int) Math.ceil((e1 - e0) / z), nz = (int) Math.ceil((n1 - n0) / z);
+        float[] A = new float[nx * nz], M = new float[nx * nz];
+        final double fe0 = e0, fn0 = n0;
+        java.util.stream.IntStream.range(0, nz).parallel().forEach(j -> {
+            double n = fn0 + (j + 0.5) * z;
+            for (int i = 0; i < nx; i++) {
+                double e = fe0 + (i + 0.5) * z;
+                float a = Float.NaN, m = Float.NaN;
+                for (int k = ws.size() - 1; k >= 0; k--) {
+                    Wiedergabe.Spur s = ws.get(k);
+                    if (s.max == null || s.ankunft == null) continue;
+                    int c = s.g.index(e, n);
+                    if (c < 0) continue;
+                    a = s.ankunft[c];
+                    m = s.max[c];
+                    break;
+                }
+                A[j * nx + i] = a;
+                M[j * nx + i] = m;
+            }
+        });
+        // trockene Zellen: Ankunft der nassen Nachbarn, Stand weit unten
+        for (int runde = 0; runde < 2; runde++) {
+            float[] B = A.clone();
+            for (int j = 0; j < nz; j++)
+                for (int i = 0; i < nx; i++) {
+                    int c = j * nx + i;
+                    if (!Float.isNaN(A[c])) continue;
+                    float best = Float.NaN;
+                    for (int dj = -1; dj <= 1; dj++)
+                        for (int di = -1; di <= 1; di++) {
+                            int ii = i + di, jj = j + dj;
+                            if (ii < 0 || jj < 0 || ii >= nx || jj >= nz) continue;
+                            float v = A[jj * nx + ii];
+                            if (!Float.isNaN(v) && !(v >= best)) best = v;
+                        }
+                    B[c] = best;
+                }
+            System.arraycopy(B, 0, A, 0, A.length);
+        }
+        java.nio.FloatBuffer b = Buffers.newDirectFloatBuffer(nx * nz * 2);
+        int ftx = (nx + FELD - 1) / FELD, ftz = (nz + FELD - 1) / FELD;
+        float[] fa = new float[ftx * ftz], fb = new float[ftx * ftz], fm = new float[ftx * ftz];
+        java.util.Arrays.fill(fa, Float.MAX_VALUE);
+        java.util.Arrays.fill(fb, -Float.MAX_VALUE);
+        java.util.Arrays.fill(fm, -Float.MAX_VALUE);
+        for (int j = 0; j < nz; j++)
+            for (int i = 0; i < nx; i++) {
+                int c = j * nx + i;
+                float a = Float.isNaN(A[c]) ? 1e6f : A[c], m = Float.isNaN(M[c]) ? -1000f : M[c];
+                b.put(a).put(m);
+                if (a < 1e5f && m > pegel + 2) {
+                    int f = (j / FELD) * ftx + i / FELD;
+                    fa[f] = Math.min(fa[f], a);
+                    fb[f] = Math.max(fb[f], a);
+                    fm[f] = Math.max(fm[f], m);
+                }
+            }
+        b.flip();
+        if (flutTex == 0) {
+            int[] t = new int[1];
+            gl.glGenTextures(1, t, 0);
+            flutTex = t[0];
+        }
+        gl.glBindTexture(GL.GL_TEXTURE_2D, flutTex);
+        gl.glPixelStorei(GL.GL_UNPACK_ALIGNMENT, 4);
+        gl.glTexImage2D(GL.GL_TEXTURE_2D, 0, GL4.GL_RG32F, nx, nz, 0, GL4.GL_RG, GL.GL_FLOAT, b);
+        gl.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR);
+        gl.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_LINEAR);
+        gl.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_S, GL.GL_CLAMP_TO_EDGE);
+        gl.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_T, GL.GL_CLAMP_TO_EDGE);
+        gl.glBindTexture(GL.GL_TEXTURE_2D, 0);
+        feldMinA = fa; feldMaxA = fb; feldMax = fm;
+        flutNx = nx; flutNz = nz;
+        double[] o = Site.fromUtm(e0, n0);
+        flutRect = new double[]{o[0], o[1], nx * z, nz * z};
+        System.out.println(String.format(Locale.GERMAN, "LituyaBay1958: Flutkarte %d × %d zu %.0f m (%s)", nx, nz, z, key));
+    }
+
+    /** W3b: Uniforms der Flut für das Gelände (Programm gebunden); an, solange die Welle läuft (danach WaldGl). */
+    public void flut(GL4 gl, int p, double t) {
+        double[] r = flutRect;
+        boolean on = r != null && flutTex != 0 && t < 3600;
+        gl.glUniform1i(gl.glGetUniformLocation(p, "uFlutAn"), on ? 1 : 0);
+        gl.glUniform1i(gl.glGetUniformLocation(p, "uFlut"), UNIT_FLUT);
+        gl.glUniform1f(gl.glGetUniformLocation(p, "uEreignis"), (float) t);
+        if (!on) return;
+        gl.glActiveTexture(GL.GL_TEXTURE0 + UNIT_FLUT);
+        gl.glBindTexture(GL.GL_TEXTURE_2D, flutTex);
+        gl.glActiveTexture(GL.GL_TEXTURE0);
+        gl.glUniform4f(gl.glGetUniformLocation(p, "uFlutRect"), (float) r[0], (float) r[1], (float) r[2], (float) r[3]);
+    }
+
+    /** W3b: Hülle der Gischt zur Zeit t (Szene x0, z0, x1, z1, y0, y1) oder null. */
+    double[] gischtHuelle(double t, double pegel) {
+        double[] r = flutRect;
+        float[] fa = feldMinA, fb = feldMaxA, fm = feldMax;
+        if (r == null || fa == null) return null;
+        int ftx = (flutNx + FELD - 1) / FELD, ftz = (flutNz + FELD - 1) / FELD;
+        double x0 = 1e30, x1 = -1e30, zS = -1e30, zN = 1e30, top = -1e30;
+        double fz = FELD * FLUT_ZELLE;
+        for (int j = 0; j < ftz; j++)
+            for (int i = 0; i < ftx; i++) {
+                int f = j * ftx + i;
+                if (!(fa[f] <= t + 0.5) || !(fb[f] >= t - GISCHT_NACHLAUF)) continue;
+                double xa = r[0] + i * fz, za = r[1] - j * fz;
+                x0 = Math.min(x0, xa); x1 = Math.max(x1, xa + fz);
+                zS = Math.max(zS, za); zN = Math.min(zN, za - fz);
+                top = Math.max(top, fm[f]);
+            }
+        if (x0 > x1) return null;
+        return new double[]{x0, zN, x1, zS, pegel - 10, top + 140};
     }
 
     /** Uniforms der Abrissfläche für das Gelände (Programm gebunden); an ab dem Abbruch. */
@@ -264,7 +457,13 @@ public final class EreignisGl {
                 rect = new double[]{r[0] + c, r[1] - c, r[2] - c, r[3] + c};
             }
             erste = false;
+            ladeBoden(gl, x, s);
             common.accept(welle);
+            // W3b (K11): Grund unter dem Gitter, sobald gerechnet (dünner Film am Hang fällt weg)
+            gl.glActiveTexture(GL.GL_TEXTURE2);
+            gl.glBindTexture(GL.GL_TEXTURE_2D, x.boden);
+            welle.set(gl, "uBoden", 2);
+            welle.set(gl, "uBodenAn", x.boden != 0 ? 1 : 0);
             spur(gl, welle, s, p, x, vp, eye, kf, pegel);
             zeigtWelle = true;
         }
@@ -277,6 +476,7 @@ public final class EreignisGl {
             gl.glActiveTexture(GL.GL_TEXTURE2);
             gl.glBindTexture(GL.GL_TEXTURE_2D, x.boden);
             strom.set(gl, "uBoden", 2);
+            strom.set(gl, "uBodenAn", 1);
             spur(gl, strom, s, p, x, vp, eye, kf, -1000);
             zeigtStrom = true;
         }
@@ -387,7 +587,7 @@ public final class EreignisGl {
      * Staub und Trübe als Bild über dem HDR-Puffer (Ziel ohne Tiefe, die Tiefe als Textur). Zeichnet nichts, wenn weder
      * Staub noch Wasser über dem Auge.
      */
-    public void medien(GL4 gl, Wiedergabe w, double t, int depthTex, Consumer<Shader> common, float[] fwd, boolean reversed) {
+    public void medien(GL4 gl, Wiedergabe w, double t, int depthTex, Consumer<Shader> common, float[] fwd, boolean reversed, int grundTex, double[] grundRect, double pegel) {
         zeigtStaub = false;
         Wiedergabe.Paar po = null, pd = null;
         Wiedergabe.Spur so = null;
@@ -397,9 +597,8 @@ public final class EreignisGl {
         }
         boolean staub = po != null && pd != null && so.boden != null && po.a() == pd.a() && po.b() == pd.b();
         boolean unter = ueberAuge > 0;
-        double[] es = einschlag;
-        double tau = t - EINSCHLAG_S;
-        boolean vh = vorhang && es != null && tau > -0.5 && tau < 45;
+        double[] gh = vorhang && w != null && w.an() && grundTex != 0 ? gischtHuelle(t, pegel) : null;
+        boolean vh = gh != null;
         if (!staub && !unter && !vh) return;
         // erst laden (bindet auf der aktiven Stelle), dann die Stellen belegen
         Tex x = null;
@@ -413,7 +612,11 @@ public final class EreignisGl {
             }
             ladeBoden(gl, x, so);
         }
+        int rt = rausch(gl);
         common.accept(medien);
+        gl.glActiveTexture(GL.GL_TEXTURE0 + UNIT_RAUSCH);
+        gl.glBindTexture(GL4.GL_TEXTURE_3D, rt);
+        medien.set(gl, "uRausch", UNIT_RAUSCH);
         gl.glActiveTexture(GL.GL_TEXTURE0);
         gl.glBindTexture(GL.GL_TEXTURE_2D, depthTex);
         medien.set(gl, "uDepth", 0);
@@ -422,8 +625,20 @@ public final class EreignisGl {
         medien.set(gl, "uFwd", fwd[0], fwd[1], fwd[2]);
         medien.set(gl, "uUnter", unter ? 1 : 0);
         medien.set(gl, "uStaub", staub ? 1 : 0);
-        medien.set(gl, "uVorhang", vh ? (float) es[0] : 0f, vh ? (float) es[1] : 0f, (float) tau, vh ? 1f : 0f);
-        medien.set(gl, "uVorhangDir", vh ? (float) es[2] : 0f, vh ? (float) es[3] : 1f);
+        medien.set(gl, "uGischt", vh ? 1f : 0f, (float) t, (float) GISCHT_NACHLAUF);
+        medien.set(gl, "uFlut", 5);
+        medien.set(gl, "uGrund", 6);
+        if (vh) {
+            double[] r = flutRect;
+            gl.glActiveTexture(GL.GL_TEXTURE5);
+            gl.glBindTexture(GL.GL_TEXTURE_2D, flutTex);
+            gl.glActiveTexture(GL.GL_TEXTURE6);
+            gl.glBindTexture(GL.GL_TEXTURE_2D, grundTex);
+            medien.set(gl, "uFlutRect", (float) r[0], (float) r[1], (float) r[2], (float) r[3]);
+            medien.set(gl, "uGrundRect", (float) grundRect[0], (float) grundRect[1], (float) grundRect[2]);
+            medien.set(gl, "uGischtBox", (float) gh[0], (float) gh[1], (float) gh[2], (float) gh[3]);
+            medien.set(gl, "uGischtY", (float) gh[4], (float) gh[5]);
+        }
         medien.set(gl, "uStaubA", 1);
         medien.set(gl, "uStaubB", 2);
         medien.set(gl, "uBoden", 3);
@@ -465,6 +680,8 @@ public final class EreignisGl {
     public void dispose(GL4 gl) {
         for (Shader s : all) s.dispose(gl);
         if (abrissTex != 0) gl.glDeleteTextures(1, new int[]{abrissTex}, 0);
+        if (rauschTex != 0) gl.glDeleteTextures(1, new int[]{rauschTex}, 0);
+        if (flutTex != 0) gl.glDeleteTextures(1, new int[]{flutTex}, 0);
         for (Tex t : tex.values()) Gpu.deleteTextures(gl, t.a, t.b, t.boden);
         tex.clear();
     }

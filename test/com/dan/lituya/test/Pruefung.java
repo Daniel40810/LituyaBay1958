@@ -157,6 +157,16 @@ public final class Pruefung {
         check(Renderer.bebenStaerke(-1) == 0 && Renderer.bebenStaerke(20) == 1 && Renderer.bebenStaerke(70) == 0 && rd.zittern,
                 "W3: Beben 0 … 60 s, voll von 5 bis 40 s, Kamerazittern an");
         check(com.dan.lituya.gl.EreignisGl.EINSCHLAG_S == 105 && com.dan.lituya.gl.EreignisGl.ABBRUCH_S == 93, "W3: Abbruch 93 s, Einschlag 105 s nach dem ersten Stoß");
+        // Werkbuch Welle W3b: Gischt aus den Daten der Welle (keine Kuppel um einen Punkt), Texturen auf den Hängen
+        try {
+            String med = new String(Renderer.class.getResourceAsStream("/com/dan/lituya/gl/shader/medien.frag").readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+            String gel = new String(Renderer.class.getResourceAsStream("/com/dan/lituya/gl/shader/gelaende.frag").readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+            String wel = new String(Renderer.class.getResourceAsStream("/com/dan/lituya/gl/shader/welle.frag").readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+            check(med.contains("gischtDichte") && !med.contains("vorhangDichte") && med.contains("uFlut"), "W3b: Gischt aus Ankunft und höchstem Stand der Welle, keine Kuppel");
+            check(gel.contains("/com/dan/surface/gl/surface.glsl") && gel.contains("vec3 hang(") && gel.contains("uFlut"), "W3b: Gelände mit com.dan.surface und Flut (abgeschürfte Hänge)");
+            check(wel.contains("vTiefe"), "W3b: dünner Film am Hang fällt weg (K11)");
+        } catch (java.io.IOException | RuntimeException e) { check(false, "W3b: Shader lesen: " + e); }
+        check(com.dan.lituya.gl.EreignisGl.GISCHT_NACHLAUF > 10 && com.dan.lituya.gl.EreignisGl.UNIT_FLUT != com.dan.lituya.gl.EreignisGl.UNIT_ABRISS, "W3b: Gischt bleibt 40 s, Texturstelle der Flut frei");
         // W0 (K6, WF11 A): keine Karte und keine Netzlinien beim Start
         check(!rd.netzblick.bildImBild && !rd.netzblick.inSzene && !rd.showHud && !rd.showMarks, "W0: beim Start weder Netzblick noch HUD noch Marken");
         // W0 (Befund K8): keine leeren Versprechen im Bedienfeld
