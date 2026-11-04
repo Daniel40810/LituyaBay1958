@@ -166,7 +166,7 @@ public final class Renderer implements GLEventListener {
             post = new Shader("Nachbearbeitung", null, "fullscreen.vert", "post.frag"),
             overlay = new Shader("Überlagerung", null, "fullscreen.vert", "overlay.frag"),
             taaShader = new Shader("Kantenglättung", null, "fullscreen.vert", "taa.frag");
-    private final Shader[] all = {skyShader, gelaendeShader, meerShader, post, overlay, taaShader, ereignisGl.welle, ereignisGl.strom, ereignisGl.medien, ereignisGl.medienHoch, baeche.shader};
+    private final Shader[] all = {skyShader, gelaendeShader, meerShader, post, overlay, taaShader, ereignisGl.welle, ereignisGl.strom, ereignisGl.medien, ereignisGl.medienHoch, ereignisGl.lippeGl.shader, ereignisGl.lippeGl.tropfen, baeche.shader};
     private final HudOverlay hud = new HudOverlay();
     /** Phase 19a: Befunde als Marken, Zeugen als Untertitel (Archiv). */
     public final ArchivSzene archiv = new ArchivSzene();

@@ -58,6 +58,21 @@ float staubDichte(vec3 p, vec2 s, float base) {
     return s.y / dicke * f * t * 0.7;
 }
 
+// W4b Runde 3: wo die Lippe als Netz die Röhre bildet (Bucht, Welle 8–80 m, tiefes Wasser), vor und unter der Krone, in
+// den ersten Sekunden: 1, sonst 0. Dort lichten sich Gischt, Kammgischt und der Staub der Vorrechnung; sie lagen als
+// lilagrauer Schleier vor der Röhre, deren Rückwand im Wasser selbst schon dunkel war (Probe mit Farben) [G]
+float roehreMaske(vec3 p) {
+    if (p.y > uLevel + 85.0) return 0.0;   // über jeder Krone: ohne Abfrage weiter (Kosten im Strahl)
+    vec2 fu = vec2((p.x - uFlutRect.x) / uFlutRect.z, (uFlutRect.y - p.z) / uFlutRect.w);
+    if (any(lessThan(fu, vec2(0.0))) || any(greaterThan(fu, vec2(1.0)))) return 0.0;
+    vec2 am = textureLod(uFlut, fu, 0.0).rg;
+    if (am.x > 1e5) return 0.0;
+    float alter = uGischt.y - am.x, hw = am.y - uLevel;
+    // (ohne Bedingung an den Grund: die Textur des Grunds trägt über Wasser nicht die Tiefe, die Maske war dort null)
+    return smoothstep(8.0, 14.0, hw) * (1.0 - smoothstep(60.0, 80.0, hw))
+         * smoothstep(-6.0, -2.0, alter) * (1.0 - smoothstep(0.8, 2.5, alter)) * (1.0 - smoothstep(am.y - 0.15 * hw, am.y + 0.05 * hw, p.y));
+}
+
 // Gischt an p (Dichte 1/m), Schlamm im Fuß der Wand (y) [G]
 vec2 gischtDichte(vec3 p) {
     // Ort der Abfrage um bis zu 25 m verschoben, damit die Wand keine senkrechten Kanten aus dem Gitter bekommt
@@ -82,6 +97,10 @@ vec2 gischtDichte(vec3 p) {
     if (y < fuss - 3.0) return vec2(0.0);
     float wand = smoothstep(-0.3, 0.4, alter) * exp(-max(alter, 0.0) / 4.0)
                * smoothstep(fuss - 3.0, fuss + 4.0, y) * (1.0 - smoothstep(top - 0.45 * H, top, y));
+    // W4b Runde 3: vor und unter der Krone, wo die Lippe als Netz die Röhre bildet (Bucht, 8–80 m), lichtet sich die Gischt:
+    // der Schleier lag vor der Röhre, ihr Inneres blieb lilagrau [G]
+    float roehre = roehreMaske(p);
+    wand *= 1.0 - 0.85 * roehre;
     float schleier = smoothstep(2.0, 8.0, alter) * exp(-alter / 18.0) * 0.07
                * smoothstep(fuss - 3.0, fuss + 8.0, y) * (1.0 - smoothstep(fuss + 0.2 * (schleierTop - fuss), schleierTop + 30.0, y));
     float d = wand + schleier;
@@ -100,6 +119,7 @@ vec2 gischtDichte(vec3 p) {
             float lo = am.y - 0.25 * hw, hi = am.y + hw * (0.12 + 0.55 * (1.0 - exp(-max(alter, 0.0) / 1.0)));
             float env = smoothstep(-0.2, 0.3, alter) * exp(-max(alter, 0.0) / 2.2)
                       * smoothstep(lo, lo + 0.2 * hw, p.y) * (1.0 - smoothstep(mix(lo, hi, 0.55), hi, p.y));
+            env *= 1.0 - 0.9 * roehre;   // Runde 3: nicht vor der Röhre
             if (env > 1e-3) {
                 vec3 qk = vec3(dot(p.xz, T) / 40.0 + uGischt.y * 0.9, p.y / 9.0, dot(p.xz, Tq) / 13.0);
                 float fil = smoothstep(0.40, 0.72, fbm2(qk)) * (0.5 + 0.9 * smoothstep(0.35, 0.8, vn3(vec3(dot(p.xz, T) / 14.0 + uGischt.y * 2.0, p.y / 3.0, dot(p.xz, Tq) / 4.0))));
@@ -215,6 +235,7 @@ void main() {
                     vec2 s = mix(sa, sb, uF);
                     float base = texture(uBoden, uv).r;
                     sigS = staubDichte(p, s, base);
+                    if (uGischt.x > 0.5) sigS *= 1.0 - 0.85 * roehreMaske(p);   // W4b Runde 3: nicht vor der Röhre
                     float dicke = max(s.x - base, 5.0);
                     ueber = s.y * clamp((s.x - p.y) / dicke, 0.0, 1.0) / max(uSun.y + 0.15, 0.1);
                 }

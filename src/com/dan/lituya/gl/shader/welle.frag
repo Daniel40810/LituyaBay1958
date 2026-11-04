@@ -32,6 +32,7 @@ uniform sampler2D uFlut;
 uniform vec4 uFlutRect;
 uniform float uEreignis;
 uniform vec2 uWindXZ;     // W3c: Richtung, in die der Wind weht (Szene x, z)
+uniform int uLipNetz;     // W4b: die Lippe als eigenes Netz (LippeGl): die steile Wand darunter ist das Innere der Röhre
 
 float h2(vec2 i) { return fract(sin(dot(i, vec2(127.1, 311.7))) * 43758.5453); }
 float vn(vec2 x) {
@@ -61,6 +62,9 @@ void main() {
     vec2 q = vW.xz;
     float px = max(length(fwidth(q)), 1e-4);   // Bildpunkt auf der Fläche (m)
     vec3 N = normalize(vN);
+    // W4b: auf steilen Wänden die Normale des Dreiecks selbst: die Wand ist eine Reihe langer schmaler Dreiecke, die
+    // gemittelte Normale gab dort Zickzack-Bänder (Probe Röhre)
+    // (zurückgenommen: die Normale je Dreieck machte jedes Dreieck zur eigenen Facette, Sägezahn über die Wand)
     float steil = 1.0 - N.y;
     float hoch = vH - uLevel;
     // ---- wie lange die Front schon da ist (Flutkarte), Aufruhr
@@ -84,7 +88,10 @@ void main() {
     vec2 g = lage(qs, 23.0, vec2(-t * 0.035, 0.0), px) * 0.55 + lage(qs + 7.0, 9.0, vec2(-t * 0.07, t * 0.01), px) * 0.45
            + lage(qs + 3.0, 3.7, vec2(-t * 0.16, 0.0), px) * 0.35 + lage(qs + 11.0, 1.4, vec2(-t * 0.33, t * 0.05), px) * 0.25;
     g = (wd * (g.x * 0.55) + wq * g.y) * 0.35;
-    float kr = mix(0.32, 1.0, aufruhr) * (1.0 - 0.5 * smoothstep(1500.0, 9000.0, dist));
+    // W4b: Muster aus dem Grundriss (Kräusel, Straßen, Treibgut) nicht auf steilen Wänden, dort zogen sie sich zu
+    // waagerechten Zickzack-Bändern zusammen (Probe Röhre)
+    float flach = 1.0 - smoothstep(0.30, 0.60, 1.0 - abs(N.y));
+    float kr = mix(0.32, 1.0, aufruhr) * (1.0 - 0.5 * smoothstep(1500.0, 9000.0, dist)) * flach;
     vec3 n = normalize(N + vec3(g.x, 0.0, g.y) * kr);
     vec3 v = -d;
     float B = skyBrightness(sunElevDeg());
@@ -125,7 +132,10 @@ void main() {
         // (türkis, wo klar, braun im Schlamm), innen dunkel, zur Spitze hin heller [G]
         vec3 durch = skyColor(vec3(0.0, 1.0, 0.0)) * mix(vec3(0.16, 0.48, 0.42), vec3(0.36, 0.28, 0.16), clamp(schlamm * 0.8, 0.0, 1.0));
         float spitze = clamp(vLippe * 1.6, 0.0, 1.0);
-        col = mix(body * 0.7, durch * 0.55, 0.35 + 0.5 * spitze);
+        float hr = clamp((vH - uLevel) / max(vStand - uLevel, 1.0), 0.0, 1.0);
+        // oben unter der Lippe Licht durch das dünne Wasser, nach unten in die Röhre dunkel, Schlieren in der Fallrichtung
+        float schl = vn((vec2(dot(vW.xz, vec2(-vLauf.y, vLauf.x)) * 0.25, vW.y * 0.08 - uTime * 0.6)));
+        col = mix(body * 0.55, durch * (0.5 + 0.35 * schl), smoothstep(0.35, 0.95, hr) * (0.5 + 0.5 * spitze));
         fres = 0.0;
     } else {
         // von unten: im Snellschen Fenster (48,6°) der Himmel gebrochen, sonst der Körper gespiegelt
@@ -192,7 +202,7 @@ void main() {
     // W4 E10: gleich hinter der Front ein Teppich aus Schaum mit Wirbeln und Lücken
     float wirbel = vnf(q + vec2(31.0, 7.0) + T * t * 1.5, 26.0, vec2(0.0), px) * 0.6 + vnf(q * 1.7 + 3.0, 9.0, vec2(t * 0.1, 0.0), px) * 0.4;
     float teppich = (hatLauf ? smoothstep(2.0, 6.0, vSeit) * (1.0 - smoothstep(25.0, 140.0, vSeit)) : 0.0) * smoothstep(0.38, 0.62, wirbel);
-    strasse = max(strasse, teppich * 0.85);
+    strasse = max(strasse, teppich * 0.85) * flach;
     // 3) Saum am Ufer: dünnes Wasser über dem Grund
     float saum = (1.0 - smoothstep(0.6, 3.5, vTiefe)) * smoothstep(0.35, 0.7, vnf(q + 13.0, 2.5, vec2(t * 0.2, 0.0), px) + 0.25);
     // 4) Aufruhr im Nahfeld der Quelle: Weißwasser und Schlamm in Fetzen
@@ -229,8 +239,28 @@ void main() {
         float stamm = step(dicht, da) * (1.0 - smoothstep(0.18, 0.30, abs(fz.y - 0.5))) * smoothstep(0.08, 0.16, fz.x) * (1.0 - smoothstep(0.7, 0.85, fz.x));
         float nahS = 1.0 - smoothstep(0.25, 0.9, px);
         vec3 holzF = mix(vec3(0.05, 0.04, 0.03), vec3(0.50, 0.45, 0.38), step(0.5, h2(zl + 9.1)));
-        float anteil = stamm * nahS + (1.0 - nahS) * (1.0 - dicht) * 0.55;
+        float anteil = (stamm * nahS + (1.0 - nahS) * (1.0 - dicht) * 0.55) * flach;
         col = mix(col, holzF * weissL * 0.85, clamp(anteil, 0.0, 0.9) * (1.0 - front) * (1.0 - quelle));
+    }
+    // W4b: unter dem Netz der Lippe ist die steile Wand die Rückwand der Röhre: dunkel, oben etwas Licht durch die Lippe;
+    // ihre Treppe aus dem Höhenfeld (Zickzack) geht im Dunkel unter [G]
+    if (uLipNetz == 1 && hatLauf) {
+        // Runde 2: auch die flacheren Teile unter der Lippe (in den offenen Abschnitten sah man dort hellen Dunst)
+        // Runde 4: die Maske hängt nur noch an Zeit, Höhe und Blick (vorher an der Normale des Höhenfelds, die auf der
+        // Treppe der Zellen zickzackt: daraus die geschwungenen Linien auf der Rückwand); ganz dunkel statt 95 %, damit
+        // die Streifen des Schaums darunter nicht mehr durchscheinen
+        // (zweite Probe: der Fuß der Wand kommt später an; mit −0,6 s lag sein unterer Teil halb außerhalb, dort standen
+        // die Linien weiter; jetzt ab −2,5 s, vor der Front hält die Höhe über dem Pegel die Maske zu)
+        float roehre = smoothstep(-2.5, -1.2, vSeit) * (1.0 - smoothstep(1.8, 3.5, vSeit)) * smoothstep(0.0, 0.05, hrel) * (1.0 - smoothstep(0.92, 1.04, hrel))
+                     * smoothstep(8.0, 16.0, hs) * (1.0 - smoothstep(45.0, 80.0, hs)) * smoothstep(0.0, 0.35, vorn);
+        float rs = vn(vec2(dot(vW.xz, Tq) * 0.12, vW.y * 0.05 - uTime * 0.45)) * 0.6 + vn(vec2(dot(vW.xz, Tq) * 0.03 + 4.0, vW.y * 0.02 - uTime * 0.2)) * 0.4;
+        // (dritte Probe: ganz ohne die Linien war die Röhre ein schwarzes Loch; etwas mehr Licht von oben durch die Lippe)
+        vec3 innenL = skyColor(vec3(0.0, 1.0, 0.0)) * vec3(0.16, 0.50, 0.44) * (0.05 + 0.30 * smoothstep(0.15, 1.0, hrel)) * (0.7 + 0.6 * rs);
+        // ohne die Sonne: die Rückwand liegt im Schatten der Lippe, und der Schatten der Treppe aus dem Höhenfeld auf sich
+        // selbst (Schattenkarte) zog die dunklen Linien (Probe Runde 4)
+        vec3 eAmb = uSkyMode == 1 ? uSkyAmb * 3.14159 : skyColor(vec3(0.0, 1.0, 0.0)) * 0.6;
+        vec3 bodyR = mix(mix(klar, milch, 0.55), lehm, schlamm) * eAmb * 0.32;
+        col = mix(col, bodyR * 0.5 + innenL, roehre);
     }
     col = aerial(col, d, dist);
     frag = vec4(col, 1.0);
