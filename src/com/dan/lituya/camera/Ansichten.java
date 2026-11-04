@@ -72,6 +72,27 @@ public final class Ansichten {
         try { return byKey(Integer.parseInt(name.trim())); } catch (NumberFormatException e) { return null; }
     }
 
+    /**
+     * Werkbuch Welle W4: ein Punkt mit Versatz von einem Ort, für Regiebücher: „Cenotaph Island @ 60, 1500, 4, 50, -2“ ist
+     * 1 500 m in Richtung 060° von Cenotaph Island, Auge 4 m über Grund oder Wasser, Blick 050°, Neigung −2° (nach oben).
+     * Liefert x, z, Auge, Blick, Neigung, oder null, wenn der Name diese Form nicht hat oder den Ort nicht gibt.
+     */
+    public static double[] versatz(String name) {
+        int at = name.indexOf('@');
+        if (at <= 0) return null;
+        com.dan.lituya.scene.Site.Ort o = com.dan.lituya.scene.Site.byName(name.substring(0, at).strip());
+        String[] v = name.substring(at + 1).split(",");
+        if (o == null || v.length != 5) return null;
+        try {
+            double[] z = new double[5];
+            for (int i = 0; i < 5; i++) z[i] = Double.parseDouble(v[i].strip());
+            double[] xz = versetzt(o, z[0], z[1]);
+            return new double[]{xz[0], xz[1], z[2], z[3], z[4]};
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
     public static Ansicht byKey(int key) {
         for (Ansicht a : ALLE) if (a.key() == key) return a;
         return null;

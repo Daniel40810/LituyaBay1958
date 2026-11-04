@@ -16,6 +16,10 @@ in float vH;
 in float vSteig;
 in float vTiefe;
 in float vQuelle;
+in float vLippe;      // W4: Anteil der Lippe (aus spur.vert)
+in vec2 vLauf;        // W4: Laufrichtung der Front (Szene x, z)
+in float vSeit;       // W4: s seit der Ankunft der Front
+in float vStand;      // W4: höchster Stand hier (m)
 out vec4 frag;
 uniform vec4 uFeiner;     // Rechteck des feineren Gitters (x0, z0, x1, z1), x0 > x1: keins
 // W3c: Spiegelbild der Berge aus W2 (halbe Größe, a = 1 wo Gelände oder Wald im Spiegel steht) und Größe des Bilds
@@ -95,6 +99,13 @@ void main() {
         fres = 0.02 + 0.98 * pow(1.0 - max(dot(n, v), 0.0), 5.0);
         vec3 r = reflect(d, n);
         vec3 refl = skyColor(vec3(r.x, max(r.y, 0.01), r.z));
+        // W4: eine steile Wand sieht im Spiegel flach hinaus, und dort stehen in der Bucht die Hänge (dunkel, im Dunst),
+        // nicht der helle Himmel am Horizont; der Spiegel der Berge (uRefl) gilt nur nahe am Pegel [G]
+        float wandS = smoothstep(0.10, 0.35, 1.0 - N.y);
+        if (wandS > 0.0) {
+            vec3 hang = hazeColor(normalize(vec3(r.x, 0.0, r.z) + vec3(1e-4))) * 0.20 * (0.6 + 0.4 * smoothstep(-0.2, 0.3, r.y));
+            refl = mix(refl, hang, wandS * (1.0 - smoothstep(0.10, 0.40, r.y)));
+        }
         // Spiegel der Berge (W2-Bild): nur nahe am Pegel und wo die Fläche flach liegt; Verzerrung mit den Kräuseln
         if (uSpiegelAn == 1) {
             float nahe = (1.0 - smoothstep(6.0, 22.0, abs(hoch))) * (1.0 - smoothstep(0.05, 0.16, steil));
@@ -115,22 +126,90 @@ void main() {
         float fenster = smoothstep(0.62, 0.70, c);
         col = mix(body * 1.4, skyColor(normalize(vec3(-v.x, 1.0, -v.z))) * 0.5, fenster);   // W3c: Körper heller (Unterwasserblick)
     }
+    // ---- Werkbuch Welle W4 „Die Wand“ (E7–E9, E12) [G]: wo die Front gerade durchläuft, auf der Wand eigene
+    // Koordinaten (längs der Front und in der Höhe), damit das Rauschen keine senkrechten Streifen aus dem Grundriss zieht
+    bool hatLauf = dot(vLauf, vLauf) > 0.25 && vSeit > -1e8;
+    vec2 T = hatLauf ? normalize(vLauf) : wd, Tq = vec2(-T.y, T.x);
+    float hs = max((hatLauf ? vStand : stand) - uLevel, 1.0);
+    float hrel = clamp(hoch / hs, 0.0, 1.2);
+    float wandZeit = hatLauf ? smoothstep(-1.5, 0.3, vSeit) * (1.0 - smoothstep(4.0, 16.0, vSeit)) : 0.0;
+    float wandSteil = smoothstep(0.06, 0.30, steil);
+    float wand = wandZeit * smoothstep(4.0, 22.0, hoch) * max(wandSteil, vLippe);
+    vec2 qw = vec2(dot(q, Tq), vW.y);
+    float pxw = max(length(fwidth(qw)), 1e-4);
+    float vorn = smoothstep(-0.1, 0.5, dot(normalize(v.xz + vec2(1e-5)), T));   // das Auge steht vor der Front
+    // E8 Durchlicht: der dünne Kamm leuchtet von hinten, türkis wo klar, braun wo Schlamm
+    float duenn = clamp(vLippe * 1.4, 0.0, 1.0) * smoothstep(0.80, 0.98, hrel) * vorn * wandSteil;
+    if (duenn > 0.0) {
+        vec3 hinten = skyColor(normalize(vec3(d.x, max(d.y, 0.03) + 0.05, d.z)));
+        vec3 farbe = mix(vec3(0.20, 0.72, 0.62), vec3(0.55, 0.42, 0.22), clamp(schlamm * 0.8, 0.0, 1.0));
+        float adern = vnf(qw + vec2(0.0, t * 3.0), 7.0, vec2(0.0), pxw) * 0.6 + vnf(qw * vec2(1.0, 0.4), 2.0, vec2(t * 0.6, 0.0), pxw) * 0.4;
+        col = mix(col, hinten * farbe * (0.45 + 0.35 * adern) + body * 0.5, duenn * 0.6);
+    }
+    // unter der Lippe: Schatten in der Röhre
+    col *= 1.0 - 0.5 * clamp(vLippe * 1.5, 0.0, 1.0) * smoothstep(0.25, 0.5, hrel) * (1.0 - smoothstep(0.7, 0.9, hrel)) * vorn;
     // ---- Schaum [G]
     vec3 weissL = sunAt(vW) * max(dot(n, uSun), 0.0) * 0.9 + umgebung(n) * 1.05;
-    // 1) Weißwasser an der Front und an steilen Flanken, ausgefranst
-    float roh = vnf(q, 6.0, vec2(t * 0.35, 0.0), px) * 0.55 + vnf(q, 1.8, vec2(0.0, t * 0.6), px) * 0.45;
+    // 1) Weißwasser an der Front und an steilen Flanken, ausgefranst (auf der Wand in Wandkoordinaten)
+    vec2 qf = mix(q, qw * vec2(1.0, 1.6), wandSteil);
+    float pf = mix(px, pxw, wandSteil);
+    float roh = vnf(qf, 6.0, vec2(t * 0.35, -t * 0.5 * wandSteil), pf) * 0.55 + vnf(qf, 1.8, vec2(0.0, t * 0.6), pf) * 0.45;
     float front = clamp(smoothstep(0.08, 0.35, steil) + smoothstep(0.8, 4.0, vSteig), 0.0, 1.0) * smoothstep(0.30, 0.70, roh + 0.25);
-    // 2) Schaumstraßen und Flecken hinter der Front: in Windrichtung gestreckt, klingen in rund 10 min ab
-    vec2 qz = vec2(qr.x * 0.18, qr.y);
+    // E9 Walze am Fuß der Wand: dichtes Weißwasser, das an der Wand aufsteigt; Kammgischt oben, die nach hinten weht
+    float walzeN = vnf(qw * vec2(1.0, 0.7) + vec2(0.0, -t * 4.0), 9.0, vec2(0.0), pxw) * 0.55 + vnf(qw + vec2(t * 1.5, -t * 7.0), 3.0, vec2(0.0), pxw) * 0.45;
+    // große Formen (Fahnen aus Schaum, die über die Wand herabfallen; Lücken, durch die das dunkle Wasser sieht): längs
+    // der Front 25–70 m, in der Höhe gestreckt; sie bleiben, wenn das feine Rauschen in der Ferne zum Mittel geht
+    float gross = vnf(vec2(qw.x, qw.y * 0.22 + t * 1.2), 38.0, vec2(0.0), pxw) * 0.65 + vnf(vec2(qw.x, qw.y * 0.4 + t * 2.0) + 17.0, 13.0, vec2(0.0), pxw) * 0.35;
+    float fahnen = smoothstep(0.42, 0.66, gross);
+    float walze = wand * (1.0 - smoothstep(0.35, 0.62, hrel + (walzeN - 0.5) * 0.3)) * smoothstep(0.25, 0.55, walzeN + 0.15);
+    walze = max(walze, wand * fahnen * (1.0 - smoothstep(0.55, 0.9, hrel)) * 0.85);
+    float kammN = vnf(vec2(dot(q, Tq), dot(q, T)) * vec2(1.0, 0.35) + vec2(0.0, t * 4.0), 5.0, vec2(0.0), px);
+    float kammG = vnf(vec2(dot(q, Tq), t * 0.8), 24.0, vec2(0.0), px);   // der Kamm bricht nicht überall zugleich
+    float kammB = smoothstep(mix(0.80, 0.62, kammG), 0.93, hrel);
+    float kamm = wandZeit * kammB * smoothstep(8.0, 25.0, hoch) * smoothstep(0.30, 0.62, kammN * 0.5 + kammG * 0.5 + 0.35 * clamp(vLippe * 2.0, 0.0, 1.0));
+    // zwischen Kamm und Walze: die Wand selbst, glasig und dunkel, mit wenig Schaum
+    front = max(front * (1.0 - 0.75 * wand), max(walze, kamm));
+    // Sturz: steiles Wasser hoch über dem Pegel (die Wände im Gilbert Inlet, 50–150 m) ist ganz durchlüftet, Weißwasser
+    // in Kaskaden mit Lücken; glasig bleibt nur die niedrigere Wand weiter draußen (Probe 4: dunkle Wände wie Fels)
+    float sturz = smoothstep(0.22, 0.45, steil) * smoothstep(18.0, 55.0, hoch);
+    front = max(front, sturz * smoothstep(0.34, 0.58, gross + 0.2 * walzeN));
+    // Licht im Schaum: Kaskaden heller, wo sie vorstehen, Rinnen dazwischen im Schatten (in der Höhe gestreckt), damit
+    // die Wand aus der Ferne nicht als glatte Schneewand steht
+    float rinne = vnf(vec2(qw.x * 1.0, qw.y * 0.12 + t * 1.6) + 5.0, 9.0, vec2(0.0), pxw);
+    float hell = mix(0.74, 1.12, smoothstep(0.25, 0.75, gross * 0.6 + rinne * 0.4));
+    // 2) Schaumstraßen und Flecken hinter der Front: in Laufrichtung gestreckt (die Strömung zieht sie mit, W4 E10),
+    //    sonst nach dem Wind; dicht gleich hinter der Front, klingen in rund 10 min ab
+    vec2 qz = hatLauf ? vec2(dot(q, T) * 0.18, dot(q, Tq)) : vec2(qr.x * 0.18, qr.y);
     float str = vnf(qz, 14.0, vec2(-t * 0.02, 0.0), px) * 0.6 + vnf(qz + 5.0, 4.5, vec2(-t * 0.05, 0.0), px) * 0.4;
-    float strasse = nach * (1.0 - smoothstep(60.0, 900.0, seit)) * smoothstep(0.66, 0.80, str) * 0.6;
+    float strasse = nach * (1.0 - smoothstep(60.0, 900.0, seit)) * smoothstep(mix(0.66, 0.50, 1.0 - smoothstep(4.0, 60.0, seit)), 0.80, str) * 0.6;
+    // W4 E10: gleich hinter der Front ein Teppich aus Schaum mit Wirbeln und Lücken
+    float wirbel = vnf(q + vec2(31.0, 7.0) + T * t * 1.5, 26.0, vec2(0.0), px) * 0.6 + vnf(q * 1.7 + 3.0, 9.0, vec2(t * 0.1, 0.0), px) * 0.4;
+    float teppich = (hatLauf ? smoothstep(2.0, 6.0, vSeit) * (1.0 - smoothstep(25.0, 140.0, vSeit)) : 0.0) * smoothstep(0.38, 0.62, wirbel);
+    strasse = max(strasse, teppich * 0.85);
     // 3) Saum am Ufer: dünnes Wasser über dem Grund
     float saum = (1.0 - smoothstep(0.6, 3.5, vTiefe)) * smoothstep(0.35, 0.7, vnf(q + 13.0, 2.5, vec2(t * 0.2, 0.0), px) + 0.25);
     // 4) Aufruhr im Nahfeld der Quelle: Weißwasser und Schlamm in Fetzen
     float quelle = vQuelle * smoothstep(0.52, 0.80, vnf(q + 31.0, 24.0, vec2(t * 0.05, -t * 0.04), px) * 0.45 + vnf(q + 5.0, 8.0, vec2(t * 0.25, -t * 0.18), px) * 0.35 + vnf(q, 2.6, vec2(-t * 0.4, 0.0), px) * 0.2);
     float schaum = clamp(max(max(front * 0.9, strasse), max(saum * 0.8, quelle * 0.9)), 0.0, 1.0);
     vec3 schaumF = mix(vec3(0.82, 0.83, 0.82), vec3(0.55, 0.49, 0.40), clamp(schlamm * 0.55 + quelle * 0.3, 0.0, 1.0));
-    col = mix(col, schaumF * weissL, schaum);
+    // Weißwasser ist durchlüftet und streut das Licht des ganzen Himmels darüber, nicht wie eine matte senkrechte Fläche
+    // (Probe 9: die Wand war voll Schaum und doch so dunkel wie die Hänge im Schatten)
+    float wandW = clamp(max(wand, sturz), 0.0, 1.0);
+    vec3 weissW = mix(weissL, sunAt(vW) * max(dot(n, uSun), 0.0) * 0.9 + umgebung(normalize(n + vec3(0.0, 1.2, 0.0))) * 1.15, wandW);
+    col = mix(col, schaumF * weissW * mix(1.0, hell, wandW), schaum);
+    // E12 Stämme in der Walze: wild gedreht, quer zur Front, mitgerissen und an der Wand nach oben geworfen [G]
+    if (walze > 0.05) {
+        vec2 qs2 = qw + vec2(0.0, -t * 5.0);
+        // Zellen 11 × 6 m, je Zelle ein Stamm an zufälliger Stelle (Probe 7: im festen Raster standen sie in Reih und Glied)
+        vec2 zl = floor(vec2(qs2.x / 11.0, qs2.y / 6.0)), fz = vec2(qs2.x / 11.0, qs2.y / 6.0) - zl;
+        fz -= (vec2(h2(zl + 4.1), h2(zl + 6.7)) - 0.5) * 0.5;
+        float wink = (h2(zl + 1.7) - 0.5) * 2.4;
+        vec2 rr = vec2(cos(wink) * (fz.x - 0.5) - sin(wink) * (fz.y - 0.5), sin(wink) * (fz.x - 0.5) + cos(wink) * (fz.y - 0.5));
+        float st = step(0.72, h2(zl + 8.3)) * (1.0 - smoothstep(0.04, 0.07, abs(rr.y))) * (1.0 - smoothstep(0.22, 0.30, abs(rr.x)));
+        st *= 1.0 - smoothstep(0.25, 0.7, pxw);
+        vec3 hz = mix(vec3(0.06, 0.045, 0.03), vec3(0.52, 0.46, 0.38), step(0.45, h2(zl + 2.2)));
+        col = mix(col, hz * weissL, st * walze);
+    }
     // ---- Treibgut hinter der Front [G]: Stämme (geschält hell, mit Rinde dunkel), in Feldern gehäuft, die mit der Zeit
     // dichter werden (Treibholzteppich); Striche quer zum Wind; in der Ferne als Mittel (Fleckung) statt Gesprenkel
     if (nach > 0.0) {

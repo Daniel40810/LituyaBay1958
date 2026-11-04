@@ -32,8 +32,17 @@ public final class EreignisGl {
 
     final Shader welle = new Shader("Welle", null, "spur.vert", "welle.frag"),
             strom = new Shader("Strom", new String[]{"STROM"}, "spur.vert", "strom.frag"),
-            medien = new Shader("Staub", null, "fullscreen.vert", "medien.frag");
-    final Shader[] all = {welle, strom, medien};
+            medien = new Shader("Staub", null, "fullscreen.vert", "medien.frag"),
+            medienHoch = new Shader("Staub hoch", null, "fullscreen.vert", "medien_hoch.frag");
+    final Shader[] all = {welle, strom, medien, medienHoch};
+
+    /**
+     * Werkbuch Welle W4: Staub, Fahne, Gischt und Trübe in halber Auflösung (der Durchgang kostete seit W3c 17–28 ms) und
+     * mit der Tiefe hochgerechnet ({@code medien_hoch.frag}): an Kanten zählt nur, was in derselben Tiefe liegt, so gibt es
+     * keinen Saum um Berge und Wellen. Aus: wie bisher in voller Auflösung.
+     */
+    public volatile boolean medienHalb = true;
+    private int halbTex, halbFbo, halbW, halbH;
 
     /** Texturen einer Spur: Bild a und b, welche Bilder sie halten, Grund. */
     static final class Tex {
@@ -54,6 +63,9 @@ public final class EreignisGl {
     public boolean zeigtWelle, zeigtStrom, zeigtStaub;
 
     // ------------------------------------------------------------------ Werkbuch Welle W3: Abriss, Einschlag, Vorhang
+
+    /** Werkbuch Welle W4 (E7): die Lippe an der Front (Scheitel kurz hinter der Front wandern nach vorn) [G]. */
+    public volatile boolean lippe = true;
 
     /** W3c: ob der Rückbau des Gilbert Inlet gilt (vom Renderer je Bild, wie beim Gelände). */
     public volatile boolean rueckbauAn;
@@ -600,6 +612,7 @@ public final class EreignisGl {
             welle.set(gl, "uBildPx", (float) bildPx[0], (float) bildPx[1]);
             welle.set(gl, "uWindXZ", (float) windXZ[0], (float) windXZ[1]);
             welle.set(gl, "uRueckbauAn", 0);
+            welle.set(gl, "uLippe", lippe ? 1f : 0f);   // W4 (E7)
             flut(gl, welle.id(), t);
             // W3b (K11): Grund unter dem Gitter, sobald gerechnet (dünner Film am Hang fällt weg)
             gl.glActiveTexture(GL.GL_TEXTURE2);
@@ -739,6 +752,9 @@ public final class EreignisGl {
      * Staub und Trübe als Bild über dem HDR-Puffer (Ziel ohne Tiefe, die Tiefe als Textur). Zeichnet nichts, wenn weder
      * Staub noch Wasser über dem Auge.
      */
+    /** W4: das HDR-Ziel ohne Tiefe, in das {@link #medien} zeichnet (vom Renderer je Bild gesetzt). */
+    public int zielFbo;
+
     public void medien(GL4 gl, Wiedergabe w, double t, int depthTex, Consumer<Shader> common, float[] fwd, boolean reversed, int grundTex, double[] grundRect, double pegel) {
         zeigtStaub = false;
         Wiedergabe.Paar po = null, pd = null;
@@ -829,6 +845,47 @@ public final class EreignisGl {
             medien.set(gl, "uStaubY", x.unten, x.oben);
             zeigtStaub = true;
         }
+        if (!medienHalb) {
+            gl.glEnable(GL.GL_BLEND);
+            gl.glBlendFunc(GL.GL_ONE, GL.GL_SRC_ALPHA);
+            gl.glDrawArrays(GL.GL_TRIANGLES, 0, 3);
+            gl.glDisable(GL.GL_BLEND);
+            gl.glActiveTexture(GL.GL_TEXTURE0);
+            return;
+        }
+        // W4: in halber Auflösung in ein eigenes Ziel (L, T), dann mit der Tiefe hochgerechnet über das HDR-Bild
+        // Ziel und Bildgröße vom Renderer; das Hochrechnen baut der Renderer mit seinen Shadern (Renderer.all), sonst
+        // bleibt das Programm leer und Staub, Fahne und Gischt fehlen im Bild (Probe 1 und 2)
+        int[] fb = {zielFbo}, vpv = {0, 0, (int) bildPx[0], (int) bildPx[1]};
+        int hw = Math.max(16, (vpv[2] + 1) / 2), hh = Math.max(16, (vpv[3] + 1) / 2);
+        if (hw != halbW || hh != halbH || halbFbo == 0) {
+            Gpu.deleteFbos(gl, halbFbo);
+            Gpu.deleteTextures(gl, halbTex);
+            halbTex = Gpu.texture(gl, hw, hh, GL.GL_RGBA16F, false);
+            halbFbo = Gpu.fbo(gl, halbTex, 0);
+            halbW = hw;
+            halbH = hh;
+            gl.glActiveTexture(GL.GL_TEXTURE0);   // das Anlegen bindet auf Stelle 0, dort liegt die Tiefe für medien.frag
+            gl.glBindTexture(GL.GL_TEXTURE_2D, depthTex);
+        }
+        gl.glBindFramebuffer(GL.GL_FRAMEBUFFER, halbFbo);
+        gl.glViewport(0, 0, hw, hh);
+        gl.glDisable(GL.GL_BLEND);
+        gl.glDrawArrays(GL.GL_TRIANGLES, 0, 3);
+        gl.glBindFramebuffer(GL.GL_FRAMEBUFFER, fb[0]);
+        gl.glViewport(vpv[0], vpv[1], vpv[2], vpv[3]);
+        medienHoch.use(gl);
+        gl.glActiveTexture(GL.GL_TEXTURE0);
+        gl.glBindTexture(GL.GL_TEXTURE_2D, halbTex);
+        gl.glActiveTexture(GL.GL_TEXTURE1);
+        gl.glBindTexture(GL.GL_TEXTURE_2D, depthTex);
+        gl.glActiveTexture(GL.GL_TEXTURE0);
+        medienHoch.set(gl, "uHalb", 0);
+        medienHoch.set(gl, "uDepth", 1);
+        medienHoch.set(gl, "uHalbPx", (float) hw, (float) hh);
+        medienHoch.set(gl, "uNear", (float) Renderer.NEAR);
+        medienHoch.set(gl, "uFar", (float) Renderer.FAR);
+        medienHoch.set(gl, "uRev", reversed ? 1 : 0);
         gl.glEnable(GL.GL_BLEND);
         gl.glBlendFunc(GL.GL_ONE, GL.GL_SRC_ALPHA);
         gl.glDrawArrays(GL.GL_TRIANGLES, 0, 3);
@@ -849,6 +906,8 @@ public final class EreignisGl {
         if (rauschTex != 0) gl.glDeleteTextures(1, new int[]{rauschTex}, 0);
         if (flutTex != 0) gl.glDeleteTextures(1, new int[]{flutTex}, 0);
         if (grund58Tex != 0) gl.glDeleteTextures(1, new int[]{grund58Tex}, 0);
+        Gpu.deleteFbos(gl, halbFbo);
+        Gpu.deleteTextures(gl, halbTex);
         for (Tex t : tex.values()) Gpu.deleteTextures(gl, t.a, t.b, t.boden);
         tex.clear();
     }

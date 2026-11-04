@@ -166,7 +166,7 @@ public final class Renderer implements GLEventListener {
             post = new Shader("Nachbearbeitung", null, "fullscreen.vert", "post.frag"),
             overlay = new Shader("Überlagerung", null, "fullscreen.vert", "overlay.frag"),
             taaShader = new Shader("Kantenglättung", null, "fullscreen.vert", "taa.frag");
-    private final Shader[] all = {skyShader, gelaendeShader, meerShader, post, overlay, taaShader, ereignisGl.welle, ereignisGl.strom, ereignisGl.medien, baeche.shader};
+    private final Shader[] all = {skyShader, gelaendeShader, meerShader, post, overlay, taaShader, ereignisGl.welle, ereignisGl.strom, ereignisGl.medien, ereignisGl.medienHoch, baeche.shader};
     private final HudOverlay hud = new HudOverlay();
     /** Phase 19a: Befunde als Marken, Zeugen als Untertitel (Archiv). */
     public final ArchivSzene archiv = new ArchivSzene();
@@ -623,6 +623,8 @@ public final class Renderer implements GLEventListener {
     double[] punkt(String name) {
         com.dan.lituya.camera.Ansichten.Ansicht a = com.dan.lituya.camera.Ansichten.byName(name);
         if (a != null) return new double[]{a.x(), Math.max(groundHeight(a.x(), a.z()), wiring.pegel) + a.eyeAboveGround(), a.z(), a.heading(), a.pitch()};
+        double[] vs = com.dan.lituya.camera.Ansichten.versatz(name);   // W4: „Ort @ Richtung, Abstand, Auge, Blick, Neigung“
+        if (vs != null) return new double[]{vs[0], Math.max(groundHeight(vs[0], vs[1]), wiring.pegel) + vs[2], vs[1], vs[3], vs[4]};
         com.dan.lituya.scene.SichtNetz w = sichtNetz();
         if (w != null) {
             int k = w.knoten(name);
@@ -1024,6 +1026,7 @@ public final class Renderer implements GLEventListener {
         ereignisGl.fovy = fovy();
         ereignisGl.spiegelTex = meerJetzt ? meer.spiegelTextur() : 0;   // W3c: Spiegel der Berge auch auf der Welle
         ereignisGl.bildPx = new double[]{w, h};
+        ereignisGl.zielFbo = hdrColorFbo;   // W4: Ziel des Staubs in halber Auflösung
         ereignisGl.rueckbauAn = rueckbauJetzt && clock.zeitstand != SceneClock.Zeitstand.HEUTE;
         {
             double wr = Math.toRadians(wiring.windFromDeg + 180);   // weht nach

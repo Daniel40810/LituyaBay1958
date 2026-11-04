@@ -37,6 +37,63 @@ uniform float uEreignisT;   // Ereigniszeit (s)
 
 const int TROCKEN = -32768;
 
+#ifndef STROM
+// Werkbuch Welle W4 (E7): die Lippe. Aus der Flutkarte (Ankunft der Front, höchster Stand) die Laufrichtung (Gefälle der
+// Ankunftszeit) und die Zeit seit der Ankunft; Scheitel kurz hinter der Front wandern nach vorn, umso weiter, je höher sie
+// im Kamm liegen. So wird die Front steiler, und ganz oben ragt der Kamm über die Wand hinaus [G]. Die Höhen bleiben die
+// der Vorrechnung, nur der Ort im Grundriss verschiebt sich (wie die „Choppy Waves“ der Meeresdarstellung).
+uniform int uFlutAn;
+uniform sampler2D uFlut;
+uniform vec4 uFlutRect;
+uniform float uEreignis;
+uniform float uLippe;       // Stärke der Lippe (0 aus, 1 voll) [G]
+out float vLippe;           // Anteil der Lippe (0 … 1)
+out vec2 vLauf;             // Laufrichtung der Front (Szene x, z)
+out float vSeit;            // s seit der Ankunft der Front (−1e9 ohne)
+out float vStand;           // höchster Stand hier (m)
+out float vAuf;             // W4: wie viel das Aufsteilen hier angehoben hat (Teile der Höhe)
+const float LAUF_C = 60.0;  // Schnelligkeit der Front für die Nachbarn (m/s) [G]
+
+vec2 flutUV(vec2 xz) { return vec2((xz.x - uFlutRect.x) / uFlutRect.z, (uFlutRect.y - xz.y) / uFlutRect.w); }
+
+vec4 lauf(vec2 xz) {
+    if (uFlutAn == 0) return vec4(0.0, 0.0, -1e9, 0.0);
+    vec2 u = flutUV(xz);
+    if (any(lessThan(u, vec2(0.0))) || any(greaterThan(u, vec2(1.0)))) return vec4(0.0, 0.0, -1e9, 0.0);
+    vec2 am = textureLod(uFlut, u, 0.0).rg;
+    if (am.x > 1e5) return vec4(0.0, 0.0, -1e9, am.y);
+    float e = 24.0;
+    float ax = textureLod(uFlut, flutUV(xz + vec2(e, 0.0)), 0.0).r, az = textureLod(uFlut, flutUV(xz + vec2(0.0, e)), 0.0).r;
+    float bx = textureLod(uFlut, flutUV(xz - vec2(e, 0.0)), 0.0).r, bz = textureLod(uFlut, flutUV(xz - vec2(0.0, e)), 0.0).r;
+    float gxa = ax < 1e5 && bx < 1e5 ? ax - bx : ax < 1e5 ? 2.0 * (ax - am.x) : bx < 1e5 ? 2.0 * (am.x - bx) : 0.0;
+    float gza = az < 1e5 && bz < 1e5 ? az - bz : az < 1e5 ? 2.0 * (az - am.x) : bz < 1e5 ? 2.0 * (am.x - bz) : 0.0;
+    vec2 g = vec2(gxa, gza);
+    float lg = length(g);
+    // Probe 8: die Ankunft liegt in Stufen der Bilder der Vorrechnung auf 8 m; ihre Linie ist längs der Front gezackt,
+    // und das Aufsteilen zeichnete die Zacken als Bögen am Fuß der Wand. Gemittelt über die Nachbarn (±24 m) und vier
+    // Diagonalen (±34 m) ist sie glatt.
+    float sum = am.x * 2.0, n = 2.0;
+    if (ax < 1e5) { sum += ax; n += 1.0; }
+    if (bx < 1e5) { sum += bx; n += 1.0; }
+    if (az < 1e5) { sum += az; n += 1.0; }
+    if (bz < 1e5) { sum += bz; n += 1.0; }
+    for (int k = 0; k < 4; k++) {
+        vec2 o = vec2(k == 0 || k == 3 ? e : -e, k < 2 ? e : -e);
+        float a = textureLod(uFlut, flutUV(xz + o), 0.0).r;
+        if (a < 1e5) { sum += a; n += 1.0; }
+    }
+    return vec4(lg > 1e-4 ? g / lg : vec2(0.0), uEreignis - sum / n, am.y);
+}
+
+// Anteil der Lippe: kurz nach der Ankunft, oben im Kamm, nur bei hohen Wellen
+float lippe(float seit, float H, float stand) {
+    float hs = max(stand - uLevel, 1.0);
+    float hrel = clamp(H / hs, 0.0, 1.2);
+    float glocke = smoothstep(-0.8, 1.0, seit) * (1.0 - smoothstep(2.5, 9.0, seit));
+    return glocke * smoothstep(6.0, 30.0, H) * smoothstep(0.45, 0.95, hrel);
+}
+#endif
+
 float vh2(vec2 i) { return fract(sin(dot(i, vec2(127.1, 311.7))) * 43758.5453); }
 float vvn(vec2 x) {
     vec2 i = floor(x), f = x - i;
@@ -145,6 +202,30 @@ float hoehe(ivec2 c, out float nass) {
 
 float hoehe(ivec2 c) { float w; return hoehe(c, w); }
 
+#ifndef STROM
+// W4 (E7) Aufsteilen [G]: die Vorrechnung (Gitter 2–16 m, numerisch geglättet) läuft vor Cenotaph als sanfter Buckel von
+// einigen hundert Metern Länge; Zeugen sahen eine Wand. Gleich hinter der Ankunftslinie nimmt jede Ecke die höchste
+// Höhe bis D m hinter sich (gegen die Laufrichtung T): eine Dehnung zur Front hin. Sie kann nicht falten, die Linie der
+// Ankunft bleibt, wo die Rechnung sie hat, und hinter der Front läuft sie in S s auf die Rechnung zurück.
+// Probe 6: hart an der Ankunftslinie gab das Gitter Treppen (Kerben in der Krone, wo die Linie schräg über die Zeilen
+// läuft); jetzt gleitet die Ecke über rund anderthalb Abstände der Ecken (uSchritt Zellen) nach der stetigen Ankunftszeit.
+float aufsteilen(ivec2 c, float h0, float n0, float seit, vec2 T, float D, float S) {
+    float w = 1.5 * float(uSchritt) * uGeo.z / LAUF_C;
+    if (n0 < 0.5 || seit < -w || seit > S) return h0;
+    float dl = D * (1.0 - smoothstep(0.0, S, max(seit, 0.0)));
+    if (dl < uGeo.z) return h0;
+    vec2 bk = vec2(-T.x, T.y) / uGeo.z;   // gegen T in Zellen (Zeilen laufen nach Norden, −z)
+    float m = h0;
+    for (int k = 1; k <= 4; k++) {
+        ivec2 cb = c + ivec2(floor(bk * dl * float(k) * 0.25 + 0.5));
+        float nb;
+        float hb = hoehe(cb, nb);
+        if (nb > 0.5) m = max(m, hb);
+    }
+    return mix(h0, m, smoothstep(-w, 0.3 * w, seit));
+}
+#endif
+
 void main() {
     int q = gl_VertexID / 6, e = gl_VertexID % 6;
     int qi = q % uQuads, qj = q / uQuads;
@@ -154,6 +235,23 @@ void main() {
     ivec2 c = uKachel + l * uSchritt;
     float nass;
     float h = hoehe(c, nass);
+#ifndef STROM
+    // W4: Laufrichtung und Zeit der Front hier, und die Länge des Aufsteilens (0: keins)
+    vec2 xz0 = vec2(uGeo.x + float(c.x) * uGeo.z, uGeo.y - float(c.y) * uGeo.z);
+    vec4 lf = lauf(xz0);
+    float aufD = 0.0;
+    if (uLippe > 0.0 && dot(lf.xy, lf.xy) > 0.25 && lf.z > -1.5 && lf.z < 14.0) {
+        float Hs = max(lf.w - uLevel, 0.0);
+        aufD = clamp(5.0 * Hs, 0.0, 240.0) * smoothstep(6.0, 16.0, Hs) * uLippe;   // [G]
+        // nur die laufende Front über tiefem Wasser der Bucht: im Gilbert Inlet (100–150 m) ist die Rechnung schon steil,
+        // dort türmte die Dehnung Kamm auf Kamm zu Zacken (Probe 6); am Hang (Auflauf) bleibt die Rechnung
+        aufD *= 1.0 - smoothstep(45.0, 80.0, Hs);
+        if (uBodenAn == 1) aufD *= 1.0 - smoothstep(uLevel - 14.0, uLevel - 6.0, texelFetch(uBoden, clamp(c, ivec2(0), uN - 1), 0).r);
+        if (aufD <= uGeo.z) aufD = 0.0;
+    }
+    float aufS = 2.0 * aufD / LAUF_C;
+    bool randEcke = false;
+#endif
     // Rand an eine gröbere Kachel: auf die Gerade ihrer Scheitel
     int s = 0, achse = 0;
     if (l.x == 0 && uNachbar.x > uSchritt) { s = uNachbar.x; achse = 1; }
@@ -170,16 +268,76 @@ void main() {
             c2[achse] = uKachel[achse] + a0 + s;
             float n1, n2;
             float h1 = hoehe(c1, n1), h2 = hoehe(c2, n2);
+#ifndef STROM
+            // W4: die Scheitel der gröberen Kachel wie dort aufgesteilt (sonst Risse an der Grenze)
+            if (aufD > 0.0) {
+                float d1 = float(c1[achse] - c[achse]) * uGeo.z, d2 = float(c2[achse] - c[achse]) * uGeo.z;
+                float ta = achse == 1 ? lf.x : -lf.y;   // Anteil von T längs der Achse (Zellen: x Ost, Zeilen Nord)
+                h1 = aufsteilen(clamp(c1, ivec2(0), uN - 1), h1, n1, lf.z - d1 * ta / LAUF_C, lf.xy, aufD, aufS);
+                h2 = aufsteilen(clamp(c2, ivec2(0), uN - 1), h2, n2, lf.z - d2 * ta / LAUF_C, lf.xy, aufD, aufS);
+                randEcke = true;
+            }
+#endif
             h = mix(h1, h2, fr);
             nass = mix(n1, n2, fr);
         }
     }
     ivec2 cc = clamp(c, ivec2(0), uN - 1);
     float d = float(uSchritt) * uGeo.z;
-    float gx = (hoehe(cc + ivec2(uSchritt, 0)) - hoehe(cc - ivec2(uSchritt, 0))) / (2.0 * d);
-    float gn = (hoehe(cc + ivec2(0, uSchritt)) - hoehe(cc - ivec2(0, uSchritt))) / (2.0 * d);   // nach Norden = −z
-    vN = normalize(vec3(-gx, 1.0, gn));
+    float nR, nL, nNo, nSu;
+    float hR = hoehe(cc + ivec2(uSchritt, 0), nR), hL = hoehe(cc - ivec2(uSchritt, 0), nL);
+    float hNo = hoehe(cc + ivec2(0, uSchritt), nNo), hSu = hoehe(cc - ivec2(0, uSchritt), nSu);   // Zeilen nach Norden = −z
     vec2 xz = vec2(uGeo.x + float(c.x) * uGeo.z, uGeo.y - float(c.y) * uGeo.z);
+#ifndef STROM
+    vAuf = 0.0;
+    {
+        vec2 T = lf.xy;
+        float Hs = max(lf.w - uLevel, 0.0), D = aufD, S = aufS;
+        if (D > 0.0) {
+            float h0 = h;
+            if (!randEcke) h = aufsteilen(cc, h, nass, lf.z, T, D, S);
+            hR = aufsteilen(cc + ivec2(uSchritt, 0), hR, nR, lf.z - d * T.x / LAUF_C, T, D, S);
+            hL = aufsteilen(cc - ivec2(uSchritt, 0), hL, nL, lf.z + d * T.x / LAUF_C, T, D, S);
+            hNo = aufsteilen(cc + ivec2(0, uSchritt), hNo, nNo, lf.z + d * T.y / LAUF_C, T, D, S);
+            hSu = aufsteilen(cc - ivec2(0, uSchritt), hSu, nSu, lf.z - d * T.y / LAUF_C, T, D, S);
+            vAuf = clamp((h - h0) / max(Hs, 1.0), 0.0, 1.0);
+        }
+    }
+#endif
+    float gx = (hR - hL) / (2.0 * d);
+    float gn = (hNo - hSu) / (2.0 * d);
+    vN = normalize(vec3(-gx, 1.0, gn));
+#ifndef STROM
+    // W4 (E7): Lippe; die Nachbarn mit ihrer eigenen Höhe und der Zeit, die die Front bis zu ihnen braucht
+    vLippe = 0.0;
+    vLauf = lf.xy;
+    vSeit = lf.z;
+    vStand = lf.w;
+    // nur wo vorn die Wand steil abfällt (erste Probe: ohne diese Bedingung faltete sich der ganze Kamm zu Stufen)
+    float abfall = 0.0;
+    if (dot(lf.xy, lf.xy) > 0.25) {
+        // Gefälle in Laufrichtung aus dem stetigen Gradienten (Probe 7: die Zelle „zwei voraus“ sprang mit dem Runden der
+        // Richtung von Zeile zu Zeile, die Lippe kam und ging in regelmäßigen Bögen längs der Front)
+        float ds = gx * lf.x - gn * lf.y;   // dh/ds längs T (gn ist nach Norden, −z)
+        abfall = smoothstep(0.25, 0.7, -ds);
+    }
+    if (uLippe > 0.0 && nass > 0.5 && abfall > 0.0 && lf.z > -2.0 && lf.z < 10.0) {
+        float k = 0.22 * uLippe * abfall;   // Vorlauf in Teilen der Höhe über dem Pegel [G]
+        float lp = lippe(lf.z, h - uLevel, lf.w);
+        vec2 T = lf.xy;
+        float tR = lf.z - d * T.x / LAUF_C, tL = lf.z + d * T.x / LAUF_C, tN = lf.z + d * T.y / LAUF_C, tS = lf.z - d * T.y / LAUF_C;
+        vec3 pR = vec3(xz + vec2(d, 0.0) + T * min(k * max(hR - uLevel, 0.0) * lippe(tR, hR - uLevel, lf.w), 2.5 * d + 6.0), hR);
+        vec3 pL = vec3(xz - vec2(d, 0.0) + T * min(k * max(hL - uLevel, 0.0) * lippe(tL, hL - uLevel, lf.w), 2.5 * d + 6.0), hL);
+        vec3 pN = vec3(xz - vec2(0.0, d) + T * min(k * max(hNo - uLevel, 0.0) * lippe(tN, hNo - uLevel, lf.w), 2.5 * d + 6.0), hNo);
+        vec3 pS = vec3(xz + vec2(0.0, d) + T * min(k * max(hSu - uLevel, 0.0) * lippe(tS, hSu - uLevel, lf.w), 2.5 * d + 6.0), hSu);
+        // p = (x, z, Höhe); Tangenten in Szenenachsen (x, Höhe, z)
+        vec3 tx = vec3(pR.x - pL.x, pR.z - pL.z, pR.y - pL.y), tz = vec3(pS.x - pN.x, pS.z - pN.z, pS.y - pN.y);
+        vec3 nn = cross(tz, tx);
+        if (dot(nn, nn) > 1e-8) vN = normalize(nn);
+        xz += T * min(k * max(h - uLevel, 0.0) * lp, 2.5 * d + 6.0);
+        vLippe = lp * abfall;
+    }
+#endif
     vec2 r = xz - uCam.xz;
     vW = vec3(xz.x, h - dot(r, r) * uKruemmung, xz.y);
     vH = h;
@@ -189,6 +347,7 @@ void main() {
     vTiefe = 99.0;
     vQuelle = 0.0;
 #else
+    cc = clamp(c, ivec2(0), uN - 1);
     vTiefe = uBodenAn == 1 ? h - texelFetch(uBoden, cc, 0).r : 99.0;
     { float f; vQuelle = 0.0; float nr; wertRoh(cc, nr); if (nr < 0.5 && nahfeld(cc, f)) vQuelle = max(nahStaerke, 0.001); }
     // Steigen zwischen den Bildern (m je Bild); die Zeit je Bild gibt uGeo nicht, der Bildpunkt nimmt es als Maß

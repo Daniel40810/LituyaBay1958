@@ -1316,10 +1316,10 @@ public final class Pruefung {
         com.dan.lituya.scene.SichtNetz sn = com.dan.lituya.scene.SichtNetz.da(daten) ? com.dan.lituya.scene.SichtNetz.lesen(daten) : null;
         if (sn == null) hinweis("daten/netz/sicht fehlt: Namen aus LB_NET_SICHT und Fahrten A > B ungeprüft");
         java.util.List<com.dan.lituya.scene.Regie.Book> alle = com.dan.lituya.scene.Regie.all();
-        check(alle.size() == 6, "sechs Regiebücher (seit Werkbuch Welle W3 „Der Sturz“): " + alle);
+        check(alle.size() == 7, "sieben Regiebücher (seit Werkbuch Welle W3 „Der Sturz“, W4 „Die Wand“): " + alle);
         for (com.dan.lituya.scene.Regie.Book b : alle) {
             java.util.List<String> fehlt = new java.util.ArrayList<>(), befehle = new java.util.ArrayList<>();
-            java.util.function.Predicate<String> punkt = n -> com.dan.lituya.camera.Ansichten.byName(n) != null || com.dan.lituya.scene.Site.byName(n) != null || (sn == null ? true : sn.knoten(n) >= 0);
+            java.util.function.Predicate<String> punkt = n -> com.dan.lituya.camera.Ansichten.byName(n) != null || com.dan.lituya.scene.Site.byName(n) != null || com.dan.lituya.camera.Ansichten.versatz(n) != null || (sn == null ? true : sn.knoten(n) >= 0);
             com.dan.lituya.scene.Regie.Ctx c = (com.dan.lituya.scene.Regie.Ctx) java.lang.reflect.Proxy.newProxyInstance(Pruefung.class.getClassLoader(), new Class<?>[]{com.dan.lituya.scene.Regie.Ctx.class}, (o, m, args) -> {
                 befehle.add(m.getName());
                 switch (m.getName()) {
