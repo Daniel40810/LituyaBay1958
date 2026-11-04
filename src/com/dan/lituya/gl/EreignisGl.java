@@ -3,6 +3,7 @@ package com.dan.lituya.gl;
 import com.dan.lituya.scene.EreignisDaten;
 import com.dan.lituya.scene.Site;
 import com.dan.lituya.scene.Wiedergabe;
+import com.jogamp.common.nio.Buffers;
 import com.jogamp.opengl.GL;
 import com.jogamp.opengl.GL4;
 
@@ -51,6 +52,94 @@ public final class EreignisGl {
     public volatile double ueberAuge = Double.NaN;
     /** Seit dem letzten Bild gezeichnet: Welle, Strom, Staub. */
     public boolean zeigtWelle, zeigtStrom, zeigtStaub;
+
+    // ------------------------------------------------------------------ Werkbuch Welle W3: Abriss, Einschlag, Vorhang
+
+    /** Zeit des Abbruchs und des Einschlags (s nach dem ersten Stoß; Strom ab 93 s, Eintauchen 105 s). */
+    public static final double ABBRUCH_S = 93, EINSCHLAG_S = com.dan.lituya.scene.Band1958.EINTAUCHEN;
+    /** Gischtvorhang und Dom zeigen (E4, E5). */
+    public volatile boolean vorhang = true;
+    /** Texturstelle der Abrissfläche im Gelände. */
+    public static final int UNIT_ABRISS = 9;
+    private int abrissTex;
+    private String abrissLauf;
+    /** Rechteck der Abrissfläche: Szene x0, z0 (Süden), Breite, Tiefe; Einschlag x, z und Richtung des Sturzes (x, z). */
+    private volatile double[] abrissRect, einschlag;
+    private volatile String sturzInfo = "Sturz: noch keine Daten";
+
+    public String sturzInfo() { return sturzInfo; }
+    /** Einschlag {x, z, Richtung x, Richtung z} aus den Daten (oder null). */
+    public double[] einschlag() { return einschlag; }
+
+    /**
+     * Einmal je Lauf aus der Spur des Stroms: Abrissfläche = Zellen mit Fels im ersten Bild (die Platte vor dem Abgang);
+     * Einschlag = Schwerpunkt der Zellen, in denen beim Eintauchen Fels unter dem Pegel liegt; Richtung = vom Schwerpunkt
+     * der Platte dorthin.
+     */
+    void sturzDaten(GL4 gl, Wiedergabe w, double pegel) {
+        if (w == null) return;
+        Wiedergabe.Spur so = null;
+        for (Wiedergabe.Spur sp : w.spuren(Wiedergabe.Art.STROM)) so = sp;
+        if (so == null || so.boden == null || so.t.length == 0) return;
+        String key = so.toString();
+        if (key.equals(abrissLauf)) return;
+        abrissLauf = key;
+        try {
+            int nx = so.g.nx(), nz = so.g.nz();
+            short[] r0 = so.roh(0);
+            double[] tt = so.t;
+            int bE = 0;
+            for (int b = 0; b < tt.length; b++) if (tt[b] <= EINSCHLAG_S + 2) bE = b;
+            short[] rE = so.roh(bE);
+            java.nio.ByteBuffer m = Buffers.newDirectByteBuffer(nx * nz);
+            double sx = 0, sz = 0, sn = 0, ex = 0, ez = 0, en = 0;
+            float[] boden = so.boden;
+            for (int j = 0; j < nz; j++)
+                for (int i = 0; i < nx; i++) {
+                    int c = j * nx + i;
+                    boolean fels = r0[c] != EreignisDaten.TROCKEN && r0[c] * EreignisDaten.STUFE > 0.3;
+                    m.put((byte) (fels ? 255 : 0));
+                    double[] xz = Site.fromUtm(so.g.e(i), so.g.n(j));
+                    if (fels) { sx += xz[0]; sz += xz[1]; sn++; }
+                    if (rE[c] != EreignisDaten.TROCKEN && rE[c] * EreignisDaten.STUFE > 0.3 && boden[c] < pegel) { ex += xz[0]; ez += xz[1]; en++; }
+                }
+            m.flip();
+            if (abrissTex == 0) abrissTex = Gpu.texture(gl, nx, nz, GL.GL_R8, false);
+            gl.glBindTexture(GL.GL_TEXTURE_2D, abrissTex);
+            gl.glPixelStorei(GL.GL_UNPACK_ALIGNMENT, 1);
+            gl.glTexSubImage2D(GL.GL_TEXTURE_2D, 0, 0, 0, nx, nz, GL4.GL_RED, GL.GL_UNSIGNED_BYTE, m);
+            gl.glPixelStorei(GL.GL_UNPACK_ALIGNMENT, 4);
+            gl.glBindTexture(GL.GL_TEXTURE_2D, 0);
+            double[] o = Site.fromUtm(so.g.e0(), so.g.n0());
+            abrissRect = new double[]{o[0], o[1], nx * so.g.zelle(), nz * so.g.zelle()};
+            if (en > 0 && sn > 0) {
+                double cx = ex / en, cz = ez / en, dx = cx - sx / sn, dz = cz - sz / sn, l = Math.max(1, Math.hypot(dx, dz));
+                einschlag = new double[]{cx, cz, dx / l, dz / l};
+            } else {
+                einschlag = new double[]{Site.GILBERT.x(), Site.GILBERT.z(), -0.7, 0.7};
+            }
+            sturzInfo = String.format(Locale.GERMAN, "Sturz: Abriss %.0f Zellen (%.2f km²), Einschlag %.0f m O, %.0f m S, Richtung %.0f°",
+                    sn, sn * so.g.zelle() * so.g.zelle() / 1e6, einschlag[0], einschlag[1], (Math.toDegrees(Math.atan2(einschlag[2], -einschlag[3])) + 360) % 360);
+            System.out.println("LituyaBay1958: " + sturzInfo);
+        } catch (java.io.IOException | RuntimeException e) {
+            sturzInfo = "Sturz: " + e;
+        }
+    }
+
+    /** Uniforms der Abrissfläche für das Gelände (Programm gebunden); an ab dem Abbruch. */
+    public void abriss(GL4 gl, int p, double t, boolean nach1958) {
+        double[] r = abrissRect;
+        boolean on = r != null && abrissTex != 0 && (t >= ABBRUCH_S || nach1958);
+        gl.glUniform1i(gl.glGetUniformLocation(p, "uAbrissAn"), on ? 1 : 0);
+        gl.glUniform1i(gl.glGetUniformLocation(p, "uAbriss"), UNIT_ABRISS);
+        if (!on) return;
+        gl.glActiveTexture(GL.GL_TEXTURE0 + UNIT_ABRISS);
+        gl.glBindTexture(GL.GL_TEXTURE_2D, abrissTex);
+        gl.glActiveTexture(GL.GL_TEXTURE0);
+        gl.glUniform4f(gl.glGetUniformLocation(p, "uAbrissRect"), (float) r[0], (float) r[1], (float) r[2], (float) r[3]);
+        // frisch hell, mit den Jahren (Zeitstand heute) verwittert [G]
+        gl.glUniform1f(gl.glGetUniformLocation(p, "uAbrissFrisch"), t < 86_400 * 30 ? 1f : 0.45f);
+    }
 
     /** Werkbuch Bild, B0: Bildwinkel senkrecht (Grad), vom Renderer vor jedem Bild gesetzt (Brennweite). */
     public double fovy = com.dan.lituya.camera.Camera.FOVY;
@@ -308,7 +397,10 @@ public final class EreignisGl {
         }
         boolean staub = po != null && pd != null && so.boden != null && po.a() == pd.a() && po.b() == pd.b();
         boolean unter = ueberAuge > 0;
-        if (!staub && !unter) return;
+        double[] es = einschlag;
+        double tau = t - EINSCHLAG_S;
+        boolean vh = vorhang && es != null && tau > -0.5 && tau < 45;
+        if (!staub && !unter && !vh) return;
         // erst laden (bindet auf der aktiven Stelle), dann die Stellen belegen
         Tex x = null;
         if (staub) {
@@ -330,6 +422,8 @@ public final class EreignisGl {
         medien.set(gl, "uFwd", fwd[0], fwd[1], fwd[2]);
         medien.set(gl, "uUnter", unter ? 1 : 0);
         medien.set(gl, "uStaub", staub ? 1 : 0);
+        medien.set(gl, "uVorhang", vh ? (float) es[0] : 0f, vh ? (float) es[1] : 0f, (float) tau, vh ? 1f : 0f);
+        medien.set(gl, "uVorhangDir", vh ? (float) es[2] : 0f, vh ? (float) es[3] : 1f);
         medien.set(gl, "uStaubA", 1);
         medien.set(gl, "uStaubB", 2);
         medien.set(gl, "uBoden", 3);
@@ -370,6 +464,7 @@ public final class EreignisGl {
 
     public void dispose(GL4 gl) {
         for (Shader s : all) s.dispose(gl);
+        if (abrissTex != 0) gl.glDeleteTextures(1, new int[]{abrissTex}, 0);
         for (Tex t : tex.values()) Gpu.deleteTextures(gl, t.a, t.b, t.boden);
         tex.clear();
     }

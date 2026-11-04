@@ -86,6 +86,16 @@ public final class Renderer implements GLEventListener {
     /** W1: Glühen um Helles (Sonne, Glanz, Gischt im Gegenlicht), Stärke; 0 aus. */
     public volatile double bloom = 0.35;
     private double letztesDt = 1 / 60.0;
+    /** Werkbuch Welle W3 (E1): Kamerazittern beim Beben (WF8 A: in Echtzeit abschaltbar, im Kino immer, im Standbild nie). */
+    public volatile boolean zittern = true;
+    private final java.util.Random bebenRng = new java.util.Random(1958);
+    private double ringeSchuld;
+
+    /** Stärke des Bebens 0..1 zur Ereigniszeit t (s nach dem ersten Stoß), wie der Klang: 5 s steigend, bis 40 s voll, bis 60 s abklingend. */
+    public static double bebenStaerke(double t) {
+        if (t <= 0 || t >= Klang.BEBEN_BIS) return 0;
+        return t < 5 ? t / 5 : t < 40 ? 1 : Math.max(0, (Klang.BEBEN_BIS - t) / 20);
+    }
     /** Das Gelände zeigen (G … im Bedienfeld TECHNIK). */
     public volatile boolean showGelaende = true;
     /** Phase 13b: das Abspielen der Vorrechnung (daten/ereignis) mit Vorrat und die Durchgänge dazu. */
@@ -884,6 +894,16 @@ public final class Renderer implements GLEventListener {
         final double[] sun = licht.aktiv() ? licht.state().sunDir.clone() : sunPh;
         float[] proj = Mat4.perspective(fovy(), w / (double) h, NEAR, FAR, reversedZ);
         float[] view = camera.view();
+        // W3 (E1): Zittern beim Beben, um die Kamera (Drehung um zwei Achsen, rund 0,35° bei voller Stärke) [G]
+        double bst = bebenStaerke(clock.simSeconds());
+        if (bst > 0 && (zittern || kino.laeuft()) && !(frozen && !kino.laeuft())) {
+            double tt = clock.t();
+            double ax = Math.toRadians(0.35 * bst * (Math.sin(tt * 23.1) * 0.6 + Math.sin(tt * 37.7 + 1.3) * 0.4)),
+                   ay = Math.toRadians(0.25 * bst * (Math.sin(tt * 19.3 + 0.7) * 0.6 + Math.sin(tt * 41.9) * 0.4));
+            float cx = (float) Math.cos(ax), sx = (float) Math.sin(ax), cy = (float) Math.cos(ay), sy = (float) Math.sin(ay);
+            float[] rx = {1, 0, 0, 0, 0, cx, sx, 0, 0, -sx, cx, 0, 0, 0, 0, 1}, ry = {cy, 0, -sy, 0, 0, 1, 0, 0, sy, 0, cy, 0, 0, 0, 0, 1};
+            view = Mat4.mul(Mat4.mul(rx, ry), view);
+        }
         double[] vpN = mulD(proj, view);   // ohne Versatz (für den Verlauf)
         if (taa) {
             // W0 (K2): Versatz nach Halton 2/3 um höchstens einen halben Bildpunkt (8 Lagen)
@@ -905,8 +925,20 @@ public final class Renderer implements GLEventListener {
         // 0b W2: das Meer (FFT) und das Spiegelbild der Berge, bevor das Hauptbild beginnt
         boolean unterWasser = camera.eye[1] < wiring.pegel + 0.05;
         boolean meerJetzt = showMeer && meer.aktiv(licht, unterWasser, marksJetzt());
+        try { ereignisGl.sturzDaten(gl, wiedergabe, wiring.pegel); } catch (RuntimeException e) { System.err.println("LituyaBay1958: Sturz: " + e); }
         if (meerJetzt) {
             try {
+                // W3 (E1): der Spiegel zerfällt beim Beben in Ringe, rund 8 je Sekunde bei voller Stärke, im Umkreis von 3 km [G]
+                if (!frozen && bst > 0) {
+                    ringeSchuld += letztesDt * 8 * bst;
+                    for (int k = 0; k < 4 && ringeSchuld >= 1; k++) {
+                        ringeSchuld -= 1;
+                        double a = bebenRng.nextDouble() * 2 * Math.PI, rr = 30 + 3000 * Math.sqrt(bebenRng.nextDouble());
+                        double x = camera.eye[0] + Math.sin(a) * rr, z = camera.eye[2] + Math.cos(a) * rr;
+                        double g = groundHeight(x, z);
+                        if (g < wiring.pegel - 1) meer.ocean.addImpulse(x, z, 0.05 + 0.10 * bst);
+                    }
+                }
                 meer.schritt(gl, frozen ? 0 : letztesDt, wiring.pegel, wiring.windSpeed, wiring.windFromDeg);
                 if (meer.spiegel) spiegelBild(gl, w, h, proj, view, sun);
             } catch (RuntimeException e) {
@@ -1084,6 +1116,7 @@ public final class Renderer implements GLEventListener {
         bindMarks(gl, gelaendeShader);
         wald.gelaende(gl, gelaendeShader);
         gelaendeShader.set(gl, "uClipY", gespiegelt ? (float) (wiring.pegel - 0.3) : -1e9f);
+        ereignisGl.abriss(gl, gelaendeShader.id(), clock.simSeconds(), false);   // W3 (E2)
         boolean rb = rueckbauJetzt && clock.zeitstand != SceneClock.Zeitstand.HEUTE;
         gelaendeShader.set(gl, "uRueckbauAn", rb ? 1 : 0);
         double[] r0 = Site.fromUtm(com.dan.lituya.scene.Boden1958.RUECKBAU_E0, com.dan.lituya.scene.Boden1958.RUECKBAU_N0),

@@ -153,6 +153,10 @@ public final class Pruefung {
         check(rd.meer.an && rd.meer.spiegel && rd.meer.ocean.fetchLimited && rd.meer.ocean.swellHeight == 0,
                 f("W2: Meer aus com.dan.ocean, Gletschersee ohne Dünung, H_s %.2f m, Spiegel an", rd.meer.ocean.state().totalHs()));
         check(Renderer.class.getResource("/com/dan/lituya/gl/shader/spiegel.frag") != null, "W2: Shader spiegel.frag im Klassenpfad");
+        // Werkbuch Welle W3: Beben (Hüllkurve wie der Klang), Einschlag zur Zeit des Eintauchens
+        check(Renderer.bebenStaerke(-1) == 0 && Renderer.bebenStaerke(20) == 1 && Renderer.bebenStaerke(70) == 0 && rd.zittern,
+                "W3: Beben 0 … 60 s, voll von 5 bis 40 s, Kamerazittern an");
+        check(com.dan.lituya.gl.EreignisGl.EINSCHLAG_S == 105 && com.dan.lituya.gl.EreignisGl.ABBRUCH_S == 93, "W3: Abbruch 93 s, Einschlag 105 s nach dem ersten Stoß");
         // W0 (K6, WF11 A): keine Karte und keine Netzlinien beim Start
         check(!rd.netzblick.bildImBild && !rd.netzblick.inSzene && !rd.showHud && !rd.showMarks, "W0: beim Start weder Netzblick noch HUD noch Marken");
         // W0 (Befund K8): keine leeren Versprechen im Bedienfeld
@@ -1302,7 +1306,7 @@ public final class Pruefung {
         com.dan.lituya.scene.SichtNetz sn = com.dan.lituya.scene.SichtNetz.da(daten) ? com.dan.lituya.scene.SichtNetz.lesen(daten) : null;
         if (sn == null) hinweis("daten/netz/sicht fehlt: Namen aus LB_NET_SICHT und Fahrten A > B ungeprüft");
         java.util.List<com.dan.lituya.scene.Regie.Book> alle = com.dan.lituya.scene.Regie.all();
-        check(alle.size() == 5, "fünf Regiebücher: " + alle);
+        check(alle.size() == 6, "sechs Regiebücher (seit Werkbuch Welle W3 „Der Sturz“): " + alle);
         for (com.dan.lituya.scene.Regie.Book b : alle) {
             java.util.List<String> fehlt = new java.util.ArrayList<>(), befehle = new java.util.ArrayList<>();
             java.util.function.Predicate<String> punkt = n -> com.dan.lituya.camera.Ansichten.byName(n) != null || com.dan.lituya.scene.Site.byName(n) != null || (sn == null ? true : sn.knoten(n) >= 0);
@@ -1328,7 +1332,9 @@ public final class Pruefung {
             while (r.running() && t < 3600) { r.step(0.5, c); t += 0.5; }
             boolean blattAmEnde = b.zeilen().get(b.zeilen().size() - 1).befehl().equals("blatt");
             String st = r.describe();
-            check(fehlt.isEmpty() && !st.contains("Fehler") && b.length() >= 180 && b.length() <= 6.5 * 60 && b.fotos() >= 5 && blattAmEnde && befehle.contains("capture"),
+            // seit Werkbuch Welle W3: Abnahme-Clips (unter einer Minute) mit mindestens einem Foto
+            boolean clip = b.length() < 60;
+            check(fehlt.isEmpty() && !st.contains("Fehler") && (clip ? b.length() >= 10 && b.fotos() >= 1 : b.length() >= 180 && b.length() <= 6.5 * 60 && b.fotos() >= 5) && blattAmEnde && befehle.contains("capture"),
                     f("„%s“: %s, %d Stichworte, %d Fotos, Blatt am Ende%s", b.name(), com.dan.lituya.scene.Regie.zeit(b.length()), b.cues().size(), b.fotos(),
                             fehlt.isEmpty() ? "; alle Namen gefunden" : "; FEHLT: " + fehlt));
         }

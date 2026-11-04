@@ -75,6 +75,9 @@ public final class Wiedergabe implements AutoCloseable {
             ntz = (g.nz() - 2) / KACHEL + 1;
         }
 
+        /** Werkbuch Welle W3: ein Bild direkt aus der Quelle (am Vorrat vorbei, für einmalige Auswertungen). */
+        public short[] roh(int b) throws java.io.IOException { return quelle.roh(k, b); }
+
         public double t0() { double[] t = this.t; return t.length == 0 ? Double.NaN : t[0]; }
 
         public double t1() { double[] t = this.t; return t.length == 0 ? Double.NaN : t[t.length - 1]; }

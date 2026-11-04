@@ -21,6 +21,12 @@ uniform int uKroneAn;
 uniform sampler2D uKrone;
 uniform vec4 uKroneRect;
 uniform vec2 uKroneAb;
+// Werkbuch Welle W3 (E2): die Abrissfläche des Felssturzes (R8, 1 = Platte vor dem Abgang) ab dem Abbruch: frischer,
+// heller Fels (Schiefer und Gneis, frisch gebrochen [G]) mit Blöcken und Rinnen; heute verwittert (uAbrissFrisch < 1).
+uniform int uAbrissAn;
+uniform sampler2D uAbriss;
+uniform vec4 uAbrissRect;     // x0, z0 (Süden), Breite, Tiefe
+uniform float uAbrissFrisch;
 
 float kh(vec2 i) { return fract(sin(dot(i, vec2(127.1, 311.7))) * 43758.5453); }
 float kn(vec2 x) {
@@ -69,6 +75,19 @@ void main() {
         if (bu.x > 0.0 && bu.y > 0.0 && bu.x < 1.0 && bu.y < 1.0) {
             vec4 b = texture(uBand, bu);
             alb = mix(alb, b.rgb, b.a * smoothstep(0.5, 2.0, h));
+        }
+    }
+    if (uAbrissAn == 1) {
+        vec2 au = vec2((vW.x - uAbrissRect.x) / uAbrissRect.z, (uAbrissRect.y - vW.z) / uAbrissRect.w);
+        if (au.x > 0.0 && au.y > 0.0 && au.x < 1.0 && au.y < 1.0) {
+            float a = texture(uAbriss, au).r;
+            if (a > 0.01) {
+                float px = max(length(fwidth(vW.xz)), 1e-3);
+                float b1 = knf(vW.xz + 7.0, 14.0, px), b2 = knf(vW.xz * vec2(1.0, 0.35) + 3.0, 4.0, px);
+                vec3 frisch = mix(vec3(0.46, 0.44, 0.41), vec3(0.58, 0.55, 0.50), b1) * (0.75 + 0.5 * b2);
+                vec3 alt = vec3(0.24, 0.23, 0.21) * (0.8 + 0.4 * b1);
+                alb = mix(alb, mix(alt, frisch, uAbrissFrisch), smoothstep(0.05, 0.6, a));
+            }
         }
     }
     alb = mix(grund, alb, smoothstep(-1.0, 0.5, h));
