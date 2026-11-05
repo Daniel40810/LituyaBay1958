@@ -25,6 +25,9 @@ uniform vec4 uFeiner;     // Rechteck des feineren Gitters (x0, z0, x1, z1), x0 
 // W3c: Spiegelbild der Berge aus W2 (halbe Größe, a = 1 wo Gelände oder Wald im Spiegel steht) und Größe des Bilds
 uniform sampler2D uRefl;
 uniform mat4 uSpiegelVP, uJetztVP;   // Runde 7: Blick beim Spiegelbild und jetzt (Spiegel jedes zweite Bild)
+uniform sampler2D uSpTiefe;   // Runde 8: Tiefe des Spiegelbilds
+uniform float uSpNah;
+uniform vec3 uSpVorn;
 uniform int uSpiegelAn;
 uniform vec2 uBildPx;
 // W3c: Flutkarte (Ankunft s, höchster Stand m) wie im Gelände, Ereigniszeit
@@ -84,6 +87,22 @@ float fingerMuster(vec2 D, vec2 xz, float tE) {
     float la = dot(xz, vec2(-D.y, D.x)), qu = dot(xz, D);
     return vn(vec2(la / 31.0, qu / 90.0 + tE * 0.05)) * 0.55 + vn(vec2(la / 11.0 + 3.1, qu / 40.0)) * 0.30
          + vn(vec2(la / 4.3 + 7.7, qu / 15.0)) * 0.15;
+}
+
+// Runde 8: Spiegelbild aus einem früheren Bild an die jetzige Stelle (uv: jetzt, dir: Sehstrahl jetzt, normiert).
+// Erst die Richtung umrechnen (Runde 7), dort die Tiefe des Spiegelbilds lesen; dann den gespiegelten Punkt auf dem
+// jetzigen Strahl in dieser Entfernung umrechnen: so verschieben sich nahe Ufer im Spiegel gegen den Hintergrund.
+vec2 spiegelUV(vec2 uv, vec3 dir) {
+    vec4 a = uSpiegelVP * vec4(dir, 0.0), j = uJetztVP * vec4(dir, 0.0);
+    if (a.w <= 1e-4 || j.w <= 1e-4) return uv;
+    vec2 u0 = uv + (a.xy / a.w - j.xy / j.w) * 0.5;
+    float z = texture(uSpTiefe, u0).r;
+    float vz = uReversed == 1 ? (z <= 0.0 ? 1e9 : uSpNah / z) : 1e9;   // klassische Tiefe: nur die Richtung
+    if (vz > 5e8) return u0;
+    vec3 Y = uCam + dir * (vz / max(dot(dir, uSpVorn), 1e-3));   // der gespiegelte Punkt (unter dem Wasser)
+    vec4 b = uSpiegelVP * vec4(Y, 1.0), k = uJetztVP * vec4(Y, 1.0);
+    if (b.w <= 1e-3 || k.w <= 1e-3) return u0;
+    return uv + (b.xy / b.w - k.xy / k.w) * 0.5;
 }
 
 void main() {
@@ -168,12 +187,7 @@ void main() {
         if (uSpiegelAn == 1) {
             float nahe = (1.0 - smoothstep(6.0, 22.0, abs(hoch))) * (1.0 - smoothstep(0.05, 0.16, steil));
             if (nahe > 0.0) {
-                vec2 suv = gl_FragCoord.xy / uBildPx;
-                {   // Runde 7: Spiegelbild aus dem vorigen Bild an die jetzige Stelle umrechnen
-                    vec3 sd = normalize(vW - uCam);   // die Richtung (siehe spiegel.frag)
-                    vec4 sa = uSpiegelVP * vec4(sd, 0.0), sj = uJetztVP * vec4(sd, 0.0);
-                    if (sa.w > 1e-3 && sj.w > 1e-3) suv += (sa.xy / sa.w - sj.xy / sj.w) * 0.5;
-                }
+                vec2 suv = spiegelUV(gl_FragCoord.xy / uBildPx, normalize(vW - uCam));   // Runde 7/8: umgerechnet
                 vec2 off = n.xz * 0.6 / max(dist, 30.0) * vec2(1.0, 1.6) * (1.0 + 2.0 * aufruhr);
                 vec4 R = texture(uRefl, suv + off);
                 refl = mix(refl, R.rgb, clamp(R.a, 0.0, 1.0) * nahe);

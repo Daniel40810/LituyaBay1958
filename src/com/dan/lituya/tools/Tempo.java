@@ -247,7 +247,7 @@ public final class Tempo {
             }
             double[] so = bl.clone();
             java.util.Arrays.sort(so);
-            System.out.printf(Locale.GERMAN, "Im Fluss %.2f ms je Bild (Mitte von 3 × %d Bildern ohne Warten; %.2f–%.2f)%n", so[1], frames, so[0], so[2]);
+            System.out.printf(Locale.GERMAN, "Im Fluss %.2f ms je Bild (Mitte von 3 × %d Bildern ohne Warten; %.2f–%.2f) um %s%n", so[1], frames, so[0], so[2], java.time.LocalTime.now().withNano(0));
         }
         // W5: Licht am Ende des Laufs (für die Suche nach dem Rot der Kronen)
         com.dan.sky.Sky.State ls = r.licht.state();

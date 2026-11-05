@@ -42,6 +42,11 @@ public final class MeerGl {
     public volatile float[] spiegelVP, jetztVP;
     /** Runde 7: Spiegelbild in 1/teiler der Bildgröße (bisher 2). */
     public volatile int spiegelTeiler = 2;
+    /** Runde 8: Blickrichtung jetzt (für die Entfernung aus der Tiefe des Spiegelbilds). */
+    public volatile float[] spiegelVorn = {0, 0, -1};
+
+    /** Runde 8: Tiefe des Spiegelbilds (0 ohne). */
+    public int spiegelTiefe() { return spiegel && spiegelJetzt && ok ? reflDepth : 0; }
     /** Seegang in Beaufort (klarer Abend nach den Zeugen: ruhig) [G]. */
     public volatile int beaufort = 1;
 
@@ -190,9 +195,14 @@ public final class MeerGl {
         g.glBindTexture(GL.GL_TEXTURE_2D, reflTex);
         g.glActiveTexture(GL.GL_TEXTURE1);
         g.glBindTexture(GL.GL_TEXTURE_2D, depthTex);
+        g.glActiveTexture(GL.GL_TEXTURE2);
+        g.glBindTexture(GL.GL_TEXTURE_2D, reflDepth);
         g.glActiveTexture(GL.GL_TEXTURE0);
         spiegelShader.set(g, "uRefl", 0);
         spiegelShader.set(g, "uDepth", 1);
+        spiegelShader.set(g, "uSpTiefe", 2);
+        spiegelShader.set(g, "uSpNah", near);
+        { float[] v = spiegelVorn; spiegelShader.set(g, "uSpVorn", v[0], v[1], v[2]); }
         spiegelShader.set(g, "uSpiegelAn", spiegel && spiegelJetzt && reflTex != 0 ? 1 : 0);
         { float[] a = spiegelVP, j = jetztVP; if (a == null || j == null) a = j = new float[]{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
           spiegelShader.mat(g, "uSpiegelVP", a); spiegelShader.mat(g, "uJetztVP", j); }

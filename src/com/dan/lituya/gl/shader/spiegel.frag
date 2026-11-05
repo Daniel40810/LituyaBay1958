@@ -14,15 +14,24 @@ uniform vec4 uWelleRect;     // x0, z0, x1, z1 (Szene)
 uniform float uNear, uFar;
 uniform vec4 uMilchA, uMilchB;   // Quelle x, z, Reichweite (m), Stärke
 uniform mat4 uSpiegelVP, uJetztVP;   // Runde 7: Blick beim Spiegelbild und jetzt
+uniform sampler2D uSpTiefe;   // Runde 8: Tiefe des Spiegelbilds
+uniform float uSpNah;
+uniform vec3 uSpVorn;
 
-// Runde 7: Versatz im Bild, um den das Gespiegelte (aus einem früheren Bild) gegen jetzt liegt. Das Spiegelbild eines
-// Punkts liegt auf dem Sehstrahl hinter der Wasserfläche, meist Kilometer weit: also die Richtung umrechnen (Drehung
-// genau, das Versetzen des Auges um wenige Meter fällt in der Ferne weg). Erste Fassung mit dem Punkt auf dem Wasser:
-// der liegt nah, das Versetzen zählte dort voll, das Bild wurde schlechter statt besser (Probe W5V)
-vec2 spiegelVersatz(vec3 dir) {
+// Runde 8: Spiegelbild aus einem früheren Bild an die jetzige Stelle (uv: jetzt, dir: Sehstrahl jetzt, normiert).
+// Erst die Richtung umrechnen (Runde 7), dort die Tiefe des Spiegelbilds lesen; dann den gespiegelten Punkt auf dem
+// jetzigen Strahl in dieser Entfernung umrechnen: so verschieben sich nahe Ufer im Spiegel gegen den Hintergrund.
+vec2 spiegelUV(vec2 uv, vec3 dir) {
     vec4 a = uSpiegelVP * vec4(dir, 0.0), j = uJetztVP * vec4(dir, 0.0);
-    if (a.w <= 1e-3 || j.w <= 1e-3) return vec2(0.0);
-    return (a.xy / a.w - j.xy / j.w) * 0.5;
+    if (a.w <= 1e-4 || j.w <= 1e-4) return uv;
+    vec2 u0 = uv + (a.xy / a.w - j.xy / j.w) * 0.5;
+    float z = texture(uSpTiefe, u0).r;
+    float vz = uReversed == 1 ? (z <= 0.0 ? 1e9 : uSpNah / z) : 1e9;   // klassische Tiefe: nur die Richtung
+    if (vz > 5e8) return u0;
+    vec3 Y = uCam + dir * (vz / max(dot(dir, uSpVorn), 1e-3));   // der gespiegelte Punkt (unter dem Wasser)
+    vec4 b = uSpiegelVP * vec4(Y, 1.0), k = uJetztVP * vec4(Y, 1.0);
+    if (b.w <= 1e-3 || k.w <= 1e-3) return u0;
+    return uv + (b.xy / b.w - k.xy / k.w) * 0.5;
 }
 
 float h2(vec2 i) { return fract(sin(dot(i, vec2(127.1, 311.7))) * 43758.5453); }
@@ -86,7 +95,7 @@ void main() {
     if (uSpiegelAn == 1) {
         // Verzerrung im Bild: mit der Neigung, in der Ferne kleiner (Bildpunkte je m)
         vec2 off = n.xz * 0.6 / max(t, 30.0) * vec2(1.0, 1.6);
-        vec4 R = texture(uRefl, vUV + off + spiegelVersatz(d));
+        vec4 R = texture(uRefl, spiegelUV(vUV, d) + off);
         if (R.a > 0.01) {
             vec3 r = reflect(d, n);
             deck = F * clamp(R.a, 0.0, 1.0);

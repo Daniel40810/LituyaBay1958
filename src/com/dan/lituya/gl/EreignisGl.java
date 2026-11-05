@@ -167,6 +167,10 @@ public final class EreignisGl {
     public int spiegelTex;
     /** Runde 7: Blick beim Spiegelbild und jetzt (Umrechnen, wenn das Spiegelbild aus dem vorigen Bild stammt). */
     public volatile float[] spiegelVP, jetztVP;
+    /** Runde 8: Tiefe des Spiegelbilds und Blickrichtung jetzt. */
+    public int spiegelTiefe;
+    public volatile float[] spiegelVorn = {0, 0, -1};
+    static final int UNIT_SPIEGEL_TIEFE = 17;
     public double[] bildPx = {1920, 1080}, windXZ = {0.8, 0.6};
     static final int UNIT_SPIEGEL = 16;
     /** W3c: Wasser im Nahfeld hinter der Linie der Quelle zeigen (sonst ein leeres Becken). */
@@ -648,6 +652,12 @@ public final class EreignisGl {
             welle.set(gl, "uSpiegelAn", spiegelTex != 0 ? 1 : 0);
             { float[] a = spiegelVP, j = jetztVP; if (a == null || j == null) a = j = new float[]{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
               welle.mat(gl, "uSpiegelVP", a); welle.mat(gl, "uJetztVP", j); }
+            gl.glActiveTexture(GL.GL_TEXTURE0 + UNIT_SPIEGEL_TIEFE);
+            gl.glBindTexture(GL.GL_TEXTURE_2D, spiegelTiefe);
+            gl.glActiveTexture(GL.GL_TEXTURE0);
+            welle.set(gl, "uSpTiefe", UNIT_SPIEGEL_TIEFE);
+            welle.set(gl, "uSpNah", (float) Renderer.NEAR);
+            { float[] v = spiegelVorn; welle.set(gl, "uSpVorn", v[0], v[1], v[2]); }
             welle.set(gl, "uBildPx", (float) bildPx[0], (float) bildPx[1]);
             welle.set(gl, "uWindXZ", (float) windXZ[0], (float) windXZ[1]);
             welle.set(gl, "uRueckbauAn", 0);
