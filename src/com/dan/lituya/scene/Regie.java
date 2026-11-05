@@ -176,7 +176,7 @@ public final class Regie {
     // ------------------------------------------------------------------ die Regiebücher (als Text)
 
     /** Die fünf mitgelieferten Regiebücher aus den Textdateien neben dieser Klasse (regie/*.txt). */
-    public static final String[] DATEIEN = {"zehn_minuten.txt", "drei_boote.txt", "nacht.txt", "68_jahre.txt", "bucht_der_wellen.txt", "der_sturz.txt", "die_wand.txt"};
+    public static final String[] DATEIEN = {"zehn_minuten.txt", "drei_boote.txt", "nacht.txt", "68_jahre.txt", "bucht_der_wellen.txt", "der_sturz.txt", "die_wand.txt", "524_m.txt"};
 
     public static List<Book> all() {
         List<Book> l = new ArrayList<>();

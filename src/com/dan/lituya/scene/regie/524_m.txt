@@ -1,0 +1,12 @@
+# Lituya Bay 1958 · Regiebuch (Werkbuch Welle W5, Abnahme): 20 s in Echtzeit, die Zunge schießt den Sporn hinauf.
+# Welle aus der Vorrechnung (Lauf kette, Gitter 2 m); Fingerkante, Weißwasser, Bäume, die knicken, und Schleier gestaltet [G].
+Regiebuch: 524 m
+Beschreibung: 22:18 Uhr, 20 Sekunden in Echtzeit von Süden auf den Sporn gegenüber dem Felssturz: die Wasserzunge läuft den bewaldeten Hang hinauf, die Bäume knicken in Reihen, oben reißt das Wasser ab und fällt zurück
+Länge: 0:20
+0:00 netzblick aus
+0:00 ansicht Sporn (524 m) @ 185.5, 1557, 120, 352, -8
+0:00 ereignis 125
+0:00 raffer 1
+0:09 sage 524 m
+0:11 foto 524 m
+0:20 blatt

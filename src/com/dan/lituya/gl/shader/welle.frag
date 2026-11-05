@@ -76,6 +76,19 @@ void main() {
             if (am.x < 1e5) { seit = uEreignis - am.x; stand = am.y; }
         }
     }
+    // ---- Werkbuch Welle W5 (E11) „524 m“: die Zunge am Hang [G]. Wo die Welle über Land aufläuft (Grund über dem Pegel),
+    // läuft ihre Vorderkante nicht als glatte Linie, sondern in Fingern und Loben den Hang hinauf (Swash): die Ankunft
+    // wird längs der Front um bis zu rund eine Sekunde verschoben, und wo das Wasser „noch nicht da“ ist, bleibt der Hang
+    // (mit seinen Bäumen) sichtbar.
+    float grundW = vTiefe < 98.0 ? vH - vTiefe : uLevel - 50.0;
+    float landW = smoothstep(uLevel + 3.0, uLevel + 25.0, grundW);
+    bool hatL0 = dot(vLauf, vLauf) > 0.25 && vSeit > -1e8;
+    vec2 TL = hatL0 ? normalize(vLauf) : vec2(1.0, 0.0), TLq = vec2(-TL.y, TL.x);
+    float laengsL = dot(vW.xz, TLq), querL = dot(vW.xz, TL);
+    float fingerN = vn(vec2(laengsL / 31.0, querL / 90.0 + uEreignis * 0.05)) * 0.55 + vn(vec2(laengsL / 11.0 + 3.1, querL / 40.0)) * 0.30
+                  + vn(vec2(laengsL / 4.3 + 7.7, querL / 15.0)) * 0.15;
+    float vorkante = (fingerN - 0.45) * 1.6;   // s, wie weit die Kante hier vor- oder zurückliegt
+    if (landW > 0.05 && stand > uLevel + 0.5 && seit < vorkante * landW) discard;
     float nach = seit >= 0.0 ? 1.0 : 0.0;
     float frisch = nach * (1.0 - smoothstep(15.0, 300.0, seit));          // die ersten Minuten nach der Front
     float aufruhr = clamp(smoothstep(0.5, 4.0, vSteig) + smoothstep(0.05, 0.28, steil) + vQuelle + frisch * 0.7, 0.0, 1.0);
@@ -241,6 +254,37 @@ void main() {
         vec3 holzF = mix(vec3(0.05, 0.04, 0.03), vec3(0.50, 0.45, 0.38), step(0.5, h2(zl + 9.1)));
         float anteil = (stamm * nahS + (1.0 - nahS) * (1.0 - dicht) * 0.55) * flach;
         col = mix(col, holzF * weissL * 0.85, clamp(anteil, 0.0, 0.9) * (1.0 - front) * (1.0 - quelle));
+    }
+    // ---- W5 (E11) die Zunge am Hang [G]: durchlüftetes Weißwasser, das hangauf schießt, längs der Laufrichtung in Fäden
+    // gerissen; zwischen den Fäden braunes Wasser voll Erde; an der Kante ein Saum aus Schaum und Spritzern; Stämme
+    // treiben darin. Fällt der Stand wieder (Rückfall), laufen Schleier und Rinnen hangab, das Wasser wird dünn und glänzt.
+    if (landW > 0.0) {
+        float seitL = max(seit - vorkante * landW, 0.0);
+        vec2 qL = vec2(laengsL, querL - t * (seitL < 6.0 ? 22.0 : -9.0));
+        float pxL = max(length(fwidth(qL)), 1e-4);
+        float faden = vnf(qL * vec2(1.0, 0.18), 6.0, vec2(0.0), pxL) * 0.5 + vnf(qL * vec2(1.0, 0.25) + 5.3, 2.4, vec2(0.0), pxL) * 0.3
+                    + vnf(qL * vec2(1.0, 0.12) + 9.1, 17.0, vec2(0.0), pxL) * 0.2;
+        float sinkt = vSteig < -0.05 ? 1.0 : 0.0;
+        float jung = 1.0 - smoothstep(4.0, 14.0, seitL);
+        float duenn = 1.0 - smoothstep(1.5, 8.0, vTiefe);
+        // Weißwasser: hangauf fast überall, beim Rückfall in Rinnen
+        // (Probe W5Q: mit 0,30–0,62 war die Zunge braun mit hellen Flecken; sie ist durchlüftet, also fast ganz weiß)
+        float wsL = mix(smoothstep(0.12, 0.42, faden + 0.30 * jung), smoothstep(0.50, 0.78, faden) * 0.75, sinkt);
+        wsL = max(wsL, (1.0 - smoothstep(0.0, 1.4, seitL)) * smoothstep(0.25, 0.55, faden + 0.3));   // Saum an der Kante
+        vec3 erde = mix(vec3(0.30, 0.24, 0.17), vec3(0.20, 0.15, 0.10), duenn) * eDown * 0.45;   // Wasser voll Erde und Nadeln
+        vec3 colL = mix(erde, col, 0.25 * (1.0 - duenn));
+        // dünnes Wasser beim Rückfall glänzt (Himmel im Wasserfilm), dickes ist trüb
+        colL = mix(colL, mix(erde, skyColor(reflect(d, normalize(N + vec3(g.x, 0.0, g.y) * 0.6))) * 0.5, 0.6 * fres + 0.25 * sinkt * duenn), sinkt * 0.7);
+        vec3 schaumL = mix(vec3(0.84, 0.83, 0.80), vec3(0.62, 0.55, 0.45), 0.35 * duenn + 0.25 * sinkt) * weissW;
+        colL = mix(colL, schaumL, clamp(wsL * (0.95 - 0.35 * duenn * sinkt), 0.0, 1.0));
+        // Stämme in der Zunge, längs der Strömung, dunkel mit hellen geschälten
+        vec2 zs = floor(vec2(qL.x / 7.0, qL.y / 13.0)), fs = vec2(qL.x / 7.0, qL.y / 13.0) - zs;
+        float wink = (h2(zs + 2.9) - 0.5) * 1.2;
+        vec2 rs = vec2(cos(wink) * (fs.x - 0.5) - sin(wink) * (fs.y - 0.5), sin(wink) * (fs.x - 0.5) + cos(wink) * (fs.y - 0.5));
+        float stL = step(0.80, h2(zs + 5.1)) * (1.0 - smoothstep(0.03, 0.06, abs(rs.x))) * (1.0 - smoothstep(0.30, 0.38, abs(rs.y))) * (1.0 - smoothstep(0.2, 0.6, pxL));
+        stL *= smoothstep(0.5, 3.0, seitL) * (1.0 - smoothstep(30.0, 90.0, seitL));
+        colL = mix(colL, mix(vec3(0.05, 0.04, 0.03), vec3(0.45, 0.40, 0.33), step(0.5, h2(zs + 8.8))) * weissW * 0.9, stL * 0.85);
+        col = mix(col, colL, landW);
     }
     // W4b: unter dem Netz der Lippe ist die steile Wand die Rückwand der Röhre: dunkel, oben etwas Licht durch die Lippe;
     // ihre Treppe aus dem Höhenfeld (Zickzack) geht im Dunkel unter [G]

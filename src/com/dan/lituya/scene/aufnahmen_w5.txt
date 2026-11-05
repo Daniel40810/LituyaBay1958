@@ -1,0 +1,11 @@
+# Werkbuch Welle W5 „524 m“: Proben am Sporn. Der Auflauf steigt in der Vorrechnung (Gitter 2 m) zwischen t = 125 s (Ufer)
+# und 136 s (540 m): 300 m bei 128 s, 400 m bei 131 s, 480 m bei 134,5 s; höchster Stand 135–139 s. Hang von E 354 100 (Ufer)
+# bis E 353 300 (560 m), N 6 505 900–6 506 400, er schaut nach Ostnordost (zum Felssturz).
+# Szene: x = E − 352 000, z = −(N − 6 503 000). Gestaltet [G]: Ort, Zeit, Brennweite.
+nr=1;name=Sued_t130;xz=1750,-1350;auge=120;blick=352;neigung=-8;zeitstand=welle;ereignis=130;brennweite=50;warum=von Süden: Zunge auf 350 m
+nr=2;name=Sued_t134;xz=1750,-1350;auge=120;blick=352;neigung=-8;zeitstand=welle;ereignis=134;brennweite=50;warum=Zunge auf 480 m, Bäume knicken
+nr=3;name=Sued_t142;xz=1750,-1350;auge=120;blick=352;neigung=-8;zeitstand=welle;ereignis=142;brennweite=50;warum=Rückfall
+nr=4;name=Knick_t134_85mm;xz=1750,-1350;auge=120;blick=350;neigung=-11;zeitstand=welle;ereignis=134;brennweite=85;warum=die Bäume knicken in Reihen
+nr=5;name=Knick_t136_135mm;xz=1750,-1350;auge=120;blick=354;neigung=-13;zeitstand=welle;ereignis=136;brennweite=135;warum=Tele: Kante der Zunge im Wald
+nr=6;name=Hoch_t134_85mm;xz=3400,-2300;auge=650;blick=290;neigung=3;zeitstand=welle;ereignis=134;brennweite=85;warum=von Ostsüdost hoch über der Gischt: Zunge auf dem Hang
+nr=7;name=Narbe_t300;xz=1750,-1350;auge=120;blick=352;neigung=-8;zeitstand=welle;ereignis=300;brennweite=50;warum=danach: der abgeschürfte Hang bis 524 m

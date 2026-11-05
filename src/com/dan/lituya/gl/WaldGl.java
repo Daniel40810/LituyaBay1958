@@ -74,6 +74,10 @@ public final class WaldGl {
     private int bandTex, teppichTex, gezeigt = Integer.MIN_VALUE, bodenJahr = Integer.MIN_VALUE, tag = -1;
     private double welleT = Double.NaN;
     private boolean mitTreibgut;
+    /** W5 (E11): die Bäume, die gerade in der Zunge fallen. */
+    final KnickGl knick = new KnickGl();
+    /** W5: Bäume knicken in Reihen (sonst schalten sie wie bis W4 um). */
+    public volatile boolean knicken = true;
 
     /** Was im Hintergrund entsteht. */
     static final class Daten {
@@ -217,10 +221,13 @@ public final class WaldGl {
         int day = clock.local().getDayOfYear();
         if (day != tag) { forest.setSeason(day, 0); tag = day; }
         double t = clock.simSeconds();
+        if (!(t >= Band1958.EINTAUCHEN - 1 && t < KNICK_BIS)) knick.setzen(knick_leer, 0);
         if (t < Band1958.EINTAUCHEN) {
             if (gezeigt != -1) { d.states.clear(); gezeigt = -1; mitTreibgut = false; }
         } else if (t < 3600) {
-            if (gezeigt != -2 || Math.abs(t - welleT) >= 2) { welle(t); gezeigt = -2; welleT = t; mitTreibgut = false; }
+            // W5: solange Bäume fallen, je 0,1 s neu (vorher alle 2 s)
+            double takt = knicken && t < KNICK_BIS ? 0.1 : 2;
+            if (gezeigt != -2 || Math.abs(t - welleT) >= takt) { welle(t); gezeigt = -2; welleT = t; mitTreibgut = false; }
         } else {
             int y = Wald1958.jahr(clock.date());
             boolean tg = treibgut && y == 0 && t < TREIBGUT_BIS && d.staemme != null;
@@ -230,18 +237,83 @@ public final class WaldGl {
         if (bj != bodenJahr) { if (bj >= 0) bandTextur(gl, bj); bodenJahr = bj; }
     }
 
-    /** Während der Welle: Plätze, deren Ufer die Welle erreicht hat, bekommen ihre Folge (Jahr 0 ohne Nachwuchs). */
+    /** W5: bis zu dieser Ereigniszeit (s) können Bäume fallen (die Ankünfte im Band liegen davor). */
+    static final double KNICK_BIS = 900;
+    private static final float[] knick_leer = new float[0];
+    private float[] knickBuf = new float[KnickGl.FL * 4096];
+    private final com.dan.forest.ForestCulture.Tree baum = new com.dan.forest.ForestCulture.Tree();
+
+    /**
+     * Während der Welle: Plätze, die die Welle erreicht hat, bekommen ihre Folge (Jahr 0 ohne Nachwuchs). Seit W5 (E11)
+     * liegt die Ankunft je Platz im Gitter der Vorrechnung (Band1958), und in den Sekunden um sie fällt der Baum in
+     * {@link KnickGl}: forest zeichnet den Platz so lange nicht.
+     */
     void welle(double t) {
         TreeStates s = d.states;
         s.clear();
         float[] an = d.ankunft;
-        int[] k = {0};
+        int[] k = {0}, nk = {0};
+        boolean kn = knicken && forest != null && t < KNICK_BIS;
+        com.dan.forest.ForestCulture cu = forest != null ? forest.culture() : null;
         d.su.zustand(0, (i, j, st, fall, art, h) -> {
-            if (an[k[0]++] <= t) {
+            double a = an[k[0]++];
+            if (kn && st != TreeStates.STANDING && a - KnickGl.VOR <= t && t < a + KnickGl.dauer(st, 3.0)) {
+                if (knickBaum(cu, i, j, st, fall, a, t, nk)) { s.set(i, j, TreeStates.GONE, 0); return; }
+            }
+            if (a <= t) {
                 s.set(i, j, st, fall);
                 if (art >= 0) s.setGrowth(i, j, art, Math.min(1, h / refHoehe(art)));
             }
         });
+        knick.setzen(knickBuf, nk[0]);
+    }
+
+    static float hash(int i, int j, int k) { return com.dan.forest.ForestCulture.u01(com.dan.forest.ForestCulture.slotHash(i, j, 0x5EED + k), k); }
+
+    /** W5: legt den fallenden Baum des Platzes in die Liste (false, wenn dort keiner steht oder er schon liegt). */
+    private boolean knickBaum(com.dan.forest.ForestCulture cu, int i, int j, int st, double fallDeg, double a, double t, int[] nk) {
+        if (cu == null || nk[0] >= KnickGl.MAX || !cu.at(i, j, baum)) return false;
+        if (baum.state != TreeStates.STANDING) return false;
+        com.dan.forest.TreeModel m = forest.model(baum.type);
+        double H = Math.max(m.height, 1) * baum.scale;
+        double tf = (0.8 + 0.022 * H) * (0.85 + 0.3 * hash(i, j, 1));
+        if (t >= a + KnickGl.dauer(st, tf)) return false;
+        // Fallrichtung: umgelegt wie succession ihn legt (dort zeichnet forest ihn danach), sonst die Laufrichtung der Zunge
+        double fx, fz;
+        if (st == TreeStates.FELLED) {
+            double r = Math.toRadians(fallDeg);
+            fx = Math.sin(r); fz = -Math.cos(r);
+        } else {
+            double[] u = Site.toUtm(baum.x, baum.z);
+            Band1958 b = d.wald.band;
+            double ae = b.ankunft(u[0] + 6, u[1]) - b.ankunft(u[0] - 6, u[1]), anN = b.ankunft(u[0], u[1] + 6) - b.ankunft(u[0], u[1] - 6);
+            if (Double.isNaN(ae) || Double.isNaN(anN) || Math.hypot(ae, anN) < 1e-6) { fx = 1; fz = 0; }
+            else { double l = Math.hypot(ae, anN); fx = ae / l; fz = -anN / l; }
+            double q = (hash(i, j, 2) - 0.5) * 0.5;   // etwas Streuung
+            double c = Math.cos(q), sn = Math.sin(q), x2 = fx * c - fz * sn;
+            fz = fx * sn + fz * c; fx = x2;
+        }
+        // liegen auf dem Hang: 90° minus die Neigung in Fallrichtung
+        com.dan.forest.ForestCulture.Grid g = d.gelaende;
+        double h1 = g.sample(0, (float) (baum.x + fx * 6), (float) (baum.z + fz * 6)), h0 = g.sample(0, (float) (baum.x - fx * 6), (float) (baum.z - fz * 6));
+        double wend = Math.max(0.5, Math.min(1.9, Math.PI / 2 - Math.atan((h1 - h0) / 12)));
+        double hb = st == TreeStates.BROKEN ? (0.15 + 0.3 * hash(i, j, 3)) * H : 0;
+        if (KnickGl.FL * (nk[0] + 1) > knickBuf.length) knickBuf = java.util.Arrays.copyOf(knickBuf, knickBuf.length * 2);
+        float[] o = knickBuf;
+        int q = KnickGl.FL * nk[0]++;
+        o[q] = baum.x; o[q + 1] = baum.y; o[q + 2] = baum.z; o[q + 3] = baum.yaw;
+        o[q + 4] = baum.scale; o[q + 5] = baum.tint; o[q + 6] = (float) a; o[q + 7] = (float) hb;
+        o[q + 8] = (float) fx; o[q + 9] = (float) fz; o[q + 10] = (float) wend; o[q + 11] = (float) tf;
+        o[q + 12] = st; o[q + 13] = (float) (8 + 8 * hash(i, j, 4)); o[q + 14] = (float) H; o[q + 15] = baum.type;
+        return true;
+    }
+
+    /** W5: die fallenden Bäume zeichnen (nach dem Wald, vor der Welle). */
+    public void knickZeichnen(GL4 gl, java.util.function.Consumer<Shader> common, double[] eye, double t, boolean reversed) {
+        if (!an || forest == null || knick.zahl() == 0) return;
+        gl.glDepthFunc(reversed ? GL.GL_GREATER : GL.GL_LESS);
+        knick.zeichnen(gl, forest, tag, common, eye, t, (float) (1 / (2 * Site.EARTH_R_OPTICAL)));
+        gl.glDisable(GL.GL_DEPTH_TEST);
     }
 
     /** Der Jahrgang y, im Jahr 0 auf Wunsch mit dem Treibgut auf dem Wasser. */
@@ -397,10 +469,11 @@ public final class WaldGl {
     /** Für HUD und Prüfung: sichtbare Bäume, Stufen, Speicher. */
     public String info() {
         if (forest == null) return status;
-        return String.format(Locale.GERMAN, "%s · %,d sichtbar, %.0f MB", forest.info(), forest.visible(), forest.vramBytes() / 1e6);
+        return String.format(Locale.GERMAN, "%s · %,d sichtbar, %.0f MB · %s", forest.info(), forest.visible(), forest.vramBytes() / 1e6, knick.info);
     }
 
     public void dispose(GL4 gl) {
+        knick.dispose(gl);
         if (forest != null) forest.dispose(gl);
         if (kroneTex != 0) gl.glDeleteTextures(1, new int[]{kroneTex}, 0);
         exec.shutdownNow();
