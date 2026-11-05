@@ -73,6 +73,7 @@ public final class Film {
         if (r.land.da()) { r.landAuge(); r.land.warten(300_000); }
         while (!r.wald.bereit() && System.nanoTime() - t0 < 300e9 && r.wald.an) { d.display(); Thread.sleep(100); }
         while ((!r.netzblick.fertig || !r.baeche.bereit()) && System.nanoTime() - t0 < 300e9) { d.display(); Thread.sleep(100); }
+        while (!r.schleier.fertig() && System.nanoTime() - t0 < 300e9) { d.display(); Thread.sleep(50); }   // W5
         System.out.printf(Locale.GERMAN, "vorbereitet in %.0f s: %s · %s%n", (System.nanoTime() - t0) / 1e9, r.wald.status(), r.netzblick.stand());
 
         double dt = 1.0 / fps;

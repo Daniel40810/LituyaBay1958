@@ -991,7 +991,16 @@ public final class Renderer implements GLEventListener {
                     }
                 }
                 meer.schritt(gl, frozen ? 0 : letztesDt, wiring.pegel, wiring.windSpeed, wiring.windFromDeg);
-                if (meer.spiegel) spiegelBild(gl, w, h, proj, view, sun);
+                // W5 Tempo: Spiegel nur, wenn genug Wasser im Bild ist (Anteil aus Strahlen, alle 8 Bilder, im Standbild jedes)
+                // im Hintergrund (Probe: im Bildfaden kostete es Spitzen, das Mittel der Bildbank stieg um 20–35 ms)
+                if (frame % 8 == 0 && (wasserJob == null || wasserJob.isDone())) {
+                    final double[] e = camera.eye.clone();
+                    final float[] vw = camera.view().clone();
+                    final double fy = fovy(), te = clock.simSeconds();
+                    wasserJob = wasserExec.submit(() -> { wasserAnteil = wasserAnteil(e, vw, fy, te); });
+                }
+                meer.spiegelJetzt = wasserAnteil >= SPIEGEL_AB;
+                if (meer.spiegel && meer.spiegelJetzt) spiegelBild(gl, w, h, proj, view, sun);
             } catch (RuntimeException e) {
                 System.err.println("LituyaBay1958: Meer: " + e);
                 meer.an = false;
@@ -1026,7 +1035,7 @@ public final class Renderer implements GLEventListener {
         // 2a Wald (Phase 14a): forest über den Kern mit den Zuständen der Welle und der Wiederbewaldung
         if (showGelaende) wald.zeichnen(gl, vp, camera.eye, reversedZ, sun, clock.t());
         // W5 (E11): die Bäume, die gerade in der Zunge fallen
-        if (showGelaende) wald.knickZeichnen(gl, sh -> common(gl, sh, vp, inv, sun), camera.eye, clock.simSeconds(), reversedZ);
+        if (showGelaende) wald.knickZeichnen(gl, sh -> common(gl, sh, vp, inv, sun), camera.eye, vp, clock.simSeconds(), reversedZ);
         gl.glBindVertexArray(emptyVao);
         // 2a' Bäche (Phase 16c): eigener Wasser-Pass auf dem Gelände, Tiefe gegen Gelände und Wald (Zeit unter „Wald“)
         if (showGelaende) {
@@ -1267,6 +1276,49 @@ public final class Renderer implements GLEventListener {
             step = Math.min(200, step * 1.02 + 0.5);
         }
         return null;
+    }
+
+    /** W5 Tempo: Anteil des Bilds (0 … 1), in dem Wasser zu sehen ist; ab {@link #SPIEGEL_AB} wird der Spiegel gerechnet. */
+    public volatile double wasserAnteil = 1;
+    public static final double SPIEGEL_AB = 0.08;   // Probe W5: mit 4 % blieb er in H6 an (Welle am unteren Rand)
+
+    /**
+     * W5 Tempo: Anteil der Bildpunkte, deren Strahl zuerst auf Wasser trifft (Pegel über dem Grund), aus 10 × 6 Strahlen
+     * wie {@link #treffer}. Wo die Welle steht, zählt das Wasser nur nahe am Pegel (dort gilt ihr Spiegel).
+     */
+    private final java.util.concurrent.ExecutorService wasserExec = java.util.concurrent.Executors.newSingleThreadExecutor(r -> { Thread t = new Thread(r, "Wasseranteil"); t.setDaemon(true); return t; });
+    private java.util.concurrent.Future<?> wasserJob;
+
+    double wasserAnteil(double[] eye, float[] v, double fy, double te) {
+        double[] right = {v[0], v[4], v[8]}, up = {v[1], v[5], v[9]}, back = {v[2], v[6], v[10]};
+        double ty = Math.tan(Math.toRadians(fy) / 2), tx = ty * 16.0 / 9.0;
+        final int NX = 10, NY = 6;
+        int nass = 0, n = 0;
+        double[] d = new double[3];
+        for (int j = 0; j < NY; j++)
+            for (int i = 0; i < NX; i++) {
+                double sx = (2.0 * (i + 0.5) / NX - 1) * tx, sy = (1 - 2.0 * (j + 0.5) / NY) * ty;
+                for (int k = 0; k < 3; k++) d[k] = right[k] * sx + up[k] * sy - back[k];
+                double l = Math.sqrt(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]);
+                n++;
+                if (d[1] / l > 0.02) continue;   // über die Kimm: Himmel
+                double t = 0, step = 4;
+                for (int s = 0; s < 160 && t < 40_000; s++) {
+                    double px = eye[0] + d[0] / l * t, py = eye[1] + d[1] / l * t, pz = eye[2] + d[2] / l * t;
+                    double g = groundHeight(px, pz);
+                    if (py <= Math.max(g, wiring.pegel)) {
+                        // Wasser, das der Spiegel trifft: nahe am Pegel (welle.frag: bis rund 22 m darüber)
+                        if (!(g >= wiring.pegel)) {
+                            double e = wiedergabe.an() ? wiedergabe.eta(px, pz, te) : Double.NaN;
+                            if (Double.isNaN(e) || e - wiring.pegel < 22) nass++;
+                        }
+                        break;
+                    }
+                    t += step;
+                    step = Math.min(400, step * 1.06 + 2);
+                }
+            }
+        return nass / (double) n;
     }
 
     /** Blickrichtung aus der Blickmatrix (Spalten): die dritte Zeile, umgedreht. */
@@ -1732,6 +1784,7 @@ public final class Renderer implements GLEventListener {
         clipGl.dispose(gl);
         wald.dispose(gl);
         schleier.dispose(gl);
+        wasserExec.shutdownNow();
         boote.dispose(gl);
         com.dan.clipmap.Clipmap cm = land.clipmap();
         if (cm != null) cm.stop();

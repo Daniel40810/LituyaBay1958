@@ -42,7 +42,9 @@ final class KnickGl {
      */
     static final double NAH = 150;
     static final int NAH_MAX = 120;
-    static final int MAX = 60000;
+    static final int MAX = 150000;
+    /** Weiter als hier (m) wird kein fallender Baum gezeichnet (wie die Einzelbäume in WaldGl.NAH). */
+    static final double WEIT = 3000;
 
     final Shader shader = new Shader("Knick", null, "knick.vert", "knick.frag");
     private int types;
@@ -62,7 +64,9 @@ final class KnickGl {
         switch (folge) {
             case 1: return tf + 0.6;                 // gebrochen: dann der Stumpf von forest
             case 2: return 3.5;                      // entrindet: Krone fort, Stamm schwingt aus
-            case 3: return tf + 1.2;                 // umgelegt: liegt, wie forest ihn legt
+            // umgelegt: bleibt hier liegen, längs des Hangs (forest legt ihn waagerecht: am steilen Hang standen die
+            // Stämme wie Stacheln vom Hang ab, W5 Runde 3); erst nach der Welle (Jahrgänge) wieder forest
+            case 3: return 1e9;
             case 4: return tf + 6.0;                 // fort: treibt und sinkt
             default: return 0;
         }
@@ -80,24 +84,57 @@ final class KnickGl {
         int T = f.species() * f.variants();   // stehende Typen
         if (!gebaut) {
             types = T;
-            vao = new int[2 * T]; vbo = new int[2 * T]; ibo = new int[2 * T]; nIdx = new int[2 * T]; ibuf = new int[2 * T]; icap = new int[2 * T];
-            gl.glGenVertexArrays(2 * T, vao, 0);
-            gl.glGenBuffers(2 * T, vbo, 0);
-            gl.glGenBuffers(2 * T, ibo, 0);
-            gl.glGenBuffers(2 * T, ibuf, 0);
-            bin = new float[2 * T][FL * 256];
-            binN = new int[2 * T];
+            int B = 2 * T + 1;   // nah je Typ, fern je Typ, ein Stamm
+            vao = new int[B]; vbo = new int[B]; ibo = new int[B]; nIdx = new int[B]; ibuf = new int[B]; icap = new int[B];
+            gl.glGenVertexArrays(B, vao, 0);
+            gl.glGenBuffers(B, vbo, 0);
+            gl.glGenBuffers(B, ibo, 0);
+            gl.glGenBuffers(B, ibuf, 0);
+            bin = new float[B][FL * 256];
+            binN = new int[B];
+            netz(gl, 2 * T, stamm());
         }
         for (int t = 0; t < T; t++) {
             TreeModel m = f.model(t);
             Season se = Season.of(m.species, day, 0f);
             float[][] nah = (float[][]) pack.invoke(null, TreeMesh.build(m, 1, 2), se, 1958L + t * 31L + 2, 0.15f, 2.0f);
-            float[][] fern = (float[][]) pack.invoke(null, TreeMesh.build(m, 3), se, 1958L + t * 31L + 3, 1f, 1f);
+            // fern: Silhouette mit 10 Seiten und 12 Ringen statt 6 × 7 (Runde 3: grobe Kegel in der Ferne)
+            float[][] fern = (float[][]) pack.invoke(null, TreeMesh.silhouette(m, 10, 12), se, 1958L + t * 31L + 3, 1f, 1f);
             netz(gl, t, nah);
             netz(gl, T + t, fern);
         }
         gebaut = true;
         tag = day;
+    }
+
+    /**
+     * Runde 3: ein Stamm ohne Krone (Höhe 1, Halbmesser 0,011 der Höhe, sechs Seiten, Holz geschält und nass), für
+     * umgelegte und fortgerissene Bäume, sobald die Krone fort ist: liegt längs des Hangs, Maßstab = Höhe des Baums.
+     */
+    static float[][] stamm() {
+        int S = 6;
+        float[] v = new float[(S + 1) * 2 * 11];
+        float[] tri = new float[S * 6];
+        for (int k = 0; k <= S; k++) {
+            double a = 2 * Math.PI * k / S;
+            float cx = (float) Math.cos(a), cz = (float) Math.sin(a);
+            for (int e = 0; e < 2; e++) {
+                int o = ((k * 2) + e) * 11;
+                float r = e == 0 ? 0.011f : 0.006f;
+                v[o] = cx * r; v[o + 1] = e; v[o + 2] = cz * r;
+                v[o + 3] = cx; v[o + 4] = 0; v[o + 5] = cz;
+                v[o + 6] = 0.42f; v[o + 7] = 0.34f; v[o + 8] = 0.25f;
+                v[o + 9] = e; v[o + 10] = 0;
+            }
+        }
+        int q = 0;
+        for (int k = 0; k < S; k++) {
+            int a = k * 2, b = a + 1, c = a + 2, d = a + 3;
+            // gegen den Uhrzeigersinn von außen gesehen
+            tri[q++] = Float.intBitsToFloat(a); tri[q++] = Float.intBitsToFloat(b); tri[q++] = Float.intBitsToFloat(c);
+            tri[q++] = Float.intBitsToFloat(b); tri[q++] = Float.intBitsToFloat(d); tri[q++] = Float.intBitsToFloat(c);
+        }
+        return new float[][]{v, tri};
     }
 
     private void netz(GL4 gl, int b, float[][] m) {
@@ -125,7 +162,7 @@ final class KnickGl {
     }
 
     /** Zeichnet die fallenden Bäume (HDR-Puffer mit Tiefe gebunden). t: Ereigniszeit (s). */
-    void zeichnen(GL4 gl, ForestGpu f, int day, Consumer<Shader> common, double[] eye, double t, float kruemmung) {
+    void zeichnen(GL4 gl, ForestGpu f, int day, Consumer<Shader> common, double[] eye, float[] vp, double t, float kruemmung) {
         gezeichnet = 0;
         if (n == 0 || f == null || !f.ready()) { info = "Knick: keine"; return; }
         try {
@@ -137,16 +174,26 @@ final class KnickGl {
         }
         java.util.Arrays.fill(binN, 0);
         int T = types, nah = 0;
+        double[] pl = ebenen(vp);
         for (int k = 0; k < n; k++) {
             int o = k * FL;
             int typ = (int) baeume[o + 15];
             if (typ < 0 || typ >= T) continue;
-            double dx = baeume[o] - eye[0], dz = baeume[o + 2] - eye[2];
-            boolean nh = dx * dx + dz * dz < NAH * NAH && nah < NAH_MAX;
+            double dx = baeume[o] - eye[0], dz = baeume[o + 2] - eye[2], d2 = dx * dx + dz * dz;
+            if (d2 > WEIT * WEIT) continue;
+            // Runde 3: Sichtkegel (Kugel um den Baum, Halbmesser seine Höhe)
+            double H = baeume[o + 14], cy = baeume[o + 1] + 0.5 * H;
+            boolean drin = true;
+            for (int e = 0; e < 4 && drin; e++) drin = pl[4 * e] * baeume[o] + pl[4 * e + 1] * cy + pl[4 * e + 2] * baeume[o + 2] + pl[4 * e + 3] >= -H;
+            if (!drin) continue;
+            int folge = (int) baeume[o + 12];
+            boolean liegt = (folge == 3 || folge == 4) && t > baeume[o + 6] + baeume[o + 11] + 2.6;
+            boolean nh = !liegt && d2 < NAH * NAH && nah < NAH_MAX;
             if (nh) nah++;
-            int b = nh ? typ : T + typ;
+            int b = liegt ? 2 * T : nh ? typ : T + typ;
             if (FL * (binN[b] + 1) > bin[b].length) bin[b] = java.util.Arrays.copyOf(bin[b], bin[b].length * 2);
             System.arraycopy(baeume, o, bin[b], FL * binN[b], FL);
+            if (liegt) bin[b][FL * binN[b] + 4] = (float) H;   // der Stamm hat die Höhe 1
             binN[b]++;
         }
         common.accept(shader);
@@ -156,7 +203,7 @@ final class KnickGl {
         gl.glDisable(GL.GL_CULL_FACE);
         gl.glDepthMask(true);
         long tri = 0;
-        for (int b = 0; b < 2 * T; b++) {
+        for (int b = 0; b < 2 * T + 1; b++) {
             int m = binN[b];
             if (m == 0 || nIdx[b] == 0) continue;
             if (fb == null || fb.capacity() < m * FL) fb = Buffers.newDirectFloatBuffer(Math.max(m * FL, FL * 4096));
@@ -174,6 +221,18 @@ final class KnickGl {
         gl.glBindVertexArray(0);
         gl.glBindBuffer(GL.GL_ARRAY_BUFFER, 0);
         info = String.format(Locale.GERMAN, "Knick: %,d Bäume fallen, %.1f Mio. Dreiecke", gezeichnet, tri / 1e6);
+    }
+
+    /** Die vier seitlichen Ebenen des Blicks (links, rechts, unten, oben) aus vp (Spalten zuerst), normiert. */
+    static double[] ebenen(float[] m) {
+        double[] p = new double[16];
+        for (int e = 0; e < 4; e++) {
+            int r = e / 2, sg = e % 2 == 0 ? 1 : -1;   // Zeile 0 (x) für links/rechts, Zeile 1 (y) für unten/oben
+            double a = m[3] + sg * m[r], b = m[7] + sg * m[4 + r], c = m[11] + sg * m[8 + r], d = m[15] + sg * m[12 + r];
+            double l = Math.sqrt(a * a + b * b + c * c);
+            p[4 * e] = a / l; p[4 * e + 1] = b / l; p[4 * e + 2] = c / l; p[4 * e + 3] = d / l;
+        }
+        return p;
     }
 
     void dispose(GL4 gl) {

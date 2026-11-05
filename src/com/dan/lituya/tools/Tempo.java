@@ -140,6 +140,8 @@ public final class Tempo {
             while (!r.wald.bereit() && System.nanoTime() - t0 < 300e9) { d.display(); Thread.sleep(100); }
             System.out.printf(Locale.GERMAN, "Wald %s in %.1f s: %s%n", r.wald.bereit() ? "bereit" : "NICHT bereit", (System.nanoTime() - t0) / 1e9, r.wald.status());
         } else r.wald.an = false;
+        // W5: die Schleier im Hintergrund abwarten (sonst lief ihre Rechnung während der gemessenen Bilder mit)
+        { long t0 = System.nanoTime(); d.display(); while (!r.schleier.fertig() && System.nanoTime() - t0 < 60e9) { d.display(); Thread.sleep(50); } }
         // W1: Himmel und Horizontkarten abwarten (Höhen im Hintergrund, dann ein Rechenaufruf)
         if (r.licht.an && !"aus".equals(opt("licht"))) {
             long t0 = System.nanoTime();
