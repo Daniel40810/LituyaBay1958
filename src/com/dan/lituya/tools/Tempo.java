@@ -210,6 +210,7 @@ public final class Tempo {
         }
         double best = Double.MAX_VALUE, sum = 0;
         StringBuilder zeiten = new StringBuilder();   // W5: jede Bildzeit, um Spitzen zu finden
+        double[] alle = new double[frames];   // Runde 5: Median (die Radeon streut von Bild zu Bild um ±10 ms)
         for (int i = 0; i < frames; i++) {
             long t0 = System.nanoTime();
             r.step(1 / 60.0);
@@ -220,6 +221,7 @@ public final class Tempo {
             double ms = (System.nanoTime() - t0) / 1e6;
             best = Math.min(best, ms);
             sum += ms;
+            alle[i] = ms;
             zeiten.append(String.format(Locale.GERMAN, " %.0f", ms));
         }
         if (r.error() != null) System.err.println("FEHLER: " + r.error());
@@ -228,6 +230,8 @@ public final class Tempo {
         System.out.printf(Locale.GERMAN, "%d×%d %s, %s: bestes Bild %.2f ms, Mittel %.2f ms (%.0f Bilder/s)%n", w, h, q.label, clock.label(), best, sum / frames, 1000 / (sum / frames));
         System.out.println("Durchgänge (ms): " + r.passTimes());
         System.out.println("Bildzeiten (ms):" + zeiten);
+        java.util.Arrays.sort(alle);
+        System.out.printf(Locale.GERMAN, "Median %.2f ms%n", frames == 0 ? 0 : alle[frames / 2]);
         // W5: Licht am Ende des Laufs (für die Suche nach dem Rot der Kronen)
         com.dan.sky.Sky.State ls = r.licht.state();
         if (ls != null) {

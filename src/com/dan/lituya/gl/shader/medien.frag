@@ -204,6 +204,9 @@ void main() {
     float T = 1.0;
     // Abschnitt des Strahls: Hülle des Staubs und Zylinder des Vorhangs, vereinigt
     float a = 1e30, b = -1e30;
+    // Runde 5: der Abschnitt je Hülle, damit ein Schritt nur die Dichten abfragt, in deren Hülle er liegt (vorher alle drei
+    // an jedem Schritt der Vereinigung: in H6 lief der Strahl kilometerweit durch den Staub, die Gischt kostete dort mit)
+    vec2 abS = vec2(1e30, -1e30), abG = abS, abF = abS;
     vec3 inv = 1.0 / (d + vec3(1e-9));
     if (uStaub == 1) {
         float n = uStaubGeo.w, c = uStaubGeo.z;
@@ -212,7 +215,7 @@ void main() {
         vec3 t0 = (lo - uCam) * inv, t1 = (hi - uCam) * inv;
         vec3 tn = min(t0, t1), tf = max(t0, t1);
         float aa = max(max(tn.x, tn.y), max(tn.z, 0.0)), bb = min(min(tf.x, tf.y), min(tf.z, dist));
-        if (bb > aa) { a = min(a, aa); b = max(b, bb); }
+        if (bb > aa) { a = min(a, aa); b = max(b, bb); abS = vec2(aa, bb); }
     }
     if (uGischt.x > 0.5) {
         vec3 lo = vec3(min(uGischtBox.x, uGischtBox.z), uGischtY.x, min(uGischtBox.y, uGischtBox.w)),
@@ -220,7 +223,7 @@ void main() {
         vec3 t0 = (lo - uCam) * inv, t1 = (hi - uCam) * inv;
         vec3 tn = min(t0, t1), tf = max(t0, t1);
         float aa = max(max(tn.x, tn.y), max(tn.z, 0.0)), bb = min(min(tf.x, tf.y), min(tf.z, dist));
-        if (bb > aa) { a = min(a, aa); b = max(b, bb); }
+        if (bb > aa) { a = min(a, aa); b = max(b, bb); abG = vec2(aa, bb); }
     }
     if (uFahneAn == 1) {
         float Rm = uFahneR.x * 2.2 + 0.25 * uFahne.z + 120.0;
@@ -228,7 +231,7 @@ void main() {
         vec3 t0 = (lo - uCam) * inv, t1 = (hi - uCam) * inv;
         vec3 tn = min(t0, t1), tf = max(t0, t1);
         float aa = max(max(tn.x, tn.y), max(tn.z, 0.0)), bb = min(min(tf.x, tf.y), min(tf.z, dist));
-        if (bb > aa) { a = min(a, aa); b = max(b, bb); }
+        if (bb > aa) { a = min(a, aa); b = max(b, bb); abF = vec2(aa, bb); }
     }
     if (b > a) {
         int N = clamp(uSchritte, 16, 96);
@@ -241,9 +244,10 @@ void main() {
         vec3 himmel = skyColor(vec3(0.0, 1.0, 0.0)) * 0.6 + hazeColor(d) * 0.6 * (0.5 + 0.5 * cs);
         vec3 albStaub = vec3(0.62, 0.57, 0.50) * 0.8, albGischt = vec3(0.92, 0.95, 0.97), albSchlamm = vec3(0.30, 0.27, 0.22);
         for (int i = 0; i < N; i++) {
-            vec3 p = uCam + d * (a + (float(i) + j) * ds);
+            float tq = a + (float(i) + j) * ds;
+            vec3 p = uCam + d * tq;
             float sigS = 0.0, ueber = 0.0;
-            if (uStaub == 1) {
+            if (uStaub == 1 && tq >= abS.x && tq <= abS.y) {
                 vec2 uv = staubUV(p);
                 if (all(greaterThanEqual(uv, vec2(0.0))) && all(lessThanEqual(uv, vec2(1.0)))) {
                     vec2 sa = texture(uStaubA, uv).rg, sb = texture(uStaubB, uv).rg;
@@ -255,8 +259,8 @@ void main() {
                     ueber = s.y * clamp((s.x - p.y) / dicke, 0.0, 1.0) / max(uSun.y + 0.15, 0.1);
                 }
             }
-            vec2 v = uGischt.x > 0.5 ? gischtDichte(p) : vec2(0.0);
-            vec2 fh = uFahneAn == 1 ? fahneDichte(p) : vec2(0.0);
+            vec2 v = uGischt.x > 0.5 && tq >= abG.x && tq <= abG.y ? gischtDichte(p) : vec2(0.0);
+            vec2 fh = uFahneAn == 1 && tq >= abF.x && tq <= abF.y ? fahneDichte(p) : vec2(0.0);
             float sig = sigS + v.x + v.y + fh.x;
             if (sig < 1e-6) continue;
             vec3 sonne = sunAt(p);
