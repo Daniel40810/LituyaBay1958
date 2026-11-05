@@ -172,12 +172,16 @@ void main() {
     vec2 qr = vec2(dot(q, wd), dot(q, wq));   // längs und quer zum Wind
     vec2 qs = vec2(qr.x * 0.55, qr.y);   // quer zum Wind länger
     float t = uTime;
-    vec2 g = lage(qs, 23.0, vec2(-t * 0.035, 0.0), px) * 0.55 + lage(qs + 7.0, 9.0, vec2(-t * 0.07, t * 0.01), px) * 0.45
-           + lage(qs + 3.0, 3.7, vec2(-t * 0.16, 0.0), px) * 0.35 + lage(qs + 11.0, 1.4, vec2(-t * 0.33, t * 0.05), px) * 0.25;
-    g = (wd * (g.x * 0.55) + wq * g.y) * 0.35;
     // W4b: Muster aus dem Grundriss (Kräusel, Straßen, Treibgut) nicht auf steilen Wänden, dort zogen sie sich zu
     // waagerechten Zickzack-Bändern zusammen (Probe Röhre)
     float flach = 1.0 - smoothstep(0.30, 0.60, 1.0 - abs(N.y));
+    // Runde 10: die Kräusel nur, wo sie wirken (flach) oder die Zunge sie braucht; sonst ist ihr Beitrag 0
+    vec2 g = vec2(0.0);
+    if (uFrueh == 0 || flach > 0.0 || landW > 0.0) {
+        g = lage(qs, 23.0, vec2(-t * 0.035, 0.0), px) * 0.55 + lage(qs + 7.0, 9.0, vec2(-t * 0.07, t * 0.01), px) * 0.45
+          + lage(qs + 3.0, 3.7, vec2(-t * 0.16, 0.0), px) * 0.35 + lage(qs + 11.0, 1.4, vec2(-t * 0.33, t * 0.05), px) * 0.25;
+        g = (wd * (g.x * 0.55) + wq * g.y) * 0.35;
+    }
     float kr = mix(0.32, 1.0, aufruhr) * (1.0 - 0.5 * smoothstep(1500.0, 9000.0, dist)) * flach;
     vec3 n = normalize(N + vec3(g.x, 0.0, g.y) * kr);
     vec3 v = -d;
@@ -257,43 +261,56 @@ void main() {
     // 1) Weißwasser an der Front und an steilen Flanken, ausgefranst (auf der Wand in Wandkoordinaten)
     vec2 qf = mix(q, qw * vec2(1.0, 1.6), wandSteil);
     float pf = mix(px, pxw, wandSteil);
-    float roh = vnf(qf, 6.0, vec2(t * 0.35, -t * 0.5 * wandSteil), pf) * 0.55 + vnf(qf, 1.8, vec2(0.0, t * 0.6), pf) * 0.45;
-    float front = clamp(smoothstep(0.08, 0.35, steil) + smoothstep(0.8, 4.0, vSteig), 0.0, 1.0) * smoothstep(0.30, 0.70, roh + 0.25);
+    // Runde 10: die Lagen des Schaums nur rechnen, wo ihr Gewicht nicht 0 ist (gleiches Ergebnis; Schalter uFrueh)
+    float frontB = clamp(smoothstep(0.08, 0.35, steil) + smoothstep(0.8, 4.0, vSteig), 0.0, 1.0);
+    float roh = 0.5;
+    if (uFrueh == 0 || frontB > 0.0) roh = vnf(qf, 6.0, vec2(t * 0.35, -t * 0.5 * wandSteil), pf) * 0.55 + vnf(qf, 1.8, vec2(0.0, t * 0.6), pf) * 0.45;
+    float front = frontB * smoothstep(0.30, 0.70, roh + 0.25);
+    float sturz = smoothstep(0.22, 0.45, steil) * smoothstep(18.0, 55.0, hoch);
+    bool wandAn = uFrueh == 0 || wand > 0.0 || sturz > 0.0;
     // E9 Walze am Fuß der Wand: dichtes Weißwasser, das an der Wand aufsteigt; Kammgischt oben, die nach hinten weht
-    float walzeN = vnf(qw * vec2(1.0, 0.7) + vec2(0.0, -t * 4.0), 9.0, vec2(0.0), pxw) * 0.55 + vnf(qw + vec2(t * 1.5, -t * 7.0), 3.0, vec2(0.0), pxw) * 0.45;
+    float walzeN = 0.5, gross = 0.5;
+    if (wandAn) walzeN = vnf(qw * vec2(1.0, 0.7) + vec2(0.0, -t * 4.0), 9.0, vec2(0.0), pxw) * 0.55 + vnf(qw + vec2(t * 1.5, -t * 7.0), 3.0, vec2(0.0), pxw) * 0.45;
     // große Formen (Fahnen aus Schaum, die über die Wand herabfallen; Lücken, durch die das dunkle Wasser sieht): längs
     // der Front 25–70 m, in der Höhe gestreckt; sie bleiben, wenn das feine Rauschen in der Ferne zum Mittel geht
-    float gross = vnf(vec2(qw.x, qw.y * 0.22 + t * 1.2), 38.0, vec2(0.0), pxw) * 0.65 + vnf(vec2(qw.x, qw.y * 0.4 + t * 2.0) + 17.0, 13.0, vec2(0.0), pxw) * 0.35;
+    if (wandAn) gross = vnf(vec2(qw.x, qw.y * 0.22 + t * 1.2), 38.0, vec2(0.0), pxw) * 0.65 + vnf(vec2(qw.x, qw.y * 0.4 + t * 2.0) + 17.0, 13.0, vec2(0.0), pxw) * 0.35;
     float fahnen = smoothstep(0.42, 0.66, gross);
     float walze = wand * (1.0 - smoothstep(0.35, 0.62, hrel + (walzeN - 0.5) * 0.3)) * smoothstep(0.25, 0.55, walzeN + 0.15);
     walze = max(walze, wand * fahnen * (1.0 - smoothstep(0.55, 0.9, hrel)) * 0.85);
-    float kammN = vnf(vec2(dot(q, Tq), dot(q, T)) * vec2(1.0, 0.35) + vec2(0.0, t * 4.0), 5.0, vec2(0.0), px);
-    float kammG = vnf(vec2(dot(q, Tq), t * 0.8), 24.0, vec2(0.0), px);   // der Kamm bricht nicht überall zugleich
-    float kammB = smoothstep(mix(0.80, 0.62, kammG), 0.93, hrel);
-    float kamm = wandZeit * kammB * smoothstep(8.0, 25.0, hoch) * smoothstep(0.30, 0.62, kammN * 0.5 + kammG * 0.5 + 0.35 * clamp(vLippe * 2.0, 0.0, 1.0));
+    float kamm = 0.0;
+    if (uFrueh == 0 || (wandZeit > 0.0 && hoch > 8.0)) {
+        float kammN = vnf(vec2(dot(q, Tq), dot(q, T)) * vec2(1.0, 0.35) + vec2(0.0, t * 4.0), 5.0, vec2(0.0), px);
+        float kammG = vnf(vec2(dot(q, Tq), t * 0.8), 24.0, vec2(0.0), px);   // der Kamm bricht nicht überall zugleich
+        float kammB = smoothstep(mix(0.80, 0.62, kammG), 0.93, hrel);
+        kamm = wandZeit * kammB * smoothstep(8.0, 25.0, hoch) * smoothstep(0.30, 0.62, kammN * 0.5 + kammG * 0.5 + 0.35 * clamp(vLippe * 2.0, 0.0, 1.0));
+    }
     // zwischen Kamm und Walze: die Wand selbst, glasig und dunkel, mit wenig Schaum
     front = max(front * (1.0 - 0.75 * wand), max(walze, kamm));
     // Sturz: steiles Wasser hoch über dem Pegel (die Wände im Gilbert Inlet, 50–150 m) ist ganz durchlüftet, Weißwasser
     // in Kaskaden mit Lücken; glasig bleibt nur die niedrigere Wand weiter draußen (Probe 4: dunkle Wände wie Fels)
-    float sturz = smoothstep(0.22, 0.45, steil) * smoothstep(18.0, 55.0, hoch);
     front = max(front, sturz * smoothstep(0.34, 0.58, gross + 0.2 * walzeN));
     // Licht im Schaum: Kaskaden heller, wo sie vorstehen, Rinnen dazwischen im Schatten (in der Höhe gestreckt), damit
     // die Wand aus der Ferne nicht als glatte Schneewand steht
-    float rinne = vnf(vec2(qw.x * 1.0, qw.y * 0.12 + t * 1.6) + 5.0, 9.0, vec2(0.0), pxw);
+    float rinne = wandAn ? vnf(vec2(qw.x * 1.0, qw.y * 0.12 + t * 1.6) + 5.0, 9.0, vec2(0.0), pxw) : 0.5;
     float hell = mix(0.74, 1.12, smoothstep(0.25, 0.75, gross * 0.6 + rinne * 0.4));
     // 2) Schaumstraßen und Flecken hinter der Front: in Laufrichtung gestreckt (die Strömung zieht sie mit, W4 E10),
     //    sonst nach dem Wind; dicht gleich hinter der Front, klingen in rund 10 min ab
     vec2 qz = hatLauf ? vec2(dot(q, T) * 0.18, dot(q, Tq)) : vec2(qr.x * 0.18, qr.y);
-    float str = vnf(qz, 14.0, vec2(-t * 0.02, 0.0), px) * 0.6 + vnf(qz + 5.0, 4.5, vec2(-t * 0.05, 0.0), px) * 0.4;
+    float str = 0.0;
+    if (uFrueh == 0 || (nach > 0.0 && seit < 900.0)) str = vnf(qz, 14.0, vec2(-t * 0.02, 0.0), px) * 0.6 + vnf(qz + 5.0, 4.5, vec2(-t * 0.05, 0.0), px) * 0.4;
     float strasse = nach * (1.0 - smoothstep(60.0, 900.0, seit)) * smoothstep(mix(0.66, 0.50, 1.0 - smoothstep(4.0, 60.0, seit)), 0.80, str) * 0.6;
     // W4 E10: gleich hinter der Front ein Teppich aus Schaum mit Wirbeln und Lücken
-    float wirbel = vnf(q + vec2(31.0, 7.0) + T * t * 1.5, 26.0, vec2(0.0), px) * 0.6 + vnf(q * 1.7 + 3.0, 9.0, vec2(t * 0.1, 0.0), px) * 0.4;
-    float teppich = (hatLauf ? smoothstep(2.0, 6.0, vSeit) * (1.0 - smoothstep(25.0, 140.0, vSeit)) : 0.0) * smoothstep(0.38, 0.62, wirbel);
+    float tepZeit = hatLauf ? smoothstep(2.0, 6.0, vSeit) * (1.0 - smoothstep(25.0, 140.0, vSeit)) : 0.0;
+    float wirbel = 0.0;
+    if (uFrueh == 0 || tepZeit > 0.0) wirbel = vnf(q + vec2(31.0, 7.0) + T * t * 1.5, 26.0, vec2(0.0), px) * 0.6 + vnf(q * 1.7 + 3.0, 9.0, vec2(t * 0.1, 0.0), px) * 0.4;
+    float teppich = tepZeit * smoothstep(0.38, 0.62, wirbel);
     strasse = max(strasse, teppich * 0.85) * flach;
     // 3) Saum am Ufer: dünnes Wasser über dem Grund
-    float saum = (1.0 - smoothstep(0.6, 3.5, vTiefe)) * smoothstep(0.35, 0.7, vnf(q + 13.0, 2.5, vec2(t * 0.2, 0.0), px) + 0.25);
+    float saum = 0.0;
+    if (uFrueh == 0 || vTiefe < 3.5) saum = (1.0 - smoothstep(0.6, 3.5, vTiefe)) * smoothstep(0.35, 0.7, vnf(q + 13.0, 2.5, vec2(t * 0.2, 0.0), px) + 0.25);
     // 4) Aufruhr im Nahfeld der Quelle: Weißwasser und Schlamm in Fetzen
-    float quelle = vQuelle * smoothstep(0.52, 0.80, vnf(q + 31.0, 24.0, vec2(t * 0.05, -t * 0.04), px) * 0.45 + vnf(q + 5.0, 8.0, vec2(t * 0.25, -t * 0.18), px) * 0.35 + vnf(q, 2.6, vec2(-t * 0.4, 0.0), px) * 0.2);
+    float quelle = 0.0;
+    if (uFrueh == 0 || vQuelle > 0.0) quelle = vQuelle * smoothstep(0.52, 0.80, vnf(q + 31.0, 24.0, vec2(t * 0.05, -t * 0.04), px) * 0.45 + vnf(q + 5.0, 8.0, vec2(t * 0.25, -t * 0.18), px) * 0.35 + vnf(q, 2.6, vec2(-t * 0.4, 0.0), px) * 0.2);
     float schaum = clamp(max(max(front * 0.9, strasse), max(saum * 0.8, quelle * 0.9)), 0.0, 1.0);
     vec3 schaumF = mix(vec3(0.82, 0.83, 0.82), vec3(0.55, 0.49, 0.40), clamp(schlamm * 0.55 + quelle * 0.3, 0.0, 1.0));
     // Weißwasser ist durchlüftet und streut das Licht des ganzen Himmels darüber, nicht wie eine matte senkrechte Fläche
