@@ -910,12 +910,16 @@ public final class Renderer implements GLEventListener {
         regulateScale(now);
         int w = Math.max(64, (int) Math.round(surfW * renderScale)), h = Math.max(64, (int) Math.round(surfH * renderScale));
         if (w != hdrW || h != hdrH) resizeTargets(gl, w, h);
+        long rf0 = System.nanoTime();
+        vorCpu = vorCpu * 0.9 + (rf0 - now) / 1e6 * 0.1;   // Runde 11: Uhr, Schritt, Marken lesen
         renderFrame(gl, w, h);
+        long rf1 = System.nanoTime();
         regieBild(gl, now);   // Phase 17a: Fotos und Blatt des Regiebuchs, Kino über das fertige Bild; F12 und Tempo mit
         if (photoRequest) { photoRequest = false; takePhoto(gl, surfW, surfH); }
         Consumer<BufferedImage> gr = grabRequest;
         if (gr != null) { grabRequest = null; try { gr.accept(readDefault(gl, surfW, surfH)); } catch (RuntimeException e) { System.err.println("LituyaBay1958: Bild nicht abgeholt: " + e); } }
         cpuMs = cpuMs * 0.95 + (System.nanoTime() - now) / 1e6 * 0.05;
+        nachCpu = nachCpu * 0.9 + (System.nanoTime() - rf1) / 1e6 * 0.1;
         frame++;
         stats(now, w, h);
     }
@@ -1547,7 +1551,23 @@ public final class Renderer implements GLEventListener {
 
     // ------------------------------------------------------------------ Zeitmessung (Tempo)
 
-    private void mark(GL4 gl, int i) { gl.glQueryCounter(stamp[frame & 1][i], GL4.GL_TIMESTAMP); }
+    private void mark(GL4 gl, int i) {
+        gl.glQueryCounter(stamp[frame & 1][i], GL4.GL_TIMESTAMP);
+        cpuStamp[i] = System.nanoTime();
+        if (i == MARKS - 1)   // Runde 11: Zeit des Prozessors je Durchgang (Aufrufe an den Treiber, Rechnen davor)
+            for (int k = 0; k < MARKS - 1; k++) { int p = k < ordnung.length ? ordnung[k] : k; passCpu[p] = passCpu[p] * 0.9 + Math.max(0, cpuStamp[k + 1] - cpuStamp[k]) / 1e6 * 0.1; }
+    }
+    private final long[] cpuStamp = new long[MARKS];
+    private final double[] passCpu = new double[MARKS - 1];
+    private double vorCpu, nachCpu;
+
+    /** Runde 11: „Vorbereitung 1,2 · Himmel 3,4 · …“ Zeit des Prozessors je Durchgang in ms (gleitendes Mittel). */
+    public String passCpuTimes() {
+        StringBuilder sb = new StringBuilder(String.format(Locale.GERMAN, "vor dem Bild %.2f", vorCpu));
+        for (int i = 0; i < passCpu.length; i++) sb.append(" · ").append(PASSES[i]).append(' ').append(String.format(Locale.GERMAN, "%.2f", passCpu[i]));
+        sb.append(String.format(Locale.GERMAN, " · nach dem Bild %.2f", nachCpu));
+        return sb.toString();
+    }
 
     /** Liest die Zeitstempel des vorigen Bilds, sobald sie da sind (kein Warten im Bildlauf). */
     private void readMarks(GL4 gl) {

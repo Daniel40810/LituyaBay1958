@@ -241,11 +241,29 @@ public final class Tempo {
         System.out.println(r.compute() == null ? "Compute-Test: nicht gelaufen" : r.compute().line());
         System.out.printf(Locale.GERMAN, "%d×%d %s, %s: bestes Bild %.2f ms, Mittel %.2f ms (%.0f Bilder/s)%n", w, h, q.label, clock.label(), best, sum / frames, 1000 / (sum / frames));
         System.out.println("Durchgänge (ms): " + r.passTimes());
+        System.out.println("Prozessor je Durchgang (ms): " + r.passCpuTimes());
         System.out.println("Bildzeiten (ms):" + zeiten);
         java.util.Arrays.sort(alle);
         System.out.printf(Locale.GERMAN, "Median %.2f ms%n", frames == 0 ? 0 : alle[frames / 2]);
         // Runde 6: im Fluss, wie im Programm: Bilder ohne Warten je Bild (Prozessor und Grafikkarte arbeiten gleichzeitig),
         // am Ende einmal glFinish; die Zeit durch die Zahl der Bilder. Oben wartet jedes Bild auf die Grafikkarte.
+        // Runde 11: jfr = Datei: 300 Bilder im Fluss mit Java Flight Recorder (Profil), danach die Datei schreiben
+        String jfr = opt("jfr");
+        if (jfr != null && !jfr.isBlank() && frames > 0) {
+            jdk.jfr.Recording rec = new jdk.jfr.Recording(jdk.jfr.Configuration.getConfiguration("profile"));
+            rec.start();
+            long j0 = System.nanoTime();
+            for (int i = 0; i < 300; i++) { r.step(1 / 60.0); d.display(); }
+            d.getContext().makeCurrent();
+            d.getGL().glFinish();
+            d.getContext().release();
+            rec.stop();
+            java.nio.file.Path jp = java.nio.file.Path.of(jfr);
+            if (jp.getParent() != null) java.nio.file.Files.createDirectories(jp.getParent());
+            rec.dump(jp);
+            rec.close();
+            System.out.printf(Locale.GERMAN, "Profil: 300 Bilder in %.0f ms, %s%n", (System.nanoTime() - j0) / 1e6, jp);
+        }
         // Runde 7: drei Blöcke hintereinander, der mittlere zählt (die Radeon streut von Lauf zu Lauf); dazu die Spanne
         if (frames > 0) {
             double[] bl = new double[3];

@@ -82,7 +82,7 @@ final class LippeGl {
                 if (fMin[f] > tc + 1 || fMax[f] < tc - 1) continue;
                 // grob außerhalb des Kreises um das Auge
                 double cx = o[0] + (fi + 0.5) * feld * zelle, cz = o[1] - (fj + 0.5) * feld * zelle;
-                if (Math.hypot(cx - ex, cz - ez) > WEIT + feld * zelle) continue;
+                if (hyp(cx - ex, cz - ez) > WEIT + feld * zelle) continue;
                 int i1 = Math.min(nx - 1, (fi + 1) * feld), j1 = Math.min(nz - 1, (fj + 1) * feld);
                 for (int j = fj * feld; j < j1; j++)
                     for (int i = fi * feld; i < i1; i++) {
@@ -99,7 +99,7 @@ final class LippeGl {
                             int ra = punkt(A, M, nx, nz, s[q], s[q + 1], o, zelle, pegel, grund, t, pa);
                             int rb = punkt(A, M, nx, nz, s[q + 2], s[q + 3], o, zelle, pegel, grund, t, pb);
                             if (ra >= 0 || rb >= 0) { grund_[Math.max(ra, rb)]++; continue; }
-                            if (Math.hypot(pa[0] - ex, pa[1] - ez) > WEIT) { grund_[4]++; continue; }
+                            if (hyp(pa[0] - ex, pa[1] - ez) > WEIT) { grund_[4]++; continue; }
                             if (buf.remaining() < FL * PRO_STUECK) { grund_[5]++; break; }
                             band(pa, pb, pegel);
                             segmente++;
@@ -276,7 +276,7 @@ final class LippeGl {
         if (H < 8 || H > 80) return 0;
         double ax = bil(A, nx, nz, fi + 1, fj) - bil(A, nx, nz, fi - 1, fj), an = bil(A, nx, nz, fi, fj + 1) - bil(A, nx, nz, fi, fj - 1);
         if (Double.isNaN(ax + an) || Math.abs(ax) > 1e4 || Math.abs(an) > 1e4) return 1;
-        double l = Math.hypot(ax, an);
+        double l = hyp(ax, an);
         if (l < 1e-6) return 1;
         // Szene: x nach Ost, z nach Süd; Zeilen laufen nach Norden
         double tx = ax / l, tz = -an / l;
@@ -341,7 +341,7 @@ final class LippeGl {
     private void tropfen(double[] a, double[] b, double pegel) {
         double la = a[11], lb = b[11];
         if (Math.abs(lb - la) < 1e-6 || Math.abs(lb - la) > 30) return;
-        if (Math.hypot(a[0] - augeX, a[1] - augeZ) > TROPFEN_WEIT) return;
+        if (hyp(a[0] - augeX, a[1] - augeZ) > TROPFEN_WEIT) return;
         double lo = Math.min(la, lb), hi = Math.max(la, lb);
         for (double k = Math.ceil(lo / TROPFEN_D); k * TROPFEN_D < hi; k++) {
             if (tbuf.remaining() < FT) return;
@@ -354,7 +354,7 @@ final class LippeGl {
                 double zu = a[8] + (b[8] - a[8]) * f, w = a[6] + (b[6] - a[6]) * f;
                 if (h3 > w * (0.45 + 0.55 * (1 - zu))) continue;
                 double H = a[2] + (b[2] - a[2]) * f, L = a[5] + (b[5] - a[5]) * f, ty = a[9] + (b[9] - a[9]) * f;
-                double tx = a[3] + (b[3] - a[3]) * f, tz = a[4] + (b[4] - a[4]) * f, tl = Math.hypot(tx, tz);
+                double tx = a[3] + (b[3] - a[3]) * f, tz = a[4] + (b[4] - a[4]) * f, tl = hyp(tx, tz);
                 if (tl < 1e-6) continue;
                 tx /= tl; tz /= tl;
                 double v = a[10] + (b[10] - a[10]) * f;
@@ -436,7 +436,7 @@ final class LippeGl {
             int i0 = Math.max(0, i - 1), i1 = Math.min(n - 1, i + 1);
             double ds = ss[i1] - ss[i0], dy = yy[i1] - yy[i0];
             // nach außen: die Tangente um 90° gedreht (oben auf der Krone nach oben, an Spitze und Vorhang nach vorn)
-            double nh = -dy, nv = ds, nl = Math.hypot(nh, nv);
+            double nh = -dy, nv = ds, nl = hyp(nh, nv);
             if (nl < 1e-9) { nh = 0; nv = 1; nl = 1; }
             nh /= nl; nv /= nl;
             double x = p[0] + p[3] * ss[i], z = p[1] + p[4] * ss[i];
@@ -446,4 +446,7 @@ final class LippeGl {
     }
 
     private void put(float[] v) { buf.put(v); }
+
+    /** Runde 11: wie Math.hypot, aber ohne dessen Schutz gegen Überlauf (im Profil von H13 der größte Posten des Prozessors). */
+    private static double hyp(double a, double b) { return Math.sqrt(a * a + b * b); }
 }
