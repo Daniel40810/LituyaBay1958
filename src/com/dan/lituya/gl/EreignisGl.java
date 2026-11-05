@@ -74,7 +74,7 @@ public final class EreignisGl {
      * je bis 81 Strahlen). Jetzt in einem eigenen Faden; das Ergebnis gilt, solange das Auge weniger als 4 m davon weg ist,
      * und nur für die Kacheln, die damals gezeichnet wurden (neue zeichnen immer). Unter Wasser keine Verdeckung.
      */
-    private static final class Verdeckt { final double[] auge; final boolean[] weg; Verdeckt(double[] a, boolean[] w) { auge = a; weg = w; } }
+    private static final class Verdeckt { final double[] auge; final boolean[] weg; final int sig; Verdeckt(double[] a, boolean[] w, int g) { auge = a; weg = w; sig = g; } }
     private final Map<Wiedergabe.Spur, Verdeckt> verdecktErg = new java.util.concurrent.ConcurrentHashMap<>();
     private final Map<Wiedergabe.Spur, java.util.concurrent.Future<?>> verdecktJob = new HashMap<>();
     private final java.util.concurrent.ExecutorService verdecktExec = java.util.concurrent.Executors.newSingleThreadExecutor(r -> {
@@ -811,6 +811,14 @@ public final class EreignisGl {
                 if (v.weg[k] && schritt[k] != 0) { schritt[k] = 0; verdeckt++; }
         java.util.concurrent.Future<?> f = verdecktJob.get(s);
         if (f != null && !f.isDone()) return;
+        // Runde 11: nur neu rechnen, wenn das Auge mehr als 1 m gewandert ist oder andere Kacheln gezeichnet werden. Vorher
+        // rechnete der Faden ohne Pause (im Profil von H6 die Hälfte aller Proben) und nahm dem Prozessor Leistung, die
+        // sich Prozessor und Grafik teilen
+        int sig = 0;
+        for (int k = 0; k < schritt.length; k++) if (schritt[k] != 0 || (v != null && v.weg.length == schritt.length && v.weg[k])) sig = sig * 31 + k;
+        if (v != null && v.weg.length == schritt.length && sig == v.sig
+                && Math.abs(v.auge[0] - eye[0]) + Math.abs(v.auge[1] - eye[1]) + Math.abs(v.auge[2] - eye[2]) < 1) return;
+        final int sigF = sig;
         final int[] st = schritt.clone();
         final double[] e = eye.clone();
         final java.util.function.DoubleBinaryOperator g = grund;
@@ -818,7 +826,7 @@ public final class EreignisGl {
             try {
                 // gerechnet werden die gezeichneten und die bisher weggelassenen (st ist nach dem Weglassen kopiert)
                 boolean[] weg = rechneVerdeckt(g, s, st, e, pegel, v);
-                verdecktErg.put(s, new Verdeckt(e, weg));
+                verdecktErg.put(s, new Verdeckt(e, weg, sigF));
             } catch (RuntimeException ex) {
                 verdecktErg.remove(s);
             }
@@ -854,7 +862,7 @@ public final class EreignisGl {
     /** Schneidet das Gelände den Strahl vom Auge zum Punkt (mehr als 3 m über ihm, nicht in den letzten 40 m)? */
     private static boolean strahlZu(java.util.function.DoubleBinaryOperator g, double[] eye, double px, double py, double pz) {
         double dx = px - eye[0], dy = py - eye[1], dz = pz - eye[2];
-        double L = Math.hypot(dx, dz);
+        double L = Math.sqrt(dx * dx + dz * dz);
         if (L < 200) return false;
         double ende = 1 - 40 / L;
         int n = (int) Math.max(8, Math.min(160, Math.ceil(L * ende / 30)));

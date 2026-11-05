@@ -151,6 +151,7 @@ public final class WaldGl {
         stufeRadius = f.radius;
         f.radius = Math.min(f.radius, reichweite);
         f.thinFrom = duennAb;
+        updateNoetig = true;   // Runde 11: neue Stufe, neue Größe der Impostoren
     }
 
     /** Runde 7: Reichweite der Einzelbäume (m) und Beginn des Ausdünnens (Anteil der Reichweite) als Schalter. */
@@ -265,20 +266,20 @@ public final class WaldGl {
         }
         if (d == null || forest == null) return;
         int day = clock.local().getDayOfYear();
-        if (day != tag) { forest.setSeason(day, 0); tag = day; zustandNeu = true; }
+        if (day != tag) { forest.setSeason(day, 0); tag = day; zustandNeu = true; updateNoetig = true; }
         if (forest.ready()) knick.vorbauen(gl, forest, tag);   // W5 Runde 4
         double t = clock.simSeconds();
         if (!(t >= Band1958.EINTAUCHEN - 1 && t < KNICK_BIS)) knick.setzen(knick_leer, 0);
         if (t < Band1958.EINTAUCHEN) {
-            if (gezeigt != -1) { d.states.clear(); gezeigt = -1; mitTreibgut = false; zustandNeu = true; }
+            if (gezeigt != -1) { d.states.clear(); gezeigt = -1; mitTreibgut = false; zustandNeu = true; updateNoetig = true; }
         } else if (t < 3600) {
             // W5: solange Bäume fallen, je 0,1 s neu (vorher alle 2 s)
             double takt = knicken && t < 400 ? 0.1 : knicken ? 1 : 2;
-            if (gezeigt != -2 || Math.abs(t - welleT) >= takt) { welle(t); gezeigt = -2; welleT = t; mitTreibgut = false; zustandNeu = true; }
+            if (gezeigt != -2 || Math.abs(t - welleT) >= takt) { welle(t); gezeigt = -2; welleT = t; mitTreibgut = false; zustandNeu = true; updateNoetig = true; }
         } else {
             int y = Wald1958.jahr(clock.date());
             boolean tg = treibgut && y == 0 && t < TREIBGUT_BIS && d.staemme != null;
-            if (y != gezeigt || tg != mitTreibgut) { jahrgang(y, tg); gezeigt = y; mitTreibgut = tg; zustandNeu = true; }
+            if (y != gezeigt || tg != mitTreibgut) { jahrgang(y, tg); gezeigt = y; mitTreibgut = tg; zustandNeu = true; updateNoetig = true; }
         }
         int bj = gezeigt >= 0 ? gezeigt : Integer.MIN_VALUE;
         if (bj != bodenJahr) { if (bj >= 0) bandTextur(gl, bj); bodenJahr = bj; }
@@ -515,6 +516,28 @@ public final class WaldGl {
     private int cullAlter, cullGespart;
     private volatile boolean zustandNeu = true;
 
+    /**
+     * Runde 11: forest.update lädt geänderte Zustände hoch, prüft den Blick und liest jedes dreißigste Mal die Zählung von
+     * der Grafikkarte zurück (glGetBufferSubData: der Prozessor wartet, bis die Grafikkarte fertig ist; im Profil von H13
+     * drei Viertel der Wartezeit des Bildfadens, mit dem Spiegel jedes zweite Bild doppelt so oft). Jetzt update nur,
+     * wenn sich Zustände, Jahreszeit oder Stufe geändert haben, forest noch backt oder 300 Prüfungen vergangen sind;
+     * sonst nur die Prüfung des Blicks (forest.cull). Schalter wald.updateStets = alte Weise.
+     */
+    public volatile boolean updateStets = false;
+    private int seitUpdate = 1_000_000;
+    private boolean updateNoetig = true;
+
+    private void pruefen(GL4 gl, ForestGl.View v) {
+        if (updateStets || updateNoetig || !forest.ready() || seitUpdate >= 300) {
+            forest.update(gl, v);
+            updateNoetig = !forest.ready();
+            seitUpdate = 0;
+        } else {
+            forest.cull(gl, v.viewProj, v.eye);
+            seitUpdate++;
+        }
+    }
+
     /** Kultur und Zeichnen in den gebundenen HDR-Bildspeicher (mit Tiefe). */
     public void zeichnen(GL4 gl, float[] vp, double[] eye, boolean reversed, double[] sun, double t) { zeichnen(gl, vp, eye, reversed, sun, t, false); }
 
@@ -526,10 +549,10 @@ public final class WaldGl {
         v.reversedZ = reversed;
         v.tonemap = false;
         double rw = Math.min(stufeRadius, reichweite);
-        if (forest.radius != rw || forest.thinFrom != duennAb) { forest.radius = rw; forest.thinFrom = duennAb; zustandNeu = true; }
+        if (forest.radius != rw || forest.thinFrom != duennAb) { forest.radius = rw; forest.thinFrom = duennAb; zustandNeu = true; updateNoetig = true; }
         double[] b = blick;
         if (!haupt || b == null || cullStets) {
-            forest.update(gl, v);
+            pruefen(gl, v);
             cullAuge = null;
         } else {
             boolean neu = zustandNeu || cullAuge == null || cullAlter >= 30 || !forest.ready();
@@ -544,7 +567,7 @@ public final class WaldGl {
                 float[] w = vp.clone();   // Zeilen x und y des Clipraums gestaucht: der Kegel wird um CULL_WEIT weiter
                 for (int k = 0; k < 4; k++) { w[k * 4] /= (float) CULL_WEIT; w[k * 4 + 1] /= (float) CULL_WEIT; }
                 v.viewProj = w;
-                forest.update(gl, v);
+                pruefen(gl, v);
                 v.viewProj = vp;
                 cullAuge = eye.clone();
                 cullBlick = b.clone();
