@@ -50,6 +50,18 @@ public final class Licht {
     public volatile boolean an = true;
     /** Exponent der Anpassung der Belichtung (1 volle, 0 keine): 0,8 lässt die Dämmerung dunkel. */
     public volatile double anpassung = 0.8;
+    /**
+     * Werkbuch Welle W5: Höhe (m), für die der Wald sein Sonnenlicht bekommt (vom Renderer je Bild: Grund am Zielpunkt
+     * des Blicks). Vorher bekam der Wald die Sonne am Auge (com.dan.sky für die Augenhöhe), Gelände und Welle dagegen die
+     * Sonne am Punkt (common.glsl, sunAt). Um 22:18 steht die Sonne knapp unter der Kimm: vom Auge auf 200 m aus war sie
+     * rot, aber nicht null, und die Kronen am Sporn leuchteten im Gegenlicht orange über dem dunklen Hang („rot überzogen“).
+     * Jetzt dieselbe Rechnung wie sunAt (Durchlass der Luft in dieser Höhe) [G]. NaN: wie vorher.
+     */
+    public volatile double waldHoehe = Double.NaN;
+    /** W5: Faktor auf die Sonne des Walds (Proben). */
+    public volatile double waldSonne = 1;
+    /** W5: Faktor auf den Mond des Walds (Proben). */
+    public volatile double waldMond = 1;
 
     public final Sky sky = new Sky();
     private final SkyGl skyGl = new SkyGl();
@@ -272,10 +284,24 @@ public final class Licht {
         double p = pre;
         l.sunDir = st.sunDir.clone();
         l.sunColor = new double[]{st.sunColor[0] * p, st.sunColor[1] * p, st.sunColor[2] * p};
+        if (!Double.isNaN(waldHoehe)) {
+            double[] dl = durchlass(Math.max(0, waldHoehe), st.sunDir[1]);
+            l.sunColor = new double[]{st.sunToa[0] * dl[0] * p, st.sunToa[1] * dl[1] * p, st.sunToa[2] * dl[2] * p};
+        }
+        for (int c = 0; c < 3; c++) l.sunColor[c] *= waldSonne;
         l.skyColor = new double[]{st.skyIrradiance[0] / Math.PI * p, st.skyIrradiance[1] / Math.PI * p, st.skyIrradiance[2] / Math.PI * p};
         l.moonDir = st.moonDir.clone();
-        l.moonColor = new double[]{st.moonColor[0] * p, st.moonColor[1] * p, st.moonColor[2] * p};
+        l.moonColor = new double[]{st.moonColor[0] * p * waldMond, st.moonColor[1] * p * waldMond, st.moonColor[2] * p * waldMond};
         l.fogDistance = 1 / Math.max(1e-7, st.groundExtinction);
+        // W5: der Dunst des Walds wie aerial() in common.glsl (Luft 8 km, Dunst 1,2 km mit 0,45, in der Höhe des Walds).
+        // Vorher die volle Bodenextinktion ohne Höhe: rund dreimal so viel Dunst wie das Gelände, und der kommt aus dem
+        // Rundumbild an der Kimm, zur Sonne hin glühend orange. Die fernen Kronen (ab 150 m Impostors) standen damit orange
+        // über dem dunklen Hang („rot überzogen“), die nahen blieben dunkel. Belegt in der Probe W5Q: Sonne und Mond am
+        // Wald 0, die Kronen trotzdem rot.
+        if (!Double.isNaN(waldHoehe)) {
+            double hh = Math.max(0, waldHoehe);
+            l.fogDistance = 1 / Math.max(1e-9, st.groundExtinction * 0.45 * Math.exp(-hh / 1200) + Math.exp(-hh / 8000) / 150_000);
+        }
         l.skyWeight = 1;
         l.skyTexture = panoTex;
         // Bergschatten als Karte von oben: der Wald steht im feinen Gitter (Kern)
@@ -330,4 +356,20 @@ public final class Licht {
     /** Für Prüfungen: die Gitter (x0, z0, Kante). */
     public double[] feinRect() { return feinRect.clone(); }
     public double[] grobRect() { return grobRect.clone(); }
+
+    /** W5: wie {@code luftmasse} in common.glsl (Kasten und Young, unter der Waagerechten streifend nach Chapman). */
+    static double luftmasse(double h, double sinEl, double H) {
+        double el = Math.asin(Math.max(-1, Math.min(1, sinEl)));
+        double R = 6371000.0;
+        if (el >= 0) return Math.exp(-h / H) / (Math.sin(el) + 0.50572 * Math.pow(Math.toDegrees(el) + 6.07995, -1.6364));
+        double ht = (R + h) * Math.cos(el) - R, voll = Math.sqrt(2 * Math.PI * R / H);
+        return Math.max(voll * Math.exp(-Math.max(ht, -200) / H) - 0.5 * voll * Math.exp(-h / H), 0.5 * voll * Math.exp(-h / H));
+    }
+
+    /** W5: wie {@code sonnenDurchlass} in common.glsl. */
+    static double[] durchlass(double h, double sinEl) {
+        double[] tauR = {0.046, 0.108, 0.265};
+        double mr = luftmasse(h, sinEl, 8000), ma = luftmasse(h, sinEl, 1200);
+        return new double[]{Math.exp(-(tauR[0] * mr + 0.10 * ma)), Math.exp(-(tauR[1] * mr + 0.10 * ma)), Math.exp(-(tauR[2] * mr + 0.10 * ma))};
+    }
 }

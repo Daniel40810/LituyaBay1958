@@ -118,6 +118,8 @@ public final class Renderer implements GLEventListener {
     public final Klang klang = new Klang(this);
     /** Phase 14a: der Wald (forest mit succession) über den Kern, Zustände nach dem Zeitstand, Treibgut am Morgen. */
     public final WaldGl wald = new WaldGl();
+    /** W5 (E11): Schleier am Sporn. */
+    public final SchleierGl schleier = new SchleierGl();
     /** Phase 15a: die drei Troller auf ihren vorgerechneten Bahnen (tools.Boote1958). */
     public final BooteGl boote = new BooteGl();
     /** Phase 14a: Jahres-Zeitraffer (Jahre je Minute, in ganzen Jahren; Tag und Uhrzeit bleiben), hält am 9.7.2026. */
@@ -166,7 +168,7 @@ public final class Renderer implements GLEventListener {
             post = new Shader("Nachbearbeitung", null, "fullscreen.vert", "post.frag"),
             overlay = new Shader("Überlagerung", null, "fullscreen.vert", "overlay.frag"),
             taaShader = new Shader("Kantenglättung", null, "fullscreen.vert", "taa.frag");
-    private final Shader[] all = {skyShader, gelaendeShader, meerShader, post, overlay, taaShader, ereignisGl.welle, ereignisGl.strom, ereignisGl.medien, ereignisGl.medienHoch, ereignisGl.lippeGl.shader, ereignisGl.lippeGl.tropfen, baeche.shader};
+    private final Shader[] all = {skyShader, gelaendeShader, meerShader, post, overlay, taaShader, ereignisGl.welle, ereignisGl.strom, ereignisGl.medien, ereignisGl.medienHoch, ereignisGl.lippeGl.shader, ereignisGl.lippeGl.tropfen, baeche.shader, wald.knick.shader, schleier.shader};
     private final HudOverlay hud = new HudOverlay();
     /** Phase 19a: Befunde als Marken, Zeugen als Untertitel (Archiv). */
     public final ArchivSzene archiv = new ArchivSzene();
@@ -238,6 +240,26 @@ public final class Renderer implements GLEventListener {
     public volatile double brennweite;
 
     public double fovy() { return brennweite > 0 ? Math.toDegrees(2 * Math.atan(12.0 / brennweite)) : Camera.FOVY; }
+
+    /**
+     * Werkbuch Welle W5: Mitte der Clipmap des Geländes. Die Stufen der Clipmap liegen ringförmig um ihre Mitte; mit dem
+     * Auge als Mitte bekam ein Teleblick (H6 „524 m“: 135 mm, Hang in 2 km) die Stufe zu 16–32 m, und der Hang stand als
+     * Vieleck mit großen Facetten im Bild, obwohl ein Bildpunkt dort rund 0,3 m deckt. Mit langer Brennweite wandert die
+     * Mitte deshalb vom Auge zu dem Punkt, auf den die Bildmitte zielt (höchstens 6 km weit): von 50 mm (Bildwinkel 27°)
+     * nichts bis voll ab rund 85 mm (16°). Die Erdkrümmung rechnet die Clipmap weiter vom Auge (uClipCam).
+     */
+    public double[] lodMitte() {
+        double w = Math.max(0, Math.min(1, (27.0 - fovy()) / 11.0));
+        if (w <= 0) return new double[]{camera.eye[0], camera.eye[2]};
+        double[] p = treffer(0, 0, 1, 1);
+        if (p == null) return new double[]{camera.eye[0], camera.eye[2]};
+        double dx = p[0] - camera.eye[0], dz = p[1] - camera.eye[2], d = Math.hypot(dx, dz);
+        double k = w * Math.min(1, 6000 / Math.max(d, 1));
+        return new double[]{camera.eye[0] + dx * k, camera.eye[2] + dz * k};
+    }
+
+    /** W5: die Clipmap um {@link #lodMitte()} nachführen. */
+    public void landAuge() { double[] m = lodMitte(); land.auge(m[0], m[1]); }
 
     /** Alle Shader-Programme mit ihren Dateien (für die Prüfung). */
     public String[][] shaderFiles() {
@@ -469,7 +491,7 @@ public final class Renderer implements GLEventListener {
             try { klang.feed(dt); } catch (RuntimeException e) { klang.note = "!" + e.getMessage(); }
         }
         kinoSchritt(dt);
-        land.auge(camera.eye[0], camera.eye[2]);
+        landAuge();   // W5: mit Tele um den Zielpunkt
         physik.advance(dt);
         camera.groundLevel = groundHeight(camera.eye[0], camera.eye[2]);
         camera.waterLevel = wiring.pegel;
@@ -915,6 +937,8 @@ public final class Renderer implements GLEventListener {
             System.err.println("LituyaBay1958: Licht: " + e);
             licht.an = false;
         }
+        // W5: Sonne des Walds in der Höhe des Grunds am Zielpunkt (wie sunAt), nicht am Auge
+        { double[] lm = lodMitte(); double gh = groundHeight(lm[0], lm[1]); licht.waldHoehe = Double.isNaN(gh) ? Double.NaN : Math.max(gh, wiring.pegel) + 15; }
         WaldGl.himmel = licht.waldLicht();
         final double[] sun = licht.aktiv() ? licht.state().sunDir.clone() : sunPh;
         float[] proj = Mat4.perspective(fovy(), w / (double) h, NEAR, FAR, reversedZ);
@@ -1001,6 +1025,8 @@ public final class Renderer implements GLEventListener {
 
         // 2a Wald (Phase 14a): forest über den Kern mit den Zuständen der Welle und der Wiederbewaldung
         if (showGelaende) wald.zeichnen(gl, vp, camera.eye, reversedZ, sun, clock.t());
+        // W5 (E11): die Bäume, die gerade in der Zunge fallen
+        if (showGelaende) wald.knickZeichnen(gl, sh -> common(gl, sh, vp, inv, sun), camera.eye, clock.simSeconds(), reversedZ);
         gl.glBindVertexArray(emptyVao);
         // 2a' Bäche (Phase 16c): eigener Wasser-Pass auf dem Gelände, Tiefe gegen Gelände und Wald (Zeit unter „Wald“)
         if (showGelaende) {
@@ -1083,6 +1109,13 @@ public final class Renderer implements GLEventListener {
             final double[] wr = welleRect;
             meer.spiegelLegen(gl, depthTex, sh -> common(gl, sh, vp, inv, sun), wr, (float) NEAR, (float) FAR);
             gl.glBindFramebuffer(GL.GL_FRAMEBUFFER, hdrFbo);
+            gl.glBindVertexArray(emptyVao);
+        }
+        // 3c'' W5 (E11): Schleier, die oben am Sporn von der Zunge abreißen und zurückfallen
+        if (wiedergabe.an()) {
+            schleier.laden(new java.io.File(System.getProperty("lituya.daten", "daten")), wiedergabe.welle());
+            schleier.zeichnen(gl, sh -> common(gl, sh, vp, inv, sun), tE, reversedZ, (float) (1 / (2 * Site.EARTH_R_OPTICAL)),
+                    h / (2 * Math.tan(Math.toRadians(fovy()) / 2)));
             gl.glBindVertexArray(emptyVao);
         }
         mark(gl, 6);
@@ -1698,6 +1731,7 @@ public final class Renderer implements GLEventListener {
         for (Shader s : all) s.dispose(gl);
         clipGl.dispose(gl);
         wald.dispose(gl);
+        schleier.dispose(gl);
         boote.dispose(gl);
         com.dan.clipmap.Clipmap cm = land.clipmap();
         if (cm != null) cm.stop();

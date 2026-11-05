@@ -149,6 +149,8 @@ public final class EreignisGl {
     public static final double ABBRUCH_S = 93, EINSCHLAG_S = com.dan.lituya.scene.Band1958.EINTAUCHEN;
     /** Gischt an der Front zeigen (E4, E5; seit W3b aus den Daten der Welle statt einer Kuppel). */
     public volatile boolean vorhang = true;
+    /** W5: Staub der Vorrechnung zeigen (für Proben abschaltbar). */
+    public volatile boolean staubAn = true;
     /** W3b: wie lange die Gischt nach der Ankunft der Front in der Luft bleibt (s) [G]. */
     public static final double GISCHT_NACHLAUF = 40;
     /** W3b: Texturstelle der Flutkarte (Ankunft, höchster Stand) im Gelände. */
@@ -825,7 +827,7 @@ public final class EreignisGl {
             for (Wiedergabe.Spur s : w.spuren(Wiedergabe.Art.STAUB_OBEN)) { so = s; po = w.paar(s, t); }
             for (Wiedergabe.Spur s : w.spuren(Wiedergabe.Art.STAUB_DICHTE)) pd = w.paar(s, t);
         }
-        boolean staub = po != null && pd != null && so.boden != null && po.a() == pd.a() && po.b() == pd.b();
+        boolean staub = staubAn && po != null && pd != null && so.boden != null && po.a() == pd.a() && po.b() == pd.b();
         boolean unter = ueberAuge > 0;
         double[] gh = vorhang && w != null && w.an() && grundTex != 0 ? gischtHuelle(t, pegel) : null;
         boolean vh = gh != null;

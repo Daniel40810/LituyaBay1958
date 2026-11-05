@@ -72,6 +72,10 @@ public final class Tempo {
             for (SceneClock.Zeitstand z : SceneClock.Zeitstand.values())
                 if (z.name().toLowerCase(Locale.ROOT).equals(k) || z.label.equalsIgnoreCase(k)) clock.zeitstand = z;
         }
+        // Werkbuch Welle W5: Schalter für Proben, „pfad=wert,…“ auf Felder des Renderers (etwa ereignisGl.vorhang=false,
+        // wald.an=false, licht.an=false); Pfad über öffentliche oder paketweite Felder, Wert boolean, int oder double
+        String sch = opt("schalter");
+        if (sch != null && !sch.isBlank()) for (String kv : sch.split("[,;]")) schalter(r, kv.trim());
         String hud = opt("hud");
         if ("aus".equals(hud)) r.showHud = false;
         if ("voll".equals(hud)) r.hudFull = true;
@@ -122,11 +126,11 @@ public final class Tempo {
         // Phase 4: das Gelände um das Auge laden, dann die Ansicht noch einmal stellen (jetzt mit Boden)
         if (r.land.da()) {
             long t0 = System.nanoTime();
-            r.land.auge(r.camera.eye[0], r.camera.eye[2]);
+            r.landAuge();
             boolean ok = r.land.warten(300_000);
             stellen.run();
             r.camera.snap();
-            r.land.auge(r.camera.eye[0], r.camera.eye[2]);
+            r.landAuge();
             ok &= r.land.warten(300_000);
             System.out.printf(Locale.GERMAN, "Gelände %s in %.1f s%n", ok ? "geladen" : "NICHT geladen", (System.nanoTime() - t0) / 1e9);
         }
@@ -214,6 +218,16 @@ public final class Tempo {
         System.out.println(r.compute() == null ? "Compute-Test: nicht gelaufen" : r.compute().line());
         System.out.printf(Locale.GERMAN, "%d×%d %s, %s: bestes Bild %.2f ms, Mittel %.2f ms (%.0f Bilder/s)%n", w, h, q.label, clock.label(), best, sum / frames, 1000 / (sum / frames));
         System.out.println("Durchgänge (ms): " + r.passTimes());
+        // W5: Licht am Ende des Laufs (für die Suche nach dem Rot der Kronen)
+        com.dan.sky.Sky.State ls = r.licht.state();
+        if (ls != null) {
+            com.dan.forest.gl.ForestGl.Light wl = r.licht.waldLicht();
+            System.out.printf(Locale.ROOT, "Licht: Sonne %.3f %.3f %.3f (Höhe %.2f°), pre %.3g, Sonne am Auge %.3g %.3g %.3g, Wald %.3g %.3g %.3g in %.0f m, Himmel %.3g %.3g %.3g, Mond %.3g %.3g %.3g (Höhe %.1f°)%n",
+                    ls.sunDir[0], ls.sunDir[1], ls.sunDir[2], Math.toDegrees(Math.asin(ls.sunDir[1])), r.licht.pre(), ls.sunColor[0], ls.sunColor[1], ls.sunColor[2],
+                    wl == null ? 0 : wl.sunColor[0], wl == null ? 0 : wl.sunColor[1], wl == null ? 0 : wl.sunColor[2], r.licht.waldHoehe,
+                    wl == null ? 0 : wl.skyColor[0], wl == null ? 0 : wl.skyColor[1], wl == null ? 0 : wl.skyColor[2],
+                    wl == null ? 0 : wl.moonColor[0], wl == null ? 0 : wl.moonColor[1], wl == null ? 0 : wl.moonColor[2], Math.toDegrees(Math.asin(ls.moonDir[1])));
+        }
         for (String l : r.hudLines()) System.out.println("  " + l);
         if (png != null) {
             File dir = png.getAbsoluteFile().getParentFile();
@@ -226,5 +240,32 @@ public final class Tempo {
         }
         d.destroy();
         System.exit(r.error() == null ? 0 : 1);
+    }
+
+    /** W5: ein Schalter „a.b.c=wert“ auf ein Feld unter dem Renderer (Reflexion, nur für Proben und die Bildbank). */
+    static void schalter(Object wurzel, String kv) {
+        int eq = kv.indexOf('=');
+        if (eq < 1) return;
+        String[] pfad = kv.substring(0, eq).trim().split("\\.");
+        String wert = kv.substring(eq + 1).trim();
+        try {
+            Object o = wurzel;
+            for (int k = 0; k < pfad.length - 1; k++) o = feld(o.getClass(), pfad[k]).get(o);
+            java.lang.reflect.Field f = feld(o.getClass(), pfad[pfad.length - 1]);
+            Class<?> t = f.getType();
+            Object v = t == boolean.class ? (Object) Boolean.valueOf(wert.equals("true") || wert.equals("an"))
+                    : t == int.class ? (Object) Integer.valueOf(wert) : t == double.class ? (Object) Double.valueOf(wert.replace(',', '.'))
+                    : t == float.class ? (Object) Float.valueOf(wert.replace(',', '.')) : wert;
+            f.set(o, v);
+            System.out.println("Schalter: " + kv);
+        } catch (Exception e) {
+            System.err.println("FEHLER: Schalter „" + kv + "“: " + e);
+        }
+    }
+
+    static java.lang.reflect.Field feld(Class<?> c, String n) throws NoSuchFieldException {
+        for (Class<?> k = c; k != null; k = k.getSuperclass())
+            try { java.lang.reflect.Field f = k.getDeclaredField(n); f.setAccessible(true); return f; } catch (NoSuchFieldException e) { }
+        throw new NoSuchFieldException(c.getName() + "." + n);
     }
 }

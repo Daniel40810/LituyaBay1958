@@ -61,6 +61,8 @@ public final class Film {
         r.frozen = true;
         r.setQuality(q);
         r.autoScale = false;
+        // W5: Brennweite des Films (mm, 0 = der feste Bildwinkel der App)
+        try { double bw = Double.parseDouble(System.getProperty("brennweite", "0").replace(',', '.')); if (bw > 0) r.brennweite = bw; } catch (NumberFormatException e) { }
         r.showHud = false;
         r.photoDir = ziel.getAbsoluteFile().getParentFile();
         r.klang.offline = true;
@@ -68,7 +70,7 @@ public final class Film {
         d.addGLEventListener(r);
         d.display();
         long t0 = System.nanoTime();
-        if (r.land.da()) { r.land.auge(r.camera.eye[0], r.camera.eye[2]); r.land.warten(300_000); }
+        if (r.land.da()) { r.landAuge(); r.land.warten(300_000); }
         while (!r.wald.bereit() && System.nanoTime() - t0 < 300e9 && r.wald.an) { d.display(); Thread.sleep(100); }
         while ((!r.netzblick.fertig || !r.baeche.bereit()) && System.nanoTime() - t0 < 300e9) { d.display(); Thread.sleep(100); }
         System.out.printf(Locale.GERMAN, "vorbereitet in %.0f s: %s · %s%n", (System.nanoTime() - t0) / 1e9, r.wald.status(), r.netzblick.stand());

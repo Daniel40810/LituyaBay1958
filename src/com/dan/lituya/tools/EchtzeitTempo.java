@@ -66,11 +66,11 @@ public final class EchtzeitTempo {
         d.addGLEventListener(r);
         d.display();
         if (r.land.da()) {
-            r.land.auge(r.camera.eye[0], r.camera.eye[2]);
+            r.landAuge();
             r.land.warten(300_000);
             stellen.run();
             r.camera.snap();
-            r.land.auge(r.camera.eye[0], r.camera.eye[2]);
+            r.landAuge();
             r.land.warten(300_000);
         }
         long t0 = System.nanoTime();

@@ -88,14 +88,22 @@ vec2 gischtDichte(vec3 p) {
     float grund = textureLod(uGrund, gu, 0.0).r;
     float fuss = max(grund, uLevel);
     float k = pow(clamp((hw - 2.0) / 60.0, 0.0, 1.0), 0.7);
+    // Werkbuch Welle W5 (E11): am Hang (Auflauf) stand über der ganzen Zunge dieselbe Wand wie über der Bucht, bis 120 m
+    // über dem höchsten Stand, dicht und lange: in H6 lag der Sporn hinter einem rosa Schleier, die Zunge war nicht zu sehen.
+    // An Land jetzt nach der Tiefe der Zunge (8 m + 1,3 × Tiefe, höchstens rund 60 m), kürzer und lichter; die Schleier,
+    // die oben zurückfallen, zeichnet gl.SchleierGl als Fäden [G]
+    // (Probe W5D: auch mit halber Dichte lag die Zunge im Nebel; die Wand stand vor allem über dem Wasser am Fuß des Hangs,
+    // wo die Welle 250–300 m hoch aufläuft. Über dem Inlet nahe dem Sporn deshalb dieselbe Form wie an Land.)
+    float land = max(smoothstep(uLevel + 4.0, uLevel + 40.0, grund), smoothstep(150.0, 260.0, hw) * 0.85);
+    float tiefeMax = max(am.y - grund, 0.0);
     // Wand: in rund 1,5 s auf ihre Höhe über dem höchsten Stand, dann fällt sie zurück; danach ein Schleier
-    float H = 12.0 + 110.0 * k;
+    float H = mix(12.0 + 110.0 * k, 8.0 + min(1.3 * tiefeMax, 52.0), land);
     float auf = 1.0 - exp(-max(alter, 0.0) / 1.5);
     float top = am.y + H * auf - 4.9 * max(alter - 3.0, 0.0) * max(alter - 3.0, 0.0) * 0.35;
     float schleierTop = am.y + H * 0.8;
     float y = p.y;
     if (y < fuss - 3.0) return vec2(0.0);
-    float wand = smoothstep(-0.3, 0.4, alter) * exp(-max(alter, 0.0) / 4.0)
+    float wand = smoothstep(-0.3, 0.4, alter) * exp(-max(alter, 0.0) / mix(4.0, 2.0, land))
                * smoothstep(fuss - 3.0, fuss + 4.0, y) * (1.0 - smoothstep(top - 0.45 * H, top, y));
     // W4b Runde 3: vor und unter der Krone, wo die Lippe als Netz die Röhre bildet (Bucht, 8–80 m), lichtet sich die Gischt:
     // der Schleier lag vor der Röhre, ihr Inneres blieb lilagrau [G]
@@ -103,7 +111,8 @@ vec2 gischtDichte(vec3 p) {
     wand *= 1.0 - 0.85 * roehre;
     float schleier = smoothstep(2.0, 8.0, alter) * exp(-alter / 18.0) * 0.07
                * smoothstep(fuss - 3.0, fuss + 8.0, y) * (1.0 - smoothstep(fuss + 0.2 * (schleierTop - fuss), schleierTop + 30.0, y));
-    float d = wand + schleier;
+    schleier *= 1.0 - 0.75 * land;
+    float d = (wand + schleier) * (1.0 - 0.72 * land);
     // W4b (E9) Kammgischt [G]: von der Krone reißt Gischt ab und weht gegen die Laufrichtung zurück. Dicht über dem
     // höchsten Stand, steigt in rund 1 s bis gut die halbe Wellenhöhe, lebt einige Sekunden hinter der Front; Fäden
     // längs der Laufrichtung (aus dem Gefälle der Ankunft), nicht senkrecht wie der Vorhang aus W3b.

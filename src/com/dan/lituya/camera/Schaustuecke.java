@@ -16,7 +16,8 @@ import java.util.Locale;
  * <li><b>Das Beben</b>: über Cenotaph Island, Blick die Bucht hinauf, 5 s vor dem Stoß, Echtzeit.</li>
  * <li><b>Der Sturz</b>: 1,5 km südwestlich des Gilbert Inlet, Auge 150 m, Blick auf die Wand, 88 s, Zeitlupe 1:2.</li>
  * <li><b>Die Wand aus Wasser</b>: 1 km vor dem Inlet, Auge 80 m, 104,5 s, Zeitlupe 1:20.</li>
- * <li><b>524 m</b>: von Südost über den Kopf der Bucht auf den Sporn, Auge 200 m, 106 s, Zeitlupe 1:5.</li>
+ * <li><b>524 m</b>: seit Werkbuch Welle W5 von Süden den Sporn hinauf (1,6 km, Auge 120 m), 126 s, Zeitlupe 1:5: die Zunge läuft
+ * den Hang hinauf, die Bäume knicken (vorher von Südost auf die trockene Südflanke, 106 s, noch vor dem Auflauf).</li>
  * <li><b>Die Front</b>: 2,5 km nordöstlich von Cenotaph Island, Auge 60 m, Blick der Front entgegen, 112 s, Echtzeit, mit
  * den Netzen in der Szene (Isochronen).</li>
  * <li><b>Unter Wasser</b>: 1,5 km nordöstlich von Cenotaph Island, 3 m unter dem Pegel, Blick der Front entgegen und 35° hinauf zur Fläche (seit 13c; mit 15° lag das Snellsche Fenster über dem Bildrand), 115 s,
@@ -63,7 +64,7 @@ public final class Schaustuecke {
             at(2, "Das Beben", xz(Site.CENOTAPH), 52, 2, 40, -5, 1, false, false),
             at(3, "Der Sturz", Ansichten.versetzt(Site.GILBERT, 225, 1500), 40, -12, 150, 88, 0.5, false, false),
             at(4, "Die Wand aus Wasser", Ansichten.versetzt(Site.GILBERT, 215, 1000), 35, -4, 80, 104.5, 0.05, false, false),
-            at(5, "524 m", Ansichten.versetzt(Site.SPORN, 135, 1800), 315, -8, 200, 106, 0.2, false, false),
+            at(5, "524 m", Ansichten.versetzt(Site.SPORN, 185.5, 1557), 352, -8, 120, 126, 0.2, false, false),
             at(6, "Die Front", Ansichten.versetzt(Site.CENOTAPH, 60, 2500), 50, 2, 60, 112, 1, false, true),
             at(7, "Unter Wasser", Ansichten.versetzt(Site.CENOTAPH, 60, 1500), 50, -35, 3, 115, 0.5, true, false),
             at(8, "An Bord der Edrie", new double[]{347_545 - Site.E0, -(6_500_506 - Site.N0)}, 90, 6, 4, 200, 1, false, false),

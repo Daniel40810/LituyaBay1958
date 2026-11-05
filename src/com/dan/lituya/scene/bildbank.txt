@@ -12,7 +12,7 @@ nr=2;name=Fairweather_vom_Eingang;ort=CHAUSSEE;versatz=225,1500;auge=6;blickauf=
 nr=3;name=Gilbert_Inlet_von_Sueden;ort=GILBERT;versatz=210,1600;auge=40;blickauf=GILBERT;neigung=-6;zeitstand=vor;uhr=22.25;brennweite=35;warum=Gletscherfront, Wand, Eis im Wasser
 nr=4;name=Der_Sturz;schaustueck=3;ereignis=96;brennweite=85;warum=Fels, Staub im Gegenlicht
 nr=5;name=Die_Wand_aus_Wasser;schaustueck=4;ereignis=104;brennweite=24;warum=Krone, Gischt, Licht durch das Wasser
-nr=6;name=524_m;schaustueck=5;ereignis=106;brennweite=135;warum=Auflauf, Wald verschwindet
+nr=6;name=524_m;xz=1750,-1350;auge=120;blick=352;neigung=-8;zeitstand=welle;ereignis=137;brennweite=50;warum=W5: von Süden den Sporn hinauf; Zunge oben, Bäume knicken, Schleier (vorher Schaustück 5 bei 106 s: noch vor dem Auflauf, Blick auf die trockene Südflanke)
 nr=7;name=Die_Front_vor_Cenotaph;ort=CENOTAPH;versatz=60,1500;auge=4;blick=50;neigung=-2;ereignis=170;brennweite=50;warum=Wasserwand mit Treibgut, aus Bootshöhe
 nr=8;name=Unter_Wasser;schaustueck=7;ereignis=115;brennweite=18;warum=Trübe, Licht, Stämme
 nr=9;name=Der_Morgen_danach;schaustueck=10;brennweite=35;warum=Narbe, Holzteppich

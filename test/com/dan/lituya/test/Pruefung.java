@@ -589,11 +589,14 @@ public final class Pruefung {
             double vorher = -1e9;
             boolean folge = true, imKern = true;
             for (com.dan.lituya.camera.Schaustuecke.Stueck sk : com.dan.lituya.camera.Schaustuecke.ALLE) {
+                // W5: „524 m“ (Nr. 5) zeigt den Auflauf, den die Vorrechnung erst bei 125–140 s am Sporn hat, also nach
+                // „Die Front“ (112 s) und „Unter Wasser“ (115 s); die Nummer bleibt, die Folge gilt ohne ihn
+                if (sk.nr() == 5) { imKern &= Site.KERN.contains(sk.x(), sk.z()); continue; }
                 folge &= sk.t() >= vorher;
                 vorher = sk.t();
                 imKern &= Site.KERN.contains(sk.x(), sk.z());
             }
-            check(com.dan.lituya.camera.Schaustuecke.ALLE.size() == 11 && folge && imKern, "Schaustücke 1 bis 11 im Kern, in der Folge der Zeitleiste");
+            check(com.dan.lituya.camera.Schaustuecke.ALLE.size() == 11 && folge && imKern, "Schaustücke 1 bis 11 im Kern, in der Folge der Zeitleiste (ohne Nr. 5, seit W5 beim Auflauf 126 s)");
             com.dan.lituya.camera.Schaustuecke.Stueck s7 = com.dan.lituya.camera.Schaustuecke.byNr(7), s4 = com.dan.lituya.camera.Schaustuecke.byName("Die Wand aus Wasser");
             Camera c7 = new Camera();
             c7.waterLevel = 0;
@@ -1316,7 +1319,7 @@ public final class Pruefung {
         com.dan.lituya.scene.SichtNetz sn = com.dan.lituya.scene.SichtNetz.da(daten) ? com.dan.lituya.scene.SichtNetz.lesen(daten) : null;
         if (sn == null) hinweis("daten/netz/sicht fehlt: Namen aus LB_NET_SICHT und Fahrten A > B ungeprüft");
         java.util.List<com.dan.lituya.scene.Regie.Book> alle = com.dan.lituya.scene.Regie.all();
-        check(alle.size() == 7, "sieben Regiebücher (seit Werkbuch Welle W3 „Der Sturz“, W4 „Die Wand“): " + alle);
+        check(alle.size() == 8, "acht Regiebücher (seit Werkbuch Welle W3 „Der Sturz“, W4 „Die Wand“, W5 „524 m“): " + alle);
         for (com.dan.lituya.scene.Regie.Book b : alle) {
             java.util.List<String> fehlt = new java.util.ArrayList<>(), befehle = new java.util.ArrayList<>();
             java.util.function.Predicate<String> punkt = n -> com.dan.lituya.camera.Ansichten.byName(n) != null || com.dan.lituya.scene.Site.byName(n) != null || com.dan.lituya.camera.Ansichten.versatz(n) != null || (sn == null ? true : sn.knoten(n) >= 0);
