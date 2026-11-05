@@ -1,5 +1,5 @@
 @echo off
-rem Werkbuch Welle W5 „524 m“: Abnahme auf der Radeon (Zunge am Sporn, Bäume knicken, Schleier; Tele mit Clipmap am Zielpunkt; Licht des Walds). Doppelklick; Protokoll _transfer\w5\w5_abnahme_log.txt.
+rem Werkbuch Welle W5 „524 m“: Abnahme auf der Radeon (Runde 2: Gischt nach der Tiefe der Zunge, helle weiche Schleier, Kacheln 5 Bildpunkte, 48 Schritte). Doppelklick; Protokoll _transfer\w5\w5_abnahme_log.txt.
 cd /d "%~dp0"
 set "JAVA_HOME=C:\Program Files\Java\jdk-21"
 set "PATH=%JAVA_HOME%\bin;%PATH%"

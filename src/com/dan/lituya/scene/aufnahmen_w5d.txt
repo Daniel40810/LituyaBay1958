@@ -1,8 +1,7 @@
-# Werkbuch Welle W5: Diagnose am Sporn (Schalter auf Felder des Renderers, nur Proben).
-nr=1;name=D2_t134;xz=3600,-2000;auge=250;blick=299;neigung=-5;zeitstand=welle;ereignis=134;brennweite=135;warum=Stand mit Schleiern
-nr=2;name=D2_t134_ohneGischt;xz=3600,-2000;auge=250;blick=299;neigung=-5;zeitstand=welle;ereignis=134;brennweite=135;schalter=ereignisGl.vorhang=false;warum=ohne Gischt
-nr=3;name=D2_t134_ohneStaubFahne;xz=3600,-2000;auge=250;blick=299;neigung=-5;zeitstand=welle;ereignis=134;brennweite=135;schalter=ereignisGl.fahne=false,ereignisGl.staubAn=false;warum=ohne Staub und Fahne
-nr=4;name=D2_t134_WaldSonne0;xz=3600,-2000;auge=250;blick=299;neigung=-5;zeitstand=welle;ereignis=134;brennweite=135;schalter=ereignisGl.vorhang=false,ereignisGl.fahne=false,ereignisGl.staubAn=false,licht.waldSonne=0;warum=Wald ohne Sonne
-nr=5;name=D2_Sued_t134;xz=1750,-1350;auge=120;blick=352;neigung=-6;zeitstand=welle;ereignis=134;brennweite=50;warum=von Süden
-nr=6;name=D2_Sued_t140;xz=1750,-1350;auge=120;blick=352;neigung=-6;zeitstand=welle;ereignis=140;brennweite=50;warum=von Süden, Rückfall
-nr=7;name=D2_Nah_t131_50mm;xz=2600,-2600;auge=330;blick=290;neigung=-2;zeitstand=welle;ereignis=131;brennweite=50;warum=nah, Kasten rechts
+# Werkbuch Welle W5 Runde 2: Gischt, Schleier, Tempo am H6 (Schalter auf Felder des Renderers, nur Proben).
+nr=1;name=R_neu;xz=1750,-1350;auge=120;blick=352;neigung=-8;zeitstand=welle;ereignis=137;brennweite=50;warum=neue Gischt und Schleier, Kacheln wie bisher
+nr=2;name=R_px6;xz=1750,-1350;auge=120;blick=352;neigung=-8;zeitstand=welle;ereignis=137;brennweite=50;schalter=ereignisGl.kachelPixel=6;warum=Kacheln halb so fein
+nr=3;name=R_px6_s40;xz=1750,-1350;auge=120;blick=352;neigung=-8;zeitstand=welle;ereignis=137;brennweite=50;schalter=ereignisGl.kachelPixel=6,ereignisGl.medienSchritte=40;warum=dazu 40 Schritte
+nr=4;name=R_ohneSchleier;xz=1750,-1350;auge=120;blick=352;neigung=-8;zeitstand=welle;ereignis=137;brennweite=50;schalter=schleier.an=false;warum=Vergleich ohne Schleier
+nr=5;name=R_ohneGischt;xz=1750,-1350;auge=120;blick=352;neigung=-8;zeitstand=welle;ereignis=137;brennweite=50;schalter=ereignisGl.vorhang=false;warum=nur Schleier
+nr=6;name=R_t140;xz=1750,-1350;auge=120;blick=352;neigung=-8;zeitstand=welle;ereignis=140;brennweite=50;warum=Rückfall, Schleier fallen

@@ -28,6 +28,13 @@ import java.util.function.Consumer;
 public final class EreignisGl {
     /** Größter Fehler einer Stufe in Bildpunkten (die Kante einer Zelle der Stufe). */
     public static final double PIXEL = 3;
+    /**
+     * W5 Tempo: Kante einer Stufe der Kacheln in Bildpunkten (vorher fest {@link #PIXEL}). In H6 lag der Hang in 1,5–2 km
+     * mit 50 mm in voller Auflösung (2-m-Zellen, 3 Bildpunkte je Kante): 1,6 Mio. Dreiecke der Welle, 18 ms.
+     */
+    public volatile double kachelPixel = 5;   // Probe W5E: 6 sparte rund 3 ms in H6 ohne sichtbaren Unterschied
+    /** W5 Tempo: Schritte des Strahls durch Staub und Gischt (vorher fest 64). */
+    public volatile int medienSchritte = 48;   // Probe W5E: 40 sparte rund 3 ms
     public static final int MAX_SCHRITT = 16;
 
     final Shader welle = new Shader("Welle", null, "spur.vert", "welle.frag"),
@@ -699,7 +706,7 @@ public final class EreignisGl {
             sh.set(gl, "uNahMass", (float) nf[4], (float) nf[5]);
         }
         sh.set(gl, "uEreignisT", (float) zeitJetzt);
-        int[] schritt = stufen(s, vp, eye, kf, pegel);
+        int[] schritt = stufen(s, vp, eye, kf * kachelPixel / PIXEL, pegel);
         if (s.art == Wiedergabe.Art.WELLE && lippe) frontFein(s, schritt, eye, pegel);
         int K = Wiedergabe.KACHEL;
         for (int tj = 0; tj < s.ntz; tj++)
@@ -858,6 +865,7 @@ public final class EreignisGl {
         medien.set(gl, "uNear", (float) Renderer.NEAR);
         medien.set(gl, "uFar", (float) Renderer.FAR);
         medien.set(gl, "uFwd", fwd[0], fwd[1], fwd[2]);
+        medien.set(gl, "uSchritte", medienSchritte);
         medien.set(gl, "uUnter", unter ? 1 : 0);
         medien.set(gl, "uStaub", staub ? 1 : 0);
         medien.set(gl, "uGischt", vh ? 1f : 0f, (float) t, (float) GISCHT_NACHLAUF);
