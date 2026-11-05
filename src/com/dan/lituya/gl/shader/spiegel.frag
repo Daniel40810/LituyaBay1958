@@ -13,6 +13,17 @@ uniform int uSpiegelAn, uWelleAn;
 uniform vec4 uWelleRect;     // x0, z0, x1, z1 (Szene)
 uniform float uNear, uFar;
 uniform vec4 uMilchA, uMilchB;   // Quelle x, z, Reichweite (m), Stärke
+uniform mat4 uSpiegelVP, uJetztVP;   // Runde 7: Blick beim Spiegelbild und jetzt
+
+// Runde 7: Versatz im Bild, um den das Gespiegelte (aus einem früheren Bild) gegen jetzt liegt. Das Spiegelbild eines
+// Punkts liegt auf dem Sehstrahl hinter der Wasserfläche, meist Kilometer weit: also die Richtung umrechnen (Drehung
+// genau, das Versetzen des Auges um wenige Meter fällt in der Ferne weg). Erste Fassung mit dem Punkt auf dem Wasser:
+// der liegt nah, das Versetzen zählte dort voll, das Bild wurde schlechter statt besser (Probe W5V)
+vec2 spiegelVersatz(vec3 dir) {
+    vec4 a = uSpiegelVP * vec4(dir, 0.0), j = uJetztVP * vec4(dir, 0.0);
+    if (a.w <= 1e-3 || j.w <= 1e-3) return vec2(0.0);
+    return (a.xy / a.w - j.xy / j.w) * 0.5;
+}
 
 float h2(vec2 i) { return fract(sin(dot(i, vec2(127.1, 311.7))) * 43758.5453); }
 float vn(vec2 x) {
@@ -75,7 +86,7 @@ void main() {
     if (uSpiegelAn == 1) {
         // Verzerrung im Bild: mit der Neigung, in der Ferne kleiner (Bildpunkte je m)
         vec2 off = n.xz * 0.6 / max(t, 30.0) * vec2(1.0, 1.6);
-        vec4 R = texture(uRefl, vUV + off);
+        vec4 R = texture(uRefl, vUV + off + spiegelVersatz(d));
         if (R.a > 0.01) {
             vec3 r = reflect(d, n);
             deck = F * clamp(R.a, 0.0, 1.0);

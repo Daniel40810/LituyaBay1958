@@ -234,13 +234,20 @@ public final class Tempo {
         System.out.printf(Locale.GERMAN, "Median %.2f ms%n", frames == 0 ? 0 : alle[frames / 2]);
         // Runde 6: im Fluss, wie im Programm: Bilder ohne Warten je Bild (Prozessor und Grafikkarte arbeiten gleichzeitig),
         // am Ende einmal glFinish; die Zeit durch die Zahl der Bilder. Oben wartet jedes Bild auf die Grafikkarte.
+        // Runde 7: drei Blöcke hintereinander, der mittlere zählt (die Radeon streut von Lauf zu Lauf); dazu die Spanne
         if (frames > 0) {
-            long f0 = System.nanoTime();
-            for (int i = 0; i < frames; i++) { r.step(1 / 60.0); d.display(); }
-            d.getContext().makeCurrent();
-            d.getGL().glFinish();
-            d.getContext().release();
-            System.out.printf(Locale.GERMAN, "Im Fluss %.2f ms je Bild (%d Bilder ohne Warten)%n", (System.nanoTime() - f0) / 1e6 / frames, frames);
+            double[] bl = new double[3];
+            for (int k = 0; k < 3; k++) {
+                long f0 = System.nanoTime();
+                for (int i = 0; i < frames; i++) { r.step(1 / 60.0); d.display(); }
+                d.getContext().makeCurrent();
+                d.getGL().glFinish();
+                d.getContext().release();
+                bl[k] = (System.nanoTime() - f0) / 1e6 / frames;
+            }
+            double[] so = bl.clone();
+            java.util.Arrays.sort(so);
+            System.out.printf(Locale.GERMAN, "Im Fluss %.2f ms je Bild (Mitte von 3 × %d Bildern ohne Warten; %.2f–%.2f)%n", so[1], frames, so[0], so[2]);
         }
         // W5: Licht am Ende des Laufs (für die Suche nach dem Rot der Kronen)
         com.dan.sky.Sky.State ls = r.licht.state();
@@ -253,6 +260,28 @@ public final class Tempo {
                     wl == null ? 0 : wl.moonColor[0], wl == null ? 0 : wl.moonColor[1], wl == null ? 0 : wl.moonColor[2], Math.toDegrees(Math.asin(ls.moonDir[1])));
         }
         for (String l : r.hudLines()) System.out.println("  " + l);
+        // Runde 7: seitwaerts = „m,grad“: vor dem Bild in 10 Bildern um m seitwärts (Szene x) und grad gedreht (Probe des
+        // Spiegelbilds, das nur jedes zweite Bild neu entsteht)
+        String seit = opt("seitwaerts");   // („fahrt“ ist schon die Sichtfahrt)
+        if (seit != null && !seit.isBlank()) {
+            String[] fw = seit.split(",");
+            double fm = Double.parseDouble(fw[0].trim()), fg = fw.length > 1 ? Double.parseDouble(fw[1].trim()) : 0;
+            com.dan.lituya.camera.Camera c = r.camera;
+            // dritter Wert: Takt des Spiegelbilds während der Fahrt; vorher ein Bild mit frischem Spiegelbild
+            if (fw.length > 2) {
+                r.spiegelTakt = 1;
+                r.step(1 / 60.0);
+                d.display();
+                r.spiegelTakt = Integer.parseInt(fw[2].trim());
+            }
+            for (int i = 0; i < 10; i++) {
+                c.place(c.fx + fm / 10, c.fy, c.fz, c.fyaw + fg / 10, c.fpitch);
+                c.snap();
+                r.step(1 / 60.0);
+                d.display();
+            }
+            System.out.printf(Locale.GERMAN, "Fahrt: %.1f m seitwärts, %.1f° gedreht%n", fm, fg);
+        }
         if (png != null) {
             File dir = png.getAbsoluteFile().getParentFile();
             if (dir != null) dir.mkdirs();
