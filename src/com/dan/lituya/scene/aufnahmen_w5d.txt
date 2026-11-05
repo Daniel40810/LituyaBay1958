@@ -1,8 +1,9 @@
-# Werkbuch Welle W5 Runde 7: H6 und H13 im Fluss (abwechselnd), Spiegel nach 2,5 m seitwärts und 0,8° Drehung
-nr=1;name=Z_H6_1;xz=1750,-1350;auge=120;blick=352;neigung=-8;zeitstand=welle;ereignis=137;brennweite=50;warum=Runde 7
-nr=2;name=Z_H13_1;xz=168,-870;auge=4;blick=98;neigung=-3;ereignis=180;brennweite=85;warum=Runde 7
-nr=3;name=Z_H6_2;xz=1750,-1350;auge=120;blick=352;neigung=-8;zeitstand=welle;ereignis=137;brennweite=50;warum=Runde 7
-nr=4;name=Z_H13_2;xz=168,-870;auge=4;blick=98;neigung=-3;ereignis=180;brennweite=85;warum=Runde 7
-nr=5;name=Z_H7_seit_takt1;ort=CENOTAPH;versatz=60,1500;auge=4;blick=50;neigung=-2;ereignis=170;brennweite=50;schalter=spiegelTakt=1;seitwaerts=2.5,0.8;warum=Runde 7
-nr=6;name=Z_H7_seit_alt_um;ort=CENOTAPH;versatz=60,1500;auge=4;blick=50;neigung=-2;ereignis=170;brennweite=50;seitwaerts=2.5,0.8,1000;warum=Runde 7
-nr=7;name=Z_H7_seit_alt_roh;ort=CENOTAPH;versatz=60,1500;auge=4;blick=50;neigung=-2;ereignis=170;brennweite=50;schalter=spiegelUmrechnen=false;seitwaerts=2.5,0.8,1000;warum=Runde 7
+# Werkbuch Welle W5 Runde 8: H6, H13, H7 im Fluss; Spiegel nach 2,5 m seitwärts und 0,8° Drehung
+nr=1;name=Z_H6_1;xz=1750,-1350;auge=120;blick=352;neigung=-8;zeitstand=welle;ereignis=137;brennweite=50;warum=Runde 8
+nr=2;name=Z_H13_1;xz=168,-870;auge=4;blick=98;neigung=-3;ereignis=180;brennweite=85;warum=Runde 8
+nr=3;name=Z_H7_1;ort=CENOTAPH;versatz=60,1500;auge=4;blick=50;neigung=-2;ereignis=170;brennweite=50;warum=Runde 8
+nr=4;name=Z_H6_2;xz=1750,-1350;auge=120;blick=352;neigung=-8;zeitstand=welle;ereignis=137;brennweite=50;warum=Runde 8
+nr=5;name=Z_H13_2;xz=168,-870;auge=4;blick=98;neigung=-3;ereignis=180;brennweite=85;warum=Runde 8
+nr=6;name=Z_H7_2;ort=CENOTAPH;versatz=60,1500;auge=4;blick=50;neigung=-2;ereignis=170;brennweite=50;warum=Runde 8
+nr=7;name=Z_H7_seit_takt1;ort=CENOTAPH;versatz=60,1500;auge=4;blick=50;neigung=-2;ereignis=170;brennweite=50;schalter=spiegelTakt=1;seitwaerts=2.5,0.8;warum=Runde 8
+nr=8;name=Z_H7_seit_alt;ort=CENOTAPH;versatz=60,1500;auge=4;blick=50;neigung=-2;ereignis=170;brennweite=50;seitwaerts=2.5,0.8,1000;warum=Runde 8

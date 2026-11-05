@@ -192,6 +192,10 @@ public final class Renderer implements GLEventListener {
     private boolean reversedZ, ready;
     private final int[][] stamp = new int[2][MARKS];
     private final double[] passMs = new double[MARKS - 1];
+    /** Runde 8: welcher Durchgang (Index in PASSES) im Zeitfenster zwischen Marke i und i + 1 lief. */
+    private final int[] ordnung = {0, 1, 2, 3, 4, 5, 6, 7, 8};
+    /** Runde 8: die deckenden Durchgänge von vorn nach hinten (Boote, Welle, Wald, Gelände). */
+    public volatile boolean vornZuerst = true;
     private int frame;
     private long lastNanos, statsNanos;
     private int statsFrames;
@@ -1018,6 +1022,9 @@ public final class Renderer implements GLEventListener {
                 meer.jetztVP = spiegelUmrechnen ? Mat4.mul(proj, view) : meer.spiegelVP;
                 ereignisGl.spiegelVP = meer.spiegelVP;
                 ereignisGl.jetztVP = meer.jetztVP;
+                meer.spiegelVorn = new float[]{(float) camera.fwd[0], (float) camera.fwd[1], (float) camera.fwd[2]};
+                ereignisGl.spiegelVorn = meer.spiegelVorn;
+                ereignisGl.spiegelTiefe = meer.spiegelTiefe();
             } catch (RuntimeException e) {
                 System.err.println("LituyaBay1958: Meer: " + e);
                 meer.an = false;
@@ -1044,53 +1051,75 @@ public final class Renderer implements GLEventListener {
         }
         mark(gl, 1);
 
-        // 2 Gelände (Phase 4): alle Stufen der Clipmap mit Tiefe, Rückseiten weg
+        // Runde 8: Reihenfolge der deckenden Durchgänge. Standard jetzt von vorn nach hinten: Boote, Welle, Wald, dann das
+        // Gelände (die Tiefe der Welle und des Walds verwirft verdeckte Bildpunkte des Geländes, bevor sie gerechnet werden;
+        // in H13 lag die Wand vor dem Hang, in H6 der Wald). Bäche (gemischt) danach. Die Zeiten der Durchgänge bleiben
+        // nach Namen zugeordnet (ordnung). Schalter vornZuerst = false: alte Reihenfolge.
         com.dan.clipmap.Clipmap cm = land.clipmap();
-        if (showGelaende && cm != null) gelaende(gl, cm, vp, inv, sun, camera.eye, false);
-        mark(gl, 2);
-
-        // 2a Wald (Phase 14a): forest über den Kern mit den Zuständen der Welle und der Wiederbewaldung
-        wald.blick = camera.fwd.clone();
-        wald.fovy = fovy();
-        if (showGelaende) wald.zeichnen(gl, vp, camera.eye, reversedZ, sun, clock.t(), true);   // Runde 6: Prüfung des Walds wiederverwenden
-        // W5 (E11): die Bäume, die gerade in der Zunge fallen
-        if (showGelaende) wald.knickZeichnen(gl, sh -> common(gl, sh, vp, inv, sun), camera.eye, vp, clock.simSeconds(), reversedZ);
-        gl.glBindVertexArray(emptyVao);
-        // 2a' Bäche (Phase 16c): eigener Wasser-Pass auf dem Gelände, Tiefe gegen Gelände und Wald (Zeit unter „Wald“)
-        if (showGelaende) {
-            baeche.rueckbauAn = rueckbauJetzt && clock.zeitstand != SceneClock.Zeitstand.HEUTE;
-            double[] rb0 = Site.fromUtm(com.dan.lituya.scene.Boden1958.RUECKBAU_E0, com.dan.lituya.scene.Boden1958.RUECKBAU_N0),
-                    rb1 = Site.fromUtm(com.dan.lituya.scene.Boden1958.RUECKBAU_E1, com.dan.lituya.scene.Boden1958.RUECKBAU_N1);
-            baeche.rueckbauRect = new double[]{rb0[0], rb0[1], rb1[0], rb1[1]};
-            baeche.zeichnen(gl, sh -> common(gl, sh, vp, inv, sun), cm, reversedZ, h, fovy());
-        }
-        gl.glBindVertexArray(emptyVao);
-        gl.glUseProgram(0);
-        mark(gl, 3);
-
-        // 2b Boote (Phase 15a): Edrie, Badger, Sunmore auf den vorgerechneten Bahnen, vor der Welle (sie deckt, was unter Wasser liegt)
         double tE = clock.simSeconds();
-        boote.laden(new java.io.File(System.getProperty("lituya.daten", "daten")), wiedergabe.welle());
-        boote.zeichnen(gl, vp, camera.eye, reversedZ, sun, tE, clock.zeitstand);
-        gl.glBindVertexArray(emptyVao);
-        mark(gl, 4);
-
-        // 2c Welle und Strom der Vorrechnung (Phase 13b) mit Tiefe; im Rechteck der Welle zeichnet das Meer nicht
-        wiedergabe.setzen(tE, clock.lapse);
-        ereignisGl.fovy = fovy();
-        ereignisGl.spiegelTex = meerJetzt ? meer.spiegelTextur() : 0;   // W3c: Spiegel der Berge auch auf der Welle
-        ereignisGl.bildPx = new double[]{w, h};
-        // W5 Runde 5: Kacheln hinter dem Gelände; Runde 6: und hinter dem stehenden Wald außerhalb des Bands
-        if (ereignisGl.grund == null) ereignisGl.grund = (x, z) -> groundHeight(x, z) + wald.sperre(x, z);
-        ereignisGl.zielFbo = hdrColorFbo;   // W4: Ziel des Staubs in halber Auflösung
-        ereignisGl.rueckbauAn = rueckbauJetzt && clock.zeitstand != SceneClock.Zeitstand.HEUTE;
-        {
-            double wr = Math.toRadians(wiring.windFromDeg + 180);   // weht nach
-            ereignisGl.windXZ = new double[]{Math.sin(wr), -Math.cos(wr)};
+        double[] welleRect = null;
+        final boolean vz = vornZuerst;
+        int[] folge = vz ? new int[]{3, 4, 2, 1} : new int[]{1, 2, 3, 4};   // 1 Gelände, 2 Wald, 3 Boote, 4 Welle
+        for (int fi = 0; fi < 4; fi++) {
+            int pass = folge[fi];
+            if (pass == 1) {
+                // 2 Gelände (Phase 4): alle Stufen der Clipmap mit Tiefe, Rückseiten weg
+                if (showGelaende && cm != null) gelaende(gl, cm, vp, inv, sun, camera.eye, false);
+                if (vz) {
+                    // 2a' Bäche (Phase 16c): eigener Wasser-Pass auf dem Gelände, Tiefe gegen Gelände und Wald (Zeit unter „Wald“)
+                    if (showGelaende) {
+                        baeche.rueckbauAn = rueckbauJetzt && clock.zeitstand != SceneClock.Zeitstand.HEUTE;
+                        double[] rb0 = Site.fromUtm(com.dan.lituya.scene.Boden1958.RUECKBAU_E0, com.dan.lituya.scene.Boden1958.RUECKBAU_N0),
+                                rb1 = Site.fromUtm(com.dan.lituya.scene.Boden1958.RUECKBAU_E1, com.dan.lituya.scene.Boden1958.RUECKBAU_N1);
+                        baeche.rueckbauRect = new double[]{rb0[0], rb0[1], rb1[0], rb1[1]};
+                        baeche.zeichnen(gl, sh -> common(gl, sh, vp, inv, sun), cm, reversedZ, h, fovy());
+                    }
+                }
+            } else if (pass == 2) {
+                // 2a Wald (Phase 14a): forest über den Kern mit den Zuständen der Welle und der Wiederbewaldung
+                wald.blick = camera.fwd.clone();
+                wald.fovy = fovy();
+                if (showGelaende) wald.zeichnen(gl, vp, camera.eye, reversedZ, sun, clock.t(), true);   // Runde 6: Prüfung des Walds wiederverwenden
+                // W5 (E11): die Bäume, die gerade in der Zunge fallen
+                if (showGelaende) wald.knickZeichnen(gl, sh -> common(gl, sh, vp, inv, sun), camera.eye, vp, clock.simSeconds(), reversedZ);
+                gl.glBindVertexArray(emptyVao);
+                if (!vz) {
+                    // 2a' Bäche (Phase 16c): eigener Wasser-Pass auf dem Gelände, Tiefe gegen Gelände und Wald (Zeit unter „Wald“)
+                    if (showGelaende) {
+                        baeche.rueckbauAn = rueckbauJetzt && clock.zeitstand != SceneClock.Zeitstand.HEUTE;
+                        double[] rb0 = Site.fromUtm(com.dan.lituya.scene.Boden1958.RUECKBAU_E0, com.dan.lituya.scene.Boden1958.RUECKBAU_N0),
+                                rb1 = Site.fromUtm(com.dan.lituya.scene.Boden1958.RUECKBAU_E1, com.dan.lituya.scene.Boden1958.RUECKBAU_N1);
+                        baeche.rueckbauRect = new double[]{rb0[0], rb0[1], rb1[0], rb1[1]};
+                        baeche.zeichnen(gl, sh -> common(gl, sh, vp, inv, sun), cm, reversedZ, h, fovy());
+                    }
+                }
+                gl.glBindVertexArray(emptyVao);
+                gl.glUseProgram(0);
+            } else if (pass == 3) {
+                // 2b Boote (Phase 15a): Edrie, Badger, Sunmore auf den vorgerechneten Bahnen, vor der Welle (sie deckt, was unter Wasser liegt)
+                boote.laden(new java.io.File(System.getProperty("lituya.daten", "daten")), wiedergabe.welle());
+                boote.zeichnen(gl, vp, camera.eye, reversedZ, sun, tE, clock.zeitstand);
+                gl.glBindVertexArray(emptyVao);
+            } else {
+                // 2c Welle und Strom der Vorrechnung (Phase 13b) mit Tiefe; im Rechteck der Welle zeichnet das Meer nicht
+                wiedergabe.setzen(tE, clock.lapse);
+                ereignisGl.fovy = fovy();
+                ereignisGl.spiegelTex = meerJetzt ? meer.spiegelTextur() : 0;   // W3c: Spiegel der Berge auch auf der Welle
+                ereignisGl.bildPx = new double[]{w, h};
+                // W5 Runde 5: Kacheln hinter dem Gelände; Runde 6: und hinter dem stehenden Wald außerhalb des Bands
+                if (ereignisGl.grund == null) ereignisGl.grund = (x, z) -> groundHeight(x, z) + wald.sperre(x, z);
+                ereignisGl.zielFbo = hdrColorFbo;   // W4: Ziel des Staubs in halber Auflösung
+                ereignisGl.rueckbauAn = rueckbauJetzt && clock.zeitstand != SceneClock.Zeitstand.HEUTE;
+                {
+                    double wr = Math.toRadians(wiring.windFromDeg + 180);   // weht nach
+                    ereignisGl.windXZ = new double[]{Math.sin(wr), -Math.cos(wr)};
+                }
+                welleRect = ereignisGl.zeichnen(gl, wiedergabe, tE, vp, camera.eye, h, wiring.pegel, sh -> common(gl, sh, vp, inv, sun), reversedZ);
+                gl.glBindVertexArray(emptyVao);
+            }
+            ordnung[fi + 1] = pass;
+            mark(gl, fi + 2);
         }
-        double[] welleRect = ereignisGl.zeichnen(gl, wiedergabe, tE, vp, camera.eye, h, wiring.pegel, sh -> common(gl, sh, vp, inv, sun), reversedZ);
-        gl.glBindVertexArray(emptyVao);
-        mark(gl, 5);
 
         // 3 Wasser: die Fläche im Pegel mit Erdkrümmung bis zur Kimm (Platzhalter bis ocean in Phase 5a), mit den Marken;
         //   seit Phase 4 mit Tiefe gegen das Gelände
@@ -1528,7 +1557,7 @@ public final class Renderer implements GLEventListener {
         if (av[0] == 0) return;
         long[] t = new long[MARKS];
         for (int i = 0; i < MARKS; i++) gl.glGetQueryObjecti64v(stamp[o][i], GL4.GL_QUERY_RESULT, t, i);
-        for (int i = 0; i < MARKS - 1; i++) passMs[i] = passMs[i] * 0.9 + Math.max(0, t[i + 1] - t[i]) / 1e6 * 0.1;
+        for (int i = 0; i < MARKS - 1; i++) { int k = i < ordnung.length ? ordnung[i] : i; passMs[k] = passMs[k] * 0.9 + Math.max(0, t[i + 1] - t[i]) / 1e6 * 0.1; }
         gpuMs = gpuMs * 0.9 + Math.max(0, t[MARKS - 1] - t[0]) / 1e6 * 0.1;
     }
 
