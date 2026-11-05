@@ -1000,7 +1000,19 @@ public final class Renderer implements GLEventListener {
                     wasserJob = wasserExec.submit(() -> { wasserAnteil = wasserAnteil(e, vw, fy, te); });
                 }
                 meer.spiegelJetzt = wasserAnteil >= SPIEGEL_AB;
-                if (meer.spiegel && meer.spiegelJetzt) spiegelBild(gl, w, h, proj, view, sun);
+                // Runde 6: das Spiegelbild nur jedes zweite Bild neu; sonst gilt das vorige (es kostete in H13 rund 4 ms, und weil
+                // es den Wald im eigenen Blick prüft, musste auch das Hauptbild den Wald jedes Bild neu prüfen). Neu sofort nach
+                // einem Sprung des Auges (über 3 m) oder einer Drehung über 1°
+                if (meer.spiegel && meer.spiegelJetzt) {
+                    boolean sprung = spiegelAuge == null || Math.abs(camera.eye[0] - spiegelAuge[0]) + Math.abs(camera.eye[1] - spiegelAuge[1]) + Math.abs(camera.eye[2] - spiegelAuge[2]) > 3
+                            || camera.fwd[0] * spiegelBlick[0] + camera.fwd[1] * spiegelBlick[1] + camera.fwd[2] * spiegelBlick[2] < Math.cos(Math.toRadians(1));
+                    if (sprung || ++spiegelAlter >= spiegelTakt) {
+                        spiegelBild(gl, w, h, proj, view, sun);
+                        spiegelAlter = 0;
+                        spiegelAuge = camera.eye.clone();
+                        spiegelBlick = camera.fwd.clone();
+                    }
+                } else spiegelAuge = null;
             } catch (RuntimeException e) {
                 System.err.println("LituyaBay1958: Meer: " + e);
                 meer.an = false;
@@ -1033,7 +1045,9 @@ public final class Renderer implements GLEventListener {
         mark(gl, 2);
 
         // 2a Wald (Phase 14a): forest über den Kern mit den Zuständen der Welle und der Wiederbewaldung
-        if (showGelaende) wald.zeichnen(gl, vp, camera.eye, reversedZ, sun, clock.t());
+        wald.blick = camera.fwd.clone();
+        wald.fovy = fovy();
+        if (showGelaende) wald.zeichnen(gl, vp, camera.eye, reversedZ, sun, clock.t(), true);   // Runde 6: Prüfung des Walds wiederverwenden
         // W5 (E11): die Bäume, die gerade in der Zunge fallen
         if (showGelaende) wald.knickZeichnen(gl, sh -> common(gl, sh, vp, inv, sun), camera.eye, vp, clock.simSeconds(), reversedZ);
         gl.glBindVertexArray(emptyVao);
@@ -1061,7 +1075,8 @@ public final class Renderer implements GLEventListener {
         ereignisGl.fovy = fovy();
         ereignisGl.spiegelTex = meerJetzt ? meer.spiegelTextur() : 0;   // W3c: Spiegel der Berge auch auf der Welle
         ereignisGl.bildPx = new double[]{w, h};
-        if (ereignisGl.grund == null) ereignisGl.grund = this::groundHeight;   // W5 Runde 5: Kacheln hinter dem Gelände
+        // W5 Runde 5: Kacheln hinter dem Gelände; Runde 6: und hinter dem stehenden Wald außerhalb des Bands
+        if (ereignisGl.grund == null) ereignisGl.grund = (x, z) -> groundHeight(x, z) + wald.sperre(x, z);
         ereignisGl.zielFbo = hdrColorFbo;   // W4: Ziel des Staubs in halber Auflösung
         ereignisGl.rueckbauAn = rueckbauJetzt && clock.zeitstand != SceneClock.Zeitstand.HEUTE;
         {
@@ -1226,6 +1241,11 @@ public final class Renderer implements GLEventListener {
      * W2: das Spiegelbild am Wasserspiegel (halbe Größe): Gelände und, ab „Hoch“, der Wald, vom Auge unter dem Spiegel.
      * Spiegelung y → 2·Pegel − y als Matrix hinter der Blickmatrix; Gelände unter dem Wasser wird abgeschnitten.
      */
+    /** Runde 6: das Spiegelbild jedes wievielte Bild neu (1: jedes). */
+    public volatile int spiegelTakt = 2;
+    private int spiegelAlter;
+    private double[] spiegelAuge, spiegelBlick;
+
     private void spiegelBild(GL4 gl, int w, int h, float[] proj, float[] view, double[] sun) {
         meer.spiegelZiel(gl, w, h);
         gl.glClearColor(0, 0, 0, 0);

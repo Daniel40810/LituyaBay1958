@@ -1,5 +1,5 @@
 @echo off
-rem Werkbuch Welle W5 „524 m“: Abnahme auf der Radeon (Runde 5: Welle hinter Gelände weg, Medien je Hülle, Zunge ohne Flauheit, Kronen zerfallen). Doppelklick; Protokoll _transfer\w5\w5_abnahme_log.txt.
+rem Werkbuch Welle W5 „524 m“: Abnahme auf der Radeon (Runde 6: Messung im Fluss, Wald-Prüfung wiederverwendet, Spiegel jedes zweite Bild, Sichtsperre des Walds, Stämme in der Mischung). Doppelklick; Protokoll _transfer\w5\w5_abnahme_log.txt.
 cd /d "%~dp0"
 set "JAVA_HOME=C:\Program Files\Java\jdk-21"
 set "PATH=%JAVA_HOME%\bin;%PATH%"
@@ -16,4 +16,6 @@ echo === 4 Film 524 m (20 s, 1280 x 720, 50 mm) === >> "%LOG%"
 call "%ANT%" "%UP%" "-Dbuch=524 m" "-Dbreite=1280" "-Dhoehe=720" "-Dbrennweite=50" film >> "%LOG%" 2>&1
 echo === 5 Pruefung === >> "%LOG%"
 call "%ANT%" "%UP%" pruefung >> "%LOG%" 2>&1
+echo === 6 H6 und H13 im Fluss (W5S) === >> "%LOG%"
+call "%ANT%" "%UP%" "-Dbildbank=src/com/dan/lituya/scene/aufnahmen_w5d.txt" "-Dbild.phase=W5S" "-Dbreite=1920" "-Dhoehe=1080" bildbank >> "%LOG%" 2>&1
 echo === FERTIG %TIME% === >> "%LOG%"

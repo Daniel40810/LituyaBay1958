@@ -91,6 +91,45 @@ public final class WaldGl {
         double[] teppichRect;     // x0, z0, Breite, Tiefe
         int tnx, tnz;
         String zeile;
+        float[] sperre;           // Runde 6: Höhe, bis zu der der stehende Wald Sicht sperrt (m über Grund), 20-m-Raster
+    }
+
+    /** Runde 6: Raster der Sichtsperre durch den Wald (Szene, Ecke Nordwest, Zelle, Breite, Höhe). */
+    static final double SPERRE_ZELLE = 20;
+    private static final int SPERRE_W = (int) (Wald1958.W * Wald1958.ZELLE / SPERRE_ZELLE), SPERRE_H = (int) (Wald1958.H * Wald1958.ZELLE / SPERRE_ZELLE);
+
+    /**
+     * Runde 6: bis zu welcher Höhe über Grund der Wald hier die Sicht sperrt (für die Verdeckung der Welle): außerhalb
+     * des Bands der Welle (dort steht der Altbestand die ganze Nacht), wo die Kronen heute mindestens 25 m hoch sind, die
+     * halbe Kronenhöhe (Lücken zwischen den Kronen; vorsichtig). 0 sonst, und solange der Wald nicht gerechnet ist.
+     */
+    public double sperre(double x, double z) {
+        Daten x0 = d;
+        if (!an || x0 == null || x0.sperre == null) return 0;
+        double e = x + Site.E0, n = Site.N0 - z;
+        int i = (int) Math.floor((e - Site.KERN.eMin()) / SPERRE_ZELLE), j = (int) Math.floor((Site.KERN.nMax() - n) / SPERRE_ZELLE);
+        return i < 0 || j < 0 || i >= SPERRE_W || j >= SPERRE_H ? 0 : x0.sperre[j * SPERRE_W + i];
+    }
+
+    static double sperreFlaeche(float[] r) {
+        if (r == null) return 0;
+        long n = 0;
+        for (float v : r) if (v > 0) n++;
+        return n * SPERRE_ZELLE * SPERRE_ZELLE / 1e6;
+    }
+
+    static float[] sperreRechnen(Wald1958 w) {
+        if (w.krone == null) return null;
+        float[] r = new float[SPERRE_W * SPERRE_H];
+        for (int j = 0; j < SPERRE_H; j++)
+            for (int i = 0; i < SPERRE_W; i++) {
+                double e = Site.KERN.eMin() + (i + 0.5) * SPERRE_ZELLE, n = Site.KERN.nMax() - (j + 0.5) * SPERRE_ZELLE;
+                double x = e - Site.E0, z = Site.N0 - n;
+                double k = w.krone(x, z);
+                if (Double.isNaN(k) || k < 25 || w.imBand(x, z)) continue;
+                r[j * SPERRE_W + i] = (float) (0.5 * k);
+            }
+        return r;
     }
 
     /** Startet die Rechnung (Hintergrund) aus dem Ordner daten. */
@@ -131,8 +170,10 @@ public final class WaldGl {
             x.gelaende = new ForestCulture.Grid(X0, Z0, KANTE, N_GELAENDE, 1, x.wald.grundGitter(X0, Z0, KANTE, N_GELAENDE));
             x.dichte = new ForestCulture.Grid(X0, Z0, KANTE, N_DICHTE, 3, x.wald.dichteGitter(X0, Z0, KANTE, N_DICHTE));
             treibgutLesen(new File(daten, "ereignis/treibgut"), x);
+            x.sperre = sperreRechnen(x.wald);
             x.zeile = String.format(Locale.GERMAN, "Wald: %,d Plätze im Band, %d Jahre, %,d Stämme Treibgut (%.0f s) · %s", su.band(), su.jahre(),
-                    x.staemme == null ? 0 : x.staemme.length, (System.nanoTime() - t0) / 1e9, x.wald.quelle);
+                    x.staemme == null ? 0 : x.staemme.length, (System.nanoTime() - t0) / 1e9, x.wald.quelle)
+                    + String.format(Locale.GERMAN, " · Sichtsperre des Walds %.1f km²", sperreFlaeche(x.sperre));
             System.out.println("LituyaBay1958: " + x.zeile);
             status = x.zeile;
             return x;
@@ -219,20 +260,20 @@ public final class WaldGl {
         }
         if (d == null || forest == null) return;
         int day = clock.local().getDayOfYear();
-        if (day != tag) { forest.setSeason(day, 0); tag = day; }
+        if (day != tag) { forest.setSeason(day, 0); tag = day; zustandNeu = true; }
         if (forest.ready()) knick.vorbauen(gl, forest, tag);   // W5 Runde 4
         double t = clock.simSeconds();
         if (!(t >= Band1958.EINTAUCHEN - 1 && t < KNICK_BIS)) knick.setzen(knick_leer, 0);
         if (t < Band1958.EINTAUCHEN) {
-            if (gezeigt != -1) { d.states.clear(); gezeigt = -1; mitTreibgut = false; }
+            if (gezeigt != -1) { d.states.clear(); gezeigt = -1; mitTreibgut = false; zustandNeu = true; }
         } else if (t < 3600) {
             // W5: solange Bäume fallen, je 0,1 s neu (vorher alle 2 s)
             double takt = knicken && t < 400 ? 0.1 : knicken ? 1 : 2;
-            if (gezeigt != -2 || Math.abs(t - welleT) >= takt) { welle(t); gezeigt = -2; welleT = t; mitTreibgut = false; }
+            if (gezeigt != -2 || Math.abs(t - welleT) >= takt) { welle(t); gezeigt = -2; welleT = t; mitTreibgut = false; zustandNeu = true; }
         } else {
             int y = Wald1958.jahr(clock.date());
             boolean tg = treibgut && y == 0 && t < TREIBGUT_BIS && d.staemme != null;
-            if (y != gezeigt || tg != mitTreibgut) { jahrgang(y, tg); gezeigt = y; mitTreibgut = tg; }
+            if (y != gezeigt || tg != mitTreibgut) { jahrgang(y, tg); gezeigt = y; mitTreibgut = tg; zustandNeu = true; }
         }
         int bj = gezeigt >= 0 ? gezeigt : Integer.MIN_VALUE;
         if (bj != bodenJahr) { if (bj >= 0) bandTextur(gl, bj); bodenJahr = bj; }
@@ -454,15 +495,59 @@ public final class WaldGl {
         return l;
     }
 
+    /**
+     * Runde 6: forest prüft bei jedem update rund eine Million Plätze gegen den Blick. Jetzt mit einem um 15 % weiteren
+     * Blick, und das Ergebnis gilt weiter, solange das Auge weniger als 2 m wandert, der Blick sich um weniger als
+     * 80 % des Rands dreht, die Zustände gleich bleiben und es nicht älter als 30 Bilder ist. Das Spiegelbild prüft
+     * immer neu (eigener Blick) und macht das Ergebnis des Hauptbilds ungültig. Schalter wald.cullStets = alte Weise.
+     */
+    public volatile boolean cullStets = false;
+    /** Blickrichtung und senkrechter Öffnungswinkel (Grad) des Hauptbilds, vom Renderer je Bild gesetzt. */
+    public volatile double[] blick;
+    public volatile double fovy = 30;
+    static final double CULL_WEIT = 1.15;
+    private double[] cullAuge, cullBlick;
+    private int cullAlter, cullGespart;
+    private volatile boolean zustandNeu = true;
+
     /** Kultur und Zeichnen in den gebundenen HDR-Bildspeicher (mit Tiefe). */
-    public void zeichnen(GL4 gl, float[] vp, double[] eye, boolean reversed, double[] sun, double t) {
+    public void zeichnen(GL4 gl, float[] vp, double[] eye, boolean reversed, double[] sun, double t) { zeichnen(gl, vp, eye, reversed, sun, t, false); }
+
+    public void zeichnen(GL4 gl, float[] vp, double[] eye, boolean reversed, double[] sun, double t, boolean haupt) {
         if (!an || forest == null) return;
         ForestGl.View v = new ForestGl.View();
         v.viewProj = vp;
         v.eye = eye.clone();
         v.reversedZ = reversed;
         v.tonemap = false;
-        forest.update(gl, v);
+        double[] b = blick;
+        if (!haupt || b == null || cullStets) {
+            forest.update(gl, v);
+            cullAuge = null;
+        } else {
+            boolean neu = zustandNeu || cullAuge == null || cullAlter >= 30 || !forest.ready();
+            if (!neu) {
+                double dx = eye[0] - cullAuge[0], dy = eye[1] - cullAuge[1], dz = eye[2] - cullAuge[2];
+                double h = Math.toRadians(fovy) / 2, rand = Math.atan(CULL_WEIT * Math.tan(h)) - h;
+                double c = (b[0] * cullBlick[0] + b[1] * cullBlick[1] + b[2] * cullBlick[2])
+                        / Math.sqrt((b[0] * b[0] + b[1] * b[1] + b[2] * b[2]) * (cullBlick[0] * cullBlick[0] + cullBlick[1] * cullBlick[1] + cullBlick[2] * cullBlick[2]));
+                neu = dx * dx + dy * dy + dz * dz > 4 || Math.acos(Math.min(1, c)) > 0.8 * rand;
+            }
+            if (neu) {
+                float[] w = vp.clone();   // Zeilen x und y des Clipraums gestaucht: der Kegel wird um CULL_WEIT weiter
+                for (int k = 0; k < 4; k++) { w[k * 4] /= (float) CULL_WEIT; w[k * 4 + 1] /= (float) CULL_WEIT; }
+                v.viewProj = w;
+                forest.update(gl, v);
+                v.viewProj = vp;
+                cullAuge = eye.clone();
+                cullBlick = b.clone();
+                cullAlter = 0;
+                zustandNeu = false;
+            } else {
+                cullAlter++;
+                cullGespart++;
+            }
+        }
         forest.draw(gl, v, licht(sun), t);
         gl.glDisable(GL.GL_DEPTH_TEST);
     }
@@ -470,7 +555,7 @@ public final class WaldGl {
     /** Für HUD und Prüfung: sichtbare Bäume, Stufen, Speicher. */
     public String info() {
         if (forest == null) return status;
-        return String.format(Locale.GERMAN, "%s · %,d sichtbar, %.0f MB · %s", forest.info(), forest.visible(), forest.vramBytes() / 1e6, knick.info);
+        return String.format(Locale.GERMAN, "%s · %,d sichtbar, %.0f MB · Prüfung %d× gespart · %s", forest.info(), forest.visible(), forest.vramBytes() / 1e6, cullGespart, knick.info);
     }
 
     public void dispose(GL4 gl) {
