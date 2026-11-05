@@ -1,5 +1,7 @@
-# Werkbuch Welle W5 Runde 5: H6 dreimal hintereinander (Streuung der Radeon), dazu von oben
-nr=1;name=N_H6_1;xz=1750,-1350;auge=120;blick=352;neigung=-8;zeitstand=welle;ereignis=137;brennweite=50;warum=H6, Lauf 1
-nr=2;name=N_H6_2;xz=1750,-1350;auge=120;blick=352;neigung=-8;zeitstand=welle;ereignis=137;brennweite=50;warum=H6, Lauf 2
-nr=3;name=N_H6_3;xz=1750,-1350;auge=120;blick=352;neigung=-8;zeitstand=welle;ereignis=137;brennweite=50;warum=H6, Lauf 3
-nr=4;name=N_Hoch_t134_85mm;xz=3400,-2300;auge=650;blick=290;neigung=3;zeitstand=welle;ereignis=134;brennweite=85;warum=Zunge von oben
+# Werkbuch Welle W5 Runde 6: H6 und H13 im Fluss
+nr=1;name=Q_H6_1;xz=1750,-1350;auge=120;blick=352;neigung=-8;zeitstand=welle;ereignis=137;brennweite=50;warum=H6, Lauf 1
+nr=2;name=Q_H6_2;xz=1750,-1350;auge=120;blick=352;neigung=-8;zeitstand=welle;ereignis=137;brennweite=50;warum=H6, Lauf 2
+nr=3;name=Q_H6_cullStets;xz=1750,-1350;auge=120;blick=352;neigung=-8;zeitstand=welle;ereignis=137;brennweite=50;schalter=wald.cullStets=true;warum=H6, Wald prüft jedes Bild (Runde 5)
+nr=4;name=Q_H13_1;xz=168,-870;auge=4;blick=98;neigung=-3;ereignis=180;brennweite=85;warum=H13, Spiegel jedes zweite Bild
+nr=5;name=Q_H13_2;xz=168,-870;auge=4;blick=98;neigung=-3;ereignis=180;brennweite=85;warum=H13, Lauf 2
+nr=6;name=Q_H13_takt1;xz=168,-870;auge=4;blick=98;neigung=-3;ereignis=180;brennweite=85;schalter=spiegelTakt=1;warum=H13, Spiegel jedes Bild (Runde 5)

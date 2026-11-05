@@ -232,6 +232,16 @@ public final class Tempo {
         System.out.println("Bildzeiten (ms):" + zeiten);
         java.util.Arrays.sort(alle);
         System.out.printf(Locale.GERMAN, "Median %.2f ms%n", frames == 0 ? 0 : alle[frames / 2]);
+        // Runde 6: im Fluss, wie im Programm: Bilder ohne Warten je Bild (Prozessor und Grafikkarte arbeiten gleichzeitig),
+        // am Ende einmal glFinish; die Zeit durch die Zahl der Bilder. Oben wartet jedes Bild auf die Grafikkarte.
+        if (frames > 0) {
+            long f0 = System.nanoTime();
+            for (int i = 0; i < frames; i++) { r.step(1 / 60.0); d.display(); }
+            d.getContext().makeCurrent();
+            d.getGL().glFinish();
+            d.getContext().release();
+            System.out.printf(Locale.GERMAN, "Im Fluss %.2f ms je Bild (%d Bilder ohne Warten)%n", (System.nanoTime() - f0) / 1e6 / frames, frames);
+        }
         // W5: Licht am Ende des Laufs (für die Suche nach dem Rot der Kronen)
         com.dan.sky.Sky.State ls = r.licht.state();
         if (ls != null) {

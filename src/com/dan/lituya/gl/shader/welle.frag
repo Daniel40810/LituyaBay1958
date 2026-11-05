@@ -305,7 +305,10 @@ void main() {
             float vk = inversesqrt(a * a + (1.0 - a) * (1.0 - a));
             m.faden = 0.5 + (mix(m.faden, o.faden, a) - 0.5) * vk; m.ball = 0.5 + (mix(m.ball, o.ball, a) - 0.5) * vk;
             m.gb = mix(m.gb, o.gb, a) * vk;
-            m.st = mix(m.st, o.st, a); m.stHell = mix(m.stHell, o.stHell, a); m.stFern = mix(m.stFern, o.stFern, a);
+            // Runde 6: Stämme nicht gemischt (in der Mitte standen sie halb so kräftig): die der Hauptrichtung voll, die der
+            // zweiten kommen kurz vor der Mitte voll dazu (dort kurz doppelt so dicht); die Farbe vom kräftigeren
+            float s1 = o.st * smoothstep(0.3, 0.5, a);
+            m.stHell = s1 > m.st ? o.stHell : m.stHell; m.st = max(m.st, s1); m.stFern = mix(m.stFern, o.stFern, a);
         }
         float faden = m.faden, ball = m.ball, pxL = px;
         float sinkt = 1.0 - smoothstep(-0.9, -0.05, vSteig + 0.5 * (faden - 0.5));
