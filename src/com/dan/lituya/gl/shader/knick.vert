@@ -51,8 +51,10 @@ void main() {
         w = (vor + sw) * aAux.x;
         if (laub > 0.25) {
             float ab = smoothstep(0.1 + 0.4 * hsh(aPos.y), 0.9 + 0.5 * hsh(aPos.x), tau);
-            p.xz *= 1.0 - 0.8 * ab;
-            p += F * ab * (8.0 + 18.0 * tau) + vec3(0.0, -ab * 4.0, 0.0);
+            // Runde 5: die Krone zerfällt (zieht sich auf einen Punkt zusammen) und geht mit dem Wasser fort und unter; vorher
+            // blieb sie als schmale Spitze erhalten und flog über dem Grat (aus der Ferne: dünne Spitzen in der Luft)
+            p = mix(p, vec3(0.0, 0.45 * H, 0.0), ab);
+            p += F * ab * (8.0 + 18.0 * tau) + vec3(0.0, -ab * (4.0 + 8.0 * tau), 0.0);
         }
     } else if (tau > 0.0) {
         // fort und umgelegt in der Zunge: die Krone wird abgerissen, es bleibt der Stamm (Probe W5D: liegende Kronen standen

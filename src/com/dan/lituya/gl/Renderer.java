@@ -1061,6 +1061,7 @@ public final class Renderer implements GLEventListener {
         ereignisGl.fovy = fovy();
         ereignisGl.spiegelTex = meerJetzt ? meer.spiegelTextur() : 0;   // W3c: Spiegel der Berge auch auf der Welle
         ereignisGl.bildPx = new double[]{w, h};
+        if (ereignisGl.grund == null) ereignisGl.grund = this::groundHeight;   // W5 Runde 5: Kacheln hinter dem Gelände
         ereignisGl.zielFbo = hdrColorFbo;   // W4: Ziel des Staubs in halber Auflösung
         ereignisGl.rueckbauAn = rueckbauJetzt && clock.zeitstand != SceneClock.Zeitstand.HEUTE;
         {

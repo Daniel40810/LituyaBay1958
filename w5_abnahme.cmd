@@ -1,5 +1,5 @@
 @echo off
-rem Werkbuch Welle W5 „524 m“: Abnahme auf der Radeon (Runde 4: Kacheln 10 px, Messung nach glFinish, Holzteppich, Kegel ab 1,5 km). Doppelklick; Protokoll _transfer\w5\w5_abnahme_log.txt.
+rem Werkbuch Welle W5 „524 m“: Abnahme auf der Radeon (Runde 5: Welle hinter Gelände weg, Medien je Hülle, Zunge ohne Flauheit, Kronen zerfallen). Doppelklick; Protokoll _transfer\w5\w5_abnahme_log.txt.
 cd /d "%~dp0"
 set "JAVA_HOME=C:\Program Files\Java\jdk-21"
 set "PATH=%JAVA_HOME%\bin;%PATH%"

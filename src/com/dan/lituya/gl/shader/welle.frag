@@ -120,10 +120,10 @@ void main() {
     bool hatL0 = dot(vLauf, vLauf) > 0.25 && vSeit > -1e8;
     vec2 TL = hatL0 ? normalize(vLauf) : vec2(1.0, 0.0), TLq = vec2(-TL.y, TL.x);
     // Runde 4: zwei der acht festen Richtungen, nach dem Winkel der Laufrichtung gemischt (siehe zungeMuster)
-    float aL = atan(TL.y, TL.x) / 0.7853982, kL = floor(aL), wL = smoothstep(0.25, 0.75, aL - kL);
+    float aL = atan(TL.y, TL.x) / 0.7853982, kL = floor(aL), wL = smoothstep(0.32, 0.68, aL - kL);
     vec2 DL0 = vec2(cos(kL * 0.7853982), sin(kL * 0.7853982)), DL1 = vec2(cos((kL + 1.0) * 0.7853982), sin((kL + 1.0) * 0.7853982));
     float fingerN = wL <= 0.0 ? fingerMuster(DL0, vW.xz, uEreignis) : wL >= 1.0 ? fingerMuster(DL1, vW.xz, uEreignis)
-                  : mix(fingerMuster(DL0, vW.xz, uEreignis), fingerMuster(DL1, vW.xz, uEreignis), wL);
+                  : 0.5 + (mix(fingerMuster(DL0, vW.xz, uEreignis), fingerMuster(DL1, vW.xz, uEreignis), wL) - 0.5) * inversesqrt(wL * wL + (1.0 - wL) * (1.0 - wL));
     float vorkante = (fingerN - 0.45) * 1.6;   // s, wie weit die Kante hier vor- oder zurückliegt
     if (landW > 0.05 && stand > uLevel + 0.5 && seit < vorkante * landW) discard;
     float nach = seit >= 0.0 ? 1.0 : 0.0;
@@ -301,7 +301,10 @@ void main() {
         if (wL > 0.0 && wL < 1.0) {
             Zm o = zungeMuster(wL < 0.5 ? DL1 : DL0, vW.xz, seitL, t, px);
             float a = wL < 0.5 ? wL : 1.0 - wL;
-            m.faden = mix(m.faden, o.faden, a); m.ball = mix(m.ball, o.ball, a); m.gb = mix(m.gb, o.gb, a);
+            // Runde 5: zwei unabhängige Muster gemischt sind flauer (Streuung × √(a² + (1−a)²)); auf die alte Streuung zurück
+            float vk = inversesqrt(a * a + (1.0 - a) * (1.0 - a));
+            m.faden = 0.5 + (mix(m.faden, o.faden, a) - 0.5) * vk; m.ball = 0.5 + (mix(m.ball, o.ball, a) - 0.5) * vk;
+            m.gb = mix(m.gb, o.gb, a) * vk;
             m.st = mix(m.st, o.st, a); m.stHell = mix(m.stHell, o.stHell, a); m.stFern = mix(m.stFern, o.stFern, a);
         }
         float faden = m.faden, ball = m.ball, pxL = px;
