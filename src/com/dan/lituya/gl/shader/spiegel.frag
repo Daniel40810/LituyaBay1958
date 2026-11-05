@@ -16,6 +16,7 @@ uniform vec4 uMilchA, uMilchB;   // Quelle x, z, Reichweite (m), Stärke
 uniform mat4 uSpiegelVP, uJetztVP;   // Runde 7: Blick beim Spiegelbild und jetzt
 uniform sampler2D uSpTiefe;   // Runde 8: Tiefe des Spiegelbilds
 uniform float uSpNah;
+uniform int uSpSchritte;   // Runde 9: 1 oder 2 Schritte mit der Tiefe
 uniform vec3 uSpVorn;
 
 // Runde 8: Spiegelbild aus einem früheren Bild an die jetzige Stelle (uv: jetzt, dir: Sehstrahl jetzt, normiert).
@@ -31,7 +32,17 @@ vec2 spiegelUV(vec2 uv, vec3 dir) {
     vec3 Y = uCam + dir * (vz / max(dot(dir, uSpVorn), 1e-3));   // der gespiegelte Punkt (unter dem Wasser)
     vec4 b = uSpiegelVP * vec4(Y, 1.0), k = uJetztVP * vec4(Y, 1.0);
     if (b.w <= 1e-3 || k.w <= 1e-3) return u0;
-    return uv + (b.xy / b.w - k.xy / k.w) * 0.5;
+    vec2 u1 = uv + (b.xy / b.w - k.xy / k.w) * 0.5;
+    // Runde 9: ein zweiter Schritt mit der Tiefe an der neuen Stelle. An der Kante vom nahen Ufer zum Berg dahinter lag
+    // die erste Tiefe oft auf der falschen Seite; mit dem zweiten Schritt rastet der Punkt auf die Schicht ein, die dort
+    // im Spiegelbild wirklich liegt
+    float z1 = texture(uSpTiefe, u1).r;
+    if (!(z1 > 0.0)) return u1;
+    vec3 Y1 = uCam + dir * ((uSpNah / z1) / max(dot(dir, uSpVorn), 1e-3));
+    vec4 b1 = uSpiegelVP * vec4(Y1, 1.0), k1 = uJetztVP * vec4(Y1, 1.0);
+    if (b1.w <= 1e-3 || k1.w <= 1e-3) return u1;
+    vec2 u2 = uv + (b1.xy / b1.w - k1.xy / k1.w) * 0.5;
+    return uSpSchritte >= 2 ? u2 : u1;
 }
 
 float h2(vec2 i) { return fract(sin(dot(i, vec2(127.1, 311.7))) * 43758.5453); }

@@ -171,6 +171,9 @@ public final class EreignisGl {
     public int spiegelTiefe;
     public volatile float[] spiegelVorn = {0, 0, -1};
     static final int UNIT_SPIEGEL_TIEFE = 17;
+    /** Runde 9: Schritte des Spiegelbilds mit der Tiefe (1 wie Runde 8, 2 neu) und ganz ausgeblendete Lagen nicht rechnen. */
+    public volatile int spiegelSchritte = 2;
+    public volatile boolean fruehAus = true;
     public double[] bildPx = {1920, 1080}, windXZ = {0.8, 0.6};
     static final int UNIT_SPIEGEL = 16;
     /** W3c: Wasser im Nahfeld hinter der Linie der Quelle zeigen (sonst ein leeres Becken). */
@@ -657,6 +660,8 @@ public final class EreignisGl {
             gl.glActiveTexture(GL.GL_TEXTURE0);
             welle.set(gl, "uSpTiefe", UNIT_SPIEGEL_TIEFE);
             welle.set(gl, "uSpNah", (float) Renderer.NEAR);
+            welle.set(gl, "uSpSchritte", spiegelSchritte);
+            welle.set(gl, "uFrueh", fruehAus ? 1 : 0);
             { float[] v = spiegelVorn; welle.set(gl, "uSpVorn", v[0], v[1], v[2]); }
             welle.set(gl, "uBildPx", (float) bildPx[0], (float) bildPx[1]);
             welle.set(gl, "uWindXZ", (float) windXZ[0], (float) windXZ[1]);

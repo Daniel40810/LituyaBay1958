@@ -27,6 +27,7 @@ uniform sampler2D uRefl;
 uniform mat4 uSpiegelVP, uJetztVP;   // Runde 7: Blick beim Spiegelbild und jetzt (Spiegel jedes zweite Bild)
 uniform sampler2D uSpTiefe;   // Runde 8: Tiefe des Spiegelbilds
 uniform float uSpNah;
+uniform int uSpSchritte;   // Runde 9: 1 oder 2 Schritte mit der Tiefe
 uniform vec3 uSpVorn;
 uniform int uSpiegelAn;
 uniform vec2 uBildPx;
@@ -46,9 +47,15 @@ float vn(vec2 x) {
 }
 // W0 (K4): Rauschen mit Periode p (m), das ausblendet (zum Mittel 0,5 geht), sobald ein Bildpunkt mehr als rund ein
 // Drittel der Periode deckt
-float vnf(vec2 q, float p, vec2 o, float px) { return mix(vn(q / p + o), 0.5, smoothstep(0.25, 0.6, px / p)); }
+uniform int uFrueh;   // Runde 9: 1 = ganz ausgeblendete Lagen nicht rechnen (gleiches Ergebnis), 0 = wie bisher (Probe)
+float vnf(vec2 q, float p, vec2 o, float px) {
+    float a = px / p;
+    if (uFrueh == 1 && a >= 0.6) return 0.5;   // Runde 9: ganz zum Mittel ausgeblendet, das Rauschen nicht rechnen
+    return mix(vn(q / p + o), 0.5, smoothstep(0.25, 0.6, a));
+}
 // Steigung einer Lage (zentrale Differenz über ein Viertel der Periode), gefiltert wie vnf
 vec2 lage(vec2 q, float p, vec2 o, float px) {
+    if (uFrueh == 1 && px / p >= 0.55) return vec2(0.0);   // Runde 9: ganz ausgeblendet
     float e = 0.25;
     vec2 g = vec2(vn(q / p + o + vec2(e, 0.0)) - vn(q / p + o - vec2(e, 0.0)), vn(q / p + o + vec2(0.0, e)) - vn(q / p + o - vec2(0.0, e)));
     return g * (1.0 - smoothstep(0.2, 0.55, px / p));
@@ -102,7 +109,17 @@ vec2 spiegelUV(vec2 uv, vec3 dir) {
     vec3 Y = uCam + dir * (vz / max(dot(dir, uSpVorn), 1e-3));   // der gespiegelte Punkt (unter dem Wasser)
     vec4 b = uSpiegelVP * vec4(Y, 1.0), k = uJetztVP * vec4(Y, 1.0);
     if (b.w <= 1e-3 || k.w <= 1e-3) return u0;
-    return uv + (b.xy / b.w - k.xy / k.w) * 0.5;
+    vec2 u1 = uv + (b.xy / b.w - k.xy / k.w) * 0.5;
+    // Runde 9: ein zweiter Schritt mit der Tiefe an der neuen Stelle. An der Kante vom nahen Ufer zum Berg dahinter lag
+    // die erste Tiefe oft auf der falschen Seite; mit dem zweiten Schritt rastet der Punkt auf die Schicht ein, die dort
+    // im Spiegelbild wirklich liegt
+    float z1 = texture(uSpTiefe, u1).r;
+    if (!(z1 > 0.0)) return u1;
+    vec3 Y1 = uCam + dir * ((uSpNah / z1) / max(dot(dir, uSpVorn), 1e-3));
+    vec4 b1 = uSpiegelVP * vec4(Y1, 1.0), k1 = uJetztVP * vec4(Y1, 1.0);
+    if (b1.w <= 1e-3 || k1.w <= 1e-3) return u1;
+    vec2 u2 = uv + (b1.xy / b1.w - k1.xy / k1.w) * 0.5;
+    return uSpSchritte >= 2 ? u2 : u1;
 }
 
 void main() {

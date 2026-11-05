@@ -7,10 +7,10 @@ set "PATH=%JAVA_HOME%\bin;%PATH%"
 set "ANT=C:\Program Files\Apache NetBeans\extide\ant\bin\ant.bat"
 set "UP=-Duser.properties.file=C:\Users\Dan40810\AppData\Roaming\NetBeans\30\build.properties"
 set "LOG=_transfer\w5\w5_diag_log.txt"
-echo === W5 Runde 8 (W5R8) === > "%LOG%"
+echo === W5 Runde 9 (W5R9) === > "%LOG%"
 powercfg /getactivescheme >> "%LOG%" 2>&1
 powershell -NoProfile -Command "Get-CimInstance Win32_Battery | Format-List BatteryStatus,EstimatedChargeRemaining; Get-CimInstance Win32_VideoController | Format-List Name,DriverVersion,CurrentRefreshRate" >> "%LOG%" 2>&1
 start "zustand" /min powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0zustand.ps1"
-call "%ANT%" "%UP%" "-Dbildbank=src/com/dan/lituya/scene/aufnahmen_w5d.txt" "-Dbild.phase=W5R8" "-Dbreite=1920" "-Dhoehe=1080" bildbank >> "%LOG%" 2>&1
+call "%ANT%" "%UP%" "-Dbildbank=src/com/dan/lituya/scene/aufnahmen_w5d.txt" "-Dbild.phase=W5R9" "-Dbreite=1920" "-Dhoehe=1080" bildbank >> "%LOG%" 2>&1
 echo.> "_transfer\w5\zustand.stop"
 echo === FERTIG %TIME% === >> "%LOG%"
