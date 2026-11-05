@@ -226,7 +226,7 @@ public final class WaldGl {
             if (gezeigt != -1) { d.states.clear(); gezeigt = -1; mitTreibgut = false; }
         } else if (t < 3600) {
             // W5: solange Bäume fallen, je 0,1 s neu (vorher alle 2 s)
-            double takt = knicken && t < KNICK_BIS ? 0.1 : 2;
+            double takt = knicken && t < 400 ? 0.1 : knicken ? 1 : 2;
             if (gezeigt != -2 || Math.abs(t - welleT) >= takt) { welle(t); gezeigt = -2; welleT = t; mitTreibgut = false; }
         } else {
             int y = Wald1958.jahr(clock.date());
@@ -238,7 +238,7 @@ public final class WaldGl {
     }
 
     /** W5: bis zu dieser Ereigniszeit (s) können Bäume fallen (die Ankünfte im Band liegen davor). */
-    static final double KNICK_BIS = 900;
+    static final double KNICK_BIS = 3600;   // Runde 3: umgelegte Stämme liegen bis zum Ende der Welle in KnickGl
     private static final float[] knick_leer = new float[0];
     private float[] knickBuf = new float[KnickGl.FL * 4096];
     private final com.dan.forest.ForestCulture.Tree baum = new com.dan.forest.ForestCulture.Tree();
@@ -309,10 +309,10 @@ public final class WaldGl {
     }
 
     /** W5: die fallenden Bäume zeichnen (nach dem Wald, vor der Welle). */
-    public void knickZeichnen(GL4 gl, java.util.function.Consumer<Shader> common, double[] eye, double t, boolean reversed) {
+    public void knickZeichnen(GL4 gl, java.util.function.Consumer<Shader> common, double[] eye, float[] vp, double t, boolean reversed) {
         if (!an || forest == null || knick.zahl() == 0) return;
         gl.glDepthFunc(reversed ? GL.GL_GREATER : GL.GL_LESS);
-        knick.zeichnen(gl, forest, tag, common, eye, t, (float) (1 / (2 * Site.EARTH_R_OPTICAL)));
+        knick.zeichnen(gl, forest, tag, common, eye, vp, t, (float) (1 / (2 * Site.EARTH_R_OPTICAL)));
         gl.glDisable(GL.GL_DEPTH_TEST);
     }
 

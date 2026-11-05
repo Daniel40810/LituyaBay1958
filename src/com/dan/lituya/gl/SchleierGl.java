@@ -26,7 +26,7 @@ import java.util.function.Consumer;
  * Streuung und Luftwiderstand gestaltet. Die Bahn rechnet der Eckenformer aus Abwurf und Zeit; der Prozessor schickt die
  * Fäden einmal zur Grafikkarte.
  */
-final class SchleierGl {
+public final class SchleierGl {
     /** Fäden je Randpunkt, Abstand der Randpunkte (Zellen des 2-m-Gitters). */
     static final int JE = 40, SCHRITT = 2;
     /** Floats je Faden: Ort x y z, Abwurf (s) · Geschwindigkeit x y z, Kennung. */
@@ -158,6 +158,9 @@ final class SchleierGl {
         gl.glDepthMask(true);
         gl.glDisable(GL.GL_DEPTH_TEST);
     }
+
+    /** Ob die Fäden gerechnet sind (oder es nichts zu rechnen gibt). */
+    public boolean fertig() { return bau == null; }
 
     void dispose(GL4 gl) {
         shader.dispose(gl);

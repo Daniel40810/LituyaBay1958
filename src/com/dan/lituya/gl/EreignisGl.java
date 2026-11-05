@@ -32,9 +32,9 @@ public final class EreignisGl {
      * W5 Tempo: Kante einer Stufe der Kacheln in Bildpunkten (vorher fest {@link #PIXEL}). In H6 lag der Hang in 1,5–2 km
      * mit 50 mm in voller Auflösung (2-m-Zellen, 3 Bildpunkte je Kante): 1,6 Mio. Dreiecke der Welle, 18 ms.
      */
-    public volatile double kachelPixel = 5;   // Probe W5E: 6 sparte rund 3 ms in H6 ohne sichtbaren Unterschied
+    public volatile double kachelPixel = 6;   // Probe W5E: 6 sparte rund 3 ms in H6 ohne sichtbaren Unterschied (Runde 3: 6)
     /** W5 Tempo: Schritte des Strahls durch Staub und Gischt (vorher fest 64). */
-    public volatile int medienSchritte = 48;   // Probe W5E: 40 sparte rund 3 ms
+    public volatile int medienSchritte = 40;   // Probe W5E: 40 sparte rund 3 ms ohne sichtbaren Unterschied (Runde 3: 40)
     public static final int MAX_SCHRITT = 16;
 
     final Shader welle = new Shader("Welle", null, "spur.vert", "welle.frag"),

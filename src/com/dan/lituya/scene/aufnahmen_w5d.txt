@@ -1,7 +1,4 @@
-# Werkbuch Welle W5 Runde 2: Gischt, Schleier, Tempo am H6 (Schalter auf Felder des Renderers, nur Proben).
-nr=1;name=R_neu;xz=1750,-1350;auge=120;blick=352;neigung=-8;zeitstand=welle;ereignis=137;brennweite=50;warum=neue Gischt und Schleier, Kacheln wie bisher
-nr=2;name=R_px6;xz=1750,-1350;auge=120;blick=352;neigung=-8;zeitstand=welle;ereignis=137;brennweite=50;schalter=ereignisGl.kachelPixel=6;warum=Kacheln halb so fein
-nr=3;name=R_px6_s40;xz=1750,-1350;auge=120;blick=352;neigung=-8;zeitstand=welle;ereignis=137;brennweite=50;schalter=ereignisGl.kachelPixel=6,ereignisGl.medienSchritte=40;warum=dazu 40 Schritte
-nr=4;name=R_ohneSchleier;xz=1750,-1350;auge=120;blick=352;neigung=-8;zeitstand=welle;ereignis=137;brennweite=50;schalter=schleier.an=false;warum=Vergleich ohne Schleier
-nr=5;name=R_ohneGischt;xz=1750,-1350;auge=120;blick=352;neigung=-8;zeitstand=welle;ereignis=137;brennweite=50;schalter=ereignisGl.vorhang=false;warum=nur Schleier
-nr=6;name=R_t140;xz=1750,-1350;auge=120;blick=352;neigung=-8;zeitstand=welle;ereignis=140;brennweite=50;warum=Rückfall, Schleier fallen
+# Werkbuch Welle W5 Runde 3: Zeit von H6 mit dem Spiegel ab 8 % Wasser im Bild.
+nr=1;name=H6_Zeit;xz=1750,-1350;auge=120;blick=352;neigung=-8;zeitstand=welle;ereignis=137;brennweite=50;warum=H6
+nr=2;name=H6_Zeit_b;xz=1750,-1350;auge=120;blick=352;neigung=-8;zeitstand=welle;ereignis=137;brennweite=50;warum=H6, zweiter Lauf
+nr=3;name=H5_Zeit;schaustueck=4;ereignis=104;brennweite=24;warum=H5 zum Vergleich der Mittel

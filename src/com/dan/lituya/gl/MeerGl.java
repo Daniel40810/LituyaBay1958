@@ -33,6 +33,11 @@ public final class MeerGl {
     public volatile boolean an = true;
     /** Spiegelung der Berge (halbe Auflösung); mit Wald im Spiegel ab „Hoch“. */
     public volatile boolean spiegel = true, waldImSpiegel = true;
+    /**
+     * W5 Tempo: das Spiegelbild in diesem Bild rechnen (der Renderer schaltet es ab, wenn kaum Wasser im Bild ist: in H6
+     * „524 m“ zeichnete der Spiegel Gelände und Wald ein zweites Mal für einen Streifen Wasser am unteren Rand).
+     */
+    public volatile boolean spiegelJetzt = true;
     /** Seegang in Beaufort (klarer Abend nach den Zeugen: ruhig) [G]. */
     public volatile int beaufort = 1;
 
@@ -50,7 +55,7 @@ public final class MeerGl {
 
     public String status() { return status; }
     /** W3c: das Spiegelbild der Berge (für die Welle), 0 ohne. */
-    public int spiegelTextur() { return spiegel && ok ? reflTex : 0; }
+    public int spiegelTextur() { return spiegel && spiegelJetzt && ok ? reflTex : 0; }
     public boolean bereit() { return ok; }
 
     public void init(GL4 g) {
@@ -184,7 +189,7 @@ public final class MeerGl {
         g.glActiveTexture(GL.GL_TEXTURE0);
         spiegelShader.set(g, "uRefl", 0);
         spiegelShader.set(g, "uDepth", 1);
-        spiegelShader.set(g, "uSpiegelAn", spiegel && reflTex != 0 ? 1 : 0);
+        spiegelShader.set(g, "uSpiegelAn", spiegel && spiegelJetzt && reflTex != 0 ? 1 : 0);
         spiegelShader.set(g, "uNear", near);
         spiegelShader.set(g, "uFar", far);
         spiegelShader.set(g, "uWelleAn", welleRect != null ? 1 : 0);

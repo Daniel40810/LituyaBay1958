@@ -269,14 +269,28 @@ void main() {
         float jung = 1.0 - smoothstep(4.0, 14.0, seitL);
         float duenn = 1.0 - smoothstep(1.5, 8.0, vTiefe);
         // Weißwasser: hangauf fast überall, beim Rückfall in Rinnen
+        // Runde 3: Schaum als Ballen [G]. Aus 1,5 km las sich die Zunge als flache helle Streifen (wie Schnee): jetzt zwei
+        // Lagen gewölbter Ballen (4 und 10 m, „Billow“), die mit dem Wasser wandern, aus ihrem Gefälle eine Normale; Licht
+        // von oben auf die Kuppen, die Furchen dazwischen im Eigenschatten
+        vec2 qb = vec2(laengsL, querL - t * (seitL < 6.0 ? 13.0 : -6.0));
+        #define BALL(q) ((1.0 - abs(2.0 * vnf(q, 4.0, vec2(0.0), pxL) - 1.0)) * 0.55 + (1.0 - abs(2.0 * vnf((q) + 11.0, 10.0, vec2(0.0), pxL) - 1.0)) * 0.45)
+        float ball = BALL(qb);
+        vec2 gb = vec2(0.0);   // Gefälle nur, solange ein Ballen mehr als rund drei Bildpunkte deckt (Tempo)
+        if (pxL < 1.3) gb = vec2(BALL(qb + vec2(0.8, 0.0)) - ball, BALL(qb + vec2(0.0, 0.8)) - ball) / 0.8 * 3.0 * (1.0 - smoothstep(0.4, 1.3, pxL));
+        #undef BALL
         // (Probe W5Q: mit 0,30–0,62 war die Zunge braun mit hellen Flecken; sie ist durchlüftet, also fast ganz weiß)
-        float wsL = mix(smoothstep(0.12, 0.42, faden + 0.30 * jung), smoothstep(0.50, 0.78, faden) * 0.75, sinkt);
+        // Runde 3: die Ränder der Fäden in Ballen aufgebrochen (vorher glatte Bänder von 30 m Länge: wie Schnee)
+        float bruch = (ball - 0.62) * 0.7;
+        float wsL = mix(smoothstep(0.12, 0.42, faden + 0.30 * jung + bruch), smoothstep(0.50, 0.78, faden + bruch) * 0.75, sinkt);
         wsL = max(wsL, (1.0 - smoothstep(0.0, 1.4, seitL)) * smoothstep(0.25, 0.55, faden + 0.3));   // Saum an der Kante
         vec3 erde = mix(vec3(0.30, 0.24, 0.17), vec3(0.20, 0.15, 0.10), duenn) * eDown * 0.45;   // Wasser voll Erde und Nadeln
         vec3 colL = mix(erde, col, 0.25 * (1.0 - duenn));
         // dünnes Wasser beim Rückfall glänzt (Himmel im Wasserfilm), dickes ist trüb
         colL = mix(colL, mix(erde, skyColor(reflect(d, normalize(N + vec3(g.x, 0.0, g.y) * 0.6))) * 0.5, 0.6 * fres + 0.25 * sinkt * duenn), sinkt * 0.7);
-        vec3 schaumL = mix(vec3(0.84, 0.83, 0.80), vec3(0.62, 0.55, 0.45), 0.35 * duenn + 0.25 * sinkt) * weissW;
+        vec3 nB = normalize(N + vec3(TLq.x, 0.0, TLq.y) * gb.x + vec3(TL.x, 0.0, TL.y) * gb.y);
+        vec3 lichtB = sunAt(vW) * max(dot(nB, uSun), 0.0) * 0.9 + umgebung(normalize(nB + vec3(0.0, 0.6, 0.0))) * 1.15;
+        float furche = mix(0.38, 1.15, smoothstep(0.15, 0.85, ball));
+        vec3 schaumL = mix(vec3(0.86, 0.85, 0.82), vec3(0.62, 0.55, 0.45), 0.35 * duenn + 0.25 * sinkt) * mix(weissW, lichtB * furche, 0.8);
         colL = mix(colL, schaumL, clamp(wsL * (0.95 - 0.35 * duenn * sinkt), 0.0, 1.0));
         // Stämme in der Zunge, längs der Strömung, dunkel mit hellen geschälten
         vec2 zs = floor(vec2(qL.x / 7.0, qL.y / 13.0)), fs = vec2(qL.x / 7.0, qL.y / 13.0) - zs;
