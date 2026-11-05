@@ -1,0 +1,3 @@
+# Werkbuch Welle W5 Runde 10: Wärme, kalt (nach 5 min Pause)
+nr=1;name=W_H6_kalt;xz=1750,-1350;auge=120;blick=352;neigung=-8;zeitstand=welle;ereignis=137;brennweite=50;warum=Runde 10
+nr=2;name=W_H13_kalt;xz=168,-870;auge=4;blick=98;neigung=-3;ereignis=180;brennweite=85;warum=Runde 10

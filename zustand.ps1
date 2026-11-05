@@ -1,6 +1,6 @@
 ﻿# Werkbuch Welle W5 Runde 8: Zustand des Rechners alle 2 s (WMI-Klassen mit englischen Namen, typeperf kennt auf
 # deutschem Windows nur die übersetzten Zählernamen). Ende, sobald _transfer\w5\zustand.stop da ist.
-$aus = Join-Path $PSScriptRoot "_transfer\w5\zustand.csv"
+$aus = Join-Path $PSScriptRoot ("_transfer\w5\zustand_" + (Get-Date -Format "yyyyMMdd_HHmmss") + ".csv")   # Runde 10: je Lauf eine Datei
 $stop = Join-Path $PSScriptRoot "_transfer\w5\zustand.stop"
 if (Test-Path $stop) { Remove-Item $stop }
 "Zeit;Netz;Akku;CPU_Leistung_Prozent;CPU_Auslastung_Prozent;Temperatur_C;GPU_3D_Prozent" | Out-File -Encoding utf8 $aus

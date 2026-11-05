@@ -1,5 +1,5 @@
 @echo off
-rem Werkbuch Welle W5 „524 m“: Abnahme auf der Radeon (Runde 9: ausgeblendete Lagen der Welle nicht rechnen, Spiegel mit zwei Schritten; Zustand in _transfer\w5\zustand.csv). Doppelklick; Protokoll _transfer\w5\w5_abnahme_log.txt.
+rem Werkbuch Welle W5 „524 m“: Abnahme auf der Radeon (Runde 10: Lagen des Schaums und die Kräusel nur, wo sie wirken; Zustand in _transfer\w5\zustand.csv). Doppelklick; Protokoll _transfer\w5\w5_abnahme_log.txt.
 cd /d "%~dp0"
 set "JAVA_HOME=C:\Program Files\Java\jdk-21"
 set "PATH=%JAVA_HOME%\bin;%PATH%"
@@ -17,7 +17,7 @@ echo === 4 Film 524 m (20 s, 1280 x 720, 50 mm) === >> "%LOG%"
 call "%ANT%" "%UP%" "-Dbuch=524 m" "-Dbreite=1280" "-Dhoehe=720" "-Dbrennweite=50" film >> "%LOG%" 2>&1
 echo === 5 Pruefung === >> "%LOG%"
 call "%ANT%" "%UP%" pruefung >> "%LOG%" 2>&1
-echo === 6 t142, H6, H13, H7 im Fluss (W5Z9) === >> "%LOG%"
-call "%ANT%" "%UP%" "-Dbildbank=src/com/dan/lituya/scene/aufnahmen_w5d.txt" "-Dbild.phase=W5Z9" "-Dbreite=1920" "-Dhoehe=1080" bildbank >> "%LOG%" 2>&1
+echo === 6 t142, H6, H13, H7 im Fluss (W5Z10) === >> "%LOG%"
+call "%ANT%" "%UP%" "-Dbildbank=src/com/dan/lituya/scene/aufnahmen_w5d.txt" "-Dbild.phase=W5Z10" "-Dbreite=1920" "-Dhoehe=1080" bildbank >> "%LOG%" 2>&1
 echo.> "_transfer\w5\zustand.stop"
 echo === FERTIG %TIME% === >> "%LOG%"

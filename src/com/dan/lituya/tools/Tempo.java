@@ -181,6 +181,18 @@ public final class Tempo {
         d.getContext().makeCurrent();
         d.getGL().glFinish();
         d.getContext().release();
+        // Runde 10: last = Sekunden: vor der Messung so lange ohne Pause rechnen (Probe zur Wärme des Rechners)
+        String last = opt("last");
+        if (last != null && !last.isBlank()) {
+            long l0 = System.nanoTime(), ln = 0;
+            double ls = Double.parseDouble(last.trim().replace(',', '.'));
+            while (System.nanoTime() - l0 < ls * 1e9) {
+                r.step(1 / 60.0);
+                d.display();
+                if (++ln % 30 == 0) { d.getContext().makeCurrent(); d.getGL().glFinish(); d.getContext().release(); }
+            }
+            System.out.printf(Locale.GERMAN, "Last: %.0f s, %d Bilder, bis %s%n", ls, ln, java.time.LocalTime.now().withNano(0));
+        }
         // Phase 17a: regiebuch = Name (ganz durchspielen, 30 Bilder je Sekunde Regiezeit), kino = aus (im Fenster statt im Kino)
         String rbn = opt("regiebuch");
         if (rbn != null && !rbn.isBlank()) {
@@ -247,7 +259,7 @@ public final class Tempo {
             }
             double[] so = bl.clone();
             java.util.Arrays.sort(so);
-            System.out.printf(Locale.GERMAN, "Im Fluss %.2f ms je Bild (Mitte von 3 × %d Bildern ohne Warten; %.2f–%.2f) um %s%n", so[1], frames, so[0], so[2], java.time.LocalTime.now().withNano(0));
+            System.out.printf(Locale.GERMAN, "Im Fluss %.2f ms je Bild (Mitte von 3 × %d Bildern ohne Warten; %.2f–%.2f) um %s; Blöcke %.2f %.2f %.2f%n", so[1], frames, so[0], so[2], java.time.LocalTime.now().withNano(0), bl[0], bl[1], bl[2]);
         }
         // W5: Licht am Ende des Laufs (für die Suche nach dem Rot der Kronen)
         com.dan.sky.Sky.State ls = r.licht.state();
@@ -274,8 +286,9 @@ public final class Tempo {
                 d.display();
                 r.spiegelTakt = Integer.parseInt(fw[2].trim());
             }
-            for (int i = 0; i < 10; i++) {
-                c.place(c.fx + fm / 10, c.fy, c.fz, c.fyaw + fg / 10, c.fpitch);
+            int fn = fw.length > 3 ? Integer.parseInt(fw[3].trim()) : 10;   // Runde 10: vierter Wert, Zahl der Bilder
+            for (int i = 0; i < fn; i++) {
+                c.place(c.fx + fm / fn, c.fy, c.fz, c.fyaw + fg / fn, c.fpitch);
                 c.snap();
                 r.step(1 / 60.0);
                 d.display();
