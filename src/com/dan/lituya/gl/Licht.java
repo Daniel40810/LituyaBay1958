@@ -50,6 +50,8 @@ public final class Licht {
     public volatile boolean an = true;
     /** Exponent der Anpassung der Belichtung (1 volle, 0 keine): 0,8 lässt die Dämmerung dunkel. */
     public volatile double anpassung = 0.8;
+    /** W6: Blenden am Tag (bei hoher Sonne) zusätzlich, −1 [G]. */
+    public volatile double tagBlenden = -1.0;
     /**
      * Werkbuch Welle W5: Höhe (m), für die der Wald sein Sonnenlicht bekommt (vom Renderer je Bild: Grund am Zielpunkt
      * des Blicks). Vorher bekam der Wald die Sonne am Auge (com.dan.sky für die Augenhöhe), Gelände und Welle dagegen die
@@ -132,7 +134,11 @@ public final class Licht {
         // Belichtung: Himmel unter 50° und Blickfeld gemittelt, geglättet (im Standbild sofort)
         double[] up = {0, 1, 0};
         double a = Math.sqrt(Math.max(1e-14, st.adaptation) * Math.max(1e-14, st.viewLuminance(fwd, up, fovy, aspect)));
-        preZiel = Sky.State.exposureFor(a, anpassung) * Math.pow(2, bias);
+        // Werkbuch Welle W6: am Tag eine Blende weniger (Proben W6Q8 69/70: mit −1 lesbar, vorher Schnee, Wiesen und Dunst
+        // ausgebrannt); in der Dämmerung unverändert, Übergang zwischen 5° und 25° Sonnenhöhe [G]
+        double sonne = Math.toDegrees(Math.asin(Math.max(-1, Math.min(1, st.sunDir[1]))));
+        double tag = tagBlenden * Math.max(0, Math.min(1, (sonne - 5) / 20));
+        preZiel = Sky.State.exposureFor(a, anpassung) * Math.pow(2, bias + tag);
         pre = standbild || !(pre > 0) ? preZiel : Math.exp(Math.log(pre) + (Math.log(preZiel) - Math.log(pre)) * Math.min(1, dt * 1.5));
         // Höhen
         if (hoehen == null && stapelDa) hoehen = exec.submit(() -> hoehenRechnen(stapel));

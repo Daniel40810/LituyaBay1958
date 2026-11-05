@@ -1,0 +1,19 @@
+# Werkbuch Welle W6 „Landschaft“: Proben für Farbe, Fels, Schnee und Gletscher (ant bildbank -Dbildbank=src/com/dan/lituya/scene/aufnahmen_w6.txt).
+# Format wie bildbank.txt. „ohne“: dieselbe Ansicht mit dem Stand vor W6 (Schalter landschaft.an=false).
+nr=61;name=Kette_von_der_Bucht_Tag;ort=ANCHORAGE;auge=60;blickauf=FAIRWEATHER;neigung=-6;zeitstand=heute;datum=2026-07-20;uhr=14.0;brennweite=35;warum=W6: Farben der Hänge, Schnee und Fels bei Tag
+nr=62;name=Lituya-Gletscher_von_oben;ort=GILBERT;versatz=200,2500;auge=900;blickauf=LITUYA_GLACIER;neigung=10;zeitstand=heute;datum=2026-07-20;uhr=13.0;brennweite=35;warum=W6: Spalten, Moränen, blankes Eis
+nr=63;name=Fairweather_Flug;ort=GILBERT;versatz=180,6000;auge=2200;blickauf=FAIRWEATHER;neigung=-3;zeitstand=vor;uhr=22.1667;brennweite=50;warum=W6: die Kette im letzten Licht aus der Luft
+nr=64;name=Crillon_Wand_nah;ort=CRILLON_INLET;versatz=180,800;auge=150;blickauf=CRILLON;neigung=-8;zeitstand=heute;datum=2026-07-20;uhr=15.0;brennweite=50;warum=W6: Fels mit Schichtung in der Nähe
+nr=65;name=Kette_von_der_Bucht_Tag_ohne;ort=ANCHORAGE;auge=60;blickauf=FAIRWEATHER;neigung=-6;zeitstand=heute;datum=2026-07-20;uhr=14.0;brennweite=35;schalter=landschaft.an=false;warum=wie 61, Stand vor W6
+nr=66;name=Fairweather_Flug_ohne;ort=GILBERT;versatz=180,6000;auge=2200;blickauf=FAIRWEATHER;neigung=-3;zeitstand=vor;uhr=22.1667;brennweite=50;schalter=landschaft.an=false;warum=wie 63, Stand vor W6
+nr=67;name=North_Crillon_von_oben;ort=NORTH_CRILLON;auge=600;blick=0;neigung=35;zeitstand=heute;datum=2026-07-20;uhr=18.0;brennweite=35;warum=W6: Spalten aus der Nähe
+nr=68;name=Lituya-Gletscher_Zunge;ort=LITUYA_GLACIER;auge=500;blick=200;neigung=30;zeitstand=heute;datum=2026-07-20;uhr=18.0;brennweite=35;warum=W6: die Zunge über dem Gilbert Inlet, blankes Eis
+nr=69;name=Kette_Tag_minus1;ort=ANCHORAGE;auge=60;blickauf=FAIRWEATHER;neigung=-6;zeitstand=heute;datum=2026-07-20;uhr=14.0;brennweite=35;schalter=exposureBias=-1;warum=wie 61, eine Blende weniger (Probe der Belichtung am Tag)
+nr=70;name=Crillon_Wand_minus1;ort=CRILLON_INLET;versatz=180,800;auge=150;blickauf=CRILLON;neigung=-8;zeitstand=heute;datum=2026-07-20;uhr=15.0;brennweite=50;schalter=exposureBias=-1;warum=wie 64, eine Blende weniger
+nr=71;name=Fall_am_Crillon_Inlet;xz=4537,-2237;auge=40;blick=0;neigung=-10;zeitstand=heute;datum=2026-07-20;uhr=14.0;brennweite=50;warum=W6 (L9): Wasserfall über der Steilstufe, Tag
+nr=72;name=Fall_am_Crillon_Inlet_Abend;xz=4537,-2237;auge=40;blick=0;neigung=-10;zeitstand=vor;uhr=22.1;brennweite=50;warum=W6 (L9): derselbe Fall am Abend 1958
+nr=73;name=Faelle_Gilbert_Wand;xz=3465,-4475;auge=60;blick=0;neigung=-12;zeitstand=vor;uhr=22.1;brennweite=35;warum=W6 (L9): Fälle an der Wand des Gilbert Inlet
+nr=74;name=Roehre_ohne_Faelle;xz=168,-870;auge=4;blick=98;neigung=-3;ereignis=180;brennweite=85;schalter=faelle.an=false;warum=Zeitprobe: H13 ohne Wasserfälle
+nr=75;name=Roehre_ohne_Landschaft;xz=168,-870;auge=4;blick=98;neigung=-3;ereignis=180;brennweite=85;schalter=landschaft.an=false;warum=Zeitprobe: H13 ohne Landschaft
+nr=76;name=Roehre_W6;xz=168,-870;auge=4;blick=98;neigung=-3;ereignis=180;brennweite=85;warum=Zeitprobe: H13 mit allem
+nr=77;name=Roehre_ohne_beides;xz=168,-870;auge=4;blick=98;neigung=-3;ereignis=180;brennweite=85;schalter=faelle.an=false,landschaft.an=false;warum=Zeitprobe: H13 wie W5

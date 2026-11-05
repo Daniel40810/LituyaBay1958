@@ -452,6 +452,8 @@ public final class WaldGl {
         }
         boolean on = an && d != null && bodenJahr >= 0;
         gl.glUniform1i(gl.glGetUniformLocation(p, "uBandAn"), on ? 1 : 0);
+        // W6: Jahre nach 1958 (die Aufnahme aus Sentinel-2 zeigt das Band, wie es 2020–2023 aussah)
+        gl.glUniform1f(gl.glGetUniformLocation(p, "uBandJahre"), (float) Math.max(0, bodenJahr));
         gl.glUniform1i(gl.glGetUniformLocation(p, "uBand"), UNIT_BAND);
         if (!on) return;
         Succession su = d.su;
