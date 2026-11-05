@@ -262,8 +262,9 @@ void main() {
         float seitL = max(seit - vorkante * landW, 0.0);
         vec2 qL = vec2(laengsL, querL - t * (seitL < 6.0 ? 22.0 : -9.0));
         float pxL = max(length(fwidth(qL)), 1e-4);
-        float faden = vnf(qL * vec2(1.0, 0.18), 6.0, vec2(0.0), pxL) * 0.5 + vnf(qL * vec2(1.0, 0.25) + 5.3, 2.4, vec2(0.0), pxL) * 0.3
-                    + vnf(qL * vec2(1.0, 0.12) + 9.1, 17.0, vec2(0.0), pxL) * 0.2;
+        // (Runde 2: die Lage zu 17 m gab aus der Ferne große Flecken wie Schnee auf dem Hang; jetzt schwach)
+        float faden = vnf(qL * vec2(1.0, 0.18), 6.0, vec2(0.0), pxL) * 0.6 + vnf(qL * vec2(1.0, 0.25) + 5.3, 2.4, vec2(0.0), pxL) * 0.3
+                    + vnf(qL * vec2(1.0, 0.12) + 9.1, 17.0, vec2(0.0), pxL) * 0.1;
         float sinkt = vSteig < -0.05 ? 1.0 : 0.0;
         float jung = 1.0 - smoothstep(4.0, 14.0, seitL);
         float duenn = 1.0 - smoothstep(1.5, 8.0, vTiefe);

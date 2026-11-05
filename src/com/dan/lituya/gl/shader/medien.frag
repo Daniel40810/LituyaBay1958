@@ -14,6 +14,7 @@ uniform sampler2D uStaubA, uStaubB, uBoden;   // RG32F (Oberkante, optische Dick
 uniform float uF, uNear, uFar;
 uniform vec3 uFwd;
 uniform int uStaub, uUnter;
+uniform int uSchritte;      // W5: Schritte des Strahls (vorher fest 64)
 uniform vec4 uStaubGeo;    // x der Spalte 0, z der Zeile 0 (Süden), Zelle, Zellen je Seite
 uniform vec2 uStaubY;      // Hülle in der Höhe: unten, oben
 // Werkbuch Welle W3b (E4, E5): Gischt aus den Daten der Welle statt einer Kuppel um einen Punkt (W3: „ein Ball, der ins
@@ -96,6 +97,11 @@ vec2 gischtDichte(vec3 p) {
     // wo die Welle 250–300 m hoch aufläuft. Über dem Inlet nahe dem Sporn deshalb dieselbe Form wie an Land.)
     float land = max(smoothstep(uLevel + 4.0, uLevel + 40.0, grund), smoothstep(150.0, 260.0, hw) * 0.85);
     float tiefeMax = max(am.y - grund, 0.0);
+    // W5 Runde 2: am Hang zählt für Dichte und Höhe die Tiefe der Zunge, nicht der Stand über dem Pegel (der ist dort die
+    // Höhe des Hangs: bis 540 m). Vorher stand die Kammgischt mit hw = 500 m bis über 300 m über der Zunge: die zwei
+    // braunen Säulen über dem Kamm in H6.
+    float hwE = mix(hw, min(tiefeMax, hw), smoothstep(uLevel + 4.0, uLevel + 40.0, grund));
+    k = pow(clamp((hwE - 2.0) / 60.0, 0.0, 1.0), 0.7);
     // Wand: in rund 1,5 s auf ihre Höhe über dem höchsten Stand, dann fällt sie zurück; danach ein Schleier
     float H = mix(12.0 + 110.0 * k, 8.0 + min(1.3 * tiefeMax, 52.0), land);
     float auf = 1.0 - exp(-max(alter, 0.0) / 1.5);
@@ -112,12 +118,12 @@ vec2 gischtDichte(vec3 p) {
     float schleier = smoothstep(2.0, 8.0, alter) * exp(-alter / 18.0) * 0.07
                * smoothstep(fuss - 3.0, fuss + 8.0, y) * (1.0 - smoothstep(fuss + 0.2 * (schleierTop - fuss), schleierTop + 30.0, y));
     schleier *= 1.0 - 0.75 * land;
-    float d = (wand + schleier) * (1.0 - 0.72 * land);
+    float d = (wand + schleier) * (1.0 - 0.45 * land);   // Runde 2: k nach der Tiefe lichtet schon; vorher 0,72: kaum Gischt mehr an der Kante
     // W4b (E9) Kammgischt [G]: von der Krone reißt Gischt ab und weht gegen die Laufrichtung zurück. Dicht über dem
     // höchsten Stand, steigt in rund 1 s bis gut die halbe Wellenhöhe, lebt einige Sekunden hinter der Front; Fäden
     // längs der Laufrichtung (aus dem Gefälle der Ankunft), nicht senkrecht wie der Vorhang aus W3b.
     float kammG = 0.0;
-    if (alter > -0.2 && alter < 7.0 && hw > 8.0) {
+    if (alter > -0.2 && alter < 7.0 && hwE > 8.0) {
         float e = 16.0;
         vec2 ex = vec2(e / uFlutRect.z, 0.0), ez = vec2(0.0, e / uFlutRect.w);
         float ax = textureLod(uFlut, fu + ex, 0.0).r, bx = textureLod(uFlut, fu - ex, 0.0).r;
@@ -125,14 +131,14 @@ vec2 gischtDichte(vec3 p) {
         if (ax < 1e5 && bx < 1e5 && zp < 1e5 && zm < 1e5) {
             vec2 g = vec2(ax - bx, zp - zm);
             vec2 T = length(g) > 1e-5 ? normalize(g) : vec2(1.0, 0.0), Tq = vec2(-T.y, T.x);
-            float lo = am.y - 0.25 * hw, hi = am.y + hw * (0.12 + 0.55 * (1.0 - exp(-max(alter, 0.0) / 1.0)));
+            float lo = am.y - 0.25 * hwE, hi = am.y + hwE * (0.12 + 0.55 * (1.0 - exp(-max(alter, 0.0) / 1.0)));
             float env = smoothstep(-0.2, 0.3, alter) * exp(-max(alter, 0.0) / 2.2)
-                      * smoothstep(lo, lo + 0.2 * hw, p.y) * (1.0 - smoothstep(mix(lo, hi, 0.55), hi, p.y));
+                      * smoothstep(lo, lo + 0.2 * hwE, p.y) * (1.0 - smoothstep(mix(lo, hi, 0.55), hi, p.y));
             env *= 1.0 - 0.9 * roehre;   // Runde 3: nicht vor der Röhre
             if (env > 1e-3) {
                 vec3 qk = vec3(dot(p.xz, T) / 40.0 + uGischt.y * 0.9, p.y / 9.0, dot(p.xz, Tq) / 13.0);
                 float fil = smoothstep(0.40, 0.72, fbm2(qk)) * (0.5 + 0.9 * smoothstep(0.35, 0.8, vn3(vec3(dot(p.xz, T) / 14.0 + uGischt.y * 2.0, p.y / 3.0, dot(p.xz, Tq) / 4.0))));
-                kammG = env * fil * smoothstep(8.0, 30.0, hw) * 0.25;   // W4b Probe 1: mit 0,09 unsichtbar
+                kammG = env * fil * smoothstep(8.0, 30.0, hwE) * 0.25 * (1.0 - 0.6 * land);   // W4b Probe 1: mit 0,09 unsichtbar
             }
         }
     }
@@ -143,7 +149,7 @@ vec2 gischtDichte(vec3 p) {
     float nv = fbm2(q + vec3(am.x * 0.05));
     float f = smoothstep(0.42, 0.66, nv) * (0.25 + 1.4 * smoothstep(0.3, 0.75, vn3(p / vec3(6.0, 26.0, 6.0) + vec3(0.0, -uGischt.y * 0.8, 0.0))));
     float dichte = d * f * k * 0.05 + kammG;
-    float schlamm = wand * f * k * 0.02 * (1.0 - smoothstep(fuss + 10.0, fuss + 60.0, y)) * smoothstep(5.0, 40.0, hw);
+    float schlamm = wand * f * k * 0.02 * (1.0 - smoothstep(fuss + 10.0, fuss + 60.0, y)) * smoothstep(5.0, 40.0, hwE);
     return vec2(dichte, schlamm);
 }
 
@@ -225,7 +231,7 @@ void main() {
         if (bb > aa) { a = min(a, aa); b = max(b, bb); }
     }
     if (b > a) {
-        const int N = 64;
+        int N = clamp(uSchritte, 16, 96);
         float ds = (b - a) / float(N);
         // W0 (K4): der Versatz wandert von Bild zu Bild; die Kantenglättung mittelt ihn
         float j = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453 + uBild * 0.61803399);

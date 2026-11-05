@@ -28,13 +28,13 @@ void main() {
     vQ = q;
     vK = aB.w;
     if (tau <= 0.0 || tau > leben) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
-    vec3 p1 = ort(tau), p0 = ort(max(tau - 0.085, 0.0));
+    vec3 p1 = ort(tau), p0 = ort(max(tau - 0.12, 0.0));
     vec2 r = p1.xz - uCam.xz;
     p1.y -= dot(r, r) * uKruemmung;
     p0.y -= dot(r, r) * uKruemmung;
     float dist = max(length(p1 - uCam), 1.0);
     // Breite des Fadens: Tropfenwolke von rund 0,5–1,5 m [G]
-    float bm = 0.5 + 1.0 * fract(aB.w * 7.3);
+    float bm = 2.0 + 4.0 * fract(aB.w * 7.3);   // W5 Runde 2: vorher 0,5–1,5 m, zu dünn; Wolken aus Tropfen, weich
     float px = bm * uPxProM / dist;
     float breit = max(bm, 1.1 * dist / uPxProM);
     vec3 ach = p1 - p0;
