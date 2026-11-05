@@ -42,6 +42,8 @@ public final class MeerGl {
     public volatile float[] spiegelVP, jetztVP;
     /** Runde 7: Spiegelbild in 1/teiler der Bildgröße (bisher 2). */
     public volatile int spiegelTeiler = 2;
+    /** Runde 9: Schritte des Spiegelbilds mit der Tiefe. */
+    public volatile int spiegelSchritte = 2;
     /** Runde 8: Blickrichtung jetzt (für die Entfernung aus der Tiefe des Spiegelbilds). */
     public volatile float[] spiegelVorn = {0, 0, -1};
 
@@ -202,6 +204,7 @@ public final class MeerGl {
         spiegelShader.set(g, "uDepth", 1);
         spiegelShader.set(g, "uSpTiefe", 2);
         spiegelShader.set(g, "uSpNah", near);
+        spiegelShader.set(g, "uSpSchritte", spiegelSchritte);
         { float[] v = spiegelVorn; spiegelShader.set(g, "uSpVorn", v[0], v[1], v[2]); }
         spiegelShader.set(g, "uSpiegelAn", spiegel && spiegelJetzt && reflTex != 0 ? 1 : 0);
         { float[] a = spiegelVP, j = jetztVP; if (a == null || j == null) a = j = new float[]{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};

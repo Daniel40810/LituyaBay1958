@@ -1025,6 +1025,7 @@ public final class Renderer implements GLEventListener {
                 meer.spiegelVorn = new float[]{(float) camera.fwd[0], (float) camera.fwd[1], (float) camera.fwd[2]};
                 ereignisGl.spiegelVorn = meer.spiegelVorn;
                 ereignisGl.spiegelTiefe = meer.spiegelTiefe();
+                ereignisGl.spiegelSchritte = meer.spiegelSchritte;
             } catch (RuntimeException e) {
                 System.err.println("LituyaBay1958: Meer: " + e);
                 meer.an = false;
