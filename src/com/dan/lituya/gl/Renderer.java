@@ -79,6 +79,8 @@ public final class Renderer implements GLEventListener {
     public final Netzblick netzblick = new Netzblick();
     /** Phase 16c: die Bäche aus LB_NET_WASSER als eigener Wasser-Pass (Bänder auf dem Gelände, Breite nach Regen). */
     public final BaecheGl baeche = new BaecheGl();
+    /** Werkbuch Welle W6 (L9): Wasserfälle über den Steilstufen (com.dan.fall auf den Bächen). */
+    public final FaelleGl faelle = new FaelleGl();
     /** Werkbuch Welle W1: Himmel aus com.dan.sky, Belichtung, Horizontkarten für den Schatten der Kette, Alpenglühen. */
     public final Licht licht = new Licht();
     /** Werkbuch Welle W2: das Wasser aus com.dan.ocean, Spiegel der Berge, Gletschermilch. */
@@ -118,6 +120,8 @@ public final class Renderer implements GLEventListener {
     public final Klang klang = new Klang(this);
     /** Phase 14a: der Wald (forest mit succession) über den Kern, Zustände nach dem Zeitstand, Treibgut am Morgen. */
     public final WaldGl wald = new WaldGl();
+    /** Werkbuch Welle W6: die Landschaft (Farbe aus Sentinel-2, Fels aus cliff, Schnee, Gletscher mit Spalten). */
+    public final LandschaftGl landschaft = new LandschaftGl();
     /** W5 (E11): Schleier am Sporn. */
     public final SchleierGl schleier = new SchleierGl();
     /** Phase 15a: die drei Troller auf ihren vorgerechneten Bahnen (tools.Boote1958). */
@@ -419,6 +423,8 @@ public final class Renderer implements GLEventListener {
         compute = ComputeProbe.run(gl);
         licht.init(gl);   // W1
         meer.init(gl);    // W2
+        landschaft.init(gl);   // W6
+        landschaft.laden(new java.io.File(System.getProperty("lituya.daten", "daten")));
         try {             // W3b: Texturen der Hänge (beim ersten Mal packt der Treiber, danach aus gpu_*_1024.bin)
             java.util.List<com.dan.surface.Material> kat = com.dan.surface.Katalog.fjord();
             com.dan.surface.MaterialSet set = new com.dan.surface.MaterialSet(new java.io.File(System.getProperty("lituya.daten", "daten"), "texturen"), kat);
@@ -436,6 +442,7 @@ public final class Renderer implements GLEventListener {
             wiedergabe.start();
             netzblick.laden(new java.io.File(System.getProperty("lituya.daten", "daten")), this::stapelHoehe);
             baeche.laden(new java.io.File(System.getProperty("lituya.daten", "daten")), this::stapelHoehe);
+            faelle.laden(new java.io.File(System.getProperty("lituya.daten", "daten")), this::stapelHoehe);   // W6
         } catch (RuntimeException e) {
             System.err.println("LituyaBay1958: Netzblick: " + e.getMessage());
         }
@@ -1182,6 +1189,11 @@ public final class Renderer implements GLEventListener {
                     h / (2 * Math.tan(Math.toRadians(fovy()) / 2)));
             gl.glBindVertexArray(emptyVao);
         }
+        // 3c''' W6 (L9): Wasserfälle über den Steilstufen
+        if (showGelaende) {
+            faelle.zeichnen(gl, vp, camera.eye, reversedZ, licht, baeche.regen, wiring.windFromDeg, wiring.windSpeed, clock.t());
+            gl.glBindVertexArray(emptyVao);
+        }
         mark(gl, 6);
 
         // 3c Staub und Trübe unter Wasser (Phase 13b): über das HDR-Bild, die Tiefe als Textur
@@ -1262,6 +1274,7 @@ public final class Renderer implements GLEventListener {
         if (tx) surface.bind(gl, gelaendeShader.id(), 5, 6, 7, 0.35);
         else { gelaendeShader.set(gl, "uSurfA", 5); gelaendeShader.set(gl, "uSurfN", 6); gelaendeShader.set(gl, "uSurfR", 7); }
         gl.glUniform4i(gelaendeShader.loc(gl, "uMat"), surfMat[0], surfMat[1], surfMat[2], surfMat[3]);
+        landschaft.bind(gl, gelaendeShader.id());   // W6: Farbe aus Sentinel-2, Fels, Schnee, Eis
         boolean rb = rueckbauJetzt && clock.zeitstand != SceneClock.Zeitstand.HEUTE;
         ereignisGl.rueckbau(gl, gelaendeShader, rb);   // W3c: weicher Rückbau, Gletscherzunge, Grund 1958 der Vorrechnung
         double[] k0 = Site.fromUtm(com.dan.lituya.scene.Boden1958.ZUNGE_E0, com.dan.lituya.scene.Boden1958.ZUNGE_N0),

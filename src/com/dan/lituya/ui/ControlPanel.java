@@ -552,6 +552,21 @@ public final class ControlPanel extends JPanel implements javax.swing.Scrollable
         gischtBox.addActionListener(e -> { r.ereignisGl().vorhang = gischtBox.isSelected(); view.requestFocusInWindow(); });
         put(texBox);
         put(gischtBox);
+        // W6: Landschaft aus den Daten (Sentinel-2, Relief, Eis) und Wasserfälle
+        FCheckBox landBox = new FCheckBox("Landschaft aus Sentinel-2, Relief und Eis (W6)"), spaltenBox = new FCheckBox("Spalten auf den Gletschern (W6)"),
+                faelleBox = new FCheckBox("Wasserfälle über den Steilstufen (W6)");
+        landBox.setSelected(r.landschaft.an);
+        spaltenBox.setSelected(r.landschaft.spalten);
+        faelleBox.setSelected(r.faelle.an);
+        landBox.setToolTipText("Farbe der Hänge aus Sentinel-2 (Juli 2020/2023, ohne das Licht der Aufnahme), Grate und Rinnen aus dem 5-m-Gelände, Fels aus cliff, Schnee mit Form; aus: Farben nach Höhe und Hang wie vor W6");
+        spaltenBox.setToolTipText("Querspalten längs der Höhenlinien der Eisoberfläche, dichter wo ITS_LIVE Dehnung zeigt; Seracs im Eisfall [G]");
+        faelleBox.setToolTipText("Fälle aus com.dan.fall, wo die Bäche aus LB_NET_WASSER über Stufen steiler als 40° fallen; Abfluss mit Schmelze und Regen");
+        landBox.addActionListener(e -> { r.landschaft.an = landBox.isSelected(); view.requestFocusInWindow(); });
+        spaltenBox.addActionListener(e -> { r.landschaft.spalten = spaltenBox.isSelected(); view.requestFocusInWindow(); });
+        faelleBox.addActionListener(e -> { r.faelle.an = faelleBox.isSelected(); view.requestFocusInWindow(); });
+        put(landBox);
+        put(spaltenBox);
+        put(faelleBox);
         FCheckBox bloomBox = new FCheckBox("Glühen um Helles (Bloom)");
         bloomBox.setSelected(r.bloom > 0);
         bloomBox.addActionListener(e -> { r.bloom = bloomBox.isSelected() ? 0.35 : 0; view.requestFocusInWindow(); });

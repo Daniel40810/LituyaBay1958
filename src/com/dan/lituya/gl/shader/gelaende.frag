@@ -8,6 +8,7 @@
 #include "marken.glsl"
 #include "/com/dan/clipmap/gl/clipmap.glsl"
 #include "/com/dan/surface/gl/surface.glsl"
+#include "/com/dan/cliff/gl/cliff.glsl"
 in vec3 vW;
 in vec3 vN;
 in float vH;
@@ -18,6 +19,7 @@ out vec4 frag;
 uniform int uBandAn;
 uniform sampler2D uBand;
 uniform vec4 uBandRect;
+uniform float uBandJahre;   // W6: Jahre nach 1958 des gezeigten Bodens
 // Werkbuch Welle W0 (K3): Kronendach hinter den Einzelbäumen aus dem Dichtegitter des Walds (r Sitka-Fichte,
 // g Hemlocktanne, b Roterle, 0..1); Rechteck x0, z0, Breite, Tiefe; uKroneAb: ab wo die Bäume ausdünnen und wo sie enden (m).
 uniform int uKroneAn;
@@ -51,6 +53,9 @@ float kn(vec2 x) {
 float knf(vec2 q, float p, float px) { return mix(kn(q / p), 0.5, smoothstep(0.25, 0.6, px / p)); }
 // gestrecktes Rauschen: quer Periode pa, längs pb (m), gefiltert nach der kurzen Periode
 float rinne(vec2 q, float pa, float pb, float px) { return mix(kn(vec2(q.x / pa, q.y / pb)), 0.5, smoothstep(0.25, 0.6, px / pa)); }
+
+// Werkbuch Welle W6: Farbe aus Sentinel-2, Fels aus cliff, Schnee mit Form, Gletscher mit Spalten (LandschaftGl)
+#include "landschaft.glsl"
 
 // W3c: Zellen (Voronoi) für Blöcke im Grund: Helligkeit, Fuge (Abstand zur nächsten Zelle), Abstand
 vec3 gBloecke(vec2 q, float g) {
@@ -171,6 +176,14 @@ void main() {
     alb = mix(alb, fels, smoothstep(0.30, 0.45, slope));
     alb = mix(kies, alb, smoothstep(2.0, 8.0, h));
     alb = mix(alb, schnee, smoothstep(900.0, 1300.0, h) * (1.0 - smoothstep(0.40, 0.60, slope)));
+    // W6: die Landschaft aus den Daten statt der festen Farben (außerhalb der Szene bleiben sie); der Wald, die Flut, das
+    // Band, die Abrissfläche und die Zunge 1958 zeichnen danach darüber wie bisher
+    Land land;
+    land.alb = alb; land.n = n; land.schatten = 0.0; land.schnee = 0.0; land.eis = 0.0; land.fels = 0.0; land.w = 0.0; land.lage = 0.5;
+    if (uLandAn == 1) {
+        land = landschaft(vW, n, h, max(length(fwidth(vW.xz)), 1e-3), alb);
+        alb = land.alb;
+    }
     vec3 dc = vW - uCam;
     float distC = length(dc);
     float krone = 0.0;   // Anteil Kronendach (dunkler Schatten zwischen den Kronen, für das Licht)
@@ -194,7 +207,7 @@ void main() {
         }
     }
     float pxh = max(length(fwidth(vW.xz)), 1e-3);
-    vec3 nL = n;   // Normale für das Licht (Relief der Hänge ohne Wald)
+    vec3 nL = land.n;   // Normale für das Licht (Relief der Hänge ohne Wald; seit W6 Fels aus cliff)
     // W3b: die Flut der Vorrechnung, solange die Welle läuft (danach der Boden im Band aus WaldGl)
     if (uFlutAn == 1) {
         vec2 fu = vec2((vW.x - uFlutRect.x) / uFlutRect.z, (uFlutRect.y - vW.z) / uFlutRect.w);
@@ -222,6 +235,9 @@ void main() {
         if (bu.x > 0.0 && bu.y > 0.0 && bu.x < 1.0 && bu.y < 1.0) {
             vec4 b = texture(uBand, bu);
             float k = b.a * smoothstep(0.5, 2.0, h);
+            // W6: in den letzten Jahren zeigt die Aufnahme das Band, wie es ist (Erlen, Wiese, Fels); der gerechnete Boden nur
+            // noch als Hauch (11 Narbe heute: vorher heller Kies und Holz zwischen den Bäumen)
+            if (uLandAn == 1) k *= 1.0 - 0.85 * smoothstep(45.0, 60.0, uBandJahre);
             if (k > 0.0) {
                 // Fels (0,18 0,17 0,16), Mineralboden (0,20 0,16 0,11), Waldboden (dunkel) aus WaldGl; die ersten beiden als Hang
                 float wb = 1.0 - smoothstep(0.08, 0.14, b.r);
@@ -243,6 +259,9 @@ void main() {
         vec2 au = vec2((aw.x - uAbrissRect.x) / uAbrissRect.z, (uAbrissRect.y - aw.y) / uAbrissRect.w);
         if (au.x > 0.0 && au.y > 0.0 && au.x < 1.0 && au.y < 1.0) {
             float a = smoothstep(0.05, 0.6, texture(uAbriss, au).r);
+            // W6: heute zeigt die Aufnahme, wie die Abrissfläche aussieht (Fels, Schutt, Bewuchs); die gerechnete Fläche nur
+            // noch als Hauch
+            if (uLandAn == 1 && uAbrissFrisch < 0.99) a *= 0.25;
             if (a > 0.0) {
                 // Abrissfläche: Fels mit Bänken und Rinnen, frisch hell (W3: einheitlich hell mit Flecken) [G]
                 vec3 nh = n;
@@ -292,7 +311,10 @@ void main() {
     // im Kronendach fällt weniger Himmelslicht zwischen die Kronen, die Sonne trifft die Kronen auch am flachen Hang [G]
     float ndl = mix(max(dot(nL, uSun), 0.0), max(dot(normalize(n + vec3(0.0, 0.6, 0.0)), uSun), 0.0), krone);
     // W3c: Himmelslicht nach der Richtung der Fläche (common.umgebung) statt überall der Farbe des Zenits
-    vec3 col = alb * (sunAt(vW) * ndl + umgebung(nL) * (1.0 - 0.25 * krone));
+    ndl *= 1.0 - land.schatten * (1.0 - krone);   // W6: ins Innere der Spalten fällt keine Sonne
+    // W6 Runde 5: Himmelslicht nach der Lage im Relief (in Rinnen und Karen weniger Himmel, auf Graten mehr) [G]
+    float hoehlung = mix(1.0, 0.45 + 1.1 * land.lage, 0.8 * land.w);
+    vec3 col = alb * (sunAt(vW) * ndl + umgebung(nL) * (1.0 - 0.25 * krone) * (1.0 - 0.6 * land.schatten) * hoehlung);
     if (eis > 0.0) {
         vec3 vv = normalize(uCam - vW);
         float fr = 0.03 + 0.25 * pow(1.0 - max(dot(nL, vv), 0.0), 5.0);
