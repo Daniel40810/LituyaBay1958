@@ -1008,11 +1008,16 @@ public final class Renderer implements GLEventListener {
                             || camera.fwd[0] * spiegelBlick[0] + camera.fwd[1] * spiegelBlick[1] + camera.fwd[2] * spiegelBlick[2] < Math.cos(Math.toRadians(1));
                     if (sprung || ++spiegelAlter >= spiegelTakt) {
                         spiegelBild(gl, w, h, proj, view, sun);
+                        meer.spiegelVP = Mat4.mul(proj, view);   // Runde 7: Blick, mit dem das Spiegelbild entstand
                         spiegelAlter = 0;
                         spiegelAuge = camera.eye.clone();
                         spiegelBlick = camera.fwd.clone();
                     }
                 } else spiegelAuge = null;
+                // Runde 7: das Spiegelbild umrechnen, wenn es aus einem früheren Bild stammt (sonst hing es in Fahrten nach)
+                meer.jetztVP = spiegelUmrechnen ? Mat4.mul(proj, view) : meer.spiegelVP;
+                ereignisGl.spiegelVP = meer.spiegelVP;
+                ereignisGl.jetztVP = meer.jetztVP;
             } catch (RuntimeException e) {
                 System.err.println("LituyaBay1958: Meer: " + e);
                 meer.an = false;
@@ -1243,6 +1248,8 @@ public final class Renderer implements GLEventListener {
      */
     /** Runde 6: das Spiegelbild jedes wievielte Bild neu (1: jedes). */
     public volatile int spiegelTakt = 2;
+    /** Runde 7: das Spiegelbild eines früheren Bilds an die jetzige Stelle umrechnen (Schalter für die Probe). */
+    public volatile boolean spiegelUmrechnen = true;
     private int spiegelAlter;
     private double[] spiegelAuge, spiegelBlick;
 

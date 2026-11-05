@@ -32,9 +32,9 @@ public final class EreignisGl {
      * W5 Tempo: Kante einer Stufe der Kacheln in Bildpunkten (vorher fest {@link #PIXEL}). In H6 lag der Hang in 1,5–2 km
      * mit 50 mm in voller Auflösung (2-m-Zellen, 3 Bildpunkte je Kante): 1,6 Mio. Dreiecke der Welle, 18 ms.
      */
-    public volatile double kachelPixel = 10;  // Runde 4 (W5T): 12 statt 6 sparte 4 ms Welle, Bild gleich; 10 als Abstand zu Nahbildern
+    public volatile double kachelPixel = 12;  // Runde 4 (W5T): 12 statt 6 sparte 4 ms Welle, Bild gleich; Runde 7 (W5X2): 12 auch in H13 (85 mm, nah an der Wand) ohne Unterschied
     /** W5 Tempo: Schritte des Strahls durch Staub und Gischt (vorher fest 64). */
-    public volatile int medienSchritte = 40;   // Probe W5E: 40 sparte rund 3 ms ohne sichtbaren Unterschied (Runde 3: 40)
+    public volatile int medienSchritte = 32;   // Probe W5E: 40 sparte rund 3 ms ohne Unterschied; Runde 7 (W5X2): 32, mit Kacheln 12 in H13 2,5 ms, Bild gleich
     public static final int MAX_SCHRITT = 16;
 
     final Shader welle = new Shader("Welle", null, "spur.vert", "welle.frag"),
@@ -165,6 +165,8 @@ public final class EreignisGl {
 
     /** W3c: Spiegelbild der Berge aus W2 (0: keins), Größe des HDR-Bilds, Richtung, in die der Wind weht (Szene x, z). */
     public int spiegelTex;
+    /** Runde 7: Blick beim Spiegelbild und jetzt (Umrechnen, wenn das Spiegelbild aus dem vorigen Bild stammt). */
+    public volatile float[] spiegelVP, jetztVP;
     public double[] bildPx = {1920, 1080}, windXZ = {0.8, 0.6};
     static final int UNIT_SPIEGEL = 16;
     /** W3c: Wasser im Nahfeld hinter der Linie der Quelle zeigen (sonst ein leeres Becken). */
@@ -644,6 +646,8 @@ public final class EreignisGl {
             gl.glBindTexture(GL.GL_TEXTURE_2D, spiegelTex);
             welle.set(gl, "uRefl", UNIT_SPIEGEL);
             welle.set(gl, "uSpiegelAn", spiegelTex != 0 ? 1 : 0);
+            { float[] a = spiegelVP, j = jetztVP; if (a == null || j == null) a = j = new float[]{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+              welle.mat(gl, "uSpiegelVP", a); welle.mat(gl, "uJetztVP", j); }
             welle.set(gl, "uBildPx", (float) bildPx[0], (float) bildPx[1]);
             welle.set(gl, "uWindXZ", (float) windXZ[0], (float) windXZ[1]);
             welle.set(gl, "uRueckbauAn", 0);

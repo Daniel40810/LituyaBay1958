@@ -148,9 +148,14 @@ public final class WaldGl {
     /** Stufe anwenden und die Reichweite der Einzelbäume auf {@link #NAH} kürzen (W0, K3). */
     private void nah(ForestGpu f) {
         f.apply(stufe);
-        f.radius = Math.min(f.radius, NAH);
-        f.thinFrom = AUSDUENNEN_AB;
+        stufeRadius = f.radius;
+        f.radius = Math.min(f.radius, reichweite);
+        f.thinFrom = duennAb;
     }
+
+    /** Runde 7: Reichweite der Einzelbäume (m) und Beginn des Ausdünnens (Anteil der Reichweite) als Schalter. */
+    public volatile double reichweite = NAH, duennAb = AUSDUENNEN_AB;
+    private double stufeRadius = NAH;
 
     Daten rechnen(File daten, boolean g) throws Exception {
         long t0 = System.nanoTime();
@@ -520,6 +525,8 @@ public final class WaldGl {
         v.eye = eye.clone();
         v.reversedZ = reversed;
         v.tonemap = false;
+        double rw = Math.min(stufeRadius, reichweite);
+        if (forest.radius != rw || forest.thinFrom != duennAb) { forest.radius = rw; forest.thinFrom = duennAb; zustandNeu = true; }
         double[] b = blick;
         if (!haupt || b == null || cullStets) {
             forest.update(gl, v);

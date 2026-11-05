@@ -38,6 +38,10 @@ public final class MeerGl {
      * „524 m“ zeichnete der Spiegel Gelände und Wald ein zweites Mal für einen Streifen Wasser am unteren Rand).
      */
     public volatile boolean spiegelJetzt = true;
+    /** Runde 7: Blick (VP) beim Rechnen des Spiegelbilds und im jetzigen Bild, zum Umrechnen (Spiegel jedes zweite Bild). */
+    public volatile float[] spiegelVP, jetztVP;
+    /** Runde 7: Spiegelbild in 1/teiler der Bildgröße (bisher 2). */
+    public volatile int spiegelTeiler = 2;
     /** Seegang in Beaufort (klarer Abend nach den Zeugen: ruhig) [G]. */
     public volatile int beaufort = 1;
 
@@ -105,7 +109,7 @@ public final class MeerGl {
 
     /** Ziel der Spiegelung (halbe Größe des HDR-Bilds), gebunden und gelöscht; danach zeichnet der Renderer gespiegelt. */
     public void spiegelZiel(GL4 g, int w, int h) {
-        int sw = Math.max(32, w / 2), sh = Math.max(32, h / 2);
+        int sw = Math.max(32, w / spiegelTeiler), sh = Math.max(32, h / spiegelTeiler);
         if (sw != reflW || sh != reflH) {
             Gpu.deleteFbos(g, reflFbo);
             Gpu.deleteTextures(g, reflTex, reflDepth);
@@ -190,6 +194,8 @@ public final class MeerGl {
         spiegelShader.set(g, "uRefl", 0);
         spiegelShader.set(g, "uDepth", 1);
         spiegelShader.set(g, "uSpiegelAn", spiegel && spiegelJetzt && reflTex != 0 ? 1 : 0);
+        { float[] a = spiegelVP, j = jetztVP; if (a == null || j == null) a = j = new float[]{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+          spiegelShader.mat(g, "uSpiegelVP", a); spiegelShader.mat(g, "uJetztVP", j); }
         spiegelShader.set(g, "uNear", near);
         spiegelShader.set(g, "uFar", far);
         spiegelShader.set(g, "uWelleAn", welleRect != null ? 1 : 0);

@@ -179,7 +179,7 @@ public final class Bildbank {
         if (e.get("schaustueck") != null) cmd.add("-Dschaustueck=" + e.get("schaustueck"));
         else cmd.add("-Dkamera=" + kamera(e));
         if (e.get("zeitstand") != null) cmd.add("-Dzeitstand=" + e.get("zeitstand"));
-        for (String k : new String[]{"brennweite", "ereignis", "lauf", "regen", "schalter"})
+        for (String k : new String[]{"brennweite", "ereignis", "lauf", "regen", "schalter", "seitwaerts"})
             if (e.get(k) != null) cmd.add("-D" + k + "=" + e.get(k));
         cmd.add("-cp");
         cmd.add(System.getProperty("java.class.path"));
