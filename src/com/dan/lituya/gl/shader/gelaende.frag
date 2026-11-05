@@ -132,7 +132,7 @@ vec3 hang(vec3 p, inout vec3 n, float px, float pyx, vec3 dpw, vec3 dpv, float f
  * helle, entrindete Stämme kreuz und quer). Kurze helle Striche, grob in der Falllinie, mit Schatten daneben; in der Ferne
  * als leichte Aufhellung gemittelt. frisch: 1 im Jahr 1958, mit den Jahren grau und weniger.
  */
-vec3 holz(vec3 c, vec3 p, vec3 n, float px, float frisch) {
+vec3 holz(vec3 c, vec3 p, vec3 n, float px, float frisch, float dichte) {
     vec2 fall = length(n.xz) > 1e-3 ? normalize(n.xz) : vec2(0.0, 1.0);
     float i = floor(dot(p.xz, vec2(0.7, 0.3)) / 11.0);
     float wink = (kh(vec2(i, 3.1)) - 0.5) * 1.4;                    // Streuung der Lage um die Falllinie
@@ -142,14 +142,20 @@ vec3 holz(vec3 c, vec3 p, vec3 n, float px, float frisch) {
     vec2 zelle = floor(vec2(q.x / 22.0, q.y / 3.0));
     float da = kh(zelle + 7.0), lage = kh(zelle + 13.0);
     vec2 f = vec2(q.x / 22.0, q.y / 3.0) - zelle;
-    float stamm = step(0.55, da) * (1.0 - smoothstep(0.08, 0.16, abs(f.y - 0.5))) * smoothstep(0.05, 0.12, f.x) * (1.0 - smoothstep(0.75 + 0.2 * lage, 0.9 + 0.1 * lage, f.x));
-    float schatten = step(0.55, da) * (1.0 - smoothstep(0.16, 0.30, abs(f.y - 0.62))) * (1.0 - stamm) * smoothstep(0.05, 0.12, f.x) * (1.0 - smoothstep(0.8, 0.95, f.x));
+    float schwelle = 1.0 - 0.45 * dichte;   // W5 Runde 4: dichter am Spülsaum
+    float stamm = step(schwelle, da) * (1.0 - smoothstep(0.08, 0.16, abs(f.y - 0.5))) * smoothstep(0.05, 0.12, f.x) * (1.0 - smoothstep(0.75 + 0.2 * lage, 0.9 + 0.1 * lage, f.x));
+    float schatten = step(schwelle, da) * (1.0 - smoothstep(0.16, 0.30, abs(f.y - 0.62))) * (1.0 - stamm) * smoothstep(0.05, 0.12, f.x) * (1.0 - smoothstep(0.8, 0.95, f.x));
     float nah = 1.0 - smoothstep(0.35, 1.1, px);
     vec3 hell = mix(vec3(0.42, 0.40, 0.37), vec3(0.62, 0.56, 0.47), frisch);
     c = mix(c, c * 0.55, schatten * nah * 0.8);
     c = mix(c, hell, stamm * nah);
-    // fern: der Anteil der Stämme als Aufhellung
-    return mix(c, mix(c, hell, 0.12), 1.0 - nah);
+    // W5 Runde 4: fern der Teppich aus Holz als Tönung mit Haufen (7 und 18 m, in der Falllinie gestreckt): helle
+    // geschälte Stämme, dazwischen Schatten; vorher nur 12 % Aufhellung, aus 1,6 km nicht zu sehen
+    vec2 qf = vec2(dot(p.xz, fall), dot(p.xz, vec2(-fall.y, fall.x)));
+    float haufen = knf(qf * vec2(0.45, 1.0) + 5.0, 7.0, px) * 0.6 + knf(qf * vec2(0.5, 1.0) + 17.0, 18.0, px) * 0.4;
+    float anteil = (0.10 + 0.55 * dichte) * smoothstep(0.30, 0.70, haufen + 0.25 * dichte);
+    vec3 teppich = mix(c * 0.5, hell, 0.55 + 0.25 * haufen);
+    return mix(c, mix(c, teppich, anteil), 1.0 - nah);
 }
 
 void main() {
@@ -200,7 +206,11 @@ void main() {
             if (flut > 0.0) {
                 vec3 nh = n;
                 vec3 c = hang(vW, nh, pxh, pyx, dpw, dpv, smoothstep(0.22, 0.5, slope), 1.0 - smoothstep(3.0, 14.0, h), 0.55, 1.0);
-                c = holz(c, vW, n, pxh, 1.0);
+                // W5 Runde 4: Spülsaum: gleich unter der Spurlinie (bis rund 35 m tiefer) blieb das Holz in Haufen liegen,
+                // darunter verstreut; erst wenn das Wasser abgelaufen ist (rund 15–40 s nach der Ankunft) [G]
+                float saum = smoothstep(rand - 38.0, rand - 10.0, vH) * (1.0 - smoothstep(rand - 3.0, rand + 1.0, vH));
+                float abgelaufen = smoothstep(am.x + 12.0, am.x + 40.0, uEreignis);
+                c = holz(c, vW, n, pxh, 1.0, (0.35 + 0.65 * saum) * abgelaufen);
                 alb = mix(alb, c, flut);
                 nL = normalize(mix(nL, nh, flut));
                 krone *= 1.0 - flut;
@@ -218,7 +228,7 @@ void main() {
                 float fe = smoothstep(0.12, 0.155, b.b);
                 vec3 nh = n;
                 vec3 c = hang(vW, nh, pxh, pyx, dpw, dpv, max(fe, smoothstep(0.3, 0.55, slope)), 1.0 - smoothstep(3.0, 14.0, h), uAbrissFrisch, 0.0);
-                c = holz(c, vW, n, pxh, uAbrissFrisch);
+                c = holz(c, vW, n, pxh, uAbrissFrisch, 0.4 * uAbrissFrisch);
                 alb = mix(alb, mix(c, b.rgb, wb), k);
                 nL = normalize(mix(nL, nh, k * (1.0 - wb)));
                 krone *= 1.0 - k * (1.0 - wb);

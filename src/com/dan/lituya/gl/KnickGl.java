@@ -42,6 +42,8 @@ final class KnickGl {
      */
     static final double NAH = 150;
     static final int NAH_MAX = 120;
+    /** Runde 4: ab hier (m) ein Kegel statt der Silhouette (ein Baum deckt dort mit 50 mm rund 10–20 Bildpunkte). */
+    static final double KEGEL_AB = 1500;
     static final int MAX = 150000;
     /** Weiter als hier (m) wird kein fallender Baum gezeichnet (wie die Einzelbäume in WaldGl.NAH). */
     static final double WEIT = 3000;
@@ -84,7 +86,7 @@ final class KnickGl {
         int T = f.species() * f.variants();   // stehende Typen
         if (!gebaut) {
             types = T;
-            int B = 2 * T + 1;   // nah je Typ, fern je Typ, ein Stamm
+            int B = 2 * T + 2;   // nah je Typ, fern je Typ, ein Stamm, ein Kegel (Runde 4: über 1,5 km)
             vao = new int[B]; vbo = new int[B]; ibo = new int[B]; nIdx = new int[B]; ibuf = new int[B]; icap = new int[B];
             gl.glGenVertexArrays(B, vao, 0);
             gl.glGenBuffers(B, vbo, 0);
@@ -93,6 +95,7 @@ final class KnickGl {
             bin = new float[B][FL * 256];
             binN = new int[B];
             netz(gl, 2 * T, stamm());
+            netz(gl, 2 * T + 1, kegel());
         }
         for (int t = 0; t < T; t++) {
             TreeModel m = f.model(t);
@@ -137,6 +140,43 @@ final class KnickGl {
         return new float[][]{v, tri};
     }
 
+    /**
+     * Runde 4: ein Nadelbaum aus der Ferne als Kegel (Höhe 1, Krone ab 0,22 der Höhe, Halbmesser 0,17 unten; sechs Seiten,
+     * dazu der Stamm als Strich), 18 Dreiecke statt rund 240 der Silhouette. Laub = 1, damit Krone und Licht wie beim Baum.
+     */
+    static float[][] kegel() {
+        int S = 6;
+        java.util.List<float[]> v = new java.util.ArrayList<>();
+        java.util.List<Integer> t = new java.util.ArrayList<>();
+        float ru = 0.17f, y0 = 0.22f;
+        for (int k = 0; k < S; k++) {
+            double a0 = 2 * Math.PI * k / S, a1 = 2 * Math.PI * (k + 1) / S, am = (a0 + a1) / 2;
+            float nx = (float) (Math.cos(am) * 0.86), ny = 0.5f, nz = (float) (Math.sin(am) * 0.86);
+            int b = v.size();
+            v.add(new float[]{(float) Math.cos(a0) * ru, y0, (float) Math.sin(a0) * ru, nx, ny, nz, 0.035f, 0.060f, 0.040f, y0, 1});
+            v.add(new float[]{(float) Math.cos(a1) * ru, y0, (float) Math.sin(a1) * ru, nx, ny, nz, 0.035f, 0.060f, 0.040f, y0, 1});
+            v.add(new float[]{0, 1, 0, nx, ny, nz, 0.045f, 0.075f, 0.048f, 1, 1});
+            t.add(b); t.add(b + 2); t.add(b + 1);
+            // Boden der Krone
+            int c = v.size();
+            v.add(new float[]{(float) Math.cos(a0) * ru, y0, (float) Math.sin(a0) * ru, 0, -1, 0, 0.02f, 0.035f, 0.024f, y0, 1});
+            v.add(new float[]{(float) Math.cos(a1) * ru, y0, (float) Math.sin(a1) * ru, 0, -1, 0, 0.02f, 0.035f, 0.024f, y0, 1});
+            v.add(new float[]{0, y0, 0, 0, -1, 0, 0.02f, 0.035f, 0.024f, y0, 1});
+            t.add(c); t.add(c + 1); t.add(c + 2);
+        }
+        // Stamm als schmaler Keil
+        int c = v.size();
+        v.add(new float[]{-0.012f, 0, 0, 0, 0, 1, 0.12f, 0.09f, 0.07f, 0, 0});
+        v.add(new float[]{0.012f, 0, 0, 0, 0, 1, 0.12f, 0.09f, 0.07f, 0, 0});
+        v.add(new float[]{0, y0 + 0.02f, 0, 0, 0, 1, 0.12f, 0.09f, 0.07f, y0, 0});
+        t.add(c); t.add(c + 1); t.add(c + 2);
+        float[] vv = new float[v.size() * 11];
+        for (int i = 0; i < v.size(); i++) System.arraycopy(v.get(i), 0, vv, i * 11, 11);
+        float[] tt = new float[t.size()];
+        for (int i = 0; i < t.size(); i++) tt[i] = Float.intBitsToFloat(t.get(i));
+        return new float[][]{vv, tt};
+    }
+
     private void netz(GL4 gl, int b, float[][] m) {
         float[] v = m[0], tf = m[1];
         int[] tri = new int[tf.length];
@@ -159,6 +199,12 @@ final class KnickGl {
             gl.glVertexAttribDivisor(4 + a, 1);
         }
         gl.glBindVertexArray(0);
+    }
+
+    /** Runde 4: die Netze gleich bauen, wenn forest bereit ist (vorher im ersten Bild der Welle: ein Ruck von rund 0,5 s). */
+    void vorbauen(GL4 gl, ForestGpu f, int day) {
+        if (gebaut && day == tag) return;
+        try { bauen(gl, f, day); } catch (Exception e) { info = "Knick: " + e; }
     }
 
     /** Zeichnet die fallenden Bäume (HDR-Puffer mit Tiefe gebunden). t: Ereigniszeit (s). */
@@ -190,10 +236,11 @@ final class KnickGl {
             boolean liegt = (folge == 3 || folge == 4) && t > baeume[o + 6] + baeume[o + 11] + 2.6;
             boolean nh = !liegt && d2 < NAH * NAH && nah < NAH_MAX;
             if (nh) nah++;
-            int b = liegt ? 2 * T : nh ? typ : T + typ;
+            boolean weit = !liegt && d2 > KEGEL_AB * KEGEL_AB;
+            int b = liegt ? 2 * T : weit ? 2 * T + 1 : nh ? typ : T + typ;
             if (FL * (binN[b] + 1) > bin[b].length) bin[b] = java.util.Arrays.copyOf(bin[b], bin[b].length * 2);
             System.arraycopy(baeume, o, bin[b], FL * binN[b], FL);
-            if (liegt) bin[b][FL * binN[b] + 4] = (float) H;   // der Stamm hat die Höhe 1
+            if (liegt || weit) bin[b][FL * binN[b] + 4] = (float) H;   // Stamm und Kegel haben die Höhe 1
             binN[b]++;
         }
         common.accept(shader);
@@ -203,7 +250,7 @@ final class KnickGl {
         gl.glDisable(GL.GL_CULL_FACE);
         gl.glDepthMask(true);
         long tri = 0;
-        for (int b = 0; b < 2 * T + 1; b++) {
+        for (int b = 0; b < 2 * T + 2; b++) {
             int m = binN[b];
             if (m == 0 || nIdx[b] == 0) continue;
             if (fb == null || fb.capacity() < m * FL) fb = Buffers.newDirectFloatBuffer(Math.max(m * FL, FL * 4096));

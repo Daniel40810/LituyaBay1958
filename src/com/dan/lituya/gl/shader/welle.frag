@@ -50,6 +50,41 @@ vec2 lage(vec2 q, float p, vec2 o, float px) {
     return g * (1.0 - smoothstep(0.2, 0.55, px / p));
 }
 
+// Runde 4: Muster der Zunge in einer festen Richtung D. Acht Richtungen zu 45°, weich gemischt. Vorher lief das Muster
+// längs der Laufrichtung je Fragment; mit Lagen von einigen Kilometern verschob schon ein Grad Drehung es um zig Meter,
+// an jeder Kante des Netzes anders (dieselbe Falle wie in W4b): daraus die hellen und braunen Vielecke in der Zunge
+struct Zm { float faden; float ball; vec2 gb; float st; float stHell; float stFern; };
+Zm zungeMuster(vec2 D, vec2 xz, float seitL, float t, float px) {
+    Zm m;
+    vec2 Dq = vec2(-D.y, D.x);
+    float la = dot(xz, Dq), qu = dot(xz, D);
+    vec2 qL = vec2(la, qu - t * (seitL < 6.0 ? 22.0 : -9.0));
+    // (Runde 2: die Lage zu 17 m gab aus der Ferne große Flecken wie Schnee auf dem Hang; jetzt schwach)
+    m.faden = vnf(qL * vec2(1.0, 0.18), 6.0, vec2(0.0), px) * 0.6 + vnf(qL * vec2(1.0, 0.25) + 5.3, 2.4, vec2(0.0), px) * 0.3
+            + vnf(qL * vec2(1.0, 0.12) + 9.1, 17.0, vec2(0.0), px) * 0.1;
+    // Runde 3: Schaum als Ballen [G], zwei Lagen gewölbter Ballen (4 und 10 m), die mit dem Wasser wandern
+    vec2 qb = vec2(la, qu - t * (seitL < 6.0 ? 13.0 : -6.0));
+    #define BALL(q) ((1.0 - abs(2.0 * vnf(q, 4.0, vec2(0.0), px) - 1.0)) * 0.55 + (1.0 - abs(2.0 * vnf((q) + 11.0, 10.0, vec2(0.0), px) - 1.0)) * 0.45)
+    m.ball = BALL(qb);
+    vec2 gb = vec2(0.0);   // Gefälle nur, solange ein Ballen mehr als rund drei Bildpunkte deckt (Tempo)
+    if (px < 1.3) gb = vec2(BALL(qb + vec2(0.8, 0.0)) - m.ball, BALL(qb + vec2(0.0, 0.8)) - m.ball) / 0.8 * 3.0 * (1.0 - smoothstep(0.4, 1.3, px));
+    #undef BALL
+    m.gb = Dq * gb.x + D * gb.y;
+    // Stämme in der Zunge, längs der Strömung; nur nah als Striche, fern als dunklere Schlieren
+    vec2 zs = floor(vec2(qL.x / 7.0, qL.y / 13.0)), fs = vec2(qL.x / 7.0, qL.y / 13.0) - zs;
+    float wink = (h2(zs + 2.9) - 0.5) * 1.2;
+    vec2 rs = vec2(cos(wink) * (fs.x - 0.5) - sin(wink) * (fs.y - 0.5), sin(wink) * (fs.x - 0.5) + cos(wink) * (fs.y - 0.5));
+    m.st = step(0.80, h2(zs + 5.1)) * (1.0 - smoothstep(0.03, 0.06, abs(rs.x))) * (1.0 - smoothstep(0.30, 0.38, abs(rs.y)));
+    m.stHell = step(0.5, h2(zs + 8.8));
+    m.stFern = smoothstep(0.55, 0.8, vnf(qL * vec2(1.0, 0.12) + 3.3, 9.0, vec2(0.0), px));
+    return m;
+}
+float fingerMuster(vec2 D, vec2 xz, float tE) {
+    float la = dot(xz, vec2(-D.y, D.x)), qu = dot(xz, D);
+    return vn(vec2(la / 31.0, qu / 90.0 + tE * 0.05)) * 0.55 + vn(vec2(la / 11.0 + 3.1, qu / 40.0)) * 0.30
+         + vn(vec2(la / 4.3 + 7.7, qu / 15.0)) * 0.15;
+}
+
 void main() {
     if (vNass < 0.35) discard;
     // W3b (K11): was nach dem Ablaufen als dünner Film am Hang liegt (unter rund 1 m), ist kein Wasser mehr im Bild,
@@ -84,9 +119,11 @@ void main() {
     float landW = smoothstep(uLevel + 3.0, uLevel + 25.0, grundW);
     bool hatL0 = dot(vLauf, vLauf) > 0.25 && vSeit > -1e8;
     vec2 TL = hatL0 ? normalize(vLauf) : vec2(1.0, 0.0), TLq = vec2(-TL.y, TL.x);
-    float laengsL = dot(vW.xz, TLq), querL = dot(vW.xz, TL);
-    float fingerN = vn(vec2(laengsL / 31.0, querL / 90.0 + uEreignis * 0.05)) * 0.55 + vn(vec2(laengsL / 11.0 + 3.1, querL / 40.0)) * 0.30
-                  + vn(vec2(laengsL / 4.3 + 7.7, querL / 15.0)) * 0.15;
+    // Runde 4: zwei der acht festen Richtungen, nach dem Winkel der Laufrichtung gemischt (siehe zungeMuster)
+    float aL = atan(TL.y, TL.x) / 0.7853982, kL = floor(aL), wL = smoothstep(0.25, 0.75, aL - kL);
+    vec2 DL0 = vec2(cos(kL * 0.7853982), sin(kL * 0.7853982)), DL1 = vec2(cos((kL + 1.0) * 0.7853982), sin((kL + 1.0) * 0.7853982));
+    float fingerN = wL <= 0.0 ? fingerMuster(DL0, vW.xz, uEreignis) : wL >= 1.0 ? fingerMuster(DL1, vW.xz, uEreignis)
+                  : mix(fingerMuster(DL0, vW.xz, uEreignis), fingerMuster(DL1, vW.xz, uEreignis), wL);
     float vorkante = (fingerN - 0.45) * 1.6;   // s, wie weit die Kante hier vor- oder zurückliegt
     if (landW > 0.05 && stand > uLevel + 0.5 && seit < vorkante * landW) discard;
     float nach = seit >= 0.0 ? 1.0 : 0.0;
@@ -242,7 +279,7 @@ void main() {
     }
     // ---- Treibgut hinter der Front [G]: Stämme (geschält hell, mit Rinde dunkel), in Feldern gehäuft, die mit der Zeit
     // dichter werden (Treibholzteppich); Striche quer zum Wind; in der Ferne als Mittel (Fleckung) statt Gesprenkel
-    if (nach > 0.0) {
+    if (nach > 0.0 && landW < 0.99) {   // Runde 4: am Hang zeichnet die Zunge ihre Stämme selbst
         float feld = smoothstep(0.45, 0.75, vnf(q + 41.0, 120.0, vec2(0.0), px)) * smoothstep(20.0, 240.0, seit);
         float i0 = floor(qr.x / 9.0);
         vec2 qd = vec2(qr.x + 9.0 * (h2(vec2(i0, 7.0)) - 0.5), qr.y + 40.0 * h2(vec2(i0, 3.0)));
@@ -253,31 +290,28 @@ void main() {
         float nahS = 1.0 - smoothstep(0.25, 0.9, px);
         vec3 holzF = mix(vec3(0.05, 0.04, 0.03), vec3(0.50, 0.45, 0.38), step(0.5, h2(zl + 9.1)));
         float anteil = (stamm * nahS + (1.0 - nahS) * (1.0 - dicht) * 0.55) * flach;
-        col = mix(col, holzF * weissL * 0.85, clamp(anteil, 0.0, 0.9) * (1.0 - front) * (1.0 - quelle));
+        col = mix(col, holzF * weissL * 0.85, clamp(anteil, 0.0, 0.9) * (1.0 - front) * (1.0 - quelle) * (1.0 - landW));
     }
     // ---- W5 (E11) die Zunge am Hang [G]: durchlüftetes Weißwasser, das hangauf schießt, längs der Laufrichtung in Fäden
     // gerissen; zwischen den Fäden braunes Wasser voll Erde; an der Kante ein Saum aus Schaum und Spritzern; Stämme
     // treiben darin. Fällt der Stand wieder (Rückfall), laufen Schleier und Rinnen hangab, das Wasser wird dünn und glänzt.
     if (landW > 0.0) {
         float seitL = max(seit - vorkante * landW, 0.0);
-        vec2 qL = vec2(laengsL, querL - t * (seitL < 6.0 ? 22.0 : -9.0));
-        float pxL = max(length(fwidth(qL)), 1e-4);
-        // (Runde 2: die Lage zu 17 m gab aus der Ferne große Flecken wie Schnee auf dem Hang; jetzt schwach)
-        float faden = vnf(qL * vec2(1.0, 0.18), 6.0, vec2(0.0), pxL) * 0.6 + vnf(qL * vec2(1.0, 0.25) + 5.3, 2.4, vec2(0.0), pxL) * 0.3
-                    + vnf(qL * vec2(1.0, 0.12) + 9.1, 17.0, vec2(0.0), pxL) * 0.1;
-        float sinkt = vSteig < -0.05 ? 1.0 : 0.0;
+        Zm m = zungeMuster(wL < 0.5 ? DL0 : DL1, vW.xz, seitL, t, px);
+        if (wL > 0.0 && wL < 1.0) {
+            Zm o = zungeMuster(wL < 0.5 ? DL1 : DL0, vW.xz, seitL, t, px);
+            float a = wL < 0.5 ? wL : 1.0 - wL;
+            m.faden = mix(m.faden, o.faden, a); m.ball = mix(m.ball, o.ball, a); m.gb = mix(m.gb, o.gb, a);
+            m.st = mix(m.st, o.st, a); m.stHell = mix(m.stHell, o.stHell, a); m.stFern = mix(m.stFern, o.stFern, a);
+        }
+        float faden = m.faden, ball = m.ball, pxL = px;
+        float sinkt = 1.0 - smoothstep(-0.9, -0.05, vSteig + 0.5 * (faden - 0.5));
         float jung = 1.0 - smoothstep(4.0, 14.0, seitL);
         float duenn = 1.0 - smoothstep(1.5, 8.0, vTiefe);
         // Weißwasser: hangauf fast überall, beim Rückfall in Rinnen
         // Runde 3: Schaum als Ballen [G]. Aus 1,5 km las sich die Zunge als flache helle Streifen (wie Schnee): jetzt zwei
         // Lagen gewölbter Ballen (4 und 10 m, „Billow“), die mit dem Wasser wandern, aus ihrem Gefälle eine Normale; Licht
         // von oben auf die Kuppen, die Furchen dazwischen im Eigenschatten
-        vec2 qb = vec2(laengsL, querL - t * (seitL < 6.0 ? 13.0 : -6.0));
-        #define BALL(q) ((1.0 - abs(2.0 * vnf(q, 4.0, vec2(0.0), pxL) - 1.0)) * 0.55 + (1.0 - abs(2.0 * vnf((q) + 11.0, 10.0, vec2(0.0), pxL) - 1.0)) * 0.45)
-        float ball = BALL(qb);
-        vec2 gb = vec2(0.0);   // Gefälle nur, solange ein Ballen mehr als rund drei Bildpunkte deckt (Tempo)
-        if (pxL < 1.3) gb = vec2(BALL(qb + vec2(0.8, 0.0)) - ball, BALL(qb + vec2(0.0, 0.8)) - ball) / 0.8 * 3.0 * (1.0 - smoothstep(0.4, 1.3, pxL));
-        #undef BALL
         // (Probe W5Q: mit 0,30–0,62 war die Zunge braun mit hellen Flecken; sie ist durchlüftet, also fast ganz weiß)
         // Runde 3: die Ränder der Fäden in Ballen aufgebrochen (vorher glatte Bänder von 30 m Länge: wie Schnee)
         float bruch = (ball - 0.62) * 0.7;
@@ -287,18 +321,18 @@ void main() {
         vec3 colL = mix(erde, col, 0.25 * (1.0 - duenn));
         // dünnes Wasser beim Rückfall glänzt (Himmel im Wasserfilm), dickes ist trüb
         colL = mix(colL, mix(erde, skyColor(reflect(d, normalize(N + vec3(g.x, 0.0, g.y) * 0.6))) * 0.5, 0.6 * fres + 0.25 * sinkt * duenn), sinkt * 0.7);
-        vec3 nB = normalize(N + vec3(TLq.x, 0.0, TLq.y) * gb.x + vec3(TL.x, 0.0, TL.y) * gb.y);
+        vec3 nB = normalize(N + vec3(m.gb.x, 0.0, m.gb.y));
         vec3 lichtB = sunAt(vW) * max(dot(nB, uSun), 0.0) * 0.9 + umgebung(normalize(nB + vec3(0.0, 0.6, 0.0))) * 1.15;
         float furche = mix(0.38, 1.15, smoothstep(0.15, 0.85, ball));
         vec3 schaumL = mix(vec3(0.86, 0.85, 0.82), vec3(0.62, 0.55, 0.45), 0.35 * duenn + 0.25 * sinkt) * mix(weissW, lichtB * furche, 0.8);
         colL = mix(colL, schaumL, clamp(wsL * (0.95 - 0.35 * duenn * sinkt), 0.0, 1.0));
-        // Stämme in der Zunge, längs der Strömung, dunkel mit hellen geschälten
-        vec2 zs = floor(vec2(qL.x / 7.0, qL.y / 13.0)), fs = vec2(qL.x / 7.0, qL.y / 13.0) - zs;
-        float wink = (h2(zs + 2.9) - 0.5) * 1.2;
-        vec2 rs = vec2(cos(wink) * (fs.x - 0.5) - sin(wink) * (fs.y - 0.5), sin(wink) * (fs.x - 0.5) + cos(wink) * (fs.y - 0.5));
-        float stL = step(0.80, h2(zs + 5.1)) * (1.0 - smoothstep(0.03, 0.06, abs(rs.x))) * (1.0 - smoothstep(0.30, 0.38, abs(rs.y))) * (1.0 - smoothstep(0.2, 0.6, pxL));
-        stL *= smoothstep(0.5, 3.0, seitL) * (1.0 - smoothstep(30.0, 90.0, seitL));
-        colL = mix(colL, mix(vec3(0.05, 0.04, 0.03), vec3(0.45, 0.40, 0.33), step(0.5, h2(zs + 8.8))) * weissW * 0.9, stL * 0.85);
+        // Stämme in der Zunge, längs der Strömung, dunkel mit hellen geschälten (Runde 4: nur nah als Striche, in der
+        // Ferne standen sie als kleine helle Rechtecke; fern als dunklere Schlieren)
+        float leben = smoothstep(0.5, 3.0, seitL) * (1.0 - smoothstep(30.0, 90.0, seitL));
+        float stNah = 1.0 - smoothstep(0.08, 0.3, pxL);
+        float stL = m.st * leben * stNah;
+        colL *= 1.0 - 0.18 * (1.0 - stNah) * leben * m.stFern;
+        colL = mix(colL, mix(vec3(0.05, 0.04, 0.03), vec3(0.45, 0.40, 0.33), m.stHell) * weissW * 0.9, stL * 0.85);
         col = mix(col, colL, landW);
     }
     // W4b: unter dem Netz der Lippe ist die steile Wand die Rückwand der Röhre: dunkel, oben etwas Licht durch die Lippe;

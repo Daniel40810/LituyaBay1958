@@ -176,6 +176,11 @@ public final class Tempo {
             System.out.printf(Locale.GERMAN, "Netze in %.1f s: %s · %s%n", (System.nanoTime() - t0) / 1e9, r.netzblick.stand(), r.baeche.status());
         }
         for (int i = 0; i < 20; i++) { r.step(1 / 60.0); d.display(); }
+        // W5: die Grafikkarte die 20 Vorlaufbilder abarbeiten lassen. Ohne das wartete das erste gemessene Bild auf alle
+        // (500–900 ms seit W5, als die Bilder teurer wurden) und hob das Mittel von 30 Bildern um 15–30 ms über das Übliche
+        d.getContext().makeCurrent();
+        d.getGL().glFinish();
+        d.getContext().release();
         // Phase 17a: regiebuch = Name (ganz durchspielen, 30 Bilder je Sekunde Regiezeit), kino = aus (im Fenster statt im Kino)
         String rbn = opt("regiebuch");
         if (rbn != null && !rbn.isBlank()) {
@@ -204,6 +209,7 @@ public final class Tempo {
             System.exit(n >= max || r.lastSheet == null ? 1 : 0);
         }
         double best = Double.MAX_VALUE, sum = 0;
+        StringBuilder zeiten = new StringBuilder();   // W5: jede Bildzeit, um Spitzen zu finden
         for (int i = 0; i < frames; i++) {
             long t0 = System.nanoTime();
             r.step(1 / 60.0);
@@ -214,12 +220,14 @@ public final class Tempo {
             double ms = (System.nanoTime() - t0) / 1e6;
             best = Math.min(best, ms);
             sum += ms;
+            zeiten.append(String.format(Locale.GERMAN, " %.0f", ms));
         }
         if (r.error() != null) System.err.println("FEHLER: " + r.error());
         System.out.println(r.glInfo());
         System.out.println(r.compute() == null ? "Compute-Test: nicht gelaufen" : r.compute().line());
         System.out.printf(Locale.GERMAN, "%d×%d %s, %s: bestes Bild %.2f ms, Mittel %.2f ms (%.0f Bilder/s)%n", w, h, q.label, clock.label(), best, sum / frames, 1000 / (sum / frames));
         System.out.println("Durchgänge (ms): " + r.passTimes());
+        System.out.println("Bildzeiten (ms):" + zeiten);
         // W5: Licht am Ende des Laufs (für die Suche nach dem Rot der Kronen)
         com.dan.sky.Sky.State ls = r.licht.state();
         if (ls != null) {
