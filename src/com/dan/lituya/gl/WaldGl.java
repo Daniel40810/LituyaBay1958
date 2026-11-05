@@ -220,6 +220,7 @@ public final class WaldGl {
         if (d == null || forest == null) return;
         int day = clock.local().getDayOfYear();
         if (day != tag) { forest.setSeason(day, 0); tag = day; }
+        if (forest.ready()) knick.vorbauen(gl, forest, tag);   // W5 Runde 4
         double t = clock.simSeconds();
         if (!(t >= Band1958.EINTAUCHEN - 1 && t < KNICK_BIS)) knick.setzen(knick_leer, 0);
         if (t < Band1958.EINTAUCHEN) {

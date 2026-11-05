@@ -1,4 +1,4 @@
-# Werkbuch Welle W5 Runde 3: Zeit von H6 mit dem Spiegel ab 8 % Wasser im Bild.
-nr=1;name=H6_Zeit;xz=1750,-1350;auge=120;blick=352;neigung=-8;zeitstand=welle;ereignis=137;brennweite=50;warum=H6
-nr=2;name=H6_Zeit_b;xz=1750,-1350;auge=120;blick=352;neigung=-8;zeitstand=welle;ereignis=137;brennweite=50;warum=H6, zweiter Lauf
-nr=3;name=H5_Zeit;schaustueck=4;ereignis=104;brennweite=24;warum=H5 zum Vergleich der Mittel
+# Werkbuch Welle W5 Runde 4: Kontrolle der Zunge (Muster in festen Richtungen) und Zeit in H6
+nr=1;name=K_H6;xz=1750,-1350;auge=120;blick=352;neigung=-8;zeitstand=welle;ereignis=137;brennweite=50;warum=H6 wie es ist
+nr=2;name=K_Hoch_t134_85mm;xz=3400,-2300;auge=650;blick=290;neigung=3;zeitstand=welle;ereignis=134;brennweite=85;warum=Zunge von oben: Vielecke fort?
+nr=3;name=K_Sued_t142;xz=1750,-1350;auge=120;blick=352;neigung=-8;zeitstand=welle;ereignis=142;brennweite=50;warum=Rückfall
