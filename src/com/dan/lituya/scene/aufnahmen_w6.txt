@@ -21,3 +21,16 @@ nr=78;name=Gilbert_Front_Morgen;xz=2700,-3150;auge=25;blick=5;neigung=-1;zeitsta
 nr=79;name=Gilbert_Front_Abend;xz=2700,-3150;auge=25;blick=5;neigung=-1;zeitstand=vor;uhr=22.1;brennweite=35;warum=W6 (E6): dieselbe Front vor der Welle, verwittert
 nr=80;name=Ufer_nah_heute;xz=-5900,3150;auge=1.7;blick=0;neigung=15;zeitstand=heute;datum=2026-07-20;uhr=14.0;brennweite=35;warum=W6 Runde 2 (5.1): der Boden in der Nähe mit Textur statt Brei
 nr=81;name=Hang_nah_heute;xz=1000,-2200;auge=1.7;blick=0;neigung=8;zeitstand=heute;datum=2026-07-20;uhr=15.0;brennweite=35;warum=W6 Runde 2 (5.1): der Hang in der Narbe aus der Nähe
+nr=82;name=Erlen_nah_heute;xz=1000,-2200;auge=1.7;blick=0;neigung=-14;zeitstand=heute;datum=2026-07-20;uhr=15.0;brennweite=35;warum=W6 Runde 3 (WF18 A): Roterlen im Band aus der Nähe, Schwarzerle aus Nature (com.dan.tree) im Nahschnitt
+nr=83;name=Erlen_nah_heute_forest;xz=1000,-2200;auge=1.7;blick=0;neigung=-14;zeitstand=heute;datum=2026-07-20;uhr=15.0;brennweite=35;schalter=wald.erleNah=0;warum=wie 82, die Erlen aus forest (ohne Nahschnitt)
+nr=84;name=Nadelwald_nah_heute;xz=-5900,3150;auge=1.7;blick=0;neigung=-4;zeitstand=heute;datum=2026-07-20;uhr=14.0;brennweite=35;warum=W6 Runde 3 (WF18 B): Nadelbäume aus der Nähe mit feinen Bürsten
+nr=85;name=Schollen_nah_Morgen;xz=2700,-3150;auge=6;blick=5;neigung=5;zeitstand=danach;brennweite=35;warum=W6 Runde 3: Eisbrocken mit Höhe und Schatten (com.dan.buoyancy.Floes)
+nr=86;name=Schollen_nah_Morgen_flach;xz=2700,-3150;auge=6;blick=5;neigung=5;zeitstand=danach;brennweite=35;schalter=schollen=false;warum=wie 85, die flachen Brocken aus Runde 2
+nr=87;name=Nadelwald_nah_heute_grob;xz=-5900,3150;auge=1.7;blick=0;neigung=-4;zeitstand=heute;datum=2026-07-20;uhr=14.0;brennweite=35;schalter=wald.feineNadeln=false;warum=wie 84, Nadeln wie vor Runde 3 (Zeit und Bild)
+nr=90;name=Narbe_Zeit_alles;xz=1000,-1300;auge=2;blick=20;neigung=-4;zeitstand=heute;datum=2026-07-20;uhr=15.0;brennweite=85;warum=Zeitprobe H11 (Kosten W6): alles
+nr=91;name=Narbe_Zeit_ohne_Fels;xz=1000,-1300;auge=2;blick=20;neigung=-4;zeitstand=heute;datum=2026-07-20;uhr=15.0;brennweite=85;schalter=landschaft.fels=false;warum=Zeitprobe H11: ohne Fels aus cliff
+nr=92;name=Narbe_Zeit_ohne_Texturen;xz=1000,-1300;auge=2;blick=20;neigung=-4;zeitstand=heute;datum=2026-07-20;uhr=15.0;brennweite=85;schalter=texturen=false;warum=Zeitprobe H11: ohne Texturen der Nähe
+nr=93;name=Narbe_Zeit_ohne_Landschaft;xz=1000,-1300;auge=2;blick=20;neigung=-4;zeitstand=heute;datum=2026-07-20;uhr=15.0;brennweite=85;schalter=landschaft.an=false;warum=Zeitprobe H11: ohne Landschaft
+nr=94;name=Narbe_Zeit_wie_W5;xz=1000,-1300;auge=2;blick=20;neigung=-4;zeitstand=heute;datum=2026-07-20;uhr=15.0;brennweite=85;schalter=landschaft.an=false,texturen=false;warum=Zeitprobe H11: ohne Landschaft und Texturen
+nr=95;name=Narbe_Zeit_ohne_Spiegel;xz=1000,-1300;auge=2;blick=20;neigung=-4;zeitstand=heute;datum=2026-07-20;uhr=15.0;brennweite=85;schalter=showMeer=false;warum=Zeitprobe H11: ohne Wasser und Spiegel
+nr=96;name=Gilbert_Front_Morgen_ohne_Faelle;xz=2700,-3150;auge=25;blick=5;neigung=-1;zeitstand=danach;brennweite=35;schalter=faelle.an=false;warum=wie 78 ohne Wasserfälle (woher die hellen Streifen kommen)

@@ -103,6 +103,63 @@ public final class LandschaftGl {
         System.out.println("LituyaBay1958: " + status);
     }
 
+    /**
+     * W6 Runde 3: wo Wald stehen darf (1) und wo Schnee oder Eis aus Sentinel-2 liegt (0), je Zelle eines Quadrats
+     * (Szene x0, z0, Kante size, n × n Zellen, Zeilen nach Süden): Schnee aus dem Alpha der Farbe, Eis aus dem roten
+     * Kanal von eis_*, im Kern 10 m, sonst die Szene (20 / 50 m), bilinear in der Zellmitte und vier Punkten um sie
+     * (das Größte zählt). Übergang 0,15 bis 0,45 [G]. null, wenn die Dateien fehlen. Damit stehen am Rand des Walds
+     * keine Bäume auf Schneefeldern (Flug zur Kette).
+     */
+    public static float[] waldMaske(File daten, double x0, double z0, double size, int n) {
+        File d = new File(daten, "landschaft");
+        try {
+            ByteBuffer fk = lesen(new File(d, BILDER[0].datei()), BILDER[0].w() * BILDER[0].h() * 4);
+            ByteBuffer fs = lesen(new File(d, BILDER[1].datei()), BILDER[1].w() * BILDER[1].h() * 4);
+            ByteBuffer ek = lesen(new File(d, BILDER[2].datei()), BILDER[2].w() * BILDER[2].h() * 8);
+            ByteBuffer es = lesen(new File(d, BILDER[3].datei()), BILDER[3].w() * BILDER[3].h() * 8);
+            ek.order(java.nio.ByteOrder.LITTLE_ENDIAN);
+            es.order(java.nio.ByteOrder.LITTLE_ENDIAN);
+            float[] m = new float[n * n];
+            double c = size / n;
+            java.util.stream.IntStream.range(0, n).parallel().forEach(j -> {
+                for (int i = 0; i < n; i++) {
+                    double x = x0 + (i + 0.5) * c, z = z0 + (j + 0.5) * c, w = 0;
+                    for (int k = 0; k < 5; k++) {
+                        double px = x + (k == 1 ? -0.3 : k == 2 ? 0.3 : 0) * c, pz = z + (k == 3 ? -0.3 : k == 4 ? 0.3 : 0) * c;
+                        double e = px + Site.E0, nn = Site.N0 - pz;
+                        double sn = probe(BILDER[0], fk, e, nn, 3, false);
+                        if (Double.isNaN(sn)) sn = probe(BILDER[1], fs, e, nn, 3, false);
+                        double ic = probe(BILDER[2], ek, e, nn, 0, true);
+                        if (Double.isNaN(ic)) ic = probe(BILDER[3], es, e, nn, 0, true);
+                        w = Math.max(w, Math.max(Double.isNaN(sn) ? 0 : sn, Double.isNaN(ic) ? 0 : ic));
+                    }
+                    double t = Math.max(0, Math.min(1, (w - 0.15) / 0.30));
+                    m[j * n + i] = (float) (1 - t * t * (3 - 2 * t));
+                }
+            });
+            return m;
+        } catch (IOException e) {
+            System.out.println("LituyaBay1958: Waldmaske ohne Schnee (" + e.getMessage() + ")");
+            return null;
+        }
+    }
+
+    /** Kanal k eines Rasters bilinear am Ort (UTM) als 0..1; NaN außerhalb. */
+    private static double probe(Bild b, ByteBuffer buf, double e, double n, int k, boolean sechzehn) {
+        double fx = (e - b.e0()) / b.zelle() - 0.5, fy = (b.n0() - n) / b.zelle() - 0.5;
+        if (fx < 0 || fy < 0 || fx >= b.w() - 1 || fy >= b.h() - 1) return Double.NaN;
+        int ix = (int) fx, iy = (int) fy;
+        double tx = fx - ix, ty = fy - iy;
+        double a = kanal(b, buf, ix, iy, k, sechzehn), bb = kanal(b, buf, ix + 1, iy, k, sechzehn);
+        double cc = kanal(b, buf, ix, iy + 1, k, sechzehn), dd = kanal(b, buf, ix + 1, iy + 1, k, sechzehn);
+        return (a + (bb - a) * tx) * (1 - ty) + (cc + (dd - cc) * tx) * ty;
+    }
+
+    private static double kanal(Bild b, ByteBuffer buf, int i, int j, int k, boolean sechzehn) {
+        int p = (j * b.w() + i) * 4 + k;
+        return sechzehn ? (buf.getShort(2 * p) & 0xffff) / 65535.0 : (buf.get(p) & 0xff) / 255.0;
+    }
+
     private static ByteBuffer lesen(File f, int n) throws IOException {
         if (!f.isFile()) throw new IOException(f.getName() + " fehlt");
         if (f.length() != n) throw new IOException(f.getName() + ": " + f.length() + " statt " + n + " Bytes");

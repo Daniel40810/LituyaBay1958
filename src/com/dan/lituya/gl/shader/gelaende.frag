@@ -191,13 +191,15 @@ void main() {
     // am Ufer, Firn und Eis [G]. Vorher war der Boden in der Nähe ein Brei aus 10-m-Zellen.
     if (uLandAn == 1 && uSurfAn == 1 && land.w > 0.0) {
         float pxN = max(length(fwidth(vW.xz)), 1e-3);
-        if (pxN < 0.9) {
-            float near = (1.0 - smoothstep(0.45, 0.9, pxN)) * land.w;
+        // W6 Runde 3 (Kosten): bis 0,7 m je Bildpunkt (vorher 0,9)
+        if (pxN < 0.7) {
+            float near = (1.0 - smoothstep(0.35, 0.7, pxN)) * land.w;
             float ufer = 1.0 - smoothstep(3.0, 10.0, h);
             int La = land.schnee > 0.5 ? (land.eis > 0.5 && land.schnee < 0.9 ? uMat2.w : uMat2.z)
                    : land.fels > 0.5 ? uMat.y : ufer > 0.5 ? uMat.w : uMat2.x;
             int Lb = land.schnee > 0.5 ? uMat2.z : land.fels > 0.5 ? uMat.x : ufer > 0.5 ? uMat.z : uMat2.y;
-            Surf a = mat(La, vW, dpw, dpv, land.n, pxN), b = mat(Lb, vW, dpw, dpv, land.n, pxN);
+            Surf a = mat(La, vW, dpw, dpv, land.n, pxN), b = a;
+            if (Lb != La) b = mat(Lb, vW, dpw, dpv, land.n, pxN);
             float wa = smoothstep(0.35, 0.65, knf(vW.xz + 61.0, 3.0, pxN) + (a.height - b.height) * 0.5);
             vec3 ra = a.albedo / max(uSurfMean[La].rgb, vec3(0.02)), rb = b.albedo / max(uSurfMean[Lb].rgb, vec3(0.02));
             vec3 det = clamp(mix(rb, ra, wa), vec3(0.3), vec3(2.2));
@@ -258,7 +260,9 @@ void main() {
             float k = b.a * smoothstep(0.5, 2.0, h);
             // W6: in den letzten Jahren zeigt die Aufnahme das Band, wie es ist (Erlen, Wiese, Fels); der gerechnete Boden nur
             // noch als Hauch (11 Narbe heute: vorher heller Kies und Holz zwischen den Bäumen)
-            if (uLandAn == 1) k *= 1.0 - 0.85 * smoothstep(45.0, 60.0, uBandJahre);
+            // W6 Runde 3 (Kosten): ab 60 Jahren ganz die Aufnahme (vorher blieb ein Hauch von 15 %, für den der ganze Hang
+            // mit Blöcken und Texturen gerechnet wurde: in 11 Narbe heute der größte Teil der Zeit im Gelände)
+            if (uLandAn == 1) k *= 1.0 - smoothstep(45.0, 60.0, uBandJahre);
             if (k > 0.0) {
                 // Fels (0,18 0,17 0,16), Mineralboden (0,20 0,16 0,11), Waldboden (dunkel) aus WaldGl; die ersten beiden als Hang
                 float wb = 1.0 - smoothstep(0.08, 0.14, b.r);

@@ -81,6 +81,13 @@ public final class Renderer implements GLEventListener {
     public final BaecheGl baeche = new BaecheGl();
     /** Werkbuch Welle W6 (L9): Wasserfälle über den Steilstufen (com.dan.fall auf den Bächen). */
     public final FaelleGl faelle = new FaelleGl();
+    /** W6 Runde 3: Eisbrocken mit Höhe und Schatten um das Auge (com.dan.buoyancy, Renderer); dahinter flach in meer.frag. */
+    public volatile boolean schollen = !Boolean.getBoolean("lituya.ohneSchollen");
+    private final com.dan.buoyancy.Floes floes = new com.dan.buoyancy.Floes();
+    private final com.dan.buoyancy.gl.FloeGl floeGl = new com.dan.buoyancy.gl.FloeGl();
+    private double[] floesAuge;
+    private double floesDichte = -1;
+    private int floesAlter;
     /** Werkbuch Welle W1: Himmel aus com.dan.sky, Belichtung, Horizontkarten für den Schatten der Kette, Alpenglühen. */
     public final Licht licht = new Licht();
     /** Werkbuch Welle W2: das Wasser aus com.dan.ocean, Spiegel der Berge, Gletschermilch. */
@@ -782,6 +789,54 @@ public final class Renderer implements GLEventListener {
     /** W6 (E6): Mitte der Gletscherfront 1958 im Gilbert Inlet (Szene x, z) und Abklingen der Eisbrocken (m) [G]. */
     static final double[] EIS_MITTE = {2800, -4150};
     static final double EIS_ABKLINGEN = 900;
+    /**
+     * W6 Runde 3: die Brocken nah als Körper (Floes, FloeGl): Bedeckung wie meer.frag (Dichte, Abklingen von der Front),
+     * nicht auf Land 1958 (Rückbau im Bild) und nicht auf dem Eis 1958; neu gewürfelt, wenn das Auge 4 m wandert oder
+     * sich die Dichte ändert.
+     */
+    private void schollen(GL4 gl, float[] vp, double eisD) {
+        com.dan.forest.gl.ForestGl.Light wl = licht.waldLicht();
+        if (wl == null) return;
+        if (!floeGl.ready()) { floes.slots = 14; floes.sizeMax = 11; floeGl.init(gl); }   // dichter als die Vorgabe: Brocken vor der Front [G]
+        double[] e = camera.eye;
+        double pegel = wiring.pegel;
+        if (floesAuge == null || Math.hypot(e[0] - floesAuge[0], e[2] - floesAuge[2]) > 4 || Math.abs(eisD - floesDichte) > 0.01 || ++floesAlter > 120) {
+            floes.fill(e[0], e[2], (x, z) -> {
+                double rr = Math.hypot(x - EIS_MITTE[0], z - EIS_MITTE[1]);
+                double c = eisD * Math.exp(-Math.max(0, rr - 250) / EIS_ABKLINGEN);
+                if (c < 0.01) return 0;
+                double h = stapelHoehe(x, z);
+                if (Double.isNaN(h)) return 0;
+                double[] u = com.dan.lituya.scene.Site.toUtm(x, z);
+                double h58 = com.dan.lituya.scene.Boden1958.rueckbauBild(u[0], u[1], h);
+                if (h58 > pegel - 0.6) return 0;
+                if (FaelleGl.eis1958(x, z, h, 0) > 0.3) return 0;
+                return c;
+            }, (x, z) -> pegel);
+            floeGl.update(gl, floes);
+            floesAuge = e.clone();
+            floesDichte = eisD;
+            floesAlter = 0;
+        }
+        com.dan.buoyancy.gl.FloeGl.View v = new com.dan.buoyancy.gl.FloeGl.View();
+        v.viewProj = vp;
+        v.eye = e.clone();
+        v.reversedZ = reversedZ;
+        com.dan.buoyancy.gl.FloeGl.Light l = new com.dan.buoyancy.gl.FloeGl.Light();
+        l.sunDir = wl.sunDir;
+        l.sunColor = wl.sunColor;
+        l.skyColor = wl.skyColor;
+        l.fogColor = wl.fogColor;
+        l.fogDistance = wl.fogDistance;
+        l.shadow = 0.45;   // [G]
+        floeGl.draw(gl, v, l, clock.t());
+        gl.glDisable(GL.GL_DEPTH_TEST);
+        gl.glDepthMask(true);
+    }
+
+    /** W6 Runde 3: für HUD und Proben. */
+    public String schollenInfo() { return String.format(java.util.Locale.GERMAN, "Schollen %,d (%,d Dreiecke)", floeGl.drawn(), floeGl.triangles()); }
+
     /** W6 (E6): Schalter für Proben. */
     public volatile boolean eisbrocken = true;
 
@@ -1169,28 +1224,6 @@ public final class Renderer implements GLEventListener {
         if (meerJetzt) {
             // W2: com.dan.ocean; dann der Holzteppich am Morgen danach aus meer.frag als Auflage
             meer.zeichnen(gl, vp, camera.eye, reversedZ, licht, welleRect);
-            double eisD = eisDichte(clock.simSeconds());   // W6 (E6): Eisbrocken der Front im Gilbert Inlet
-            if (wald.teppichJetzt() || eisD > 0.01) {
-                gl.glEnable(GL.GL_DEPTH_TEST);
-                gl.glDepthFunc(reversedZ ? GL.GL_GEQUAL : GL.GL_LEQUAL);
-                gl.glDepthMask(false);
-                gl.glEnable(GL.GL_BLEND);
-                gl.glBlendFunc(GL.GL_SRC_ALPHA, GL.GL_ONE_MINUS_SRC_ALPHA);
-                common(gl, meerShader, vp, inv, sun);
-                bindMarks(gl, meerShader);
-                wald.meer(gl, meerShader);
-                meerShader.set(gl, "uEisAn", eisD > 0.01 ? 1 : 0);
-                meerShader.set(gl, "uEisDichte", (float) eisD);
-                meerShader.set(gl, "uEisMitte", (float) EIS_MITTE[0], (float) EIS_MITTE[1], (float) EIS_ABKLINGEN);
-                meerShader.set(gl, "uNurTeppich", 1);
-                meerShader.set(gl, "uWelle", welleRect != null ? 1 : 0);
-                if (welleRect != null) meerShader.set(gl, "uWelleRect", (float) welleRect[0], (float) welleRect[1], (float) welleRect[2], (float) welleRect[3]);
-                gl.glBindVertexArray(emptyVao);
-                gl.glDrawArrays(GL.GL_TRIANGLES, 0, 3);
-                gl.glDisable(GL.GL_BLEND);
-                gl.glDepthMask(true);
-                gl.glDisable(GL.GL_DEPTH_TEST);
-            }
             gl.glBindVertexArray(emptyVao);
         } else if (showMeer) {
             gl.glEnable(GL.GL_DEPTH_TEST);
@@ -1216,6 +1249,33 @@ public final class Renderer implements GLEventListener {
             meer.spiegelLegen(gl, depthTex, sh -> common(gl, sh, vp, inv, sun), wr, (float) NEAR, (float) FAR);
             gl.glBindFramebuffer(GL.GL_FRAMEBUFFER, hdrFbo);
             gl.glBindVertexArray(emptyVao);
+            // W6 Runde 3: Holzteppich und Eisbrocken erst nach dem Spiegel (vorher legte er die Spiegelung der Front als helle
+            // Streifen über das Eis, Probe 78)
+            double eisD = eisDichte(clock.simSeconds());   // W6 (E6): Eisbrocken der Front im Gilbert Inlet
+            if (wald.teppichJetzt() || eisD > 0.01) {
+                gl.glEnable(GL.GL_DEPTH_TEST);
+                gl.glDepthFunc(reversedZ ? GL.GL_GEQUAL : GL.GL_LEQUAL);
+                gl.glDepthMask(false);
+                gl.glEnable(GL.GL_BLEND);
+                gl.glBlendFunc(GL.GL_SRC_ALPHA, GL.GL_ONE_MINUS_SRC_ALPHA);
+                common(gl, meerShader, vp, inv, sun);
+                bindMarks(gl, meerShader);
+                wald.meer(gl, meerShader);
+                meerShader.set(gl, "uEisAn", eisD > 0.01 ? 1 : 0);
+                meerShader.set(gl, "uEisDichte", (float) eisD);
+                meerShader.set(gl, "uEisMitte", (float) EIS_MITTE[0], (float) EIS_MITTE[1], (float) EIS_ABKLINGEN);
+                boolean sch = schollen && eisD > 0.01;
+                meerShader.set(gl, "uEisNah", sch ? (float) (floes.radius * floes.fadeFrom) : 0f, sch ? (float) floes.radius : 0f);
+                meerShader.set(gl, "uNurTeppich", 1);
+                meerShader.set(gl, "uWelle", welleRect != null ? 1 : 0);
+                if (welleRect != null) meerShader.set(gl, "uWelleRect", (float) welleRect[0], (float) welleRect[1], (float) welleRect[2], (float) welleRect[3]);
+                gl.glBindVertexArray(emptyVao);
+                gl.glDrawArrays(GL.GL_TRIANGLES, 0, 3);
+                gl.glDisable(GL.GL_BLEND);
+                gl.glDepthMask(true);
+                gl.glDisable(GL.GL_DEPTH_TEST);
+                if (sch) schollen(gl, vp, eisD);
+            }
         }
         // 3c'' W5 (E11): Schleier, die oben am Sporn von der Zunge abreißen und zurückfallen
         if (wiedergabe.an()) {
@@ -1226,7 +1286,8 @@ public final class Renderer implements GLEventListener {
         }
         // 3c''' W6 (L9): Wasserfälle über den Steilstufen
         if (showGelaende) {
-            faelle.zeichnen(gl, vp, camera.eye, reversedZ, licht, baeche.regen, wiring.windFromDeg, wiring.windSpeed, clock.t());
+            faelle.zeichnen(gl, vp, camera.eye, reversedZ, licht, baeche.regen, wiring.windFromDeg, wiring.windSpeed, clock.t(),
+                    rueckbauJetzt && clock.zeitstand != SceneClock.Zeitstand.HEUTE);
             gl.glBindVertexArray(emptyVao);
         }
         mark(gl, 6);

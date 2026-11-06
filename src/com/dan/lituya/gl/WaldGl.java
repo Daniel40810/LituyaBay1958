@@ -94,6 +94,8 @@ public final class WaldGl {
         int tnx, tnz;
         String zeile;
         float[] sperre;           // Runde 6: Höhe, bis zu der der stehende Wald Sicht sperrt (m über Grund), 20-m-Raster
+        long maskeZellen = -1;    // W6 Runde 3: Zellen mit Wald, die Schnee oder Eis (überwiegend) wegnimmt
+        com.dan.tree.gl.TreeGl erlen;   // W6 Runde 3: Roterle aus der Nähe (Schwarzerle aus Nature, com.dan.tree)
     }
 
     /** Runde 6: Raster der Sichtsperre durch den Wald (Szene, Ecke Nordwest, Zelle, Breite, Höhe). */
@@ -153,8 +155,25 @@ public final class WaldGl {
         stufeRadius = f.radius;
         f.radius = Math.min(f.radius, reichweite);
         f.thinFrom = duennAb;
+        if (f.fineNeedles) f.lod0 = Math.min(f.lod0, LOD0_FEIN);   // W6 Runde 3: feine Nadeln, dafür Stufe 0 näher
         updateNoetig = true;   // Runde 11: neue Stufe, neue Größe der Impostoren
     }
+
+    /** W6 Runde 3 (WF18 B): feine Nadelbürsten in Stufe 0 (forest, Renderer); Stufe 0 dafür bis 5 statt 12 Höhen je 20 m [G]. */
+    public static volatile boolean feineNadeln = !Boolean.getBoolean("lituya.grobeNadeln");
+    static final double LOD0_FEIN = 5;   // Runde 3c: 7 kostete in nahen Blicken 1–2,5 ms im Wald
+    /**
+     * W6 Runde 3 (WF18 A): Roterlen näher als so viele Meter (Art 2) zeichnet forest nicht (Nahschnitt in Renderer); an
+     * ihrem Platz steht die Schwarzerle aus com.dan.tree (Nature) mit gleicher Höhe und Drehung. 0 = aus [G].
+     */
+    public volatile double erleNah = Double.parseDouble(System.getProperty("lituya.erleNah", "30"));
+    private final List<float[]> nahListe = new ArrayList<>();
+    static final int ERLEN_MAX = 24;
+    private double[] erlenAuge;
+    private int erlenTag = -1, erlenZahl, erlenAlter;
+
+    /** W6 Runde 3: Schnee und Eis aus Sentinel-2 nehmen den Wald (Schalter vor dem Aufbau, -Dlituya.waldOhneSchneemaske). */
+    public static volatile boolean mitSchneeMaske = !Boolean.getBoolean("lituya.waldOhneSchneemaske");
 
     /** Runde 7: Reichweite der Einzelbäume (m) und Beginn des Ausdünnens (Anteil der Reichweite) als Schalter. */
     public volatile double reichweite = NAH, duennAb = AUSDUENNEN_AB;
@@ -176,12 +195,32 @@ public final class WaldGl {
             }
             x.states = new TreeStates(Wald1958.ABSTAND, su.i0, su.j0, su.w, su.h);
             x.gelaende = new ForestCulture.Grid(X0, Z0, KANTE, N_GELAENDE, 1, x.wald.grundGitter(X0, Z0, KANTE, N_GELAENDE));
-            x.dichte = new ForestCulture.Grid(X0, Z0, KANTE, N_DICHTE, 3, x.wald.dichteGitter(X0, Z0, KANTE, N_DICHTE));
+            float[] dg = x.wald.dichteGitter(X0, Z0, KANTE, N_DICHTE);
+            // W6 Runde 3: kein Wald auf Schnee und Eis aus Sentinel-2 (im Flug standen am Rand des Walds einzelne Bäume auf Schnee)
+            float[] maske = mitSchneeMaske ? LandschaftGl.waldMaske(daten, X0, Z0, KANTE, N_DICHTE) : null;
+            if (maske != null) {
+                long weg = 0;
+                for (int s = 0; s < 3; s++)
+                    for (int c = 0; c < maske.length; c++) {
+                        float v = dg[s * maske.length + c], m = maske[c];
+                        if (v > 0 && m < 1) { if (m < 0.5) weg++; dg[s * maske.length + c] = Math.round(v * m * 255) / 255f; }
+                    }
+                x.maskeZellen = weg;
+            }
+            x.dichte = new ForestCulture.Grid(X0, Z0, KANTE, N_DICHTE, 3, dg);
             treibgutLesen(new File(daten, "ereignis/treibgut"), x);
             x.sperre = sperreRechnen(x.wald);
+            try {
+                x.erlen = new com.dan.tree.gl.TreeGl(com.dan.tree.blackalder.BlackAlder.species());
+                x.erlen.minLevel = 1;                              // Stufe 0 hat bis 2,8 Mio. Dreiecke
+                x.erlen.lodDistance = new float[]{1.0f, 1.0f, 14f};  // Stufe 2 ab einer Baumhöhe [G] (Probe 82: 106 Erlen mit 6,6 Mio. Dreiecken, dann 40 mit 2,9 Mio.)
+            } catch (RuntimeException ex) {
+                System.err.println("LituyaBay1958: Erlen aus com.dan.tree nicht geladen: " + ex.getMessage());
+            }
             x.zeile = String.format(Locale.GERMAN, "Wald: %,d Plätze im Band, %d Jahre, %,d Stämme Treibgut (%.0f s) · %s", su.band(), su.jahre(),
                     x.staemme == null ? 0 : x.staemme.length, (System.nanoTime() - t0) / 1e9, x.wald.quelle)
-                    + String.format(Locale.GERMAN, " · Sichtsperre des Walds %.1f km²", sperreFlaeche(x.sperre));
+                    + String.format(Locale.GERMAN, " · Sichtsperre des Walds %.1f km²", sperreFlaeche(x.sperre))
+                    + (x.maskeZellen >= 0 ? String.format(Locale.GERMAN, " · Schnee und Eis nehmen %.1f km² Wald (Art·Zelle)", x.maskeZellen * Math.pow(KANTE / N_DICHTE, 2) / 1e6) : " · ohne Schneemaske");
             System.out.println("LituyaBay1958: " + x.zeile);
             status = x.zeile;
             return x;
@@ -232,6 +271,7 @@ public final class WaldGl {
             try {
                 d = bau.get();
                 forest = new ForestGpu(ARTEN, 3, Wald1958.ABSTAND, 1958);
+                forest.fineNeedles = feineNadeln;   // W6 Runde 3 (WF18 B)
                 nah(forest);
                 forest.setTerrain(d.gelaende);
                 forest.setDensity(d.dichte);
@@ -260,6 +300,8 @@ public final class WaldGl {
         if (d != null && gezogen != gezogenGebaut && daten != null) {
             // Schalter „gezogen / rein gerechnet“: neu rechnen, bis dahin ohne Wald
             forest.dispose(gl);
+            if (d.erlen != null && erlenAuge != null) d.erlen.dispose(gl);
+            erlenAuge = null;
             forest = null;
             d = null;
             gezeigt = bodenJahr = Integer.MIN_VALUE;
@@ -557,6 +599,7 @@ public final class WaldGl {
         v.tonemap = false;
         double rw = Math.min(stufeRadius, reichweite);
         if (forest.radius != rw || forest.thinFrom != duennAb) { forest.radius = rw; forest.thinFrom = duennAb; zustandNeu = true; updateNoetig = true; }
+        nahSchnitt(haupt);
         double[] b = blick;
         if (!haupt || b == null || cullStets) {
             pruefen(gl, v);
@@ -586,18 +629,88 @@ public final class WaldGl {
             }
         }
         forest.draw(gl, v, licht(sun), t);
+        if (haupt) erlen(gl, v, licht(sun), t, reversed);
         gl.glDisable(GL.GL_DEPTH_TEST);
+    }
+
+    /** W6 Runde 3: Nahschnitt der Roterle setzen (im Spiegel aus: dort zeichnet forest alle, ohne die Erlen aus Nature). */
+    private void nahSchnitt(boolean haupt) {
+        double e = d != null && d.erlen != null ? erleNah : 0;
+        double[] want = haupt && e > 0 ? new double[]{0, 0, e} : null;
+        double[] cur = forest.nearCut;
+        if (want == null ? cur != null : cur == null || cur[2] != want[2]) { forest.nearCut = want; zustandNeu = true; }
+    }
+
+    /** W6 Runde 3: die Erlen im Nahschnitt mit com.dan.tree zeichnen (gleiche Plätze, Höhe und Drehung wie forest). */
+    private void erlen(GL4 gl, ForestGl.View v, ForestGl.Light l, double t, boolean reversed) {
+        com.dan.tree.gl.TreeGl eg = d.erlen;
+        if (eg == null || forest.nearCut == null) { erlenZahl = 0; return; }
+        if (erlenAuge == null) eg.init(gl);
+        if (erlenTag != tag) { eg.setSeason(tag, 0); erlenTag = tag; }
+        double[] eye = v.eye;
+        if (erlenAuge == null || Math.hypot(eye[0] - erlenAuge[0], eye[2] - erlenAuge[2]) > 1.5 || Math.abs(eye[1] - erlenAuge[1]) > 1.5 || ++erlenAlter > 60) {
+            erlenAlter = 0;
+            forest.nearTrees(eye, nahListe);
+            eg.clear();
+            // höchstens ERLEN_MAX, die nächsten (Kosten) [G]
+            nahListe.removeIf(b -> (int) b[0] != 2);
+            nahListe.sort((p, q) -> Double.compare(Math.hypot(p[2] - eye[0], p[4] - eye[2]), Math.hypot(q[2] - eye[0], q[4] - eye[2])));
+            if (nahListe.size() > ERLEN_MAX) nahListe.subList(ERLEN_MAX, nahListe.size()).clear();
+            ForestCulture.Grid gg = d.gelaende;
+            for (float[] b : nahListe) {
+                int var = (int) (ForestCulture.u01(ForestCulture.slotHash((int) Math.floor(b[2] / Wald1958.ABSTAND), (int) Math.floor(b[4] / Wald1958.ABSTAND), 0xE71E), 1) * 4) & 3;
+                double hv = eg.height(var);
+                if (!(hv > 0.5) || !(b[7] > 0.5)) continue;
+                // Fuß: am Hang unter den tiefsten Punkt im Umkreis von 2,5 m, dazu 0,3 m (die Wurzeln der Erlen aus Nature
+                // standen am Hang in der Luft, Probe 82)
+                float y = b[3];
+                if (gg != null)
+                    for (int k = 0; k < 4; k++) {
+                        double a = k * Math.PI / 2;
+                        y = Math.min(y, gg.sample(0, (float) (b[2] + 2.5 * Math.cos(a)), (float) (b[4] + 2.5 * Math.sin(a))));
+                    }
+                // dazu ein Zehntel der Höhe: die Wurzeln der Erlen aus Nature stehen in Stufe 1 als Schlingen über dem Fuß (Probe 82)
+                eg.add(var, b[2], y - 0.3f - 0.1f * b[7], b[4], b[5], (float) (b[7] / hv));
+            }
+            erlenZahl = eg.trees().size();
+            erlenAuge = eye.clone();
+        }
+        com.dan.tree.TreeWind w = new com.dan.tree.TreeWind();
+        w.speed = (float) windMs;
+        w.fromDeg = (float) windVonGrad;
+        w.gustiness = 0.35f;
+        eg.setWind(w);
+        eg.update(gl, eye);
+        com.dan.tree.gl.TreeGl.View tv = new com.dan.tree.gl.TreeGl.View();
+        tv.viewProj = v.viewProj;
+        tv.eye = eye;
+        tv.tonemap = false;
+        com.dan.tree.gl.TreeGl.Light tl = new com.dan.tree.gl.TreeGl.Light();
+        tl.sunDir = l.sunDir;
+        tl.sunColor = l.sunColor;
+        tl.skyColor = l.skyColor;
+        tl.fogColor = l.fogColor;
+        tl.fogDistance = l.fogDistance;
+        tl.groundColor = new double[]{l.skyColor[0] * 0.25, l.skyColor[1] * 0.22, l.skyColor[2] * 0.16};
+        gl.glEnable(GL.GL_DEPTH_TEST);
+        gl.glDepthFunc(reversed ? GL.GL_GEQUAL : GL.GL_LEQUAL);
+        gl.glDepthMask(true);
+        boolean cull = gl.glIsEnabled(GL.GL_CULL_FACE);
+        eg.draw(gl, tv, tl, t);
+        if (cull) gl.glEnable(GL.GL_CULL_FACE);
     }
 
     /** Für HUD und Prüfung: sichtbare Bäume, Stufen, Speicher. */
     public String info() {
         if (forest == null) return status;
-        return String.format(Locale.GERMAN, "%s · %,d sichtbar, %.0f MB · Prüfung %d× gespart · %s", forest.info(), forest.visible(), forest.vramBytes() / 1e6, cullGespart, knick.info);
+        return String.format(Locale.GERMAN, "%s · %,d sichtbar, %.0f MB · Prüfung %d× gespart · %s · Erlen aus Nature %d (%,d Dreiecke)", forest.info(), forest.visible(), forest.vramBytes() / 1e6, cullGespart, knick.info,
+                erlenZahl, d != null && d.erlen != null ? d.erlen.triangles() : 0);
     }
 
     public void dispose(GL4 gl) {
         knick.dispose(gl);
         if (forest != null) forest.dispose(gl);
+        if (d != null && d.erlen != null && erlenAuge != null) d.erlen.dispose(gl);
         if (kroneTex != 0) gl.glDeleteTextures(1, new int[]{kroneTex}, 0);
         exec.shutdownNow();
     }
