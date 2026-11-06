@@ -172,11 +172,16 @@ public final class WaldGl {
 
     /** W6 Runde 5: Rinde mit Muster (forest und Erlen), Nadeln als Triebe; Schalter zum Vergleich. */
     public static volatile boolean rinde = !Boolean.getBoolean("lituya.ohneRinde"), triebe = !Boolean.getBoolean("lituya.ohneTriebe");
+    /** W6 Runde 6: Bartflechten (beim Backen des Walds), feuchte Seite der Stämme: Südsüdost, woher die Stürme des Golfs von Alaska den Regen bringen [G]. */
+    public static volatile boolean bart = !Boolean.getBoolean("lituya.ohneBartflechten");
+    static final double[] MOOS_SEITE = {0.35, 0, 0.94};
     /**
      * W6 Runde 5: Sonnenschattenkarte der nahen Bäume (forest Stufe 0, auf Wunsch auch 1, und die Erlen aus Nature), gelesen
      * von forest, den Erlen und dem Gelände. Halbe Kante und Bildpunkte der Karte [G]; Mitte vor dem Auge in Blickrichtung.
      */
     public static volatile boolean baumSchatten = !Boolean.getBoolean("lituya.ohneBaumschatten");
+    /** W6 Runde 6: eigene Auswahl der Schattenwerfer nach der Lichtkarte (auch Bäume außerhalb des Blicks). */
+    public static volatile boolean schattenAuswahl = !Boolean.getBoolean("lituya.ohneSchattenAuswahl");
     public static volatile int schattenStufen = Integer.getInteger("lituya.baumSchattenStufen", 2);
     static final double SCHATTEN_RADIUS = Double.parseDouble(System.getProperty("lituya.baumSchattenRadius", "160"));
     static final int SCHATTEN_KANTE = Integer.getInteger("lituya.baumSchattenKante", 4096);
@@ -298,6 +303,7 @@ public final class WaldGl {
                 forest = new ForestGpu(ARTEN, 3, Wald1958.ABSTAND, 1958);
                 forest.fineNeedles = feineNadeln;   // W6 Runde 3 (WF18 B)
                 forest.barkDetail = rinde;          // W6 Runde 5: Rinde mit Muster (Renderer)
+                forest.beardLichen = bart;          // W6 Runde 6: Bartflechten an Sitka und Hemlock (Renderer)
                 forest.shootLight = triebe;         // W6 Runde 5: Nadeln als Triebe beleuchtet (Renderer)
                 nah(forest);
                 forest.setTerrain(d.gelaende);
@@ -434,7 +440,9 @@ public final class WaldGl {
     public void knickZeichnen(GL4 gl, java.util.function.Consumer<Shader> common, double[] eye, float[] vp, double t, boolean reversed) {
         if (!an || forest == null || knick.zahl() == 0) return;
         gl.glDepthFunc(reversed ? GL.GL_GREATER : GL.GL_LESS);
+        Renderer.teil("Knick");
         knick.zeichnen(gl, forest, tag, common, eye, vp, t, (float) (1 / (2 * Site.EARTH_R_OPTICAL)));
+        Renderer.teilEnde("Knick");
         gl.glDisable(GL.GL_DEPTH_TEST);
     }
 
@@ -668,7 +676,8 @@ public final class WaldGl {
         forest.barkDetail = rinde && haupt; // W6 Runde 5 (je Bild, damit Schalter greifen; im Spiegelbild ohne, wie die Landschaft)
         forest.shootLight = triebe;
         ForestGl.Light lf = licht(sun);
-        if (haupt) baumSchatten(gl, eye, sun, t);
+        lf.mossSide = MOOS_SEITE;
+        if (haupt) { Renderer.teil("Baumschatten"); baumSchatten(gl, eye, sun, t); Renderer.teilEnde("Baumschatten"); }
         if (schattenGueltig) {
             lf.sunShadowTexture = schattenKarte.texture();
             lf.sunShadowMatrix = schattenKarte.matrix;
@@ -678,8 +687,9 @@ public final class WaldGl {
             lf.sunShadowTexture = 0;
             lf.sunShadowMatrix = null;
         }
+        if (haupt) Renderer.teil("forest");
         forest.draw(gl, v, lf, t);
-        if (haupt) erlen(gl, v, lf, t, reversed);
+        if (haupt) { Renderer.teilEnde("forest"); Renderer.teil("Erlen"); erlen(gl, v, lf, t, reversed); Renderer.teilEnde("Erlen"); }
         gl.glDisable(GL.GL_DEPTH_TEST);
     }
 
@@ -714,7 +724,13 @@ public final class WaldGl {
         schattenSonne = sun.clone();
         schattenNeu++;
         schattenKarte.begin(gl, sun, m[0], m[1], m[2]);
-        forest.drawShadow(gl, schattenKarte.matrix, t, schattenStufen);
+        if (schattenAuswahl) {
+            // Runde 6: Werfer außerhalb des Blicks. Das Fenster am Boden reicht um die Länge eines 70 m hohen Schattens
+            // über die Karte hinaus (bei flacher Sonne höchstens 250 m), die Ebenen der Lichtkarte prüfen genau.
+            double el = Math.max(0.03, sun[1]), lang = Math.min(250, 70 * Math.sqrt(1 - el * el) / el);
+            forest.cullShadow(gl, schattenKarte.matrix, eye, m[0], m[2], SCHATTEN_RADIUS + lang);
+            forest.drawShadowCulled(gl, schattenKarte.matrix, t, schattenStufen);
+        } else forest.drawShadow(gl, schattenKarte.matrix, t, schattenStufen);
         if (d != null && d.erlen != null && erlenAuge != null && erlenZahl > 0) d.erlen.drawShadow(gl, schattenKarte.matrix, t);
         schattenKarte.end(gl);
         schattenGueltig = true;
@@ -789,6 +805,7 @@ public final class WaldGl {
         tl.sunShadowBias = l.sunShadowBias;
         tl.skyTexture = l.skyTexture;
         tl.skyWeight = l.skyWeight;
+        tl.mossSide = l.mossSide;
         tl.standAo = 0.45;   // W6 Runde 5: wie die Verdeckung, die forest am Stamm einbackt (0,44 am Fuß) [G]
         gl.glEnable(GL.GL_DEPTH_TEST);
         gl.glDepthFunc(reversed ? GL.GL_GEQUAL : GL.GL_LEQUAL);

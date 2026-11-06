@@ -385,6 +385,43 @@ public final class Renderer implements GLEventListener {
     }
 
     /** Belichtung aus der Sonnenhöhe des Platzhalter-Himmels (am Tag rund 1,9), dazu die Blenden von Hand. */
+    /** W6 Runde 6 (WF19 A): Augenanpassung, Schalter (Bildbank: augenanpassung=false). */
+    public static volatile boolean augenanpassung = !Boolean.getBoolean("lituya.ohneAugenanpassung");
+    public final com.dan.exposure.EyeAdaptation auge = new com.dan.exposure.EyeAdaptation();
+    /**
+     * W6 Runde 6: Teilzeiten der Grafikkarte innerhalb der Durchgänge (com.dan.gputime), für die Zerlegung von H6. Schalter
+     * lituya.teilzeiten (aus: kein Stempel). Statisch, damit Wald und Ereignis ihre Abschnitte selbst setzen.
+     */
+    public static final com.dan.gputime.gl.GlClock TEIL_UHR = new com.dan.gputime.gl.GlClock();
+    public static final com.dan.gputime.GpuSpans TEILE = new com.dan.gputime.GpuSpans(TEIL_UHR);
+    static { TEILE.enabled = Boolean.getBoolean("lituya.teilzeiten"); }
+    static void teil(String n) { TEILE.begin(n); }
+    static void teilEnde(String n) { TEILE.end(n); }
+    private com.dan.exposure.gl.LuminanceGl lum;
+    {
+        // Runde 6b [G]: Bezug 0,08 = Mittel der offenen Heldenbilder am Boden (0,066–0,226, Median 0,079); ins Helle nur eine
+        // drittel Blende (Abendbilder blieben, wie abgenommen), ins Dunkle bis 2 Blenden (der geschlossene Wald)
+        auge.key = 0.08;
+        auge.maxDown = 1 / 3.0;
+    }
+    private double[] augeZuletzt;
+    /** Höhe über Grund (m), ab der die Anpassung abnimmt und ganz fort ist [G]. */
+    static final double AUGE_VOLL = 30, AUGE_FORT = 120;
+
+    private void augeAnpassen(GL4 gl, int bild, int w, int h) {
+        if (lum == null || !augenanpassung) { auge.weight = 0; return; }
+        double[] e = camera.eye;
+        // Runde 6b: im Standbild (auch Bildbank und Proben) gilt jede Messung sofort; die Zeit steht, ein Auge wäre längst angepasst
+        if (augeZuletzt == null || Math.abs(e[0] - augeZuletzt[0]) + Math.abs(e[1] - augeZuletzt[1]) + Math.abs(e[2] - augeZuletzt[2]) > 30
+                || frozen && !kino.laeuft()) auge.snap();
+        augeZuletzt = e.clone();
+        double grund = Math.max(groundHeight(e[0], e[2]), wiring.pegel);
+        auge.weight = 1 - WaldGl.smooth(AUGE_VOLL, AUGE_FORT, e[1] - grund);
+        // Runde 6b: im Flug (Wirkung 0) nicht messen; beim Abstieg gilt die erste Messung sofort
+        if (auge.weight <= 0) { auge.snap(); return; }
+        auge.update(lum.measure(gl, bild, w, h), letztesDt);
+    }
+
     public double exposure() {
         if (licht.aktiv()) return 1;   // W1: die Szene ist mit licht.pre() vorbelichtet
         double b = Sun.skyBrightness(clock.sun()[0]);
@@ -456,6 +493,13 @@ public final class Renderer implements GLEventListener {
             faelle.laden(new java.io.File(System.getProperty("lituya.daten", "daten")), this::stapelHoehe);   // W6
         } catch (RuntimeException e) {
             System.err.println("LituyaBay1958: Netzblick: " + e.getMessage());
+        }
+        try {   // W6 Runde 6 (WF19 A): Augenanpassung aus com.dan.exposure
+            lum = new com.dan.exposure.gl.LuminanceGl(auge);
+            lum.init(gl);
+        } catch (RuntimeException e) {
+            System.err.println("LituyaBay1958: Augenanpassung nicht verfügbar: " + e.getMessage());
+            lum = null;
         }
         try {   // Phase 17a: der Kinomodus
             com.dan.kino.KinoMaler km = new com.dan.kino.KinoMaler();
@@ -1020,6 +1064,7 @@ public final class Renderer implements GLEventListener {
     }
 
     void renderFrame(GL4 gl, int w, int h) {
+        TEIL_UHR.use(gl);
         mark(gl, 0);
         // 0 Phase 13c: die Echtzeit rechnet hinter der Uhr her (Zeitbudget je Bild), bevor gezeichnet wird
         try {
@@ -1032,6 +1077,7 @@ public final class Renderer implements GLEventListener {
         double[] sp = clock.sun();
         double[] sunPh = Sun.direction(sp[0], sp[1]);
         // W1: Himmel und Licht aus com.dan.sky (Sonne mit Strahlenbrechung), Horizontkarten, Rundumbild
+        teil("Licht");
         try {
             licht.vorbereiten(gl, clock, camera.eye, camera.fwd, fovy(), w / (double) h, exposureBias, letztesDt, frozen,
                     this::stapelHoehe, land.stapel() != null);
@@ -1040,6 +1086,7 @@ public final class Renderer implements GLEventListener {
             System.err.println("LituyaBay1958: Licht: " + e);
             licht.an = false;
         }
+        teilEnde("Licht");
         // W5: Sonne des Walds in der Höhe des Grunds am Zielpunkt (wie sunAt), nicht am Auge
         { double[] lm = lodMitte(); double gh = groundHeight(lm[0], lm[1]); licht.waldHoehe = Double.isNaN(gh) ? Double.NaN : Math.max(gh, wiring.pegel) + 15; }
         WaldGl.himmel = licht.waldLicht();
@@ -1093,7 +1140,9 @@ public final class Renderer implements GLEventListener {
                         if (g < wiring.pegel - 1) meer.ocean.addImpulse(x, z, 0.05 + 0.10 * bst);
                     }
                 }
+                teil("Meer");
                 meer.schritt(gl, frozen ? 0 : letztesDt, wiring.pegel, wiring.windSpeed, wiring.windFromDeg);
+                teilEnde("Meer");
                 // W5 Tempo: Spiegel nur, wenn genug Wasser im Bild ist (Anteil aus Strahlen, alle 8 Bilder, im Standbild jedes)
                 // im Hintergrund (Probe: im Bildfaden kostete es Spitzen, das Mittel der Bildbank stieg um 20–35 ms)
                 if (frame % 8 == 0 && (wasserJob == null || wasserJob.isDone())) {
@@ -1110,7 +1159,9 @@ public final class Renderer implements GLEventListener {
                     boolean sprung = spiegelAuge == null || Math.abs(camera.eye[0] - spiegelAuge[0]) + Math.abs(camera.eye[1] - spiegelAuge[1]) + Math.abs(camera.eye[2] - spiegelAuge[2]) > 3
                             || camera.fwd[0] * spiegelBlick[0] + camera.fwd[1] * spiegelBlick[1] + camera.fwd[2] * spiegelBlick[2] < Math.cos(Math.toRadians(1));
                     if (sprung || ++spiegelAlter >= spiegelTakt) {
+                        teil("Spiegel");
                         spiegelBild(gl, w, h, proj, view, sun);
+                        teilEnde("Spiegel");
                         meer.spiegelVP = Mat4.mul(proj, view);   // Runde 7: Blick, mit dem das Spiegelbild entstand
                         spiegelAlter = 0;
                         spiegelAuge = camera.eye.clone();
@@ -1143,7 +1194,9 @@ public final class Renderer implements GLEventListener {
         gl.glDisable(GL.GL_BLEND);
         gl.glBindVertexArray(emptyVao);
         if (licht.aktiv()) {
+            teil("Himmel");
             licht.himmel(gl, vp, inv, reversedZ, w, h, fovy(), clock.t());   // W1: com.dan.sky statt des Platzhalters
+            teilEnde("Himmel");
             gl.glBindVertexArray(emptyVao);
         } else {
             common(gl, skyShader, vp, inv, sun);
@@ -1284,8 +1337,10 @@ public final class Renderer implements GLEventListener {
         // 3c'' W5 (E11): Schleier, die oben am Sporn von der Zunge abreißen und zurückfallen
         if (wiedergabe.an()) {
             schleier.laden(new java.io.File(System.getProperty("lituya.daten", "daten")), wiedergabe.welle());
+teil("Schleier");
             schleier.zeichnen(gl, sh -> common(gl, sh, vp, inv, sun), tE, reversedZ, (float) (1 / (2 * Site.EARTH_R_OPTICAL)),
                     h / (2 * Math.tan(Math.toRadians(fovy()) / 2)));
+teilEnde("Schleier");
             gl.glBindVertexArray(emptyVao);
         }
         // 3c''' W6 (L9): Wasserfälle über den Steilstufen
@@ -1298,8 +1353,10 @@ public final class Renderer implements GLEventListener {
 
         // 3c Staub und Trübe unter Wasser (Phase 13b): über das HDR-Bild, die Tiefe als Textur
         gl.glBindFramebuffer(GL.GL_FRAMEBUFFER, hdrColorFbo);
+        teil("Medien");
         ereignisGl.medien(gl, wiedergabe, tE, depthTex, sh -> common(gl, sh, vp, inv, sun), forward(camera.view()), reversedZ,
                 licht.aktiv() ? licht.grundTextur() : 0, licht.feinRect(), wiring.pegel);
+        teilEnde("Medien");
         gl.glBindVertexArray(emptyVao);
         mark(gl, 7);
 
@@ -1307,6 +1364,12 @@ public final class Renderer implements GLEventListener {
         int bild = hdrTex;
         if (taa) bild = taaPass(gl, w, h, vpN);
         else taaValid = false;
+
+        // 3e W6 Runde 6 (WF19 A): Augenanpassung. Das Histogramm dieses Bilds wird ein bis zwei Bilder später gelesen; am
+        // Boden passt sich die Belichtung an (dunkler Wald), im Flug bleibt sie fest. Sprung der Kamera: sofort.
+        teil("Auge");
+        augeAnpassen(gl, bild, w, h);
+        teilEnde("Auge");
 
         // 4 Nachbearbeitung ins Fenster
         gl.glBindFramebuffer(GL.GL_FRAMEBUFFER, defaultFbo);
@@ -1317,7 +1380,7 @@ public final class Renderer implements GLEventListener {
         post.set(gl, "uHdr", 0);
         post.set(gl, "uFxaa", !taa && fxaa ? 1 : 0);
         post.set(gl, "uTexel", 1f / w, 1f / h);
-        post.set(gl, "uExposure", (float) exposure());
+        post.set(gl, "uExposure", (float) (exposure() * auge.factor()));
         post.set(gl, "uScotopic", licht.aktiv() ? (float) licht.state().scotopic() : 0f);
         post.set(gl, "uBloom", taa ? (float) bloom : 0f);
         gl.glBindVertexArray(emptyVao);
@@ -1351,6 +1414,7 @@ public final class Renderer implements GLEventListener {
         gl.glBindVertexArray(0);
         gl.glUseProgram(0);
         mark(gl, 9);
+        TEILE.endFrame();
     }
 
     /** Das Gelände (Phase 4) mit Tiefe; gespiegelt (W2): Auge unter dem Spiegel, Wicklung umgekehrt, nur über dem Wasser. */
@@ -1830,10 +1894,10 @@ public final class Renderer implements GLEventListener {
         double kimm = Site.horizon(camera.eye[1] - wiring.pegel);
         return new String[]{
                 String.format(Locale.GERMAN, "%.0f Bilder/s   Grafikkarte %.2f ms   Prozessor %.2f ms   Budget %.1f ms", fps, gpuMs, cpuMs, quality.budgetMs()),
-                passTimes(),
+                passTimes() + (TEILE.enabled ? " · Teile (ms): " + TEILE : ""),
                 (c == null ? "!Compute-Test läuft …" : (c.ok() ? "" : "!") + c.line()),
                 uhrenZeile(),
-                (licht.aktiv() ? String.format(Locale.GERMAN, "Vorbelichtung %.3g · %s · Zeitraffer %.0f×", licht.pre(), licht.status(), clock.lapse)
+                (licht.aktiv() ? String.format(Locale.GERMAN, "Vorbelichtung %.3g · %s · %s · Zeitraffer %.0f×", licht.pre(), auge, licht.status(), clock.lapse)
                         : String.format(Locale.GERMAN, "Belichtung %.2g (Platzhalter-Himmel, Licht aus) · Zeitraffer %.0f×", exposure(), clock.lapse)),
                 wiring.zeile(),
                 physik.describe(),
@@ -1984,6 +2048,7 @@ public final class Renderer implements GLEventListener {
         netzblick.dispose(gl);
         surface.dispose(gl);
         if (kinoGl != null) kinoGl.dispose(gl);
+        if (lum != null) lum.dispose(gl);
         baeche.dispose(gl);
         ereignisGl.dispose(gl);
         echtzeit.dispose(gl);
