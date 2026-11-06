@@ -828,11 +828,15 @@ public final class Renderer implements GLEventListener {
         l.skyColor = wl.skyColor;
         l.fogColor = wl.fogColor;
         l.fogDistance = wl.fogDistance;
-        l.shadow = 0.45;   // [G]
+        l.shadow = 0.45;   // [G] seit W6 Runde 5: Anteil der Sonne am Licht aus dem Wasser
+        l.waterShadowMap = schollenSchattenKarte;   // W6 Runde 5: Schatten je Ort einmal, nach Fresnel (Renderer)
         floeGl.draw(gl, v, l, clock.t());
         gl.glDisable(GL.GL_DEPTH_TEST);
         gl.glDepthMask(true);
     }
+
+    /** W6 Runde 5: Schatten der Schollen auf dem Wasser aus der Schattenkarte (false: projizierte Deckel wie Runde 3). */
+    public static volatile boolean schollenSchattenKarte = !Boolean.getBoolean("lituya.schollenSchattenAlt");
 
     /** W6 Runde 3: für HUD und Proben. */
     public String schollenInfo() { return String.format(java.util.Locale.GERMAN, "Schollen %,d (%,d Dreiecke)", floeGl.drawn(), floeGl.triangles()); }

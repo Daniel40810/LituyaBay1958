@@ -23,7 +23,7 @@ import java.nio.file.StandardOpenOption;
  * umgelegt.
  */
 public final class LandschaftGl {
-    public static final int UNIT_FK = 19, UNIT_FS = 20, UNIT_EK = 21, UNIT_ES = 22, UNIT_CLIFF_NOISE = 23, UNIT_CLIFF_MAP = 24, UNIT_RK = 25, UNIT_RS = 26;
+    public static final int UNIT_FK = 19, UNIT_FS = 20, UNIT_EK = 21, UNIT_ES = 22, UNIT_CLIFF_NOISE = 23, UNIT_CLIFF_MAP = 24, UNIT_RK = 25, UNIT_RS = 26, UNIT_SS = 28;
 
     /** Ein Raster: Datei, NW-Ecke (UTM 8 N), Zelle, Größe, sRGB. */
     private record Bild(String datei, double e0, double n0, double zelle, int w, int h, boolean srgb, int kanaele, int bytes) {
@@ -37,12 +37,24 @@ public final class LandschaftGl {
             new Bild("farbe_kern_10m.rgba", 340_000, 6_512_000, 10, 2400, 1800, true, 4, 4),
             new Bild("farbe_szene_20m.rgba", 322_000, 6_540_000, 20, 3300, 3000, true, 4, 4),
             new Bild("eis_kern_10m.rgba16", 340_000, 6_512_000, 10, 2400, 1800, false, 4, 8),
-            new Bild("eis_szene_50m.rgba16", 322_000, 6_540_000, 50, 1320, 1200, false, 4, 8),
+            new Bild("eis_szene_50m.rgba16", 322_000, 6_540_000, 50, 1320, 1200, false, 4, 8),   // W6 Runde 5: eis_szene_20m, wenn da
             // Runde 3: Normalen aus szene_5m für die Ferne (dort ist die Clipmap gröber)
             new Bild("relief_kern_10m.rgba", 340_000, 6_512_000, 10, 2400, 1800, false, 4, 4),
-            new Bild("relief_szene_20m.rgba", 322_000, 6_540_000, 20, 3300, 3000, false, 4, 4)};
-    private static final String[] NAMEN = {"uLandFK", "uLandFS", "uLandEK", "uLandES", "uLandRK", "uLandRS"};
-    private static final int[] UNITS = {UNIT_FK, UNIT_FS, UNIT_EK, UNIT_ES, UNIT_RK, UNIT_RS};
+            new Bild("relief_szene_20m.rgba", 322_000, 6_540_000, 20, 3300, 3000, false, 4, 4),
+            // W6 Runde 5: Schnee der ganzen Szene in 10 m (vorher das Alpha von farbe_szene_20m)
+            new Bild("schnee_szene_10m.r8", 322_000, 6_540_000, 10, 6600, 6000, false, 1, 1)};
+    /** W6 Runde 5: Eis der Szene in 20 m aus den Umrissen von RGI 7 (statt 50 m), wenn die Datei da ist. */
+    private static final Bild EIS_SZENE_20 = new Bild("eis_szene_20m.rgba16", 322_000, 6_540_000, 20, 3300, 3000, false, 4, 8);
+    private static final String[] NAMEN = {"uLandFK", "uLandFS", "uLandEK", "uLandES", "uLandRK", "uLandRS", "uLandSS"};
+    private static final int[] UNITS = {UNIT_FK, UNIT_FS, UNIT_EK, UNIT_ES, UNIT_RK, UNIT_RS, UNIT_SS};
+    /** W6 Runde 5: die Raster, die geladen werden (Eis der Szene in 20 oder 50 m; ohne Schnee in 10 m geht es wie vorher). */
+    private final Bild[] bilder = BILDER.clone();
+    private boolean schnee10;
+
+    /** Eis der Szene: 20 m, wenn die Datei da ist (und nicht -Dlituya.eis50), sonst 50 m. */
+    static Bild eisSzene(File d) {
+        return !Boolean.getBoolean("lituya.eis50") && new File(d, EIS_SZENE_20.datei()).isFile() ? EIS_SZENE_20 : BILDER[3];
+    }
 
     /** An/aus (Bedienfeld, Bildbank-Schlüssel {@code landschaft=0}). */
     public volatile boolean an = !Boolean.getBoolean("lituya.ohneLandschaft");
@@ -71,6 +83,7 @@ public final class LandschaftGl {
     private static com.dan.cliff.Cliff gneis() {
         com.dan.cliff.Cliff c = new com.dan.cliff.Cliff();
         c.quality = com.dan.cliff.Cliff.Quality.HIGH;
+        c.farBands = !Boolean.getBoolean("lituya.cliffOhneFernstufe");   // W6 Runde 5: Fernstufe (Renderer, Kosten der Landschaft)
         c.rockSlopeDeg = 34;
         c.wallSlopeDeg = 52;
         c.foliationDipDeg = 35;          // Schieferung steil nach NO (Fairweather-Störung streicht NW–SO) [G]
@@ -94,9 +107,15 @@ public final class LandschaftGl {
     public void laden(File daten) {
         File d = new File(daten, "landschaft");
         try {
-            for (int i = 0; i < BILDER.length; i++) puffer[i] = lesen(new File(d, BILDER[i].datei()), BILDER[i].w() * BILDER[i].h() * BILDER[i].bytes());
+            bilder[3] = eisSzene(d);
+            schnee10 = new File(d, BILDER[6].datei()).isFile() && !Boolean.getBoolean("lituya.schnee20");
+            for (int i = 0; i < bilder.length; i++) {
+                if (i == 6 && !schnee10) continue;
+                puffer[i] = lesen(new File(d, bilder[i].datei()), bilder[i].w() * bilder[i].h() * bilder[i].bytes());
+            }
             gelesen = true;
-            status = "Landschaft: Farbe aus Sentinel-2 (10/20 m), Eis (10/50 m), Relief aus szene_5m (10/20 m)";
+            status = String.format("Landschaft: Farbe aus Sentinel-2 (10/20 m), Schnee (10/%d m), Eis (10/%.0f m), Relief aus szene_5m (10/20 m)",
+                    schnee10 ? 10 : 20, bilder[3].zelle());
         } catch (IOException e) {
             status = "Landschaft: ohne (" + e.getMessage() + "; python3 tools/landschaft/landschaft.py)";
         }
@@ -116,7 +135,8 @@ public final class LandschaftGl {
             ByteBuffer fk = lesen(new File(d, BILDER[0].datei()), BILDER[0].w() * BILDER[0].h() * 4);
             ByteBuffer fs = lesen(new File(d, BILDER[1].datei()), BILDER[1].w() * BILDER[1].h() * 4);
             ByteBuffer ek = lesen(new File(d, BILDER[2].datei()), BILDER[2].w() * BILDER[2].h() * 8);
-            ByteBuffer es = lesen(new File(d, BILDER[3].datei()), BILDER[3].w() * BILDER[3].h() * 8);
+            Bild bes = eisSzene(d);
+            ByteBuffer es = lesen(new File(d, bes.datei()), bes.w() * bes.h() * 8);
             ek.order(java.nio.ByteOrder.LITTLE_ENDIAN);
             es.order(java.nio.ByteOrder.LITTLE_ENDIAN);
             float[] m = new float[n * n];
@@ -130,7 +150,7 @@ public final class LandschaftGl {
                         double sn = probe(BILDER[0], fk, e, nn, 3, false);
                         if (Double.isNaN(sn)) sn = probe(BILDER[1], fs, e, nn, 3, false);
                         double ic = probe(BILDER[2], ek, e, nn, 0, true);
-                        if (Double.isNaN(ic)) ic = probe(BILDER[3], es, e, nn, 0, true);
+                        if (Double.isNaN(ic)) ic = probe(bes, es, e, nn, 0, true);
                         w = Math.max(w, Math.max(Double.isNaN(sn) ? 0 : sn, Double.isNaN(ic) ? 0 : ic));
                     }
                     double t = Math.max(0, Math.min(1, (w - 0.15) / 0.30));
@@ -191,10 +211,12 @@ public final class LandschaftGl {
         float[] an = new float[1];
         gl.glGetFloatv(0x84FF /* GL_MAX_TEXTURE_MAX_ANISOTROPY */, an, 0);
         for (int i = 0; i < tex.length; i++) {
-            Bild b = BILDER[i];
+            Bild b = bilder[i];
+            if (puffer[i] == null) continue;
             gl.glBindTexture(GL.GL_TEXTURE_2D, tex[i]);
-            gl.glPixelStorei(GL.GL_UNPACK_ALIGNMENT, b.bytes() == 2 ? 2 : 4);
-            if (b.bytes() == 8) gl.glTexImage2D(GL.GL_TEXTURE_2D, 0, GL4.GL_RGBA16, b.w(), b.h(), 0, GL.GL_RGBA, GL.GL_UNSIGNED_SHORT, puffer[i]);
+            gl.glPixelStorei(GL.GL_UNPACK_ALIGNMENT, b.bytes() == 2 ? 2 : b.bytes() == 1 ? 1 : 4);
+            if (b.bytes() == 1) gl.glTexImage2D(GL.GL_TEXTURE_2D, 0, GL4.GL_R8, b.w(), b.h(), 0, GL4.GL_RED, GL.GL_UNSIGNED_BYTE, puffer[i]);
+            else if (b.bytes() == 8) gl.glTexImage2D(GL.GL_TEXTURE_2D, 0, GL4.GL_RGBA16, b.w(), b.h(), 0, GL.GL_RGBA, GL.GL_UNSIGNED_SHORT, puffer[i]);
             else if (b.kanaele() == 2) gl.glTexImage2D(GL.GL_TEXTURE_2D, 0, GL4.GL_RG8, b.w(), b.h(), 0, GL4.GL_RG, GL.GL_UNSIGNED_BYTE, puffer[i]);
             else gl.glTexImage2D(GL.GL_TEXTURE_2D, 0, b.srgb() ? GL.GL_SRGB8_ALPHA8 : GL.GL_RGBA8, b.w(), b.h(), 0, GL.GL_RGBA, GL.GL_UNSIGNED_BYTE, puffer[i]);
             gl.glGenerateMipmap(GL.GL_TEXTURE_2D);
@@ -223,7 +245,7 @@ public final class LandschaftGl {
         gl.glUniform1i(gl.glGetUniformLocation(p, "uLandAn"), on ? 1 : 0);
         for (int i = 0; i < tex.length; i++) {
             gl.glUniform1i(gl.glGetUniformLocation(p, NAMEN[i]), UNITS[i]);
-            float[] r = BILDER[i].rect();
+            float[] r = bilder[i].rect();
             gl.glUniform4f(gl.glGetUniformLocation(p, NAMEN[i] + "Rect"), r[0], r[1], r[2], r[3]);
             if (on) {
                 gl.glActiveTexture(GL.GL_TEXTURE0 + UNITS[i]);
@@ -231,6 +253,7 @@ public final class LandschaftGl {
             }
         }
         gl.glActiveTexture(GL.GL_TEXTURE0);
+        gl.glUniform1i(gl.glGetUniformLocation(p, "uLandSSAn"), on && schnee10 ? 1 : 0);   // W6 Runde 5
         boolean fe = on && fels && cliffBereit && !spiegel;
         gl.glUniform4f(gl.glGetUniformLocation(p, "uLand"), (float) gewinn, fe ? (rippen ? 2f : 1f) : 0f, spalten && !spiegel ? 1f : 0f, (float) kante);
         // Fels: Uniforms von cliff.glsl; die Rauschtextur von Einheit 15 (dort liegt die Flut) nach UNIT_CLIFF_NOISE. Die

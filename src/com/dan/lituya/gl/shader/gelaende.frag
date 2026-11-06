@@ -22,6 +22,25 @@ uniform vec4 uBandRect;
 uniform float uBandJahre;   // W6: Jahre nach 1958 des gezeigten Bodens
 // Werkbuch Welle W0 (K3): Kronendach hinter den Einzelbäumen aus dem Dichtegitter des Walds (r Sitka-Fichte,
 // g Hemlocktanne, b Roterle, 0..1); Rechteck x0, z0, Breite, Tiefe; uKroneAb: ab wo die Bäume ausdünnen und wo sie enden (m).
+// W6 Runde 5: Schatten der nahen Bäume (Sonnenschattenkarte aus WaldGl, com.dan.forest.gl.SunShadowMap)
+uniform sampler2DShadow uBaumSchatten;
+uniform mat4 uBaumSchattenM;
+uniform vec2 uBaumSchattenP;   // an, Versatz (Tiefe 0..1)
+float baumSchatten(vec3 w, vec3 n) {
+    if (uBaumSchattenP.x < 0.5) return 1.0;
+    vec4 q = uBaumSchattenM * vec4(w + n * 0.15, 1.0);
+    vec3 s = q.xyz * 0.5 + 0.5;
+    float rand = max(abs(s.x - 0.5), abs(s.y - 0.5)) * 2.0;
+    if (rand >= 1.0 || s.z > 1.0) return 1.0;
+    // Halbschatten: die Sonne ist 0,53° breit; 3×3 über gut einen Bildpunkt der Karte
+    vec2 tx = 1.0 / vec2(textureSize(uBaumSchatten, 0));
+    float sum = 0.0;
+    for (int j = -1; j <= 1; j++)
+        for (int i = -1; i <= 1; i++)
+            sum += texture(uBaumSchatten, vec3(s.xy + vec2(i, j) * tx * 1.2, s.z - uBaumSchattenP.y));
+    // am Rand der Karte weich auslaufen statt an einer Kante zu enden
+    return mix(sum / 9.0, 1.0, smoothstep(0.85, 0.98, rand));
+}
 uniform int uKroneAn;
 uniform sampler2D uKrone;
 uniform vec4 uKroneRect;
@@ -362,6 +381,7 @@ void main() {
     float ndl = mix(max(dot(nL, uSun), 0.0), max(dot(normalize(n + vec3(0.0, 0.6, 0.0)), uSun), 0.0), krone);
     // W3c: Himmelslicht nach der Richtung der Fläche (common.umgebung) statt überall der Farbe des Zenits
     ndl *= 1.0 - land.schatten * (1.0 - krone);   // W6: ins Innere der Spalten fällt keine Sonne
+    ndl *= baumSchatten(vW, n);                    // W6 Runde 5: Schatten der nahen Bäume
     // W6 Runde 5: Himmelslicht nach der Lage im Relief (in Rinnen und Karen weniger Himmel, auf Graten mehr) [G]
     float hoehlung = mix(1.0, 0.45 + 1.1 * land.lage, 0.8 * land.w);
     vec3 col = alb * (sunAt(vW) * ndl + umgebung(nL) * (1.0 - 0.25 * krone) * (1.0 - 0.6 * land.schatten) * hoehlung);
