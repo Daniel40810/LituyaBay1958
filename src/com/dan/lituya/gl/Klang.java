@@ -193,10 +193,12 @@ public final class Klang {
         s.windSpeed = r.wiring.windSpeed;
         s.windFromDeg = r.wiring.windFromDeg;
         s.waterLevel = r.wiring.pegel;
-        s.temperatureC = 13;
-        s.waveHeight = 0.25;
+        // W7: Regen, Temperatur und Seegang aus der Wetterregie (1958 klar und still: wie bisher)
+        com.dan.lituya.wiring.Wetter.Zustand wz = r.wetter.an ? r.wetter.zustand() : null;
+        s.temperatureC = wz != null ? wz.temperatur() : 13;
+        s.waveHeight = wz != null ? Math.max(0.25, 0.08 * wz.wind() * wz.wind() / 9.81 * 0.3) : 0.25;
         s.wavePeriod = 5;
-        s.rainRate = 0;
+        s.rainRate = wz != null ? wz.regen() : 0;
         s.inside = 0;
         s.volume = lautstaerke * (r.kino.sichtbar() ? r.kino.ton() : 1);
         SceneClock c = r.clock;

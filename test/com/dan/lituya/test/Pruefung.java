@@ -246,9 +246,11 @@ public final class Pruefung {
                 String[] p = zl.split("\t");
                 dateien++;
                 File x = new File(daten, p[0]);
-                if (!x.isFile() || x.length() != Long.parseLong(p[1])) { fehlt++; if (fehlt < 5) System.out.println("    fehlt oder anders: " + p[0]); }
+                // W7: der Speicher wächst mit jedem Foto und Blatt (Regiebuch, Film); dort zählt nur, dass die Datei da ist
+                boolean waechst = p[0].startsWith("speicher/");
+                if (!x.isFile() || !waechst && x.length() != Long.parseLong(p[1])) { fehlt++; if (fehlt < 5) System.out.println("    fehlt oder anders: " + p[0]); }
             }
-            check(fehlt == 0, f("daten/INHALT.txt: %d Dateien, alle da und gleich groß", dateien));
+            check(fehlt == 0, f("daten/INHALT.txt: %d Dateien, alle da und gleich groß (der Speicher darf wachsen)", dateien));
             for (com.dan.lituya.scene.Stufe st : com.dan.lituya.scene.Stufe.values()) {
                 File[] kd = st.ordner(daten).listFiles((dd, nm) -> nm.endsWith(".r32"));
                 int sollK = st.nx() * st.ny(), ist = kd == null ? 0 : kd.length;
@@ -1060,6 +1062,7 @@ public final class Pruefung {
         regie17a(daten);
         klang18(daten);
         szene19(daten);
+        wetter7();
 
         teil("Staub und Treibgut (Phase 12): dustcloud, debris");
         {
@@ -1234,6 +1237,88 @@ public final class Pruefung {
     private Pruefung() { }
 
     /** Phase 17: LB_NET_SICHT (eigene Methode, damit die Namen nicht mit main zusammenstoßen). */
+    /**
+     * Werkbuch Welle W7 „Wetter“: die Lagen und die Regie der Bucht ohne Bild. 1958 fest nach den Zeugen (WF13 A), der
+     * klare Abend genau wie bis W6 (Wind 2 m/s aus 135°, Sicht 60 km, keine Wolken, kein Nebel, kein Regen); Wechsel
+     * gleiten, bei stehender Uhr gilt die Lage sofort; der Regiebefehl wetter.
+     */
+    static void wetter7() {
+        teil("Wetter (Werkbuch Welle W7): Lagen, Regie, 1958 fest");
+        com.dan.lituya.scene.Wetterlage K = com.dan.lituya.scene.Wetterlage.KLAR;
+        check(com.dan.lituya.scene.Wetterlage.fuer(SceneClock.Zeitstand.VOR, com.dan.lituya.scene.Wetterlage.REGEN) == K
+                        && com.dan.lituya.scene.Wetterlage.fuer(SceneClock.Zeitstand.WELLE, com.dan.lituya.scene.Wetterlage.STURM) == K
+                        && com.dan.lituya.scene.Wetterlage.fuer(SceneClock.Zeitstand.DANACH, com.dan.lituya.scene.Wetterlage.REGEN) == K
+                        && com.dan.lituya.scene.Wetterlage.fuer(SceneClock.Zeitstand.HEUTE, com.dan.lituya.scene.Wetterlage.REGEN) == com.dan.lituya.scene.Wetterlage.REGEN,
+                "WF13 A: am 9.7.1958, während der Welle und am Morgen danach klar (Miller flog und fotografierte), heute die gewählte Lage");
+        com.dan.lituya.wiring.Wetter w = new com.dan.lituya.wiring.Wetter();
+        SceneClock c = new SceneClock();
+        c.set(SceneClock.Zeitstand.VOR);
+        c.lapse = 1;
+        w.heute = com.dan.lituya.scene.Wetterlage.STURM;
+        w.schritt(c, 1 / 60.0, false);
+        for (int i = 0; i < 120; i++) { c.step(1 / 60.0); w.schritt(c, 1 / 60.0, false); }
+        com.dan.lituya.wiring.Wetter.Zustand z = w.zustand();
+        check(z.lage() == K && Math.abs(z.wind() - 2.0) < 1e-6 && Math.abs(z.windVon() - 135) < 1e-6 && Math.abs(z.sichtKm() - 60) < 1e-6
+                        && !z.wolken() && !z.seenebel() && z.regen() == 0 && z.nass() < 1e-6 && z.bucht() == 1,
+                f("9.7.1958: %s – wie bis W6 (Wind %.1f m/s aus %03.0f°, Sicht %.0f km, Seegang Bft %d, keine Wolken, kein Nebel, kein Regen)", z.lage(), z.wind(), z.windVon(), z.sichtKm(), z.bucht()));
+        // heute: Wechsel zu Regen gleitet (Uhr läuft 60-fach), bei stehender Uhr sofort
+        c.set(java.time.LocalDate.of(2026, 7, 20), 11.0);
+        c.zeitstand = SceneClock.Zeitstand.HEUTE;
+        w.heute = K;
+        w.uebergangMin = 20;
+        w.schritt(c, 0, false);
+        c.lapse = 60;
+        w.waehle(com.dan.lituya.scene.Wetterlage.REGEN);
+        double[] verlauf = new double[3];
+        for (int i = 1; i <= 120 * 60; i++) {   // 120 s echt = 2 h Szene
+            c.step(1 / 60.0);
+            w.schritt(c, 1 / 60.0, false);
+            if (i == 60) verlauf[0] = w.zustand().achtel();
+            if (i == 20 * 60) verlauf[1] = w.zustand().achtel();
+        }
+        verlauf[2] = w.zustand().achtel();
+        com.dan.lituya.wiring.Wetter.Zustand zr = w.zustand();
+        check(verlauf[0] < 3 && verlauf[1] > 4 && verlauf[2] > 7.8 && zr.regen() > 3 && zr.nass() > 0.8 && zr.wolkenart() == com.dan.cloud.CloudType.NIMBOSTRATUS && zr.bank() > 0.85,
+                f("Wechsel zu „Regen am Berg“ (Übergang 20 min, Zeitraffer 60): nach 1 min %.1f/8, nach 20 min %.1f/8, nach 2 h %.1f/8, Regen %.1f mm/h, Nässe %.0f %%, Bank %.0f %%",
+                        verlauf[0], verlauf[1], verlauf[2], zr.regen(), zr.nass() * 100, zr.bank() * 100));
+        c.lapse = 0;
+        w.waehle(com.dan.lituya.scene.Wetterlage.KUESTENNEBEL);
+        w.schritt(c, 1 / 60.0, true);
+        com.dan.lituya.wiring.Wetter.Zustand zn = w.zustand();
+        check(zn.lage() == com.dan.lituya.scene.Wetterlage.KUESTENNEBEL && zn.seenebel() && Math.abs(zn.nebelOben() - 230) < 1e-6 && zn.wechsel() > 0.999 && zn.regen() < 0.01,
+                f("Uhr steht: „Küstennebel“ gilt sofort (Seenebel bis %.0f m, Sicht darin %.0f m, Vorstoß %.1f m/s)", zn.nebelOben(), zn.nebelSicht(), zn.vorstoss()));
+        double abflussVor = zr.abfluss();
+        check(abflussVor > 1.5 && abflussVor < zr.regen() + 1e-6, f("Abfluss in die Bäche folgt dem Regen verzögert (%.1f von %.1f mm/h nach 2 h)", abflussVor, zr.regen()));
+        // Regiebefehl
+        boolean[] gesehen = {false};
+        com.dan.lituya.scene.Regie.Ctx cx = (com.dan.lituya.scene.Regie.Ctx) java.lang.reflect.Proxy.newProxyInstance(Pruefung.class.getClassLoader(), new Class<?>[]{com.dan.lituya.scene.Regie.Ctx.class},
+                (o, m, args) -> {
+                    if (m.getName().equals("ready")) return true;
+                    if (m.getName().equals("wetter")) gesehen[0] = args[0] == com.dan.lituya.scene.Wetterlage.KUESTENNEBEL && Math.abs((Double) args[1] - 30) < 1e-9;
+                    return null;
+                });
+        com.dan.lituya.scene.Regie rw = new com.dan.lituya.scene.Regie();
+        rw.start(com.dan.lituya.scene.Regie.parse("Regiebuch: W\n0:00 wetter Küstennebel 30\n0:01 blatt\n"), cx);
+        for (int i = 0; i < 4 && rw.running(); i++) rw.step(1, cx);
+        boolean falsch = false;
+        try { com.dan.lituya.scene.Regie.parse("Regiebuch: X\n0:00 wetter Schneesturm\n"); } catch (IllegalArgumentException e) { falsch = e.getMessage().startsWith("Zeile 2"); }
+        check(gesehen[0] && falsch, "Regiebefehl „wetter Küstennebel 30“ (Lage, Übergang in min); unbekannte Lage wird mit der Zeile gemeldet");
+        // Packages: die neuen Teile aus Renderer.jar
+        com.dan.cloud.Clouds cl = new com.dan.cloud.Clouds();
+        com.dan.fog.TerrainFog tf = new com.dan.fog.TerrainFog();
+        com.dan.weather.Weather wr = new com.dan.weather.Weather();
+        check(cl.bank == 0 && cl.cap == 0 && cl.terrain == null && Double.isNaN(tf.advance) && wr.inertia == 1,
+                "Renderer.jar seit W7: Wolken am Gelände, Nebelvorstoß und Trägheit der Regie sind von Haus aus aus (andere Szenen unverändert)");
+        // Runde 1b/1c: Dunst, Brennweite, Mischen, Saum, zweite Ansicht, Quellen, Vorhänge ebenso aus
+        com.dan.cloud.gl.CloudGl cg = new com.dan.cloud.gl.CloudGl();
+        com.dan.cloud.gl.CloudGl.Light cgl = new com.dan.cloud.gl.CloudGl.Light();
+        com.dan.cloud.gl.CloudGl.View cgv = new com.dan.cloud.gl.CloudGl.View();
+        com.dan.rain.gl.RainGl rg = new com.dan.rain.gl.RainGl();
+        check(cgl.hazeKeep == 0 && cg.teleMax == 1 && !cg.geometryHistoryTest && !cl.smoothNoise && cgv.slot == 0 && !cgv.geometryOnly
+                        && tf.billows == 0 && !rg.curtainSmooth && !new com.dan.fog.gl.TerrainFogGl.View().geometryOnly,
+                "Renderer.jar seit W7 Runde 1b/1c: Wolken im Dunst, Schritte nach der Brennweite, Mischen ohne Texelgitter, ohne Saum, Spiegelansicht, Quellen auf dem Nebelmeer, Vorhänge ohne Balken – alles von Haus aus aus");
+    }
+
     static void sicht17(File daten) throws Exception {
         teil("Sicht und Kamera (Phase 17): LB_NET_SICHT, Rundflug und Kamerafahrt");
         {
@@ -1319,7 +1404,7 @@ public final class Pruefung {
         com.dan.lituya.scene.SichtNetz sn = com.dan.lituya.scene.SichtNetz.da(daten) ? com.dan.lituya.scene.SichtNetz.lesen(daten) : null;
         if (sn == null) hinweis("daten/netz/sicht fehlt: Namen aus LB_NET_SICHT und Fahrten A > B ungeprüft");
         java.util.List<com.dan.lituya.scene.Regie.Book> alle = com.dan.lituya.scene.Regie.all();
-        check(alle.size() == 9, "neun Regiebücher (seit Werkbuch Welle W3 „Der Sturz“, W4 „Die Wand“, W5 „524 m“, W6 „Flug zur Kette“): " + alle);
+        check(alle.size() == 10, "zehn Regiebücher (seit Werkbuch Welle W3 „Der Sturz“, W4 „Die Wand“, W5 „524 m“, W6 „Flug zur Kette“, W7 „Wetterwechsel“): " + alle);
         for (com.dan.lituya.scene.Regie.Book b : alle) {
             java.util.List<String> fehlt = new java.util.ArrayList<>(), befehle = new java.util.ArrayList<>();
             java.util.function.Predicate<String> punkt = n -> com.dan.lituya.camera.Ansichten.byName(n) != null || com.dan.lituya.scene.Site.byName(n) != null || com.dan.lituya.camera.Ansichten.versatz(n) != null || (sn == null ? true : sn.knoten(n) >= 0);
@@ -1345,8 +1430,8 @@ public final class Pruefung {
             while (r.running() && t < 3600) { r.step(0.5, c); t += 0.5; }
             boolean blattAmEnde = b.zeilen().get(b.zeilen().size() - 1).befehl().equals("blatt");
             String st = r.describe();
-            // seit Werkbuch Welle W3: Abnahme-Clips (unter einer Minute) mit mindestens einem Foto
-            boolean clip = b.length() < 60;
+            // seit Werkbuch Welle W3: Abnahme-Clips (bis eine Minute) mit mindestens einem Foto
+            boolean clip = b.length() <= 60;   // W7: „Wetterwechsel“ ist genau eine Minute
             check(fehlt.isEmpty() && !st.contains("Fehler") && (clip ? b.length() >= 10 && b.fotos() >= 1 : b.length() >= 180 && b.length() <= 6.5 * 60 && b.fotos() >= 5) && blattAmEnde && befehle.contains("capture"),
                     f("„%s“: %s, %d Stichworte, %d Fotos, Blatt am Ende%s", b.name(), com.dan.lituya.scene.Regie.zeit(b.length()), b.cues().size(), b.fotos(),
                             fehlt.isEmpty() ? "; alle Namen gefunden" : "; FEHLT: " + fehlt));
@@ -1613,7 +1698,10 @@ public final class Pruefung {
         File dd = new File(daten, "INHALT.txt");
         if (dd.isFile()) {
             com.dan.lituya.tools.Auslagerung.Stand sd = com.dan.lituya.tools.Auslagerung.inhalt(daten, false);
-            check(sd.ok(), f("daten/ gegen INHALT.txt (nur Größe): %d Dateien, %.2f GB%s", sd.dateien(), sd.bytes() / 1e9, sd.ok() ? "" : "; " + sd.meldungen().subList(0, Math.min(5, sd.meldungen().size()))));
+            // W7: der Speicher (Fotos, Blätter) wächst mit jedem Regiebuch; das ist kein Fehler der Daten
+            boolean nurSpeicher = sd.fehlen() == 0 && sd.meldungen().stream().allMatch(m -> m.startsWith("Größe: speicher/"));
+            check(sd.ok() || nurSpeicher, f("daten/ gegen INHALT.txt (nur Größe): %d Dateien, %.2f GB%s", sd.dateien(), sd.bytes() / 1e9,
+                    sd.ok() ? "" : (nurSpeicher ? " (der Speicher ist gewachsen: " : "; ") + sd.meldungen().subList(0, Math.min(5, sd.meldungen().size())) + (nurSpeicher ? ")" : "")));
         } else hinweis("daten/INHALT.txt fehlt: ant aufbereitung -Dschritte=inhalt");
         // Qualität und Dauerlauf
         String tab = com.dan.lituya.tools.QualitaetTabelle.tabelle(java.util.List.of("### Grundansicht · MITTEL", "     [java] 1920×1080 Mittel, 22:00: bestes Bild 10,20 ms, Mittel 12,50 ms (80 Bilder/s)",

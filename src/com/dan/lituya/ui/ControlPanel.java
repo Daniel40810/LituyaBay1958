@@ -48,7 +48,7 @@ public final class ControlPanel extends JPanel implements javax.swing.Scrollable
     private final SceneClock clock;
     private final JLabel dateLbl = label(""), timeLbl = label(""), simLbl = label(""), sunLbl = small(""), camLbl = small(""), perfLbl = small(""),
             computeLbl = small(""), glLbl = small(""), physLbl = small(""), hudLbl = small(""), scaleLbl = label(""), qualLbl = small(""), pkgLbl = small(""),
-            dbLbl = small(""), lodLbl = small(""), datenLbl = small(""), standLbl = small(""), netzLbl = small(""), regieLbl = small(""), klangLbl = small(""), speicherLbl = small("");
+            dbLbl = small(""), lodLbl = small(""), datenLbl = small(""), standLbl = small(""), netzLbl = small(""), regieLbl = small(""), klangLbl = small(""), speicherLbl = small(""), wetterLbl = small("");
     private final FSlider time = new FSlider(0, 24 * 60 - 1, (int) (SceneClock.START_HOUR * 60)), scaleSl = new FSlider(50, 100, 100), expSl = new FSlider(-30, 30, 0);
     private final FCheckBox free = new FCheckBox("Frei fliegen (F)"), orbit = new FCheckBox("Von selbst kreisen (R)"),
             marks = new FCheckBox("Marken (UTM-Raster, Kern, Szene, Fern, Orte)"), autoBox = new FCheckBox("Auflösung selbst regeln"),
@@ -402,20 +402,69 @@ public final class ControlPanel extends JPanel implements javax.swing.Scrollable
                 + "(Zeitraffer im Block ZEIT). Seit Phase 16c auch LB_NET_WASSER (Szene) und LB_NET_WEG (Kern; die Flucht an Land wächst mit der Uhr: "
                 + "„Welle: Einschlag“ und Zeitraffer), seit Phase 17 LB_NET_SICHT (Szene: Kamerapunkte, Sichtlinien, Rundflug, Spannbaum).</body></html>"));
         block("WETTER", false);
-        // Werkbuch Welle W0: der Block war seit Phase 1 leer (vertröstet auf 5a und 18b, beide nie gebaut). Jetzt steht hier,
-        // was es gibt (Regen auf die Bäche), und ehrlich, was mit W7 kommt.
-        put(label("Regen"));
+        // Werkbuch Welle W7 „Wetter“: die Lagen der Bucht (5a.1) mit Übergang statt Umschalten; 1958 fest nach den Zeugen (WF13 A)
+        com.dan.lituya.wiring.Wetter wet = r.wetter;
+        put(label("Wetterlage (heute)"));
+        FComboBox lageBox = new FComboBox(com.dan.lituya.scene.Wetterlage.heute());
+        lageBox.setSelectedItem(wet.heute);
+        lageBox.setToolTipText("Gilt „heute“; am 9.7.1958 und am Morgen danach ist es nach den Zeugen klar und still (WF13 A)");
+        JLabel lageLbl = small("");
+        lageBox.addActionListener(e -> {
+            Object o = lageBox.getSelectedItem();
+            if (o instanceof com.dan.lituya.scene.Wetterlage l) {
+                wet.waehle(l);
+                // eine Lage wählen heißt: heute ansehen (die Uhrzeit bleibt)
+                if (clock.zeitstand != SceneClock.Zeitstand.HEUTE) {
+                    double hr = clock.hour();
+                    clock.set(SceneClock.Zeitstand.HEUTE.date, hr);
+                    clock.zeitstand = SceneClock.Zeitstand.HEUTE;
+                    r.jahresRaffer = false;
+                    syncFromScene();
+                }
+                txt(lageLbl, "<html><body style='width:215px'>" + esc(l.beschreibung) + "</body></html>");
+            }
+            view.requestFocusInWindow();
+        });
+        put(lageBox);
+        txt(lageLbl, "<html><body style='width:215px'>" + esc(wet.heute.beschreibung) + "</body></html>");
+        put(lageLbl);
+        JLabel uebLbl = small(String.format(Locale.GERMAN, "Übergang %.0f min (Szenenzeit)", wet.uebergangMin));
+        FSlider uebSl = new FSlider(0, 120, (int) Math.round(wet.uebergangMin));
+        uebSl.setToolTipText("So lange dauert ein Wechsel der Lage in Szenenzeit; im Zeitraffer sieht man Wolken aufziehen und Nebel kommen");
+        uebSl.addChangeListener(e -> { wet.uebergangMin = uebSl.getValue(); txt(uebLbl, String.format(Locale.GERMAN, "Übergang %d min (Szenenzeit)", uebSl.getValue())); });
+        put(uebLbl);
+        put(uebSl);
+        JPanel wz = grid(2);
+        FButton sofort = new FButton("Sofort"), wRaffer = new FButton("Zeitraffer 1 min/s");
+        sofort.setToolTipText("Die gewählte Lage ohne Übergang");
+        wRaffer.setToolTipText("Uhr mit 60-fachem Tempo: ein Wechsel von 20 min in 20 s");
+        sofort.addActionListener(e -> { wet.sofort(); view.requestFocusInWindow(); });
+        wRaffer.addActionListener(e -> { clock.lapse = 60; lapseBox.setSelectedIndex(3); view.requestFocusInWindow(); });
+        wz.add(sofort); wz.add(wRaffer);
+        put(wz);
+        FCheckBox wolkenBox = new FCheckBox("Wolken (com.dan.cloud)"), nebelBox = new FCheckBox("Seenebel (com.dan.fog)"), regenBox = new FCheckBox("Regen (com.dan.rain)");
+        wolkenBox.setSelected(r.wetterGl.wolkenAn); nebelBox.setSelected(r.wetterGl.nebelAn); regenBox.setSelected(r.wetterGl.regenAn);
+        wolkenBox.addActionListener(e -> { r.wetterGl.wolkenAn = wolkenBox.isSelected(); view.requestFocusInWindow(); });
+        nebelBox.addActionListener(e -> { r.wetterGl.nebelAn = nebelBox.isSelected(); view.requestFocusInWindow(); });
+        regenBox.addActionListener(e -> { r.wetterGl.regenAn = regenBox.isSelected(); view.requestFocusInWindow(); });
+        put(wolkenBox);
+        put(nebelBox);
+        put(regenBox);
+        put(wetterLbl);
+        // W0: der Regler „Regen“ auf die Bäche; seit W7 kommt der Abfluss der Wetterlage dazu (das Größere gilt)
+        put(label("Regen auf die Bäche (von Hand)"));
         JLabel regenLbl = small("");
-        FSlider regenSl = new FSlider(0, (int) com.dan.lituya.gl.BaecheGl.REGEN_MAX, (int) Math.round(ba.regen));
-        regenSl.setToolTipText("Regen in mm/h: Abfluss = Fläche × Regen × Beiwert (Land 0,7, Eis 1,0) über dem Mittelwasser; Breite b = 2,5·Q^0,5 [G]");
+        FSlider regenSl = new FSlider(0, (int) com.dan.lituya.gl.BaecheGl.REGEN_MAX, (int) Math.round(r.baecheRegenHand));
+        regenSl.setToolTipText("Regen in mm/h: Abfluss = Fläche × Regen × Beiwert (Land 0,7, Eis 1,0) über dem Mittelwasser; Breite b = 2,5·Q^0,5 [G]; die Lage bringt ihren eigenen Abfluss");
         put(regenLbl);
         put(regenSl);
-        regenSl.addChangeListener(e -> { ba.regen = regenSl.getValue(); txt(regenLbl, String.format(Locale.GERMAN, "Regen %d mm/h (0: Mittelwasser)", regenSl.getValue())); });
-        txt(regenLbl, String.format(Locale.GERMAN, "Regen %.0f mm/h (0: Mittelwasser)", ba.regen));
-        put(small("<html><body style='width:215px'>Regen wirkt bisher nur auf die Bäche (Abfluss, Breite). "
-                + "<b>Werkbuch Welle W7</b> bringt das Wetter ins Bild: Wetterlagen mit Übergängen (klarer Abend 1958, grauer Morgen danach, "
-                + "Quellwolken, Küstennebel durch den Eingang, Regen mit Schleiern, Ringen und Tropfen auf der Linse, Sturm an der Barre, "
-                + "Neuschnee, Winternacht), Wind in Wasser und Wald, Zeitraffer; hier dann Auswahl und Regler für den Übergang.</body></html>"));
+        regenSl.addChangeListener(e -> { r.baecheRegenHand = regenSl.getValue(); txt(regenLbl, String.format(Locale.GERMAN, "Regen %d mm/h (0: Mittelwasser)", regenSl.getValue())); });
+        txt(regenLbl, String.format(Locale.GERMAN, "Regen %.0f mm/h (0: Mittelwasser)", r.baecheRegenHand));
+        put(small("<html><body style='width:215px'><b>Werkbuch Welle W7.</b> Ein Zustand für alles (com.dan.weather): Wind auf Wasser, Wald und "
+                + "Gischt, Wolken mit Schatten, Seenebel, Regen mit Ringen, nasser Fels, Bäche und Fälle schwellen an, Klang. Wolken am Gelände: "
+                + "Bank am Hang, Kappe am Fairweather, Quellwolken über der Kette (com.dan.cloud seit W7); der Nebel stößt durch den Eingang vor "
+                + "(com.dan.fog seit W7). 1958 fest nach den Zeugen (WF13 A): klar am Abend und am Morgen danach. "
+                + "Regiebuch: „wetter Lage [Übergang in min]“.</body></html>"));
         block("KLANG", false);
         // Phase 18: der Klang der Bucht am Ohr der Kamera (com.dan.soundscape)
         FCheckBox tonBox = new FCheckBox("Ton an (M)"), echoBox = new FCheckBox("Echo an den Wänden");
@@ -752,6 +801,7 @@ public final class ControlPanel extends JPanel implements javax.swing.Scrollable
         txt(netzLbl, "<html><body style='width:215px'>" + esc(r.netzblick.stand()) + "</body></html>");
         txt(regieLbl, "<html><body style='width:215px'>" + esc(r.regieLine()) + "</body></html>");
         txt(klangLbl, "<html><body style='width:215px'>" + esc(r.klang.describe().replace("!", "")) + "</body></html>");
+        txt(wetterLbl, "<html><body style='width:215px'>" + esc(r.wetterGl.info()) + "</body></html>");
         com.dan.lituya.data.Speicher spw = com.dan.lituya.data.Speicher.gewaehlt();
         txt(speicherLbl, "<html><body style='width:215px'>Speicher: " + esc(spw == null ? "noch nicht gewählt" : spw.wo()) + (com.dan.lituya.data.Speicher.hinweis().isEmpty() ? "" : " (" + esc(com.dan.lituya.data.Speicher.hinweis()) + ")")
                 + (datenMeldung.isEmpty() ? "" : "<br>Zuletzt: " + esc(datenMeldung)) + "</body></html>");

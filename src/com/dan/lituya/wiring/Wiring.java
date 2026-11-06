@@ -10,7 +10,8 @@ import java.util.Locale;
  * Phase 1 hat noch kein Package zu verdrahten, aber die offenen Werte, an die sie anschließen, stehen schon hier:
  * <ul>
  * <li>{@link #pegel}: Wasserstand über NAVD88 (Phase 1 fest 0, ab Phase 5a aus {@code tide} nach COOPS, 11.1).</li>
- * <li>{@link #windSpeed}, {@link #windFromDeg}: Wind 10 m über Grund (ab Phase 5a aus der Wetterregie, „Sommerabend 1958“).</li>
+ * <li>{@link #windSpeed}, {@link #windFromDeg}: Wind 10 m über Grund; seit Werkbuch Welle W7 aus der Wetterregie ({@link Wetter}):
+ * am 9.7.1958 still wie bisher (2 m/s aus 135°), heute nach der gewählten Lage.</li>
  * </ul>
  * Die Reihenfolge der Anschlüsse (Werkbuch 5 und 14): {@code clipmap}/{@code surface} (Phase 4, 5) ← Gelände aus
  * {@code daten/}; {@code Quake.Slope} → {@code landslide} (8, 9); {@code Landslide.Water} → {@code impact} (10);
@@ -29,7 +30,7 @@ public final class Wiring {
 
     /** Eine Zeile für das HUD: was angeschlossen ist. */
     public String zeile() {
-        return String.format(Locale.GERMAN, "Verdrahtung: Pegel %+.2f m NAVD88 (fest bis Phase 5a) · Wind %.0f m/s aus %03.0f° [G] · Packages ab Phase 4",
+        return String.format(Locale.GERMAN, "Verdrahtung: Pegel %+.2f m NAVD88 (fest) · Wind %.0f m/s aus %03.0f° (Wetterregie seit W7) · Packages ab Phase 4",
                 pegel, windSpeed, windFromDeg);
     }
 }

@@ -375,6 +375,10 @@ void main() {
         krone *= 1.0 - eis;
     }
     alb = mix(grund, alb, smoothstep(-1.0, 0.5, h));
+    // W7 (5a.2): Nässe aus com.dan.weather. Fels, Kies und Boden werden dunkler (Wasser im Porenraum), unter dem
+    // Kronendach und auf Schnee kaum; nasser Fels glänzt (unten) [G]
+    float nassF = uNass * (1.0 - land.schnee) * (1.0 - 0.75 * krone) * smoothstep(0.3, 1.5, h);
+    alb *= 1.0 - nassF * (0.22 + 0.18 * land.fels);
     float B = skyBrightness(sunElevDeg());
     vec3 sky = skyColor(vec3(0.0, 1.0, 0.0));
     // im Kronendach fällt weniger Himmelslicht zwischen die Kronen, die Sonne trifft die Kronen auch am flachen Hang [G]
@@ -392,6 +396,17 @@ void main() {
         float fr = 0.03 + 0.10 * pow(1.0 - max(dot(nL, vv), 0.0), 5.0);
         vec3 himmelR = min(skyColor(reflect(-vv, nL) + vec3(0.0, 0.02, 0.0)), sky * 1.3);
         col += himmelR * fr * eis * 0.6 * (1.0 - 0.5 * smoothstep(0.22, 0.45, slope));
+    }
+    if (nassF > 0.01) {
+        // W7: nasser Fels spiegelt den Himmel (Fresnel, rau gemittelt) und glänzt in der Sonne [G]
+        vec3 vv = normalize(uCam - vW);
+        vec3 rr = reflect(-vv, nL);
+        rr.y = max(rr.y, 0.03);
+        float fr = 0.02 + 0.98 * pow(1.0 - max(dot(nL, vv), 0.0), 5.0);
+        float glatt = (0.25 + 0.75 * land.fels) * nassF;
+        col += min(skyColor(normalize(rr)), sky * 1.4) * fr * glatt * 0.55;
+        vec3 hv = normalize(uSun + vv);
+        col += sunAt(vW) * pow(max(dot(nL, hv), 0.0), 80.0) * fr * glatt * 2.0 * step(0.0, dot(nL, uSun));
     }
     vec3 d = vW - uCam;
     float dist = length(d);

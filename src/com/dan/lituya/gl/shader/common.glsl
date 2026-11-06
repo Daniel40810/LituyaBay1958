@@ -27,6 +27,8 @@ uniform vec3 uSunToa;
 uniform int uSchattenAn;
 uniform sampler2D uSchattenF, uSchattenG;
 uniform vec4 uSchattenFRect, uSchattenGRect;
+// Werkbuch Welle W7: Wolkenschatten und Nässe (gl/WetterGl)
+#include "wolken.glsl"
 
 // Tiefenwert für einen Punkt der Szene, passend zur Projektion.
 float depthOf(vec3 p) {
@@ -216,5 +218,6 @@ vec3 umgebung(vec3 n) {
 // Licht der Sonne am Punkt w: mit com.dan.sky Durchlässigkeit nach Höhe und Bergschatten, sonst der Platzhalter.
 vec3 sunAt(vec3 w) {
     if (uSkyMode != 1) return sunLight();
-    return uSunToa * sonnenDurchlass(max(w.y, 0.0), uSun.y) * bergSchatten(w);
+    // W7: dazu der Schatten der Wolken (ohne Wolken 1)
+    return uSunToa * sonnenDurchlass(max(w.y, 0.0), uSun.y) * bergSchatten(w) * wolkenSchatten(w, uSun);
 }

@@ -49,8 +49,14 @@ public final class MeerGl {
 
     /** Runde 8: Tiefe des Spiegelbilds (0 ohne). */
     public int spiegelTiefe() { return spiegel && spiegelJetzt && ok ? reflDepth : 0; }
-    /** Seegang in Beaufort (klarer Abend nach den Zeugen: ruhig) [G]. */
+    /** Seegang in Beaufort (klarer Abend nach den Zeugen: ruhig) [G]; seit W7 aus dem Wind der Wetterregie. */
     public volatile int beaufort = 1;
+    /** W7: Ringe des Regens (com.dan.rain) als feine Störung der Fläche: Textur (0 = keine), Kachel (m), Stärke. */
+    private int ringTex;
+    private double ringKachel = 3, ringStaerke;
+
+    /** W7: Ringe des Regens für das nächste Zeichnen. */
+    public void ringe(int tex, double kachel, double staerke) { ringTex = tex; ringKachel = kachel; ringStaerke = staerke; }
 
     public final Ocean ocean = Ocean.lago(1);
     private final OceanGl gl = new OceanGl();
@@ -59,7 +65,7 @@ public final class MeerGl {
     final Shader spiegelShader = new Shader("Spiegel", null, "fullscreen.vert", "spiegel.frag");
     private boolean ok;
     private String status = "Meer: noch nicht gestartet";
-    private int reflTex, reflDepth, reflFbo, reflW, reflH;
+    private int reflTex, reflDepth, reflFbo, reflColorFbo, reflW, reflH;
     private int maskTex;
     private double[] maskFuer;
     private int bftGebaut = -1;
@@ -103,7 +109,8 @@ public final class MeerGl {
             ocean.depth = o.depth;
             ocean.fetchLimited = true;
             ocean.swellHeight = 0;
-            ocean.choppiness = 0.5;   // spiegelglatter Abend nach den Zeugen: weiche Kräusel [G]
+            // spiegelglatter Abend nach den Zeugen: weiche Kräusel [G]; seit W7 mit dem Wind spitzer (Bft 1 wie bisher)
+            ocean.choppiness = Math.min(1.0, 0.5 + 0.1 * (beaufort - 1));
             ocean.foamAmount = o.foamAmount;
             ocean.windSpeed = Math.max(0.8, o.windSpeed);
             bftGebaut = beaufort;
@@ -118,17 +125,44 @@ public final class MeerGl {
     public void spiegelZiel(GL4 g, int w, int h) {
         int sw = Math.max(32, w / spiegelTeiler), sh = Math.max(32, h / spiegelTeiler);
         if (sw != reflW || sh != reflH) {
-            Gpu.deleteFbos(g, reflFbo);
+            Gpu.deleteFbos(g, reflFbo, reflColorFbo);
             Gpu.deleteTextures(g, reflTex, reflDepth);
             reflTex = Gpu.texture(g, sw, sh, GL.GL_RGBA16F, false);
             reflDepth = Gpu.texture(g, sw, sh, GL4.GL_DEPTH_COMPONENT32F, false);
             reflFbo = Gpu.fbo(g, reflTex, reflDepth);
+            reflColorFbo = Gpu.fbo(g, reflTex, 0);
             reflW = sw;
             reflH = sh;
         }
         g.glBindFramebuffer(GL.GL_FRAMEBUFFER, reflFbo);
         g.glViewport(0, 0, sw, sh);
     }
+
+    /**
+     * W7: das Ziel der Spiegelung ohne Tiefe binden (dieselbe Farbe), damit Wolken über das gespiegelte Gelände gelegt werden
+     * können, während sie dessen Tiefe lesen ({@link #spiegelTiefeRoh}); liefert Breite und Höhe.
+     */
+    public int[] spiegelFarbeBinden(GL4 g) {
+        g.glBindFramebuffer(GL.GL_FRAMEBUFFER, reflColorFbo);
+        g.glViewport(0, 0, reflW, reflH);
+        return new int[]{reflW, reflH};
+    }
+
+    /**
+     * W7 Runde 1c: wie viel vom Spiegelbild im Regen im Dunst des Himmels aufgeht (0..0,9). Regen zerschlägt den Spiegel
+     * mit Ringen, und zwischen Wasser und gespiegeltem Hang liegt derselbe Regen, den das Spiegelbild nicht kennt; ohne das
+     * zeigte das Wasser in H14 die Hänge, die über ihm im Regen verschwunden sind.
+     */
+    public volatile double spiegelTruebe = 0;
+    /**
+     * W7 Runde 1d: wie glatt das Wasser für den Spiegel ist (1 still, kleiner mit dem Seegang). Der Spiegel ersetzt die
+     * Himmelsspiegelung von com.dan.ocean mit dem Anteil F; im Seegang (Bft 3, Regen in H14) stand er als glatte Fläche
+     * mit scharfer Kante neben den Wellen. 1 = wie bisher.
+     */
+    public volatile double spiegelGlatt = 1;
+
+    /** W7: Tiefe des Spiegelbilds (auch während es entsteht). */
+    public int spiegelTiefeRoh() { return reflDepth; }
 
     /** Das Meer mit Tiefe in den gebundenen HDR-Puffer. welleRect: Rechteck der laufenden Welle (oder null). */
     public void zeichnen(GL4 g, float[] vp, double[] eye, boolean reversed, Licht licht, double[] welleRect) {
@@ -153,6 +187,10 @@ public final class MeerGl {
         light.bedScale = 1;
         light.bedOffset = 0;
         maske(g, welleRect);
+        light.detailTexture = ringTex;   // W7
+        light.detailTile = ringKachel;
+        light.detailStrength = ringTex != 0 ? ringStaerke : 0;
+        light.detailRange = 60;
         g.glEnable(GL.GL_DEPTH_TEST);
         g.glDepthMask(true);
         gl.draw(g, ocean, view, light);
@@ -207,6 +245,8 @@ public final class MeerGl {
         spiegelShader.set(g, "uSpSchritte", spiegelSchritte);
         { float[] v = spiegelVorn; spiegelShader.set(g, "uSpVorn", v[0], v[1], v[2]); }
         spiegelShader.set(g, "uSpiegelAn", spiegel && spiegelJetzt && reflTex != 0 ? 1 : 0);
+        spiegelShader.set(g, "uSpTruebe", (float) Math.max(0, Math.min(0.9, spiegelTruebe)));
+        spiegelShader.set(g, "uSpGlatt", (float) Math.max(0, Math.min(1, spiegelGlatt)));
         { float[] a = spiegelVP, j = jetztVP; if (a == null || j == null) a = j = new float[]{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
           spiegelShader.mat(g, "uSpiegelVP", a); spiegelShader.mat(g, "uJetztVP", j); }
         spiegelShader.set(g, "uNear", near);
@@ -230,7 +270,7 @@ public final class MeerGl {
     public void dispose(GL4 g) {
         if (ok) gl.dispose(g);
         spiegelShader.dispose(g);
-        Gpu.deleteFbos(g, reflFbo);
+        Gpu.deleteFbos(g, reflFbo, reflColorFbo);
         Gpu.deleteTextures(g, reflTex, reflDepth, maskTex);
     }
 }
