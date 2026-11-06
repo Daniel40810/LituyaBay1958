@@ -18,6 +18,8 @@ uniform sampler2D uSpTiefe;   // Runde 8: Tiefe des Spiegelbilds
 uniform float uSpNah;
 uniform int uSpSchritte;   // Runde 9: 1 oder 2 Schritte mit der Tiefe
 uniform vec3 uSpVorn;
+uniform float uSpTruebe;   // W7 Runde 1c: Anteil des Spiegelbilds, der im Regen im Dunst des Himmels aufgeht
+uniform float uSpGlatt;    // W7 Runde 1d: wie glatt das Wasser für den Spiegel ist (1 still, kleiner im Seegang)
 
 // Runde 8: Spiegelbild aus einem früheren Bild an die jetzige Stelle (uv: jetzt, dir: Sehstrahl jetzt, normiert).
 // Erst die Richtung umrechnen (Runde 7), dort die Tiefe des Spiegelbilds lesen; dann den gespiegelten Punkt auf dem
@@ -109,8 +111,8 @@ void main() {
         vec4 R = texture(uRefl, spiegelUV(vUV, d) + off);
         if (R.a > 0.01) {
             vec3 r = reflect(d, n);
-            deck = F * clamp(R.a, 0.0, 1.0);
-            add += R.rgb * deck;
+            deck = F * clamp(R.a, 0.0, 1.0) * uSpGlatt;
+            add += mix(R.rgb, hazeColor(r), uSpTruebe) * deck;
         }
     }
     // Gletschermilch: Streulicht im Wasser (Anteil 1 − F), Grundton 0,35 in der ganzen Bucht, zum Inlet hin bis 1 [G]

@@ -5,7 +5,8 @@
 #   xz=x,z                    (Szenenmeter, x nach Ost, z nach Süd)
 # Blick: blick=Grad von Nord oder blickauf=NAME (Ort aus Site); neigung=Grad nach unten (negativ: hinauf); auge=m über Grund/Wasser.
 # Zeit: zeitstand=vor|welle|danach|heute, uhr=Stunden Ortszeit, datum=JJJJ-MM-TT, ereignis=s nach dem ersten Stoß.
-# Bild: brennweite=mm (Kleinbild). Sonst: lauf, regen (mm/h), wetter (Text, gilt erst ab B10), offen=Grund (Bild noch nicht machbar).
+# Bild: brennweite=mm (Kleinbild). Sonst: lauf, regen (mm/h), wetter (Lage für heute seit Werkbuch Welle W7: klar, quellwolken,
+# kuestennebel, regen, sturm), wetterzeit (Stunden in der Lage), offen=Grund (Bild noch nicht machbar).
 # Lagen und Zeiten [G], nach den ersten Bildern von B0 nachzustellen.
 nr=1;name=Abend_vor_Anker;schaustueck=1;zeitstand=vor;uhr=22.0;brennweite=50;warum=Spiegel, Alpenglühen, Kutter
 nr=2;name=Fairweather_vom_Eingang;ort=CHAUSSEE;versatz=225,1500;auge=6;blickauf=FAIRWEATHER;neigung=-5.5;zeitstand=vor;uhr=22.1667;brennweite=200;warum=Maßstab, Luftperspektive, Schnee
@@ -18,5 +19,6 @@ nr=8;name=Unter_Wasser;schaustueck=7;ereignis=115;brennweite=18;warum=Trübe, Li
 nr=9;name=Der_Morgen_danach;schaustueck=10;brennweite=35;warum=Narbe, Holzteppich
 nr=10;name=Millers_Standort;offen=wartet auf Millers Foto und Standort (FB9 A: Fotos von Hand nach docs/bild/referenz);warum=Abgleich mit dem Foto
 nr=11;name=Narbe_heute;xz=1000,-1300;auge=20;blick=2;neigung=-4;zeitstand=heute;datum=2026-07-20;uhr=15.0;brennweite=85;warum=hellgrünes Band
-nr=12;name=Heute_im_Regen;ort=ANCHORAGE;auge=3;blick=62;neigung=-2;zeitstand=heute;datum=2026-07-20;uhr=11.0;regen=8;wetter=Regen, Nebel in den Hängen (erst ab B10 im Bild);brennweite=35;warum=Wetter, Stimmung
+nr=12;name=Nebel_zieht_ein;xz=-9385,5580;auge=1200;blick=40;neigung=9;zeitstand=heute;datum=2026-07-20;uhr=10.5;wetter=kuestennebel;wetterzeit=0.7;brennweite=35;warum=H9 (Werkbuch Welle W7): Seenebel stößt von See durch den Eingang in die Bucht, dahinter die klare Bucht, die Gipfel darüber, Wolken an der Kette [G]; seit W7 Runde 1d aus 1 200 m nach unten (vorher 420 m: das Nebelmeer verdeckte die Front)
 nr=13;name=Die_Roehre;xz=168,-870;auge=4;blick=98;neigung=-3;ereignis=180;brennweite=85;warum=Werkbuch Welle W4b: die Front schräg von vorn aus Bootshöhe, 35° zur Laufrichtung, im 4-m-Gitter: Lippe, Röhre, Vorhang [G]
+nr=14;name=Ruhe_im_Regen;ort=ANCHORAGE;auge=3;blick=62;neigung=1;zeitstand=heute;datum=2026-07-20;uhr=22.0;wetter=regen;wetterzeit=3;brennweite=50;warum=H1 bei Regen (Werkbuch Welle W7): derselbe Blick wie die letzte Ruhe, heute im Landregen: Wolken in den Hängen, Ringe, nasser Fels [G]

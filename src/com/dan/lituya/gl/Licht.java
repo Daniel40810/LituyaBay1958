@@ -62,8 +62,18 @@ public final class Licht {
     public volatile double waldHoehe = Double.NaN;
     /** W5: Faktor auf die Sonne des Walds (Proben). */
     public volatile double waldSonne = 1;
+    /** W7 Runde 1c: Anteil der Sonne unter den Wolken für Wald, Fälle und Boote (aus {@code WetterGl.waldSonne}, ohne Wolken 1). */
+    public volatile double waldWolken = 1;
     /** W5: Faktor auf den Mond des Walds (Proben). */
     public volatile double waldMond = 1;
+    /** W7: wie viel heller der Himmel ist als klar (Wolken: unter 1), für die Belichtung (com.dan.cloud.brightnessFactor). */
+    public volatile double hellFaktor = 1;
+    /** W7: was nach dem Himmel ins Rundumbild kommt (die Wolken aus gl/WetterGl), mit gebundenem Ziel; null = nichts. */
+    public volatile java.util.function.Consumer<GL4> panoZusatz;
+    /** W7: Uniforms der Wolkenschatten für die Karte „Sonne“ (gl/WetterGl.uniforms); null = ohne. */
+    public volatile java.util.function.Consumer<Shader> wolkenUniforms;
+    /** W7: Nässe für den Wald (ForestGl.Light.wetness). */
+    public volatile double nass;
 
     public final Sky sky = new Sky();
     private final SkyGl skyGl = new SkyGl();
@@ -80,6 +90,10 @@ public final class Licht {
     private final ExecutorService exec = Executors.newSingleThreadExecutor(r -> { Thread t = new Thread(r, "Licht"); t.setDaemon(true); return t; });
     private Future<float[][]> hoehen;
     private boolean hoehenDa, schattenDa;
+    private volatile float[] grobHoehen;
+
+    /** W7: Höhen des groben Gitters über NAVD88 (Meer 0), GROB_N², null solange nicht gerechnet. */
+    public float[] grobHoehen() { return grobHoehen; }
 
     public Licht() {
         sky.latDeg = Site.LAT;
@@ -134,6 +148,7 @@ public final class Licht {
         // Belichtung: Himmel unter 50° und Blickfeld gemittelt, geglättet (im Standbild sofort)
         double[] up = {0, 1, 0};
         double a = Math.sqrt(Math.max(1e-14, st.adaptation) * Math.max(1e-14, st.viewLuminance(fwd, up, fovy, aspect)));
+        a *= Math.max(0.05, Math.min(1, hellFaktor));   // W7: unter Wolken ist der Himmel dunkler (com.dan.sky ohne Schleier)
         // Werkbuch Welle W6: am Tag eine Blende weniger (Proben W6Q8 69/70: mit −1 lesbar, vorher Schnee, Wiesen und Dunst
         // ausgebrannt); in der Dämmerung unverändert, Übergang zwischen 5° und 25° Sonnenhöhe [G]
         double sonne = Math.toDegrees(Math.asin(Math.max(-1, Math.min(1, st.sunDir[1]))));
@@ -147,6 +162,7 @@ public final class Licht {
                 float[][] h = hoehen.get();
                 hoeheF = hoehenTextur(gl, h[0], FEIN_N);
                 hoeheG = hoehenTextur(gl, h[1], GROB_N);
+                grobHoehen = h[1];   // W7: für die Wolken am Gelände
                 grundF = hoehenTextur(gl, h[2], FEIN_N);
                 hoehenDa = true;
             } catch (Exception e) {
@@ -178,6 +194,8 @@ public final class Licht {
             gl.glBindFramebuffer(GL.GL_FRAMEBUFFER, panoFbo);
             gl.glViewport(0, 0, 512, 256);
             skyGl.drawPanorama(gl, st, pre);
+            java.util.function.Consumer<GL4> zus = panoZusatz;
+            if (zus != null) zus.accept(gl);   // W7: die Wolken ins Rundumbild
             gl.glBindTexture(GL.GL_TEXTURE_2D, panoTex);
             gl.glGenerateMipmap(GL.GL_TEXTURE_2D);
             gl.glBindTexture(GL.GL_TEXTURE_2D, 0);
@@ -294,7 +312,7 @@ public final class Licht {
             double[] dl = durchlass(Math.max(0, waldHoehe), st.sunDir[1]);
             l.sunColor = new double[]{st.sunToa[0] * dl[0] * p, st.sunToa[1] * dl[1] * p, st.sunToa[2] * dl[2] * p};
         }
-        for (int c = 0; c < 3; c++) l.sunColor[c] *= waldSonne;
+        for (int c = 0; c < 3; c++) l.sunColor[c] *= waldSonne * Math.max(0, Math.min(1, waldWolken));
         l.skyColor = new double[]{st.skyIrradiance[0] / Math.PI * p, st.skyIrradiance[1] / Math.PI * p, st.skyIrradiance[2] / Math.PI * p};
         l.moonDir = st.moonDir.clone();
         l.moonColor = new double[]{st.moonColor[0] * p * waldMond, st.moonColor[1] * p * waldMond, st.moonColor[2] * p * waldMond};
@@ -310,6 +328,7 @@ public final class Licht {
         }
         l.skyWeight = 1;
         l.skyTexture = panoTex;
+        l.wetness = Math.max(0, Math.min(1, nass));   // W7
         // Bergschatten als Karte von oben: der Wald steht im feinen Gitter (Kern)
         l.shadowTexture = schattenDa ? sonnenKarte : 0;
         l.shadowRect = new double[]{feinRect[0], feinRect[1], feinRect[2]};
@@ -337,6 +356,11 @@ public final class Licht {
         sonne.set(gl, "uSchatten", 0);
         sonne.set(gl, "uSonneH", (float) Math.asin(Math.max(-1, Math.min(1, st.sunDir[1]))));
         sonne.set(gl, "uBaum", 30f);
+        // W7: Wolkenschatten auf Wald und Meer
+        sonne.set(gl, "uFein", (float) feinRect[0], (float) feinRect[1], (float) feinRect[2], (float) FEIN_N);
+        sonne.set(gl, "uSonneD", st.sunDir);
+        java.util.function.Consumer<Shader> wu = wolkenUniforms;
+        if (wu != null) wu.accept(sonne); else sonne.set(gl, "uWkAn", 0);
         gl.glBindImageTexture(0, sonnenKarte, 0, false, 0, GL4.GL_WRITE_ONLY, GL.GL_R8);
         gl.glDispatchCompute(FEIN_N / 16, FEIN_N / 16, 1);
         gl.glMemoryBarrier(GL4.GL_TEXTURE_FETCH_BARRIER_BIT);

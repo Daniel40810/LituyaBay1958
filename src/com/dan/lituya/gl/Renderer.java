@@ -90,6 +90,16 @@ public final class Renderer implements GLEventListener {
     private int floesAlter;
     /** Werkbuch Welle W1: Himmel aus com.dan.sky, Belichtung, Horizontkarten für den Schatten der Kette, Alpenglühen. */
     public final Licht licht = new Licht();
+    /**
+     * Werkbuch Welle W7 „Wetter“: die Wetterregie der Bucht (ein Zustand für Licht, Wasser, Wald, Bäche, Fälle, Nebel,
+     * Regen und Klang) und das Wetter im Bild (Wolken am Gelände, Seenebel mit Vorstoß, Regen). 1958 fest nach den
+     * Zeugen (WF13 A), heute frei.
+     */
+    public final com.dan.lituya.wiring.Wetter wetter = new com.dan.lituya.wiring.Wetter();
+    public final WetterGl wetterGl = new WetterGl();
+    /** W7: Regen von Hand auf die Bäche (Regler, Regiebuch „regen“, Bildbank „regen“), mm/h; dazu kommt der Abfluss der Wetterlage. */
+    public volatile double baecheRegenHand = 0;
+    private double wetterSzeneT = Double.NaN, wetterDt;
     /** Werkbuch Welle W2: das Wasser aus com.dan.ocean, Spiegel der Berge, Gletschermilch. */
     public final MeerGl meer = new MeerGl();
     /**
@@ -291,6 +301,19 @@ public final class Renderer implements GLEventListener {
         // Phase 4: die Clipmap folgt der Stufe eins zu eins (NIEDRIG 129², MITTEL 193², HOCH 257², ULTRA 385²)
         land.clipmap(com.dan.clipmap.Clipmap.Quality.values()[q.ordinal()]);
         wald.stufe(q);
+        wetterGl.stufe(q);   // W7
+    }
+
+    /**
+     * W7: ist das Wetter für ein Standbild bereit? Wolken mit Gelände (sobald das grobe Gitter des Lichts steht), die Karte
+     * des Seenebels (wenn er liegt) und der Himmel nach der Sicht der Lage (com.dan.sky baut im Hintergrund).
+     */
+    public boolean wetterBereit() {
+        com.dan.lituya.wiring.Wetter.Zustand z = wetter.zustand();
+        if (!wetter.an || z == null || !wetterGl.bereit()) return true;
+        if (licht.sky.rebuilding()) return false;
+        if (z.wolken() && (z.bank() > 0.01 || z.kappe() > 0.01 || z.konvektion() > 0.01) && wetterGl.wolken.terrain == null) return false;
+        return !z.seenebel() || wetterGl.nebelBereit();
     }
 
     /** Höhe des Geländes (m über NAVD88) aus der Clipmap; {@link #KEIN_GRUND}, solange nichts geladen ist. */
@@ -477,6 +500,8 @@ public final class Renderer implements GLEventListener {
         compute = ComputeProbe.run(gl);
         licht.init(gl);   // W1
         meer.init(gl);    // W2
+        wetterGl.init(gl);   // W7
+        wetterGl.stufe(quality);
         landschaft.init(gl);   // W6
         landschaft.laden(new java.io.File(System.getProperty("lituya.daten", "daten")));
         try {             // W3b: Texturen der Hänge (beim ersten Mal packt der Treiber, danach aus gpu_*_1024.bin)
@@ -553,6 +578,20 @@ public final class Renderer implements GLEventListener {
             }
         }
         regie.step(dt, regieCtx);   // Phase 17a: fällige Stichworte des Regiebuchs
+        // W7: die Wetterregie bis zur Uhr; Wind und Bäche aus ihrem Zustand (1958 klar und still wie bisher)
+        try {
+            wetter.schritt(clock, dt, clock.lapse == 0);
+            com.dan.lituya.wiring.Wetter.Zustand wz = wetter.zustand();
+            boolean wa = wetter.an && wz != null;
+            if (wa) { wiring.windSpeed = wz.wind(); wiring.windFromDeg = wz.windVon(); }
+            baeche.regen = Math.min(BaecheGl.REGEN_MAX, Math.max(baecheRegenHand, wa ? wz.abfluss() : 0));
+            double sz = clock.epochMillis() / 1000.0;
+            wetterDt = Double.isNaN(wetterSzeneT) ? 0 : Math.max(0, Math.min(600, sz - wetterSzeneT));
+            wetterSzeneT = sz;
+        } catch (RuntimeException e) {
+            System.err.println("LituyaBay1958: Wetter: " + e);
+            wetter.an = false;
+        }
         if (regieLief && !regie.running() && netzVorher != null) {   // danach den Netzblick wie vorher
             netzblick.bildImBild = (Boolean) netzVorher[0];
             netzblick.inSzene = (Boolean) netzVorher[1];
@@ -995,7 +1034,12 @@ public final class Renderer implements GLEventListener {
             clock.lapse = 1;
             wiedergabe.an(true);
         }
-        @Override public void regen(double mmH) { baeche.regen = Math.max(0, Math.min(BaecheGl.REGEN_MAX, mmH)); }
+        @Override public void wetter(com.dan.lituya.scene.Wetterlage l, double uebergangMin) {
+            if (!Double.isNaN(uebergangMin)) wetter.uebergangMin = uebergangMin;
+            wetter.waehle(l);
+            if (uebergangMin == 0) wetter.sofort();
+        }
+        @Override public void regen(double mmH) { baecheRegenHand = Math.max(0, Math.min(BaecheGl.REGEN_MAX, mmH)); baeche.regen = Math.max(baeche.regen, baecheRegenHand); }
         @Override public boolean ready(com.dan.lituya.scene.Regie.Warte w) {
             return switch (w.was()) {
                 case "uhr" -> clock.epochMillis() / 3_600_000.0 >= w.wert();
@@ -1084,6 +1128,28 @@ public final class Renderer implements GLEventListener {
         }
         double[] sp = clock.sun();
         double[] sunPh = Sun.direction(sp[0], sp[1]);
+        // W7: Wetter vor dem Licht (Wolken ins Rundumbild, ihr Schatten in die Karte „Sonne“); Sicht und Bedeckung an den Himmel
+        com.dan.lituya.wiring.Wetter.Zustand wz = wetter.zustand();
+        boolean wetterJetzt = wetter.an && wz != null && wz.an();
+        licht.sky.visibilityKm = wetterJetzt ? Math.max(1, wz.sichtKm()) : Licht.SICHT_KM;
+        licht.sky.cloudCover = wetterJetzt ? Math.min(1, wz.achtel() / 8) : 0;
+        licht.sky.cloudVeil = false;   // die Wolken zeichnet com.dan.cloud
+        licht.nass = wetterJetzt ? wz.nass() : 0;
+        teil("Wetter");
+        try {
+            if (licht.grobHoehen() != null) wetterGl.gelaende(licht.grobHoehen(), licht.grobRect(), Licht.GROB_N);
+            if (land.stapel() != null) wetterGl.nebelGrund(this::stapelHoehe);
+            wetterGl.vorbereiten(gl, wetterJetzt ? wz : null, licht, camera.eye, wetterDt, clock.lapse == 0, wiring.pegel);
+        } catch (RuntimeException e) {
+            System.err.println("LituyaBay1958: Wetter: " + e);
+            wetter.an = false;
+        }
+        teilEnde("Wetter");
+        licht.hellFaktor = wetterGl.hellFaktor();
+        licht.waldWolken = wetter.an ? wetterGl.waldSonne() : 1;   // W7 Runde 1c: Wald, Fälle und Boote unter den Wolken
+        wetterGl.verlauf(Math.abs(clock.lapse) > 30 ? 0.5 : 0.85);   // im schnellen Zeitraffer weniger vom letzten Bild (keine Schlieren)
+        licht.panoZusatz = wetterGl.wolkenJetzt() ? g -> wetterGl.panorama(g, camera.eye) : null;
+        licht.wolkenUniforms = sh -> wetterGl.uniforms(gl, sh);
         // W1: Himmel und Licht aus com.dan.sky (Sonne mit Strahlenbrechung), Horizontkarten, Rundumbild
         teil("Licht");
         try {
@@ -1149,6 +1215,10 @@ public final class Renderer implements GLEventListener {
                     }
                 }
                 teil("Meer");
+                meer.beaufort = wetterJetzt ? wz.bucht() : 1;   // W7: Seegang in der Bucht nach dem Wind (eine Stufe ruhiger als draußen)
+                meer.spiegelTruebe = wetterJetzt ? Math.min(0.75, wz.regen() / 4.5) : 0;   // W7 Runde 1c: Regen trübt den Spiegel [G]
+                // W7 Runde 1d: im Seegang bricht der Spiegel (Bft 1 still wie bisher, Bft 2 0,65, Bft 3 0,4, ab 4 0,3) [G]
+                meer.spiegelGlatt = !wetterJetzt || wz.bucht() <= 1 ? 1 : wz.bucht() == 2 ? 0.65 : wz.bucht() == 3 ? 0.4 : 0.3;
                 meer.schritt(gl, frozen ? 0 : letztesDt, wiring.pegel, wiring.windSpeed, wiring.windFromDeg);
                 teilEnde("Meer");
                 // W5 Tempo: Spiegel nur, wenn genug Wasser im Bild ist (Anteil aus Strahlen, alle 8 Bilder, im Standbild jedes)
@@ -1288,6 +1358,7 @@ public final class Renderer implements GLEventListener {
         //   seit Phase 4 mit Tiefe gegen das Gelände
         if (meerJetzt) {
             // W2: com.dan.ocean; dann der Holzteppich am Morgen danach aus meer.frag als Auflage
+            meer.ringe(wetterGl.ringTextur(), wetterGl.ringKachel(), wetterGl.ringStaerke());   // W7: Regen auf dem Wasser
             meer.zeichnen(gl, vp, camera.eye, reversedZ, licht, welleRect);
             gl.glBindVertexArray(emptyVao);
         } else if (showMeer) {
@@ -1358,6 +1429,17 @@ teilEnde("Schleier");
             gl.glBindVertexArray(emptyVao);
         }
         mark(gl, 6);
+
+        // 3c-W7: Wolken (mit der Tiefe der Szene), Seenebel und Regen über das fertige Bild, vor dem Staub der Welle
+        if (!unterWasser && wetterJetzt) {
+            try {
+                wetterGl.zeichnen(gl, hdrColorFbo, hdrFbo, vp, inv, camera.eye, camera.fwd, reversedZ, depthTex, w, h, fovy(), NEAR, FAR, (int) (taaFrame & 63));
+            } catch (RuntimeException e) {
+                System.err.println("LituyaBay1958: Wetter im Bild: " + e);
+                wetter.an = false;
+            }
+            gl.glBindVertexArray(emptyVao);
+        }
 
         // 3c Staub und Trübe unter Wasser (Phase 13b): über das HDR-Bild, die Tiefe als Textur
         gl.glBindFramebuffer(GL.GL_FRAMEBUFFER, hdrColorFbo);
@@ -1491,6 +1573,15 @@ teilEnde("Schleier");
             wald.zeichnen(gl, vpR, eyeR, reversedZ, sun, clock.t());
             gl.glFrontFace(GL.GL_CCW);
         }
+        // W7 Runde 1b: Wolken über das gespiegelte Gelände (Bank, Decke); das Ziel ohne Tiefe, die Tiefe gelesen
+        if (showGelaende && cm != null && wetter.an && (wetterGl.wolkenJetzt() || wetterGl.nebelJetzt())) {
+            int[] sz = meer.spiegelFarbeBinden(gl);
+            teil("Spiegelwolken");
+            wetterGl.spiegel(gl, vpR, invR, eyeR, reversedZ, meer.spiegelTiefeRoh(), sz[0], sz[1], L);
+            teilEnde("Spiegelwolken");
+            gl.glEnable(GL.GL_DEPTH_TEST);
+            gl.glDepthMask(true);
+        }
         gl.glBindVertexArray(emptyVao);
         gl.glUseProgram(0);
     }
@@ -1616,6 +1707,7 @@ teilEnde("Schleier");
         s.set(gl, "uReversed", reversedZ ? 1 : 0);
         s.set(gl, "uBild", (float) (taaFrame & 63));
         licht.uniforms(gl, s);   // W1: uSkyMode, Rundumbild, Sonne am Punkt, Horizontkarten
+        wetterGl.uniforms(gl, s);   // W7: Wolkenschatten, Nässe
     }
 
     private void resizeTargets(GL4 gl, int w, int h) {
@@ -1908,6 +2000,7 @@ teilEnde("Schleier");
                 (licht.aktiv() ? String.format(Locale.GERMAN, "Vorbelichtung %.3g · %s · %s · Zeitraffer %.0f×", licht.pre(), auge, licht.status(), clock.lapse)
                         : String.format(Locale.GERMAN, "Belichtung %.2g (Platzhalter-Himmel, Licht aus) · Zeitraffer %.0f×", exposure(), clock.lapse)),
                 wiring.zeile(),
+                wetterGl.info(),
                 physik.describe(),
                 land.zeile(),
                 netzblick.info(),
@@ -2066,6 +2159,7 @@ teilEnde("Schleier");
         Gpu.deleteFbos(gl, taaFbo[0], taaFbo[1]);
         Gpu.deleteTextures(gl, taaTex[0], taaTex[1]);
         licht.dispose(gl);
+        wetterGl.dispose(gl);
         meer.dispose(gl);
         if (emptyVao != 0) gl.glDeleteVertexArrays(1, new int[]{emptyVao}, 0);
         for (int[] s : stamp) if (s[0] != 0) gl.glDeleteQueries(MARKS, s, 0);

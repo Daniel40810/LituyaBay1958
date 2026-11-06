@@ -158,7 +158,7 @@ public final class Hilfe {
                 {"ZEIT", "Datum, Stunde, Zeitstand (vor, Welle, danach, heute), Tempo, Jahres-Zeitraffer"},
                 {"EREIGNIS", "die Nacht vom 9. Juli 1958: Beben, Sturz, Welle; Wiedergabe der vorgerechneten Läufe, Echtzeit „Was wäre wenn“, Schaustücke, Boote"},
                 {"NETZE", "Netzblick: Welle, Wasser, Weg, Sicht; Bild im Bild"},
-                {"WETTER", "Regen auf die Bäche; Wolken, Nebel, Regen im Bild ab Werkbuch Welle W7"},
+                {"WETTER", "Wetterlage für heute (klar, Quellwolken, Küstennebel, grauer Morgen, Regen am Berg, Sturm aus Südost) mit Übergang in Minuten, „Sofort“, Zeitraffer; 1958 und am Morgen danach klar nach den Zeugen; Wolken, Seenebel, Regen einzeln abschaltbar; Regen von Hand auf die Bäche"},
                 {"KLANG", "Grollen, Brandung, Wind, Lautstärke (Taste M)"},
                 {"REGIEBÜCHER", "die mitgelieferten Abläufe im Fenster oder im Kino (eigene im Archiv)"},
                 {"DATEN", "Verbindung, LOD, Datenstand; Sitzung sichern und laden, Lauf sichern; Archiv (F2)"},

@@ -56,6 +56,11 @@ public final class Regie {
         /** Eine Welle in Echtzeit am Ort (Schlüssel) mit Volumen (Mio. m³); ort null = aus. */
         void echtzeit(String ort, double mio);
         void regen(double mmH);
+        /**
+         * Werkbuch Welle W7: die Wetterlage für heute (Name wie {@link Wetterlage#byName}) mit einem Übergang in Minuten
+         * Szenenzeit (NaN = wie eingestellt; 0 = sofort).
+         */
+        default void wetter(Wetterlage lage, double uebergangMin) { }
         /** Ob die Szene so weit ist (für {@code warte}). */
         boolean ready(Warte w);
         void capture(String caption);
@@ -181,7 +186,7 @@ public final class Regie {
     // ------------------------------------------------------------------ die Regiebücher (als Text)
 
     /** Die fünf mitgelieferten Regiebücher aus den Textdateien neben dieser Klasse (regie/*.txt). */
-    public static final String[] DATEIEN = {"zehn_minuten.txt", "drei_boote.txt", "nacht.txt", "68_jahre.txt", "bucht_der_wellen.txt", "der_sturz.txt", "die_wand.txt", "524_m.txt", "flug_zur_kette.txt"};
+    public static final String[] DATEIEN = {"zehn_minuten.txt", "drei_boote.txt", "nacht.txt", "68_jahre.txt", "bucht_der_wellen.txt", "der_sturz.txt", "die_wand.txt", "524_m.txt", "flug_zur_kette.txt", "wetterwechsel.txt"};
 
     public static List<Book> all() {
         List<Book> l = new ArrayList<>();
@@ -213,7 +218,7 @@ public final class Regie {
 
     /** Die Befehle der Stichworte (klein geschrieben im Text). */
     public static final List<String> BEFEHLE = List.of("zeit", "ereignis", "raffer", "zeitstand", "jahre", "ansicht", "schaustueck", "fahrt", "mitfahrt",
-            "netzblick", "echtzeit", "regen", "warte", "foto", "blatt", "sage", "flug");
+            "netzblick", "echtzeit", "regen", "warte", "foto", "blatt", "sage", "flug", "wetter");
 
     /** Die Bedingungen von {@code warte}. */
     public static final List<String> WARTEN = List.of("uhr", "ereignis", "echtzeit", "jahre", "boote");
@@ -248,6 +253,8 @@ public final class Regie {
                 else {
                     Zeile z = zeile(line);
                     if (z.befehl().equals("zeit")) day[0] = datum(z.argumente().split("\\s+")[0]);
+                    if (z.befehl().equals("wetter") && Wetterlage.byName(z.argumente().replaceAll("\\s+[0-9]+([.,][0-9]+)?$", "").trim()) == null)
+                        throw new IllegalArgumentException("wetter: keine Lage „" + z.argumente() + "“");   // W7
                     if (z.befehl().equals("warte")) warten.add(warte(z.argumente(), day[0]));
                     else warten.add(null);
                     zeilen.add(z);
@@ -429,6 +436,21 @@ public final class Regie {
                 return x -> x.echtzeit(o, v);
             }
             case "regen": { double v = Double.parseDouble(a); return x -> x.regen(v); }
+            case "wetter": {
+                // W7: „wetter kuestennebel 30“ = Lage, Übergang in Minuten (ohne: wie eingestellt)
+                need(a, "wetter Lage [Übergang in min]");
+                String[] p = a.trim().split("\\s+");
+                double ueb = Double.NaN;
+                String name = a.trim();
+                if (p.length > 1 && p[p.length - 1].matches("[0-9]+([.,][0-9]+)?")) {
+                    ueb = Double.parseDouble(p[p.length - 1].replace(',', '.'));
+                    name = a.trim().substring(0, a.trim().lastIndexOf(p[p.length - 1])).trim();
+                }
+                Wetterlage l = Wetterlage.byName(name);
+                if (l == null) throw new IllegalArgumentException("wetter: keine Lage „" + name + "“ (" + java.util.Arrays.toString(Wetterlage.values()) + ")");
+                double u = ueb;
+                return x -> x.wetter(l, u);
+            }
             case "foto": { need(a, "foto Unterschrift"); return x -> x.capture(a); }
             case "blatt": { String n = a.isEmpty() ? buch : a; return x -> x.sheet(n); }
             case "sage": { need(a, "sage Text"); return x -> x.say(a); }

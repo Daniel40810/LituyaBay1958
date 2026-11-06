@@ -31,7 +31,8 @@ import java.util.Locale;
  * {@code wald} = aus; ab Phase 16c {@code netz} (welle, wasser, weg, sicht), {@code netzszene} = an, {@code netzblick} = aus,
  * {@code regen} (mm/h); ab Phase 17 {@code fahrt} (rundflug, kamerafahrt) und {@code fahrtanteil} (0 … 1); ab Phase 17a
  * {@code regiebuch} (Name; ganz durchspielen, Blatt nach docs/status) und {@code kino} = aus; ab Werkbuch Bild B0
- * {@code brennweite} (mm, Kleinbild) und {@code zeitstand} (vor, welle, danach, heute; nur der Stand, die Uhr kommt aus den Argumenten).
+ * {@code brennweite} (mm, Kleinbild) und {@code zeitstand} (vor, welle, danach, heute; nur der Stand, die Uhr kommt aus den Argumenten);
+ * ab Werkbuch Welle W7 {@code wetter} (Lage für heute, etwa kuestennebel, regen; aus = ohne Wetter) und {@code wetterzeit} (Stunden in der Lage).
  */
 public final class Tempo {
     private Tempo() { }
@@ -94,7 +95,17 @@ public final class Tempo {
         // W0 (K6): der Netzblick ist von Haus aus aus; an mit netzblick=an oder wenn ein Netz gewählt ist (ant netzbilder, sichtbilder)
         String nbl = opt("netzblick");
         r.netzblick.bildImBild = "an".equals(nbl) || (nbl == null && nz != null && !nz.isBlank());
-        if (rg != null && !rg.isBlank()) r.baeche.regen = Double.parseDouble(rg.replace(',', '.'));
+        if (rg != null && !rg.isBlank()) { r.baecheRegenHand = Double.parseDouble(rg.replace(',', '.')); r.baeche.regen = r.baecheRegenHand; }
+        // Werkbuch Welle W7: wetter = Lage (klar, quellwolken, kuestennebel, regen, sturm; gilt „heute“), wetterzeit = Stunden in der
+        // Lage (der Nebel ist dann so weit vorgestoßen), wetter=aus (ohne Wetter wie bis W6)
+        String wt = opt("wetter"), wtz = opt("wetterzeit");
+        if ("aus".equals(wt)) r.wetter.an = false;
+        else if (wt != null && !wt.isBlank()) {
+            com.dan.lituya.scene.Wetterlage wl = com.dan.lituya.scene.Wetterlage.byName(wt);
+            if (wl == null) System.err.println("FEHLER: keine Wetterlage „" + wt + "“");
+            else r.wetter.heute = wl;
+        }
+        if (wtz != null && !wtz.isBlank()) r.wetter.seitStunden = Double.parseDouble(wtz.replace(',', '.'));
         com.dan.lituya.camera.Schaustuecke.Stueck stueck = com.dan.lituya.camera.Schaustuecke.byName(sst);
         if (sst != null && !sst.isBlank() && stueck == null) System.err.println("FEHLER: kein Schaustück „" + sst + "“");
         Runnable stellen = () -> {
@@ -168,6 +179,15 @@ public final class Tempo {
                 r.land.auge(fp[0], fp[2]);
                 r.land.warten(300_000);
             }
+        }
+        // W7: Wolken am Gelände (Strömungskarte aus dem groben Gitter), Karte des Seenebels und den Himmel nach der Sicht abwarten
+        if (r.wetter.an) {
+            long t0 = System.nanoTime();
+            r.step(1 / 60.0);   // erst ein Schritt: die Regie setzt die Lage, der Himmel beginnt mit der Sicht der Lage
+            d.display();
+            d.display();
+            while (!r.wetterBereit() && System.nanoTime() - t0 < 120e9) { r.step(1 / 60.0); d.display(); Thread.sleep(50); }
+            System.out.printf(Locale.GERMAN, "Wetter %s in %.1f s: %s%n", r.wetterBereit() ? "bereit" : "NICHT bereit", (System.nanoTime() - t0) / 1e9, r.wetterGl.info());
         }
         // Phase 16c: Netze und Bäche abwarten (im Hintergrund geladen)
         {
