@@ -347,7 +347,9 @@ void main() {
         // Bruchnarben [G]
         float streif = knf(vec2(dot(vW.xz, seite) / 6.0, vW.y / 60.0), 1.0, pxh / 6.0);
         vec3 alt = mix(vec3(0.46, 0.49, 0.52), blau, 0.35) * (0.75 + 0.4 * streif);
-        vec3 neu = mix(vec3(0.05, 0.24, 0.44), vec3(0.78, 0.86, 0.92), smoothstep(0.78, 0.9, bruch)) * (0.85 + 0.3 * schicht);
+        // W6 Runde 4: weniger gesättigt (das tiefe Blau gab im warmen Licht des Morgens türkise Flächen, Probe 78): im
+        // Schatten bleibt es blau, in der Sonne wird es hell [G]
+        vec3 neu = mix(vec3(0.24, 0.38, 0.52), vec3(0.78, 0.86, 0.92), smoothstep(0.78, 0.9, bruch)) * (0.85 + 0.3 * schicht);
         blau = mix(alt, neu, frischE);
         vec3 ice = mix(oben, blau, front);
         alb = mix(alb, ice, eis);
@@ -365,8 +367,11 @@ void main() {
     vec3 col = alb * (sunAt(vW) * ndl + umgebung(nL) * (1.0 - 0.25 * krone) * (1.0 - 0.6 * land.schatten) * hoehlung);
     if (eis > 0.0) {
         vec3 vv = normalize(uCam - vW);
-        float fr = 0.03 + 0.25 * pow(1.0 - max(dot(nL, vv), 0.0), 5.0);
-        col += skyColor(reflect(-vv, nL) * vec3(1.0, 1.0, 1.0) + vec3(0.0, 0.02, 0.0)) * fr * eis * 0.6;
+        // W6 Runde 4: gebrochenes Eis ist rau, kein Spiegel. Vorher gab der Himmel an der Kimm im streifenden Blick auf die
+        // Seitenflächen der Front helle türkise Säulen (Probe 78; ihr Spiegelbild im Wasser waren die hellen Streifen) [G]
+        float fr = 0.03 + 0.10 * pow(1.0 - max(dot(nL, vv), 0.0), 5.0);
+        vec3 himmelR = min(skyColor(reflect(-vv, nL) + vec3(0.0, 0.02, 0.0)), sky * 1.3);
+        col += himmelR * fr * eis * 0.6 * (1.0 - 0.5 * smoothstep(0.22, 0.45, slope));
     }
     vec3 d = vW - uCam;
     float dist = length(d);

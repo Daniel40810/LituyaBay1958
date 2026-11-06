@@ -797,7 +797,7 @@ public final class Renderer implements GLEventListener {
     private void schollen(GL4 gl, float[] vp, double eisD) {
         com.dan.forest.gl.ForestGl.Light wl = licht.waldLicht();
         if (wl == null) return;
-        if (!floeGl.ready()) { floes.slots = 14; floes.sizeMax = 11; floeGl.init(gl); }   // dichter als die Vorgabe: Brocken vor der Front [G]
+        if (!floeGl.ready()) { floes.slots = 20; floes.sizeMax = 11; floeGl.init(gl); }   // dichter als die Vorgabe: Brocken vor der Front [G]
         double[] e = camera.eye;
         double pegel = wiring.pegel;
         if (floesAuge == null || Math.hypot(e[0] - floesAuge[0], e[2] - floesAuge[2]) > 4 || Math.abs(eisD - floesDichte) > 0.01 || ++floesAlter > 120) {
