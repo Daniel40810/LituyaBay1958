@@ -25,7 +25,9 @@ public final class Bibliothek {
     public static final String[] GEBRAUCHT = {"wave", "fracture", "ice", "forest", "tree", "ocean", "sky", "cloud", "fog", "soundscape", "kino", "route",
             "surf", "spray", "buoyancy", "cliff", "tide", "wind", "weather", "rain", "flock", "seal", "figure", "smoke", "store", "ground",
             // W6 Runde 6: Augenanpassung (WF19 A) und Teilzeiten der Grafikkarte
-            "exposure", "gputime"};
+            "exposure", "gputime",
+            // W6 Runde 7: Moos und Bartflechten nach den Fotos in templates/
+            "moss", "lichen"};
 
     /**
      * Packages, die für LituyaBay1958 im Projekt Renderer neu entstehen (Werkbuch 5), mit der Phase, in der sie kommen

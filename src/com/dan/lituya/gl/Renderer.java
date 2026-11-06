@@ -387,6 +387,11 @@ public final class Renderer implements GLEventListener {
     /** Belichtung aus der Sonnenhöhe des Platzhalter-Himmels (am Tag rund 1,9), dazu die Blenden von Hand. */
     /** W6 Runde 6 (WF19 A): Augenanpassung, Schalter (Bildbank: augenanpassung=false). */
     public static volatile boolean augenanpassung = !Boolean.getBoolean("lituya.ohneAugenanpassung");
+    /**
+     * W6 Runde 7 (Frage WF20): Augenanpassung auch unter Wasser (Vorgabe wie Runde 6: ja). Aus: unter dem Pegel bleibt die
+     * Belichtung fest. Bildbank: augeUnterWasser=false; dazu auge.maxDown für die hellen Bilder am Boden.
+     */
+    public static volatile boolean augeUnterWasser = !Boolean.getBoolean("lituya.augeFestUnterWasser");
     public final com.dan.exposure.EyeAdaptation auge = new com.dan.exposure.EyeAdaptation();
     /**
      * W6 Runde 6: Teilzeiten der Grafikkarte innerhalb der Durchgänge (com.dan.gputime), für die Zerlegung von H6. Schalter
@@ -417,6 +422,7 @@ public final class Renderer implements GLEventListener {
         augeZuletzt = e.clone();
         double grund = Math.max(groundHeight(e[0], e[2]), wiring.pegel);
         auge.weight = 1 - WaldGl.smooth(AUGE_VOLL, AUGE_FORT, e[1] - grund);
+        if (!augeUnterWasser && e[1] < wiring.pegel) auge.weight = 0;
         // Runde 6b: im Flug (Wirkung 0) nicht messen; beim Abstieg gilt die erste Messung sofort
         if (auge.weight <= 0) { auge.snap(); return; }
         auge.update(lum.measure(gl, bild, w, h), letztesDt);
