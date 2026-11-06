@@ -44,6 +44,11 @@ public final class Regie {
         void stueck(String name);
         /** Fahrt: Rundflug, Kamerafahrt oder von A nach B die Sichtlinien entlang (ziel null), mit Tempo. */
         void fahrt(String name, String ziel, double tempo);
+        /**
+         * Werkbuch Welle W6: ein Flug durch Stützpunkte {x, y (m über NAVD88), z} in dauer Sekunden, Blick längs des Wegs,
+         * Neigung nach unten (Grad), am Ende zur Blickrichtung endBlick (Grad von Nord, NaN = wie der Weg).
+         */
+        default void flug(double[][] punkte, double dauer, double neigung, double endBlick) { }
         /** Mitfahrt auf Edrie (im Steuerhaus) oder Badger (nebenher); null = aus. */
         void mitfahrt(String boot, boolean nebenher);
         /** Netzblick: welle, wasser, weg, sicht oder null (aus); szene = auch in der Szene. */
@@ -176,7 +181,7 @@ public final class Regie {
     // ------------------------------------------------------------------ die Regiebücher (als Text)
 
     /** Die fünf mitgelieferten Regiebücher aus den Textdateien neben dieser Klasse (regie/*.txt). */
-    public static final String[] DATEIEN = {"zehn_minuten.txt", "drei_boote.txt", "nacht.txt", "68_jahre.txt", "bucht_der_wellen.txt", "der_sturz.txt", "die_wand.txt", "524_m.txt"};
+    public static final String[] DATEIEN = {"zehn_minuten.txt", "drei_boote.txt", "nacht.txt", "68_jahre.txt", "bucht_der_wellen.txt", "der_sturz.txt", "die_wand.txt", "524_m.txt", "flug_zur_kette.txt"};
 
     public static List<Book> all() {
         List<Book> l = new ArrayList<>();
@@ -208,7 +213,7 @@ public final class Regie {
 
     /** Die Befehle der Stichworte (klein geschrieben im Text). */
     public static final List<String> BEFEHLE = List.of("zeit", "ereignis", "raffer", "zeitstand", "jahre", "ansicht", "schaustueck", "fahrt", "mitfahrt",
-            "netzblick", "echtzeit", "regen", "warte", "foto", "blatt", "sage");
+            "netzblick", "echtzeit", "regen", "warte", "foto", "blatt", "sage", "flug");
 
     /** Die Bedingungen von {@code warte}. */
     public static final List<String> WARTEN = List.of("uhr", "ereignis", "echtzeit", "jahre", "boote");
@@ -379,6 +384,25 @@ public final class Regie {
                 String fv = von, fn = nach;
                 double ft = tempo;
                 return x -> x.fahrt(fv, fn, ft);
+            }
+            case "flug": {
+                // W6: flug Dauer, Neigung, Endblick: x y z; x y z; … (Szene-m, y über NAVD88; Endblick „-“ = wie der Weg)
+                need(a, "flug Dauer, Neigung, Endblick: x y z; x y z; …");
+                int dp = a.indexOf(':');
+                if (dp < 0) throw new IllegalArgumentException("flug Dauer, Neigung, Endblick: x y z; … erwartet");
+                String[] kopf = a.substring(0, dp).split(",");
+                if (kopf.length != 3) throw new IllegalArgumentException("flug: Dauer, Neigung, Endblick erwartet");
+                double dauer = Double.parseDouble(kopf[0].strip()), neig = Double.parseDouble(kopf[1].strip());
+                double ende = kopf[2].strip().equals("-") ? Double.NaN : Double.parseDouble(kopf[2].strip());
+                String[] pk = a.substring(dp + 1).split(";");
+                if (pk.length < 2) throw new IllegalArgumentException("flug: mindestens zwei Punkte");
+                double[][] pts = new double[pk.length][];
+                for (int i = 0; i < pk.length; i++) {
+                    String[] q = pk[i].strip().split("\\s+");
+                    if (q.length != 3) throw new IllegalArgumentException("flug: Punkt „" + pk[i].strip() + "“, x y z erwartet");
+                    pts[i] = new double[]{Double.parseDouble(q[0]), Double.parseDouble(q[1]), Double.parseDouble(q[2])};
+                }
+                return x -> x.flug(pts, dauer, neig, ende);
             }
             case "mitfahrt": {
                 if (low.equals("aus")) return x -> x.mitfahrt(null, false);

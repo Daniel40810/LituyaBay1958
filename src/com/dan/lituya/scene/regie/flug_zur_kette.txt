@@ -1,0 +1,14 @@
+# Lituya Bay 1958 · Regiebuch (Werkbuch Welle W6, Clip „Landschaft“): 45 s Flug am Abend vor der Welle, von der Bucht über
+# den Gilbert Inlet und den Lituya-Gletscher hinauf zur Fairweather-Kette. Weg und Höhen gestaltet [G].
+Regiebuch: Flug zur Kette
+Beschreibung: 9. Juli 1958, 22:10 Uhr: über die Bucht, den Gilbert Inlet und den Lituya-Gletscher hinauf, am Ende der Fairweather im letzten Licht
+Länge: 0:45
+0:00 netzblick aus
+0:00 zeit 09.07.1958 22:10
+0:00 raffer 1
+0:00 flug 44, -2, 347: 1500 400 -1500; 3200 1100 -4200; 5500 2300 -7500; 5800 2600 -11000; 4800 3200 -15000
+0:03 sage Lituya Bay, 9. Juli 1958, 22:10
+0:20 foto Über dem Lituya-Gletscher
+0:30 sage Mount Fairweather, 4 671 m
+0:44 foto Fairweather im letzten Licht
+0:45 blatt

@@ -36,6 +36,7 @@ uniform float uAbrissFrisch;
 // Wald: Schichten Fels frisch, Fels verwittert, Schutt (Moräne), Kies; uSurfAn 0 ohne Texturen (dann nur die Großform).
 uniform int uSurfAn;
 uniform ivec4 uMat;
+uniform ivec4 uMat2;   // W6 Runde 2: Waldboden, Moos, Firn, Eis für den Boden in der Nähe
 // ... und die Flut: je Ort Ankunft (Ereigniszeit, s) und höchster Stand (m) der Vorrechnung (RG32F); wo das Wasser stand,
 // ist der Hang ab der Ankunft abgeschürft und nass. Rechteck x0, z0 (Süden), Breite, Tiefe; uEreignis: Ereigniszeit jetzt.
 uniform int uFlutAn;
@@ -50,9 +51,10 @@ float kn(vec2 x) {
     return mix(mix(kh(i), kh(i + vec2(1, 0)), f.x), mix(kh(i + vec2(0, 1)), kh(i + vec2(1, 1)), f.x), f.y);
 }
 // Rauschen mit Periode p (m), zum Mittel 0,5, sobald ein Bildpunkt (px) mehr als ein Drittel der Periode deckt
-float knf(vec2 q, float p, float px) { return mix(kn(q / p), 0.5, smoothstep(0.25, 0.6, px / p)); }
+// W6 Runde 2: ganz gemittelt ohne Rauschen (spart in der Ferne fast alle Abrufe; keine Ableitungen darin)
+float knf(vec2 q, float p, float px) { float w = smoothstep(0.25, 0.6, px / p); return w >= 1.0 ? 0.5 : mix(kn(q / p), 0.5, w); }
 // gestrecktes Rauschen: quer Periode pa, längs pb (m), gefiltert nach der kurzen Periode
-float rinne(vec2 q, float pa, float pb, float px) { return mix(kn(vec2(q.x / pa, q.y / pb)), 0.5, smoothstep(0.25, 0.6, px / pa)); }
+float rinne(vec2 q, float pa, float pb, float px) { float w = smoothstep(0.25, 0.6, px / pa); return w >= 1.0 ? 0.5 : mix(kn(vec2(q.x / pa, q.y / pb)), 0.5, w); }
 
 // Werkbuch Welle W6: Farbe aus Sentinel-2, Fels aus cliff, Schnee mit Form, Gletscher mit Spalten (LandschaftGl)
 #include "landschaft.glsl"
@@ -184,6 +186,25 @@ void main() {
         land = landschaft(vW, n, h, max(length(fwidth(vW.xz)), 1e-3), alb);
         alb = land.alb;
     }
+    // W6 Runde 2 (5.1, Nahbereich): unter 1 m je Bildpunkt die Oberflächen aus com.dan.surface auf die Farbe der Aufnahme
+    // (als Muster um ihr Mittel, die Farbe bleibt die der Aufnahme): Waldboden und Moos im Grünen, Schiefer am Fels, Kies
+    // am Ufer, Firn und Eis [G]. Vorher war der Boden in der Nähe ein Brei aus 10-m-Zellen.
+    if (uLandAn == 1 && uSurfAn == 1 && land.w > 0.0) {
+        float pxN = max(length(fwidth(vW.xz)), 1e-3);
+        if (pxN < 0.9) {
+            float near = (1.0 - smoothstep(0.45, 0.9, pxN)) * land.w;
+            float ufer = 1.0 - smoothstep(3.0, 10.0, h);
+            int La = land.schnee > 0.5 ? (land.eis > 0.5 && land.schnee < 0.9 ? uMat2.w : uMat2.z)
+                   : land.fels > 0.5 ? uMat.y : ufer > 0.5 ? uMat.w : uMat2.x;
+            int Lb = land.schnee > 0.5 ? uMat2.z : land.fels > 0.5 ? uMat.x : ufer > 0.5 ? uMat.z : uMat2.y;
+            Surf a = mat(La, vW, dpw, dpv, land.n, pxN), b = mat(Lb, vW, dpw, dpv, land.n, pxN);
+            float wa = smoothstep(0.35, 0.65, knf(vW.xz + 61.0, 3.0, pxN) + (a.height - b.height) * 0.5);
+            vec3 ra = a.albedo / max(uSurfMean[La].rgb, vec3(0.02)), rb = b.albedo / max(uSurfMean[Lb].rgb, vec3(0.02));
+            vec3 det = clamp(mix(rb, ra, wa), vec3(0.3), vec3(2.2));
+            alb *= mix(vec3(1.0), det, near * 0.85);
+            land.n = normalize(mix(land.n, normalize(mix(b.normal, a.normal, wa)), near * 0.7));
+        }
+    }
     vec3 dc = vW - uCam;
     float distC = length(dc);
     float krone = 0.0;   // Anteil Kronendach (dunkler Schatten zwischen den Kronen, für das Licht)
@@ -296,11 +317,34 @@ void main() {
         spalte *= 1.0 - smoothstep(2.0, 7.0, pxh);
         oben = mix(oben, vec3(0.10, 0.20, 0.30), spalte * 0.85);
         oben = mix(oben, oben * 0.84, smoothstep(7.0, 20.0, pxh) * (1.0 - smoothstep(20.0, 60.0, pxh)));
+        // W6 (E6): wo die Welle das Eis traf (Ankunft der Flut), ist es frisch gebrochen; vorher verwittert [G]
+        float frischE = 0.0;
+        if (uFlutAn == 1) {
+            vec2 fu = vec2((vW.x - uFlutRect.x) / uFlutRect.z, (uFlutRect.y - vW.z) / uFlutRect.w);
+            if (fu.x > 0.0 && fu.y > 0.0 && fu.x < 1.0 && fu.y < 1.0) {
+                vec2 am = texture(uFlut, fu).rg;
+                frischE = smoothstep(am.x, am.x + 4.0, uEreignis) * step(vH - 40.0, am.y);
+            }
+        } else if (uAbrissAn == 1 && uAbrissFrisch > 0.99) frischE = 1.0;
+        // die Oberfläche, über die die Welle ging: in Brocken zerschlagen, weiß mit blauen Bruchflächen und dunklen Fugen
+        if (frischE > 0.0) {
+            vec3 bz = gBloecke(vW.xz + 7.0, 9.0), bk = gBloecke(vW.xz + 3.0, 2.5);
+            float kb = 1.0 - smoothstep(1.5, 5.0, pxh);
+            vec3 brocken = mix(vec3(0.80, 0.85, 0.90), vec3(0.28, 0.50, 0.68), step(0.7, bz.x)) * (0.85 + 0.3 * bk.x);
+            brocken *= mix(1.0, mix(0.35, 1.0, smoothstep(0.03, 0.12, bz.y)), kb);
+            oben = mix(oben, mix(vec3(0.66, 0.72, 0.78), brocken, kb), frischE * (1.0 - front));
+        }
         // Front: blaues Eis, senkrecht gebrochen; Bänder in der Höhe [G]
         vec2 seite = length(n.xz) > 1e-3 ? normalize(vec2(-n.z, n.x)) : vec2(1.0, 0.0);
         float bruch = knf(vec2(dot(vW.xz, seite) / 2.5, vW.y / 45.0), 1.0, pxh / 2.5);
         float schicht = knf(vec2(dot(vW.xz, seite) / 60.0, vW.y / 4.0), 1.0, pyx / 4.0);
         vec3 blau = mix(vec3(0.20, 0.38, 0.52), vec3(0.52, 0.68, 0.78), bruch) * (0.8 + 0.35 * schicht);
+        // W6 (E6): vor der Welle eine verwitterte, graue Front mit Schmutzstreifen; danach frisch, tiefblau, mit weißen
+        // Bruchnarben [G]
+        float streif = knf(vec2(dot(vW.xz, seite) / 6.0, vW.y / 60.0), 1.0, pxh / 6.0);
+        vec3 alt = mix(vec3(0.46, 0.49, 0.52), blau, 0.35) * (0.75 + 0.4 * streif);
+        vec3 neu = mix(vec3(0.05, 0.24, 0.44), vec3(0.78, 0.86, 0.92), smoothstep(0.78, 0.9, bruch)) * (0.85 + 0.3 * schicht);
+        blau = mix(alt, neu, frischE);
         vec3 ice = mix(oben, blau, front);
         alb = mix(alb, ice, eis);
         krone *= 1.0 - eis;
