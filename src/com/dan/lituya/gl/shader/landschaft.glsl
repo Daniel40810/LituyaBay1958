@@ -6,6 +6,9 @@ uniform sampler2D uLandFK, uLandFS, uLandEK, uLandES;
 uniform vec4 uLandFKRect, uLandFSRect, uLandEKRect, uLandESRect;   // x0, z0 (Nordrand), Breite, Tiefe (Szene, m)
 uniform sampler2D uLandRK, uLandRS;                                // Runde 3: Normalen aus szene_5m (10 / 20 m)
 uniform vec4 uLandRKRect, uLandRSRect;
+uniform sampler2D uLandSS;                                         // W6 Runde 5: Schnee der Szene in 10 m (R8)
+uniform vec4 uLandSSRect;
+uniform int uLandSSAn;
 uniform vec4 uLand;   // x Gewinn der Farbe, y Fels aus cliff (0/1), z Spalten (0/1), w Ausfransen der Schneekante
 
 // 1 im Raster, zum Rand über b (Anteil) auf 0
@@ -15,6 +18,8 @@ float landRand(vec2 uv, vec2 b) { vec2 d = min(uv, 1.0 - uv) / b; return clamp(m
 vec4 landFarbe(vec2 xz, out float w) {
     vec2 us = (xz - uLandFSRect.xy) / uLandFSRect.zw, uk = (xz - uLandFKRect.xy) / uLandFKRect.zw;
     vec4 s = texture(uLandFS, us), k = texture(uLandFK, uk);
+    // W6 Runde 5: der Schnee außerhalb des Kerns aus 10 m statt aus dem Alpha der 20-m-Farbe
+    if (uLandSSAn == 1) s.a = texture(uLandSS, (xz - uLandSSRect.xy) / uLandSSRect.zw).r;
     w = landRand(us, 1500.0 / uLandFSRect.zw);
     return mix(s, k, landRand(uk, 500.0 / uLandFKRect.zw));
 }
@@ -31,7 +36,8 @@ vec4 landEis(vec2 xz) {
 // W6 Runde 3 (Kosten): dasselbe mit fester Mip-Stufe aus der Größe des Bildpunkts px (m), auch in Verzweigungen gültig
 vec4 landEisL(vec2 xz, float px) {
     vec2 us = (xz - uLandESRect.xy) / uLandESRect.zw, uk = (xz - uLandEKRect.xy) / uLandEKRect.zw;
-    vec4 s = textureLod(uLandES, us, max(0.0, log2(px / 50.0))), k = textureLod(uLandEK, uk, max(0.0, log2(px / 10.0)));
+    float zs = uLandESRect.z / float(textureSize(uLandES, 0).x);   // W6 Runde 5: Zelle der Szene (20 oder 50 m)
+    vec4 s = textureLod(uLandES, us, max(0.0, log2(px / zs))), k = textureLod(uLandEK, uk, max(0.0, log2(px / 10.0)));
     vec4 e = mix(s, k, landRand(uk, 500.0 / uLandEKRect.zw));
     e.rg *= landRand(us, 1500.0 / uLandESRect.zw);
     return e;

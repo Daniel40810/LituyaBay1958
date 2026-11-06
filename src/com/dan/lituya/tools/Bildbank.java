@@ -183,6 +183,9 @@ public final class Bildbank {
         if (e.get("zeitstand") != null) cmd.add("-Dzeitstand=" + e.get("zeitstand"));
         for (String k : new String[]{"brennweite", "ereignis", "lauf", "regen", "schalter", "seitwaerts", "last", "jfr"})
             if (e.get(k) != null) cmd.add("-D" + k + "=" + e.get(k));
+        // W6 Runde 5: weitere -D-Schalter für jede Aufnahme aus der Umgebung (etwa ein Vergleich „alles aus“ im selben Lauf)
+        String zusatz = System.getenv("LITUYA_BILDBANK_ZUSATZ");
+        if (zusatz != null && !zusatz.isBlank()) for (String z : zusatz.trim().split("\\s+")) if (z.startsWith("-D")) cmd.add(z);
         cmd.add("-cp");
         cmd.add(System.getProperty("java.class.path"));
         cmd.add(Tempo.class.getName());

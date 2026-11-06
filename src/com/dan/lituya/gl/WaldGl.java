@@ -169,6 +169,24 @@ public final class WaldGl {
     public volatile double erleNah = Double.parseDouble(System.getProperty("lituya.erleNah", "30"));
     private final List<float[]> nahListe = new ArrayList<>();
     static final int ERLEN_MAX = 24;
+
+    /** W6 Runde 5: Rinde mit Muster (forest und Erlen), Nadeln als Triebe; Schalter zum Vergleich. */
+    public static volatile boolean rinde = !Boolean.getBoolean("lituya.ohneRinde"), triebe = !Boolean.getBoolean("lituya.ohneTriebe");
+    /**
+     * W6 Runde 5: Sonnenschattenkarte der nahen Bäume (forest Stufe 0, auf Wunsch auch 1, und die Erlen aus Nature), gelesen
+     * von forest, den Erlen und dem Gelände. Halbe Kante und Bildpunkte der Karte [G]; Mitte vor dem Auge in Blickrichtung.
+     */
+    public static volatile boolean baumSchatten = !Boolean.getBoolean("lituya.ohneBaumschatten");
+    public static volatile int schattenStufen = Integer.getInteger("lituya.baumSchattenStufen", 2);
+    static final double SCHATTEN_RADIUS = Double.parseDouble(System.getProperty("lituya.baumSchattenRadius", "160"));
+    static final int SCHATTEN_KANTE = Integer.getInteger("lituya.baumSchattenKante", 4096);
+    public static final int UNIT_BAUMSCHATTEN = 27;
+    private com.dan.forest.gl.SunShadowMap schattenKarte;
+    private boolean schattenGueltig;
+    private double[] schattenMitte, schattenSonne = {0, 1, 0};
+    private int schattenAlter;
+    private long schattenNeu;
+    private long schattenNs;
     private double[] erlenAuge;
     private int erlenTag = -1, erlenZahl, erlenAlter;
 
@@ -213,9 +231,14 @@ public final class WaldGl {
             try {
                 com.dan.tree.TreeSpecies erle = com.dan.tree.blackalder.BlackAlder.species();
                 erle.rootCut = 0.4f;   // W6 Runde 4: ohne die waagerechten Röhren am Fuß (Wurzelringe am Hang, Probe 82)
+                // W6 Runde 5: Rinde wie die Roterle in forest (hellgrau, glatt, Flechten) statt des dunklen Brauns aus Nature
+                erle.bark = com.dan.forest.Species.redAlder().bark.clone();
+                erle.barkStyle = com.dan.tree.TreeSpecies.BARK_SMOOTH;
+                erle.lichen = com.dan.forest.Species.redAlder().lichen;
                 x.erlen = new com.dan.tree.gl.TreeGl(erle);
                 x.erlen.minLevel = 1;                              // Stufe 0 hat bis 2,8 Mio. Dreiecke
                 x.erlen.lodDistance = new float[]{1.0f, 1.0f, 14f};  // Stufe 2 ab einer Baumhöhe [G] (Probe 82: 106 Erlen mit 6,6 Mio. Dreiecken, dann 40 mit 2,9 Mio.)
+                x.erlen.barkDetail = rinde;                            // W6 Runde 5
             } catch (RuntimeException ex) {
                 System.err.println("LituyaBay1958: Erlen aus com.dan.tree nicht geladen: " + ex.getMessage());
             }
@@ -274,6 +297,8 @@ public final class WaldGl {
                 d = bau.get();
                 forest = new ForestGpu(ARTEN, 3, Wald1958.ABSTAND, 1958);
                 forest.fineNeedles = feineNadeln;   // W6 Runde 3 (WF18 B)
+                forest.barkDetail = rinde;          // W6 Runde 5: Rinde mit Muster (Renderer)
+                forest.shootLight = triebe;         // W6 Runde 5: Nadeln als Triebe beleuchtet (Renderer)
                 nah(forest);
                 forest.setTerrain(d.gelaende);
                 forest.setDensity(d.dichte);
@@ -488,6 +513,16 @@ public final class WaldGl {
 
     /** Wie {@link #gelaende(GL4, Shader)} für ein Programm p (gebunden). */
     public void gelaende(GL4 gl, int p) {
+        // W6 Runde 5: Schatten der nahen Bäume auf dem Boden
+        boolean bs = schattenGueltig && an && schattenKarte != null;
+        gl.glUniform1i(gl.glGetUniformLocation(p, "uBaumSchatten"), UNIT_BAUMSCHATTEN);
+        gl.glUniform2f(gl.glGetUniformLocation(p, "uBaumSchattenP"), bs ? 1f : 0f, bs ? (float) (0.15 / (2 * schattenKarte.depth)) : 0f);
+        if (bs) {
+            gl.glUniformMatrix4fv(gl.glGetUniformLocation(p, "uBaumSchattenM"), 1, false, schattenKarte.matrix, 0);
+            gl.glActiveTexture(GL.GL_TEXTURE0 + UNIT_BAUMSCHATTEN);
+            gl.glBindTexture(GL.GL_TEXTURE_2D, schattenKarte.texture());
+            gl.glActiveTexture(GL.GL_TEXTURE0);
+        }
         // W0 (K3): Kronendach hinter den Einzelbäumen
         boolean kr = an && d != null && kroneTex != 0 && forest != null;
         gl.glUniform1i(gl.glGetUniformLocation(p, "uKroneAn"), kr ? 1 : 0);
@@ -630,9 +665,60 @@ public final class WaldGl {
                 cullGespart++;
             }
         }
-        forest.draw(gl, v, licht(sun), t);
-        if (haupt) erlen(gl, v, licht(sun), t, reversed);
+        forest.barkDetail = rinde && haupt; // W6 Runde 5 (je Bild, damit Schalter greifen; im Spiegelbild ohne, wie die Landschaft)
+        forest.shootLight = triebe;
+        ForestGl.Light lf = licht(sun);
+        if (haupt) baumSchatten(gl, eye, sun, t);
+        if (schattenGueltig) {
+            lf.sunShadowTexture = schattenKarte.texture();
+            lf.sunShadowMatrix = schattenKarte.matrix;
+            lf.sunShadowBias = 0.3 / (2 * schattenKarte.depth);   // 0,3 m entlang der Sonne
+            lf.sunShadowTaps = 1;   // ein Abruf je Bildpunkt (Laub mit viel Überdeckung: 3×3 kostete 3–6 ms)
+        } else {
+            lf.sunShadowTexture = 0;
+            lf.sunShadowMatrix = null;
+        }
+        forest.draw(gl, v, lf, t);
+        if (haupt) erlen(gl, v, lf, t, reversed);
         gl.glDisable(GL.GL_DEPTH_TEST);
+    }
+
+    /**
+     * W6 Runde 5: die Sonnenschattenkarte der nahen Bäume neu zeichnen (im Hauptbild, nach der Prüfung des Walds, vor dem
+     * Gelände). Bäume, die die letzte Prüfung nicht im Blick hatte, werfen keinen Schatten herein.
+     */
+    private void baumSchatten(GL4 gl, double[] eye, double[] sun, double t) {
+        schattenGueltig = false;
+        if (!baumSchatten || sun[1] < 0.03) return;
+        long t0 = System.nanoTime();
+        if (schattenKarte == null) {
+            schattenKarte = new com.dan.forest.gl.SunShadowMap();
+            schattenKarte.size = SCHATTEN_KANTE;
+            schattenKarte.radius = SCHATTEN_RADIUS;
+            schattenKarte.depth = 300;
+            schattenKarte.init(gl);
+        }
+        double[] b = blick;
+        double bx = b != null ? b[0] : 0, bz = b != null ? b[2] : 0, bl = Math.hypot(bx, bz);
+        double vor = bl > 1e-3 ? 0.45 * SCHATTEN_RADIUS / bl : 0;
+        double[] m = {eye[0] + bx * vor, eye[1], eye[2] + bz * vor};
+        // Neu zeichnen nur, wenn nötig: die Bäume stehen, die Sonne wandert langsam. Neu, wenn die Mitte mehr als 8 % des
+        // Halbmessers wandert, die Sonne sich um mehr als 0,1° dreht, sonst alle 8 Bilder (Wind in den Kronen, fallende Bäume
+        // der Welle). Runde 5e: nicht mehr bei jeder neuen Prüfung des Walds, die läuft während der Welle in jedem Bild
+        boolean neu = schattenMitte == null || ++schattenAlter >= 8
+                || Math.hypot(m[0] - schattenMitte[0], m[2] - schattenMitte[2]) > 0.08 * SCHATTEN_RADIUS || Math.abs(m[1] - schattenMitte[1]) > 20
+                || sun[0] * schattenSonne[0] + sun[1] * schattenSonne[1] + sun[2] * schattenSonne[2] < Math.cos(Math.toRadians(0.1));
+        if (!neu) { schattenGueltig = true; return; }
+        schattenAlter = 0;
+        schattenMitte = m;
+        schattenSonne = sun.clone();
+        schattenNeu++;
+        schattenKarte.begin(gl, sun, m[0], m[1], m[2]);
+        forest.drawShadow(gl, schattenKarte.matrix, t, schattenStufen);
+        if (d != null && d.erlen != null && erlenAuge != null && erlenZahl > 0) d.erlen.drawShadow(gl, schattenKarte.matrix, t);
+        schattenKarte.end(gl);
+        schattenGueltig = true;
+        schattenNs = System.nanoTime() - t0;
     }
 
     /** W6 Runde 3: Nahschnitt der Roterle setzen (im Spiegel aus: dort zeichnet forest alle, ohne die Erlen aus Nature). */
@@ -648,6 +734,7 @@ public final class WaldGl {
         com.dan.tree.gl.TreeGl eg = d.erlen;
         if (eg == null || forest.nearCut == null) { erlenZahl = 0; return; }
         if (erlenAuge == null) eg.init(gl);
+        eg.barkDetail = rinde;   // W6 Runde 5
         if (erlenTag != tag) { eg.setSeason(tag, 0); erlenTag = tag; }
         double[] eye = v.eye;
         if (erlenAuge == null || Math.hypot(eye[0] - erlenAuge[0], eye[2] - erlenAuge[2]) > 1.5 || Math.abs(eye[1] - erlenAuge[1]) > 1.5 || ++erlenAlter > 60) {
@@ -698,8 +785,11 @@ public final class WaldGl {
         tl.shadowRect = l.shadowRect;
         tl.sunShadowTexture = l.sunShadowTexture;
         tl.sunShadowMatrix = l.sunShadowMatrix;
+        tl.sunShadowTaps = l.sunShadowTaps;
+        tl.sunShadowBias = l.sunShadowBias;
         tl.skyTexture = l.skyTexture;
         tl.skyWeight = l.skyWeight;
+        tl.standAo = 0.45;   // W6 Runde 5: wie die Verdeckung, die forest am Stamm einbackt (0,44 am Fuß) [G]
         gl.glEnable(GL.GL_DEPTH_TEST);
         gl.glDepthFunc(reversed ? GL.GL_GEQUAL : GL.GL_LEQUAL);
         gl.glDepthMask(true);
@@ -712,13 +802,18 @@ public final class WaldGl {
     public String info() {
         if (forest == null) return status;
         return String.format(Locale.GERMAN, "%s · %,d sichtbar, %.0f MB · Prüfung %d× gespart · %s · Erlen aus Nature %d (%,d Dreiecke)", forest.info(), forest.visible(), forest.vramBytes() / 1e6, cullGespart, knick.info,
-                erlenZahl, d != null && d.erlen != null ? d.erlen.triangles() : 0);
+                erlenZahl, d != null && d.erlen != null ? d.erlen.triangles() : 0)
+                + (schattenGueltig ? String.format(Locale.GERMAN, " · Baumschatten %d m, %d px, Stufe 0%s, %d× neu (%.1f ms CPU)", (int) (2 * SCHATTEN_RADIUS), SCHATTEN_KANTE,
+                        schattenStufen > 1 ? "+1" : "", schattenNeu, schattenNs / 1e6) : " · ohne Baumschatten");
     }
 
     public void dispose(GL4 gl) {
         knick.dispose(gl);
         if (forest != null) forest.dispose(gl);
         if (d != null && d.erlen != null && erlenAuge != null) d.erlen.dispose(gl);
+        if (schattenKarte != null) schattenKarte.dispose(gl);
+        schattenKarte = null;
+        schattenGueltig = false;
         if (kroneTex != 0) gl.glDeleteTextures(1, new int[]{kroneTex}, 0);
         exec.shutdownNow();
     }

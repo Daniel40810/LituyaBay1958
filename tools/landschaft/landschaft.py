@@ -4,7 +4,7 @@
 Werkbuch Welle W6 „Landschaft“: die Farbe der Hänge aus Sentinel-2 und das Eis mit Fließrichtung für gelaende.frag.
 
 Aufruf (im Projektordner):  python3 tools/landschaft/landschaft.py [schritt]
-  schritt: mosaik | farbe | eis | relief | bild | alle (Vorgabe alle). Zwischenstände liegen in daten/landschaft/_zwischen.
+  schritt: mosaik | farbe | eis | relief | fern | bild | alle (Vorgabe alle). Zwischenstände liegen in daten/landschaft/_zwischen.
 
 Was entsteht (daten/landschaft, Zeilen von Nord nach Süd, RGBA8):
   farbe_kern_10m.rgba    2400 × 1800, Kern (E 340 000–364 000, N 6 494 000–6 512 000)
@@ -13,6 +13,10 @@ Was entsteht (daten/landschaft, Zeilen von Nord nach Süd, RGBA8):
   eis_kern_10m.rgba16    2400 × 1800 und  eis_szene_50m.rgba16  1320 × 1200 (RGBA, 16 Bit je Kanal, little endian)
       R: Eis (Gletscher nach RGI 7 und den Klassen), G: Spalten (Dehnung aus ITS_LIVE, Klasse 11, geglättet),
       B: geglättete Eisoberfläche (rund 600 m) / 5 000 m; A: frei
+  schnee_szene_10m.r8    6600 × 6000 (W6 Runde 5): Schnee der ganzen Szene in 10 m (weich wie im Kern), für die Ferne;
+      vorher gab das Alpha von farbe_szene_20m die Kanten aus 20-m-Zellen
+  eis_szene_20m.rgba16   3300 × 3000 (W6 Runde 5): wie eis_szene_50m, das Eis aber aus den Umrissen von RGI 7, je Zelle
+      der Anteil (2 × 2 Proben), dazu der Schnee der Klassen außerhalb der Gletscher; Spalten und Oberfläche wie in 50 m
   relief_kern_10m.rgba   2400 × 1800 und  relief_szene_20m.rgba  3300 × 3000 (Runde 3, 5)
       R, G: Normale des Geländes x, z (0,5 + 0,5·n) aus der Stufe szene_5m (IfSAR 2012), für die Ferne: dort zeichnet die
       Clipmap mit 64–256 m je Scheitel, und Grate, Rinnen und Kare der Kette gingen verloren; B: Lage (0,5 + Höhe über dem
@@ -367,6 +371,114 @@ def eis():
         log("Eis", name, "Eis %.1f %%, Spalten %.1f %%" % (100 * ist.mean(), 100 * sp.mean()))
 
 
+# ---------------------------------------------------------------------------------------------------------------
+# W6 Runde 5: die Ferne. Schnee und Eis waren außerhalb des Kerns auf 20- und 50-m-Zellen gemittelt; weich waren nur die
+# Ränder. Jetzt der Schnee in 10 m für die ganze Szene und das Eis in 20 m aus den Umrissen selbst.
+RGI = os.path.join(KL, "rgi7_szene.geojson")
+
+
+def utm(lon, lat, zone=8):
+    """WGS 84 → UTM Nord (Zone 8), Reihe nach Krüger in n bis zur 4. Ordnung (Karney 2011), auf mm genau."""
+    a = 6378137.0
+    f = 1 / 298.257223563
+    k0 = 0.9996
+    n = f / (2 - f)
+    A = a / (1 + n) * (1 + n ** 2 / 4 + n ** 4 / 64)
+    al = [n / 2 - 2 * n ** 2 / 3 + 5 * n ** 3 / 16 + 41 * n ** 4 / 180, 13 * n ** 2 / 48 - 3 * n ** 3 / 5 + 557 * n ** 4 / 1440,
+          61 * n ** 3 / 240 - 103 * n ** 4 / 140, 49561 * n ** 4 / 161280]
+    lam = np.radians(lon) - np.radians(-183 + 6 * zone)
+    phi = np.radians(lat)
+    e = np.sqrt(f * (2 - f))
+    t = np.sinh(np.arctanh(np.sin(phi)) - e * np.arctanh(e * np.sin(phi)))
+    xi = np.arctan2(t, np.cos(lam))
+    eta = np.arctanh(np.sin(lam) / np.sqrt(1 + t * t))
+    x, y = eta.copy(), xi.copy()
+    for j in range(1, 5):
+        x += al[j - 1] * np.cos(2 * j * xi) * np.sinh(2 * j * eta)
+        y += al[j - 1] * np.sin(2 * j * xi) * np.cosh(2 * j * eta)
+    return 500000 + k0 * A * x, k0 * A * y
+
+
+def gletscher(ras, ueber=2):
+    """Anteil Gletscher je Zelle des Rasters (0..1) aus RGI 7: Umrisse mit Löchern (Nunatakker), ueber × ueber Proben."""
+    from PIL import ImageDraw
+    e0, n0, c, W, H = ras
+    g = json.load(open(RGI, encoding="utf-8"))
+    img = Image.new("L", (W * ueber, H * ueber), 0)
+    dr = ImageDraw.Draw(img)
+    s = ueber / c
+    for ft in g["features"]:
+        geo = ft["geometry"]
+        for poly in (geo["coordinates"] if geo["type"] == "MultiPolygon" else [geo["coordinates"]]):
+            for k, ring in enumerate(poly):
+                r = np.asarray(ring, float)
+                E, N = utm(r[:, 0], r[:, 1])
+                if len(r) >= 3:
+                    dr.polygon(list(zip(((E - e0) * s).tolist(), ((n0 - N) * s).tolist())), fill=255 if k == 0 else 0)
+    a = np.asarray(img, np.float32) / 255.0
+    del img
+    log("RGI %d Umrisse auf %s" % (len(g["features"]), ras[:3]))
+    return a.reshape(H, ueber, W, ueber).mean(axis=(1, 3))
+
+
+def schnee_fern():
+    """schnee_szene_10m.r8: der Schnee des Mosaiks (10 m) wie im Kern weich (schnee_weich), in Streifen mit Rand."""
+    schnee = np.load(os.path.join(ZW, "schnee10.npy"), mmap_mode="r")
+    H, W = schnee.shape
+    out = np.empty((H, W), np.uint8)
+    for y in range(0, H, 600):
+        y0, y1 = max(0, y - SCHNEE_RAND), min(H, y + 600 + SCHNEE_RAND)
+        st = schnee_weich(np.asarray(schnee[y0:y1]).astype(np.float32) / 255)
+        out[y:min(H, y + 600)] = np.round(st[y - y0:y - y0 + min(600, H - y)] * 255)
+    out.tofile(os.path.join(OUT, "schnee_szene_10m.r8"))
+    log("geschrieben schnee_szene_10m.r8", out.shape, "Schnee %.1f %%" % (100 * (out > 127).mean()))
+
+
+def eis_fern():
+    """eis_szene_20m.rgba16: Eis aus RGI 7 (20 m) und dem Schnee der Klassen (50 m) außerhalb, ohne Seen; Spalten und
+    Oberfläche aus den Klassen und dem Gelände wie eis() (50 m, hochgerechnet, im Kern 10 m)."""
+    e0, n0, c, W, H = SZ20
+    k50 = np.fromfile(os.path.join(KL, "szene_50m.u8"), np.uint8).reshape(SZ50[4], SZ50[3])
+    z50 = r32("gelaende_szene_50m.r32", SZ50[3], SZ50[4])
+    zk = r32("gelaende_kern_10m.r32", KERN[3], KERN[4])
+    rg = gletscher(SZ20)
+    # Nähte schließen: benachbarte Umrisse von RGI teilen keine Ecken; dazwischen blieben Streifen von 20 bis 60 m ohne
+    # Eis, die als helle Linien durch die Eisfelder liefen (die Klassen in 50 m hatten sie verschluckt). Schließen um
+    # 3 Zellen (Ausdehnen, dann Abtragen; Lücken unter 120 m) [G]
+    b = (rg > 0.5).astype(np.float32)
+    r = 3
+    zu = (kasten((kasten(b, r) > 0.5).astype(np.float32), r) > (2 * r + 1) ** 2 - 0.5).astype(np.float32)
+    log("RGI: Nähte geschlossen %.2f %% der Fläche" % (100 * (zu > b).mean()))
+    rg = np.maximum(rg, zu)
+    del b, zu
+    # Schnee der Klassen (50 m) außerhalb der Gletscher, eine Zelle weit in die Gletscher hinein verlängert: wo Firn an
+    # einen Gletscher stößt, fielen sonst beide Anteile am Umriss auf die Hälfte (helle Linien durch die Eisfelder);
+    # wo ein Gletscher an Fels stößt, bleibt der Umriss aus RGI (20 m)
+    s50 = (k50 == 10).astype(np.float32)
+    g50 = np.isin(k50, (9, 11))
+    s50 = np.where(g50 & (kasten(s50, 1) > 0.5), 1.0, s50).astype(np.float32)
+    sn = np.clip(abtasten(s50, SZ50, SZ20), 0, 1)
+    del s50, g50
+    see = abtasten((k50 == 1).astype(np.float32), SZ50, SZ20) > 0.5
+    ist = np.where(see, 0, np.maximum(rg, sn)).astype(np.float32)
+    del rg, sn, see
+    sp = np.clip(abtasten((k50 == 11).astype(np.float32), SZ50, SZ20), 0, 1) * (ist > 0.02)
+    z = abtasten(z50, SZ50, SZ20)
+    oy, ox = (SZ20[1] - KERN[1]) // 20, (KERN[0] - SZ20[0]) // 20
+    z[oy:oy + KERN[4] // 2, ox:ox + KERN[3] // 2] = zk.reshape(KERN[4] // 2, 2, KERN[3] // 2, 2).mean(axis=(1, 3))
+    eisw = weich(ist, np.ones_like(ist), max(1, int(round(60.0 / c))), 2)[0]   # wie der Kern: 60 m
+    spw = weich(sp, np.ones_like(sp), max(1, int(round(40.0 / c))), 2)[0]
+    zg = weich(z, np.maximum(ist, 0.05), max(1, int(round(300.0 / c))), 2)[0]
+    out = np.empty((H, W, 4), np.uint16)
+    out[..., 0] = np.round(np.clip(eisw, 0, 1) * 65535)
+    out[..., 1] = np.round(np.clip(spw * 1.6, 0, 1) * 65535)
+    out[..., 2] = np.round(np.clip(zg / 5000.0, 0, 1) * 65535)
+    out[..., 3] = 0
+    out.astype("<u2").tofile(os.path.join(OUT, "eis_szene_20m.rgba16"))
+    alt = np.fromfile(os.path.join(OUT, "eis_szene_50m.rgba16"), "<u2").reshape(SZ50[4], SZ50[3], 4)[..., 0] / 65535.0
+    log("Eis szene_20m: Eis %.1f %% (szene_50m %.1f %%), Spalten %.1f %%" % (100 * (eisw > 0.5).mean(), 100 * (alt > 0.5).mean(), 100 * (spw > 0.3).mean()))
+
+
 def relief():
     """Normalen aus szene_5m (Kacheln 2000² zu 5 m, SW-Ecke im Namen) auf 10 m (Kern) und 20 m (Szene)."""
     d = os.path.join(PROJ, "daten", "gelaende", "szene_5m")
@@ -426,6 +538,8 @@ def text():
          "farbe_szene_20m=322000 6540000 20 3300 3000 rgba8 srgb a=schnee",
          "eis_kern_10m=340000 6512000 10 2400 1800 rgba16 r=eis g=spalten b=oberflaeche/5000",
          "eis_szene_50m=322000 6540000 50 1320 1200 rgba16 r=eis g=spalten b=oberflaeche/5000",
+         "eis_szene_20m=322000 6540000 20 3300 3000 rgba16 r=eis (RGI 7, Anteil je Zelle) g=spalten b=oberflaeche/5000 (W6 Runde 5)",
+         "schnee_szene_10m=322000 6540000 10 6600 6000 r8 schnee weich (W6 Runde 5)",
          "relief_kern_10m=340000 6512000 10 2400 1800 rgba8 rg=normale x z (0,5 + 0,5 n) b=lage aus szene_5m",
          "relief_szene_20m=322000 6540000 20 3300 3000 rgba8 rg=normale x z (0,5 + 0,5 n) b=lage aus szene_5m",
          "szenen=" + ", ".join("%s (Rang %d, Sonne %.1f°/%.1f°)" % ((s, r) + meta(s)[:2]) for s, r in SZENEN
@@ -446,6 +560,9 @@ if __name__ == "__main__":
         eis()
     if schritt in ("relief", "alle"):
         relief()
+    if schritt in ("fern", "alle"):
+        schnee_fern()
+        eis_fern()
     if schritt in ("bild", "alle"):
         bild()
     text()
