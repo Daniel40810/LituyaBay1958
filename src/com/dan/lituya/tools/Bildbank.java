@@ -54,6 +54,8 @@ public final class Bildbank {
     }
 
     static final Pattern MITTEL = Pattern.compile("Mittel ([\\d,.]+) ms");
+    /** W6 Runde 4: die Zeit wie im Programm (Bilder ohne Warten auf die Grafikkarte); „Mittel“ wartet je Bild (glFinish) und liegt 5–12 ms höher. */
+    static final Pattern FLUSS = Pattern.compile("Im Fluss ([0-9.,]+) ms");
 
     public static void main(String[] a) throws Exception {
         String phase = prop("bild.phase", "B0"), stufe = prop("stufe", "HOCH"), vorher = prop("vorher", "");
@@ -197,7 +199,9 @@ public final class Bildbank {
             for (String l; (l = r.readLine()) != null; ) {
                 out.println(l);
                 Matcher m = MITTEL.matcher(l);
-                if (m.find()) ms = m.group(1) + " ms";
+                if (m.find() && (ms == null || !ms.contains("Fluss"))) ms = m.group(1) + " ms";
+                Matcher fl = FLUSS.matcher(l);
+                if (fl.find()) ms = fl.group(1) + " ms im Fluss";
                 if (l.startsWith("FEHLER")) System.out.println("  " + l);
             }
         }

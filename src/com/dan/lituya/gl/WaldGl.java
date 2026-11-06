@@ -211,7 +211,9 @@ public final class WaldGl {
             treibgutLesen(new File(daten, "ereignis/treibgut"), x);
             x.sperre = sperreRechnen(x.wald);
             try {
-                x.erlen = new com.dan.tree.gl.TreeGl(com.dan.tree.blackalder.BlackAlder.species());
+                com.dan.tree.TreeSpecies erle = com.dan.tree.blackalder.BlackAlder.species();
+                erle.rootCut = 0.4f;   // W6 Runde 4: ohne die waagerechten Röhren am Fuß (Wurzelringe am Hang, Probe 82)
+                x.erlen = new com.dan.tree.gl.TreeGl(erle);
                 x.erlen.minLevel = 1;                              // Stufe 0 hat bis 2,8 Mio. Dreiecke
                 x.erlen.lodDistance = new float[]{1.0f, 1.0f, 14f};  // Stufe 2 ab einer Baumhöhe [G] (Probe 82: 106 Erlen mit 6,6 Mio. Dreiecken, dann 40 mit 2,9 Mio.)
             } catch (RuntimeException ex) {
@@ -669,8 +671,7 @@ public final class WaldGl {
                         double a = k * Math.PI / 2;
                         y = Math.min(y, gg.sample(0, (float) (b[2] + 2.5 * Math.cos(a)), (float) (b[4] + 2.5 * Math.sin(a))));
                     }
-                // dazu ein Zehntel der Höhe: die Wurzeln der Erlen aus Nature stehen in Stufe 1 als Schlingen über dem Fuß (Probe 82)
-                eg.add(var, b[2], y - 0.3f - 0.1f * b[7], b[4], b[5], (float) (b[7] / hv));
+                eg.add(var, b[2], y - 0.3f, b[4], b[5], (float) (b[7] / hv));
             }
             erlenZahl = eg.trees().size();
             erlenAuge = eye.clone();
@@ -692,6 +693,13 @@ public final class WaldGl {
         tl.fogColor = l.fogColor;
         tl.fogDistance = l.fogDistance;
         tl.groundColor = new double[]{l.skyColor[0] * 0.25, l.skyColor[1] * 0.22, l.skyColor[2] * 0.16};
+        // W6 Runde 4: dasselbe Licht wie forest (Schatten des Geländes von oben, Himmel wie forest, Dunst aus dem Rundumbild)
+        tl.shadowTexture = l.shadowTexture;
+        tl.shadowRect = l.shadowRect;
+        tl.sunShadowTexture = l.sunShadowTexture;
+        tl.sunShadowMatrix = l.sunShadowMatrix;
+        tl.skyTexture = l.skyTexture;
+        tl.skyWeight = l.skyWeight;
         gl.glEnable(GL.GL_DEPTH_TEST);
         gl.glDepthFunc(reversed ? GL.GL_GEQUAL : GL.GL_LEQUAL);
         gl.glDepthMask(true);

@@ -255,7 +255,7 @@ def farbe():
     z = abtasten(z50, SZ50, KR)
     z[rand:rand + 1800, rand:rand + 2400] = zk
     a, s = farbe_raster(np.asarray(rgb[ys, xs]).astype(np.float32) * (REFL_255 / 255.0),
-                        np.asarray(schnee[ys, xs]).astype(np.float32) / 255, np.asarray(quelle[ys, xs]), z, KR, z50)
+                        schnee_weich(np.asarray(schnee[ys, xs]).astype(np.float32) / 255), np.asarray(quelle[ys, xs]), z, KR, z50)
     schreib(a[rand:-rand, rand:-rand], s[rand:-rand, rand:-rand], "farbe_kern_10m.rgba")
     del a, s, z
     # Szene 20 m: Mosaik 2 × 2 gemittelt (linear), Gelände aus 50 m (im Kern aus 10 m)
@@ -263,7 +263,12 @@ def farbe():
     lin = np.empty((H, W, 3), np.float32)
     for k in range(3):
         lin[..., k] = np.asarray(rgb[..., k]).astype(np.float32).reshape(H, 2, W, 2).mean(axis=(1, 3)) * (REFL_255 / 255.0)
-    sn = np.asarray(schnee).astype(np.float32).reshape(H, 2, W, 2).mean(axis=(1, 3)) / 255
+    sn = np.empty((H, W), np.float32)
+    for y in range(0, H, 500):   # W6 Runde 4: in Streifen weich (die ganze Szene in 10 m wäre zu groß), mit Rand
+        y0, y1 = max(0, 2 * y - 2 * SCHNEE_RAND), min(2 * H, 2 * (y + 500) + 2 * SCHNEE_RAND)
+        st = schnee_weich(np.asarray(schnee[y0:y1]).astype(np.float32) / 255)
+        o = 2 * y - y0
+        sn[y:min(H, y + 500)] = st[o:o + 2 * (min(H, y + 500) - y)].reshape(-1, 2, W, 2).mean(axis=(1, 3))
     qu = np.asarray(quelle[::2, ::2])
     z = abtasten(z50, SZ50, SZ20)
     zk20 = zk.reshape(900, 2, 1200, 2).mean(axis=(1, 3))
@@ -316,6 +321,16 @@ def srgb(x):
     return np.where(x <= 0.0031308, 12.92 * x, 1.055 * np.power(x, 1 / 2.4) - 0.055)
 
 
+# W6 Runde 4: der Schnee kommt aus der SCL (20 m) und gesättigten Bildpunkten (10 m), also in Blöcken; als Alpha
+# zeichneten die Ränder in der Ferne Treppen aus 20-m-Zellen. Weich mit einem Kasten von 20 m Halbmesser, zweimal
+# (Wirkung etwa wie ein Gauß von 15 m): die Kante bleibt bei 0,5, die Ecken der Blöcke runden sich [G].
+SCHNEE_RAND = 8
+
+
+def schnee_weich(s10):
+    return np.clip(weich(s10, np.ones_like(s10), 2, 2)[0], 0, 1).astype(np.float32)
+
+
 def schreib(alb, schnee, name):
     out = np.empty(alb.shape[:2] + (4,), np.uint8)
     out[..., :3] = np.round(srgb(alb) * 255)
@@ -334,7 +349,9 @@ def eis():
         z = r32(dem, W, H)
         ist = np.isin(k, (9, 10, 11)).astype(np.float32)
         sp = (k == 11).astype(np.float32)
-        r = max(1, int(round(60.0 / c)))   # Runde 5: weicher (das 50-m-Raster gab Treppen); das Ausfransen macht der Shader
+        # Runde 5: weicher (das 50-m-Raster gab Treppen); das Ausfransen macht der Shader. W6 Runde 4: in der Szene (50 m)
+        # 100 m statt 60 m (ein Kasten von einer Zelle ließ die Treppen in der Ferne stehen)
+        r = max(1, int(round((60.0 if c <= 10 else 100.0) / c)))
         eisw = weich(ist, np.ones_like(ist), r, 2)[0]
         spw = weich(sp, np.ones_like(sp), max(1, int(round(40.0 / c))), 2)[0]
         # Runde 4: geglättete Eisoberfläche (rund 600 m) statt der Fließrichtung: die Spalten laufen quer zum Fließen,
