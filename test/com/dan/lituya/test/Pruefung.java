@@ -1319,7 +1319,7 @@ public final class Pruefung {
         com.dan.lituya.scene.SichtNetz sn = com.dan.lituya.scene.SichtNetz.da(daten) ? com.dan.lituya.scene.SichtNetz.lesen(daten) : null;
         if (sn == null) hinweis("daten/netz/sicht fehlt: Namen aus LB_NET_SICHT und Fahrten A > B ungeprüft");
         java.util.List<com.dan.lituya.scene.Regie.Book> alle = com.dan.lituya.scene.Regie.all();
-        check(alle.size() == 8, "acht Regiebücher (seit Werkbuch Welle W3 „Der Sturz“, W4 „Die Wand“, W5 „524 m“): " + alle);
+        check(alle.size() == 9, "neun Regiebücher (seit Werkbuch Welle W3 „Der Sturz“, W4 „Die Wand“, W5 „524 m“, W6 „Flug zur Kette“): " + alle);
         for (com.dan.lituya.scene.Regie.Book b : alle) {
             java.util.List<String> fehlt = new java.util.ArrayList<>(), befehle = new java.util.ArrayList<>();
             java.util.function.Predicate<String> punkt = n -> com.dan.lituya.camera.Ansichten.byName(n) != null || com.dan.lituya.scene.Site.byName(n) != null || com.dan.lituya.camera.Ansichten.versatz(n) != null || (sn == null ? true : sn.knoten(n) >= 0);

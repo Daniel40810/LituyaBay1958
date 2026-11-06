@@ -50,6 +50,8 @@ public final class WaldGl {
     static final int N_GELAENDE = 4096, N_DICHTE = 2048;
     /** Texturstellen: Boden im Band, Holzteppich. */
     public static final int UNIT_BAND = 10, UNIT_TEPPICH = 11, UNIT_KRONE = 12;
+    /** W6 (L8): Wind 10 m über Grund (m/s) und woher (Grad), vom Renderer je Bild aus der Verdrahtung. */
+    public volatile double windMs = 2, windVonGrad = 135;
     /**
      * Werkbuch Welle W0 (K3): Einzelbäume nur bis hierher (m); dahinter zeichnet das Gelände das Kronendach aus dem
      * Dichtegitter (gelaende.frag). Vorher reichten die Bäume in „Hoch“ 4,5 km weit und zerfielen dort in Bildpunkte;
@@ -267,6 +269,9 @@ public final class WaldGl {
         if (d == null || forest == null) return;
         int day = clock.local().getDayOfYear();
         if (day != tag) { forest.setSeason(day, 0); tag = day; zustandNeu = true; updateNoetig = true; }
+        // W6 (L8): Wind im Wald aus der Verdrahtung (vorher stand der Wald still; forest bewegt Äste und Laub im Shader)
+        double wr = Math.toRadians(windVonGrad + 180);
+        forest.setWind(Math.sin(wr), -Math.cos(wr), windMs, 0.35);
         if (forest.ready()) knick.vorbauen(gl, forest, tag);   // W5 Runde 4
         double t = clock.simSeconds();
         if (!(t >= Band1958.EINTAUCHEN - 1 && t < KNICK_BIS)) knick.setzen(knick_leer, 0);

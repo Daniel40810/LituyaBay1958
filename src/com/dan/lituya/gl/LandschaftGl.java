@@ -154,7 +154,13 @@ public final class LandschaftGl {
     }
 
     /** Uniforms und Texturen für das Gelände (Programm p gebunden). */
-    public void bind(GL4 gl, int p) {
+    public void bind(GL4 gl, int p) { bind(gl, p, false); }
+
+    /**
+     * Wie {@link #bind(GL4, int)}; im Spiegelbild (halbe Auflösung, oft verzerrt) ohne Fels aus cliff und ohne Spalten
+     * (W6 Runde 2: spart die Hälfte der Kosten von W6 im Spiegel).
+     */
+    public void bind(GL4 gl, int p, boolean spiegel) {
         hochladen(gl);
         boolean on = an && hochgeladen;
         gl.glUniform1i(gl.glGetUniformLocation(p, "uLandAn"), on ? 1 : 0);
@@ -168,8 +174,8 @@ public final class LandschaftGl {
             }
         }
         gl.glActiveTexture(GL.GL_TEXTURE0);
-        boolean fe = on && fels && cliffBereit;
-        gl.glUniform4f(gl.glGetUniformLocation(p, "uLand"), (float) gewinn, fe ? (rippen ? 2f : 1f) : 0f, spalten ? 1f : 0f, (float) kante);
+        boolean fe = on && fels && cliffBereit && !spiegel;
+        gl.glUniform4f(gl.glGetUniformLocation(p, "uLand"), (float) gewinn, fe ? (rippen ? 2f : 1f) : 0f, spalten && !spiegel ? 1f : 0f, (float) kante);
         // Fels: Uniforms von cliff.glsl; die Rauschtextur von Einheit 15 (dort liegt die Flut) nach UNIT_CLIFF_NOISE. Die
         // Sampler zeigen immer auf eigene Einheiten (ein sampler3D auf derselben Einheit wie ein sampler2D wäre ein Fehler).
         gl.glUniform1i(gl.glGetUniformLocation(p, "uCliffNoise"), UNIT_CLIFF_NOISE);

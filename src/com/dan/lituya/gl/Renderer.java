@@ -91,6 +91,8 @@ public final class Renderer implements GLEventListener {
      */
     public final com.dan.surface.gl.SurfaceGl surface = new com.dan.surface.gl.SurfaceGl();
     private final int[] surfMat = {0, 0, 0, 0};
+    /** W6 Runde 2: Lagen für den Boden in der Nähe (Waldboden, Moos, Firn, Eis). */
+    private final int[] surfMat2 = {0, 0, 0, 0};
     private String surfStatus = "Texturen: nicht geladen";
     /** Texturen der Hänge an (W3b). */
     public volatile boolean texturen = true;
@@ -431,6 +433,8 @@ public final class Renderer implements GLEventListener {
             surface.load(gl, set, 1024, true);
             String[] namen = {"schiefer_frisch", "schiefer_verwittert", "moraene", "strandkies"};
             for (int i = 0; i < namen.length; i++) surfMat[i] = Math.max(0, set.layer(namen[i]));
+            String[] namen2 = {"waldboden", "moos", "firn", "eis"};
+            for (int i = 0; i < namen2.length; i++) surfMat2[i] = Math.max(0, set.layer(namen2[i]));
             surfStatus = "Texturen: " + surface.info() + (set.missing().isEmpty() ? "" : ", fehlen " + set.missing());
         } catch (java.io.IOException | RuntimeException e) {
             surfStatus = "Texturen: ohne (" + e.getMessage() + ")";
@@ -775,6 +779,22 @@ public final class Renderer implements GLEventListener {
         return SceneClock.Zeitstand.DANACH;
     }
 
+    /** W6 (E6): Mitte der Gletscherfront 1958 im Gilbert Inlet (Szene x, z) und Abklingen der Eisbrocken (m) [G]. */
+    static final double[] EIS_MITTE = {2800, -4150};
+    static final double EIS_ABKLINGEN = 900;
+    /** W6 (E6): Schalter für Proben. */
+    public volatile boolean eisbrocken = true;
+
+    /**
+     * W6 (E6): Dichte der Eisbrocken auf dem Wasser zur Ereigniszeit t (s): erst wenn die Welle abgelaufen ist (die
+     * Welle zeichnet das Wasser bis dahin selbst), voll ab rund 40 min, nach zwei Tagen fort (geschmolzen, verdriftet) [G].
+     */
+    double eisDichte(double t) {
+        if (!eisbrocken || !rueckbauJetzt || clock.zeitstand == SceneClock.Zeitstand.HEUTE || clock.zeitstand == SceneClock.Zeitstand.VOR) return 0;
+        double an = WaldGl.smooth(1500, 2500, t), aus = 1 - WaldGl.smooth(43_200, 172_800, t);
+        return 0.85 * an * aus;
+    }
+
     /** Was die Regiebücher in der App tun. */
     private final class RegieCtx implements com.dan.lituya.scene.Regie.Ctx {
         @Override public void time(java.time.LocalDate date, double hour) {
@@ -819,6 +839,15 @@ public final class Renderer implements GLEventListener {
                 com.dan.lituya.scene.SichtNetz sn = sichtNetz();
                 com.dan.lituya.camera.Fahrt f = sn == null ? null : com.dan.lituya.camera.SichtFahrt.zwischen(sn, name, ziel, tempo, Renderer.this::stapelHoehe);
                 if (f == null) { regieMsg = "keine Fahrt von „" + name + "“ nach „" + ziel + "“ in LB_NET_SICHT"; return; }
+                camera.waterLevel = wiring.pegel;
+                camera.startFahrt(f);
+            });
+        }
+        @Override public void flug(double[][] punkte, double dauer, double neigung, double endBlick) {
+            schnitt(() -> {
+                com.dan.lituya.camera.Fahrt f = new com.dan.lituya.camera.Fahrt("Flug", punkte, dauer, 0, neigung);
+                f.endHeading = endBlick;
+                f.endTurn = Math.min(4000, f.length * 0.4);
                 camera.waterLevel = wiring.pegel;
                 camera.startFahrt(f);
             });
@@ -1091,6 +1120,8 @@ public final class Renderer implements GLEventListener {
                 // 2a Wald (Phase 14a): forest über den Kern mit den Zuständen der Welle und der Wiederbewaldung
                 wald.blick = camera.fwd.clone();
                 wald.fovy = fovy();
+                wald.windMs = wiring.windSpeed;   // W6 (L8)
+                wald.windVonGrad = wiring.windFromDeg;
                 if (showGelaende) wald.zeichnen(gl, vp, camera.eye, reversedZ, sun, clock.t(), true);   // Runde 6: Prüfung des Walds wiederverwenden
                 // W5 (E11): die Bäume, die gerade in der Zunge fallen
                 if (showGelaende) wald.knickZeichnen(gl, sh -> common(gl, sh, vp, inv, sun), camera.eye, vp, clock.simSeconds(), reversedZ);
@@ -1138,7 +1169,8 @@ public final class Renderer implements GLEventListener {
         if (meerJetzt) {
             // W2: com.dan.ocean; dann der Holzteppich am Morgen danach aus meer.frag als Auflage
             meer.zeichnen(gl, vp, camera.eye, reversedZ, licht, welleRect);
-            if (wald.teppichJetzt()) {
+            double eisD = eisDichte(clock.simSeconds());   // W6 (E6): Eisbrocken der Front im Gilbert Inlet
+            if (wald.teppichJetzt() || eisD > 0.01) {
                 gl.glEnable(GL.GL_DEPTH_TEST);
                 gl.glDepthFunc(reversedZ ? GL.GL_GEQUAL : GL.GL_LEQUAL);
                 gl.glDepthMask(false);
@@ -1147,6 +1179,9 @@ public final class Renderer implements GLEventListener {
                 common(gl, meerShader, vp, inv, sun);
                 bindMarks(gl, meerShader);
                 wald.meer(gl, meerShader);
+                meerShader.set(gl, "uEisAn", eisD > 0.01 ? 1 : 0);
+                meerShader.set(gl, "uEisDichte", (float) eisD);
+                meerShader.set(gl, "uEisMitte", (float) EIS_MITTE[0], (float) EIS_MITTE[1], (float) EIS_ABKLINGEN);
                 meerShader.set(gl, "uNurTeppich", 1);
                 meerShader.set(gl, "uWelle", welleRect != null ? 1 : 0);
                 if (welleRect != null) meerShader.set(gl, "uWelleRect", (float) welleRect[0], (float) welleRect[1], (float) welleRect[2], (float) welleRect[3]);
@@ -1274,7 +1309,8 @@ public final class Renderer implements GLEventListener {
         if (tx) surface.bind(gl, gelaendeShader.id(), 5, 6, 7, 0.35);
         else { gelaendeShader.set(gl, "uSurfA", 5); gelaendeShader.set(gl, "uSurfN", 6); gelaendeShader.set(gl, "uSurfR", 7); }
         gl.glUniform4i(gelaendeShader.loc(gl, "uMat"), surfMat[0], surfMat[1], surfMat[2], surfMat[3]);
-        landschaft.bind(gl, gelaendeShader.id());   // W6: Farbe aus Sentinel-2, Fels, Schnee, Eis
+        gl.glUniform4i(gelaendeShader.loc(gl, "uMat2"), surfMat2[0], surfMat2[1], surfMat2[2], surfMat2[3]);
+        landschaft.bind(gl, gelaendeShader.id(), gespiegelt);   // W6: Farbe aus Sentinel-2, Fels, Schnee, Eis (im Spiegel ohne Feinarbeit)
         boolean rb = rueckbauJetzt && clock.zeitstand != SceneClock.Zeitstand.HEUTE;
         ereignisGl.rueckbau(gl, gelaendeShader, rb);   // W3c: weicher Rückbau, Gletscherzunge, Grund 1958 der Vorrechnung
         double[] k0 = Site.fromUtm(com.dan.lituya.scene.Boden1958.ZUNGE_E0, com.dan.lituya.scene.Boden1958.ZUNGE_N0),

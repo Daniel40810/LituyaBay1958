@@ -89,7 +89,8 @@ vec3 landRelief(vec2 xz, vec3 n, float dist, out float lage) {
  * Rippe 0..1 (0 Rinne, 1 Grat), y Neigung quer (m/m) für die Normale. Was unter einen Bildpunkt fällt, mittelt knf weg.
  */
 float landGrat1(vec2 q, float pa, float px, float seed) {
-    float v = mix(kn(vec2(q.x / pa, q.y / (pa * 4.0)) + seed), 0.5, smoothstep(0.25, 0.6, px / pa));
+    float wf = smoothstep(0.25, 0.6, px / pa);
+    float v = wf >= 1.0 ? 0.5 : mix(kn(vec2(q.x / pa, q.y / (pa * 4.0)) + seed), 0.5, wf);
     return 1.0 - abs(2.0 * v - 1.0);
 }
 vec2 landGrat(vec2 xz, vec2 fall, float px) {

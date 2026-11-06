@@ -16,7 +16,7 @@ import java.util.Map;
  * Werkbuch Welle W6 (L9): die Wasserfälle. Die Bäche aus {@code LB_NET_WASSER} (Phase 16c) fallen über die Steilstufen
  * der Bucht; wo ein Bach auf mindestens {@link #FALL_MIN} m steiler als {@link #NEIGUNG_GRAD}° abfällt, steht ein Fall
  * aus {@code com.dan.fall} (Lauf über Fels, Strähnen, Schleier, Nebel, Tosbecken). Abfluss: Mittelwasser des
- * Einzugsgebiets ({@link com.dan.lituya.tools.Klassen#mittelwasser}) mal {@link #SOMMER} für die Schneeschmelze im Juli
+ * Einzugsgebiets ({@link com.dan.lituya.tools.Klassen#mittelwasser}) mal {@link #sommer} für die Schneeschmelze im Juli
  * [G], dazu der Regen vom Schieber wie bei den Bächen. Die Kante liegt auf dem Gelände des Kachelstapels (5 m).
  * <p>Gezeichnet bis {@link #sichtweite} vom Auge (die Fälle kennen die Erdkrümmung der Clipmap nicht; in 6 km sind das
  * 3 m), mit dem Licht des Walds ({@link Licht#waldLicht}), nach dem Wasser und den Schleiern der Welle.
@@ -24,7 +24,9 @@ import java.util.Map;
 public final class FaelleGl {
     public volatile boolean an = true;
     /** Bis zu dieser Entfernung (m) [G]. */
-    public volatile double sichtweite = 6500;
+    public volatile double sichtweite = 5000;
+    /** W6 Runde 2: höchstens so viele je Bild, die nächsten (Kosten) [G]. */
+    public volatile int jeBild = 12;
     /** Steiler als (Grad) über ein Fenster von 15 m. */
     public static final double NEIGUNG_GRAD = 40;
     /** Mindestens so hoch (m). */
@@ -32,9 +34,13 @@ public final class FaelleGl {
     /** Mindestens so viel Wasser (m³/s, mit Schmelze). */
     public static final double Q_MIN = 0.04;
     /** Höchstens so viel Wasser (m³/s): darüber ein Fluss im Tal, kein Fall an der Wand [G]. */
-    public static final double Q_MAX = 12;
-    /** Schmelze im Juli: Faktor auf das Mittelwasser [G]. */
-    public static final double SOMMER = 1.6;
+    public static final double Q_MAX = 20;
+    /**
+     * Schmelze im Juli: Faktor auf das Mittelwasser, 2 ohne Eis bis 4 bei ganz vergletschertem Einzugsgebiet [G]
+     * (Juli ist der Monat der größten Schmelze; in vergletscherten Gebieten Südostalaskas führen die Bäche im Juli ein
+     * Mehrfaches des Jahresmittels). W6 Runde 2: vorher 1,6 für alle.
+     */
+    static double sommer(double eis) { return 2.0 + 2.0 * eis; }
     /** Höchstens so viele Fälle (die größten nach Höhe × √Abfluss). */
     public static final int MAX = 48;
 
@@ -85,6 +91,30 @@ public final class FaelleGl {
     public static final double[] GEBIET = {-12_000, -9_000, 12_000, 9_000};
     public static final double KANTE_MAX = 1000;
 
+    /**
+     * Runde 2: nicht am Kopf des Gilbert Inlet (Rückbau 1958 und Gletscherzunge): dort stand 1958 das Eis, und das
+     * Gelände von heute (Delta) gibt Fälle, die 1958 in der Luft hingen.
+     */
+    static boolean imInlet(double x, double z) {
+        // Runde 2b: nur wo 1958 Eis stand (Gletscher im Westen, Zunge im Norden); vorher ein großes Rechteck um den Kopf
+        // des Inlet, das auch die Fälle am Hang daneben nahm (H3)
+        return in(x, z, com.dan.lituya.scene.Boden1958.GLETSCHER_E0, com.dan.lituya.scene.Boden1958.GLETSCHER_N0,
+                com.dan.lituya.scene.Boden1958.GLETSCHER_E1, com.dan.lituya.scene.Boden1958.GLETSCHER_N1)
+            || in(x, z, com.dan.lituya.scene.Boden1958.ZUNGE_E0, com.dan.lituya.scene.Boden1958.ZUNGE_N0,
+                com.dan.lituya.scene.Boden1958.ZUNGE_E1, com.dan.lituya.scene.Boden1958.ZUNGE_N1);
+    }
+
+    /** Runde 2b: der Fuß im Rückbau (1958 Wasser, heute Delta): solche Fälle hingen 1958 vor der Eisfront in der Luft. */
+    static boolean imRueckbau(double x, double z) {
+        return in(x, z, com.dan.lituya.scene.Boden1958.RUECKBAU_E0, com.dan.lituya.scene.Boden1958.RUECKBAU_N0,
+                com.dan.lituya.scene.Boden1958.RUECKBAU_E1, com.dan.lituya.scene.Boden1958.RUECKBAU_N1);
+    }
+
+    private static boolean in(double x, double z, double e0, double n0, double e1, double n1) {
+        double[] a = Site.fromUtm(e0, n0), b = Site.fromUtm(e1, n1);
+        return x > Math.min(a[0], b[0]) && x < Math.max(a[0], b[0]) && z > Math.min(a[1], b[1]) && z < Math.max(a[1], b[1]);
+    }
+
     static List<Fall> suchen(WasserNetz w, Map<Integer, double[]> lin, BaecheGl.Hoehe hoehe) {
         double tan = Math.tan(Math.toRadians(NEIGUNG_GRAD));
         List<Kandidat> k = new ArrayList<>();
@@ -92,7 +122,7 @@ public final class FaelleGl {
             if (w.kEbene[e] != 1 || !(WasserNetz.BACH.equals(w.kArt[e]) || WasserNetz.BACH_EIS.equals(w.kArt[e]))) continue;
             double eis = w.eisAnteil[w.von[e]];
             if (Double.isNaN(eis)) eis = 0;
-            double q = com.dan.lituya.tools.Klassen.mittelwasser(w.kFlaeche[e], eis) * SOMMER;
+            double q = com.dan.lituya.tools.Klassen.mittelwasser(w.kFlaeche[e], eis) * sommer(eis);
             if (q < Q_MIN || q > Q_MAX) continue;   // große Flüsse aus den Gletschern fallen nicht über Wände
             double[] en = lin.get(e);
             if (en == null || en.length < 4) continue;
@@ -122,7 +152,8 @@ public final class FaelleGl {
                 }
                 int ende = Math.min(np - 1, b + 1);
                 double fall = y[a] - y[ende];
-                boolean drin = x[a] > GEBIET[0] && x[a] < GEBIET[2] && z[a] > GEBIET[1] && z[a] < GEBIET[3] && y[a] < KANTE_MAX;
+                boolean drin = x[a] > GEBIET[0] && x[a] < GEBIET[2] && z[a] > GEBIET[1] && z[a] < GEBIET[3] && y[a] < KANTE_MAX
+                        && !imInlet(x[a], z[a]);   // Runde 2c: der Fuß im Rückbau bleibt erlaubt (H3: der Fall am Westhang)
                 if (fall >= FALL_MIN && drin) {
                     double dx = x[Math.min(np - 1, a + 1)] - x[a], dz = z[Math.min(np - 1, a + 1)] - z[a], l = Math.hypot(dx, dz);
                     if (l > 1e-6) k.add(new Kandidat(x[a], z[a], y[a], dx / l, dz / l, fall, q, w.kName[e], y[ende]));
@@ -143,7 +174,7 @@ public final class FaelleGl {
         int nr = 0;
         for (Kandidat c : wahl) {
             Fall f = new Fall();
-            double b = Math.max(2, WasserNetz.breite(c.q) * 0.7) / 2;
+            double b = Math.max(3, WasserNetz.breite(c.q)) / 2;   // Runde 2: breiter, mehr Strähnen
             double sx = -c.dz, sz = c.dx;
             f.lipA = new double[]{c.x - sx * b, c.y + 0.3, c.z - sz * b};
             f.lipB = new double[]{c.x + sx * b, c.y + 0.3, c.z + sz * b};
@@ -199,9 +230,21 @@ public final class FaelleGl {
         l.fogDistance = wl.fogDistance;
         l.display = 0;
         double sw = sichtweite;
-        for (Fall f : faelle) {
-            double mx = (f.lipA[0] + f.lipB[0]) / 2, mz = (f.lipA[2] + f.lipB[2]) / 2;
-            if (Math.hypot(mx - eye[0], mz - eye[2]) > sw) continue;
+        // Runde 2: nur die nächsten jeBild Fälle in Sichtweite
+        List<Fall> alle = faelle;
+        double[] ab = new double[alle.size()];
+        Integer[] ord = new Integer[alle.size()];
+        for (int i = 0; i < ab.length; i++) {
+            Fall f = alle.get(i);
+            ab[i] = Math.hypot((f.lipA[0] + f.lipB[0]) / 2 - eye[0], (f.lipA[2] + f.lipB[2]) / 2 - eye[2]);
+            ord[i] = i;
+        }
+        java.util.Arrays.sort(ord, (a, b) -> Double.compare(ab[a], ab[b]));
+        int n = 0;
+        for (int oi = 0; oi < ord.length && n < jeBild; oi++) {
+            Fall f = alle.get(ord[oi]);
+            if (ab[ord[oi]] > sw) break;
+            n++;
             if (Math.abs(f.windSpeed - windMs) > 0.5 || Math.abs(f.windFromDeg - windFromDeg) > 10) {
                 f.windSpeed = windMs;
                 f.windFromDeg = windFromDeg;
