@@ -143,6 +143,7 @@ public final class WaldGl {
         gezogenGebaut = g;
         status = "Wald: wird gerechnet …";
         bau = exec.submit(() -> rechnen(daten, g));
+        if (belag == null) belag = java.util.concurrent.CompletableFuture.supplyAsync(WaldGl::belagRechnen);   // eigener Faden, neben dem Wald
     }
 
     public String status() { return status; }
@@ -174,6 +175,43 @@ public final class WaldGl {
     public static volatile boolean rinde = !Boolean.getBoolean("lituya.ohneRinde"), triebe = !Boolean.getBoolean("lituya.ohneTriebe");
     /** W6 Runde 6: Bartflechten (beim Backen des Walds), feuchte Seite der Stämme: Südsüdost, woher die Stürme des Golfs von Alaska den Regen bringen [G]. */
     public static volatile boolean bart = !Boolean.getBoolean("lituya.ohneBartflechten");
+    /**
+     * W6 Runde 7: Moos aus einer Textur (com.dan.moss, gefiedertes Astmoos und Polstermoos nach den Fotos in templates/)
+     * und Bartflechten als Karten (com.dan.lichen: Usnea und Alectoria, je drei Büschel). Schalter lituya.ohneMoosbild,
+     * lituya.ohneFlechtenbild (dann wie Runde 6: Moos und Fäden aus Rauschen).
+     */
+    public static volatile boolean moosBild = !Boolean.getBoolean("lituya.ohneMoosbild");
+    public static final boolean FLECHTEN_BILD = !Boolean.getBoolean("lituya.ohneFlechtenbild");
+
+    /** Im Hintergrund gerechnet: Moostexturen und Karten der Bartflechten. */
+    static final class Belag {
+        com.dan.moss.MossTexture[] moos;
+        com.dan.lichen.LichenCard[] karten;
+        long ms;
+    }
+    private java.util.concurrent.Future<Belag> belag;
+    private int moosTex, kartenTex;
+    private double[] moosMittel = {0.04, 0.066, 0.01};
+    private double moosKachel = 0.1;
+    private String belagInfo = "";
+
+    static Belag belagRechnen() {
+        long t0 = System.nanoTime();
+        Belag b = new Belag();
+        b.moos = new com.dan.moss.MossTexture[]{
+                com.dan.moss.MossTexture.bake(com.dan.moss.MossLook.feather(), 512, 1958),
+                com.dan.moss.MossTexture.bake(com.dan.moss.MossLook.cushion(), 512, 1959)};
+        // Runde 7b: an der Küste Alaskas hängen die Flechten lang [G]: Usnea longissima bis 1,2 m, Alectoria bis 0,6 m
+        // (Runde 7: 0,3–0,4 m, in den Kronen kaum zu sehen); dazu die kürzere, gefiederte Usnea
+        com.dan.lichen.LichenLook alec = com.dan.lichen.LichenLook.alectoria();
+        alec.lengthMax = 0.6f;
+        com.dan.lichen.LichenLook[] arten = {com.dan.lichen.LichenLook.longissima(), alec, com.dan.lichen.LichenLook.usnea()};
+        b.karten = new com.dan.lichen.LichenCard[6];
+        for (int k = 0; k < 6; k++)
+            b.karten[k] = com.dan.lichen.LichenCard.bake(com.dan.lichen.BeardLichen.grow(arten[k % 3], 7000 + k), 256, 1024);
+        b.ms = (System.nanoTime() - t0) / 1_000_000;
+        return b;
+    }
     static final double[] MOOS_SEITE = {0.35, 0, 0.94};
     /**
      * W6 Runde 5: Sonnenschattenkarte der nahen Bäume (forest Stufe 0, auf Wunsch auch 1, und die Erlen aus Nature), gelesen
@@ -304,6 +342,7 @@ public final class WaldGl {
                 forest.fineNeedles = feineNadeln;   // W6 Runde 3 (WF18 B)
                 forest.barkDetail = rinde;          // W6 Runde 5: Rinde mit Muster (Renderer)
                 forest.beardLichen = bart;          // W6 Runde 6: Bartflechten an Sitka und Hemlock (Renderer)
+                belagAnwenden(gl);                  // W6 Runde 7: Moos und Bartflechten aus com.dan.moss und com.dan.lichen
                 forest.shootLight = triebe;         // W6 Runde 5: Nadeln als Triebe beleuchtet (Renderer)
                 nah(forest);
                 forest.setTerrain(d.gelaende);
@@ -626,11 +665,23 @@ public final class WaldGl {
             forest.update(gl, v);
             updateNoetig = !forest.ready();
             seitUpdate = 0;
+            letztePruefung = "update";
         } else {
             forest.cull(gl, v.viewProj, v.eye);
             seitUpdate++;
+            letztePruefung = "cull";
         }
     }
+
+    /**
+     * Runde 7 (Diagnose der hellen fernen Stämme): je Bild des Hauptbilds eine Zeile, welche Prüfung der Wald zuletzt
+     * hatte (Hauptbild oder Spiegelbild, update oder cull oder gespart) und wie viele Bäume die Grafikkarte zeichnet (liest
+     * die Zählung zurück: wartet, nur für Proben). Schalter lituya.waldProtokoll; die ersten 60 Bilder, danach jedes 30.
+     */
+    static final boolean PROTOKOLL = Boolean.getBoolean("lituya.waldProtokoll");
+    private String letztePruefung = "-", letzteHerkunft = "-";
+    private long protokollBild;
+    private int protokollZahl = -1;
 
     /** Kultur und Zeichnen in den gebundenen HDR-Bildspeicher (mit Tiefe). */
     public void zeichnen(GL4 gl, float[] vp, double[] eye, boolean reversed, double[] sun, double t) { zeichnen(gl, vp, eye, reversed, sun, t, false); }
@@ -649,6 +700,7 @@ public final class WaldGl {
         if (!haupt || b == null || cullStets) {
             pruefen(gl, v);
             cullAuge = null;
+            letzteHerkunft = haupt ? "haupt" : "spiegel";
         } else {
             boolean neu = zustandNeu || cullAuge == null || cullAlter >= 30 || !forest.ready();
             if (!neu) {
@@ -668,15 +720,21 @@ public final class WaldGl {
                 cullBlick = b.clone();
                 cullAlter = 0;
                 zustandNeu = false;
+                letzteHerkunft = "haupt";
             } else {
                 cullAlter++;
                 cullGespart++;
+                letztePruefung = "gespart";
             }
         }
         forest.barkDetail = rinde && haupt; // W6 Runde 5 (je Bild, damit Schalter greifen; im Spiegelbild ohne, wie die Landschaft)
         forest.shootLight = triebe;
         ForestGl.Light lf = licht(sun);
         lf.mossSide = MOOS_SEITE;
+        lf.mossTexture = moosBild ? moosTex : 0;   // W6 Runde 7
+        lf.mossLayer = 0;
+        lf.mossTile = moosKachel;
+        lf.mossMean = moosMittel;
         if (haupt) { Renderer.teil("Baumschatten"); baumSchatten(gl, eye, sun, t); Renderer.teilEnde("Baumschatten"); }
         if (schattenGueltig) {
             lf.sunShadowTexture = schattenKarte.texture();
@@ -687,6 +745,19 @@ public final class WaldGl {
             lf.sunShadowTexture = 0;
             lf.sunShadowMatrix = null;
         }
+        if (haupt && PROTOKOLL && forest.ready()) {
+            // Runde 7b: die Zählung ohne Warten (forest.statsAsync, ein paar Bilder alt); mit readStats wartete jedes Lesen auf
+            // die Grafikkarte und verschob den Ablauf so, dass der Fehler nicht mehr auftrat
+            int[] as = forest.statsAsync(gl);
+            if (as != null) protokollZahl = as[0];
+        }
+        if (haupt && PROTOKOLL && forest.ready() && (protokollBild < 60 || protokollBild % 30 == 0)) {
+            int[] st = new int[]{protokollZahl};
+            System.out.printf(java.util.Locale.GERMAN, "LituyaBay1958: Wald-Protokoll Bild %d: Prüfung %s (%s), %,d Bäume, Auge %.1f %.1f %.1f, Radius %.0f, dünn ab %.2f, Stufen %.0f/%.0f/%.0f, Nahschnitt %s, Zustand neu %s, update nötig %s, seit update %d%n",
+                    protokollBild, letzteHerkunft, letztePruefung, st.length > 0 ? st[0] : -1, eye[0], eye[1], eye[2], forest.radius, forest.thinFrom, forest.lod0, forest.lod1, forest.lod2,
+                    forest.nearCut == null ? "-" : String.valueOf(forest.nearCut[forest.nearCut.length - 1]), zustandNeu, updateNoetig, seitUpdate);
+        }
+        if (haupt) protokollBild++;
         if (haupt) Renderer.teil("forest");
         forest.draw(gl, v, lf, t);
         if (haupt) { Renderer.teilEnde("forest"); Renderer.teil("Erlen"); erlen(gl, v, lf, t, reversed); Renderer.teilEnde("Erlen"); }
@@ -806,6 +877,10 @@ public final class WaldGl {
         tl.skyTexture = l.skyTexture;
         tl.skyWeight = l.skyWeight;
         tl.mossSide = l.mossSide;
+        tl.mossTexture = l.mossTexture;   // W6 Runde 7: dasselbe Moos auf den Erlen aus Nature
+        tl.mossLayer = l.mossLayer;
+        tl.mossTile = l.mossTile;
+        tl.mossMean = l.mossMean;
         tl.standAo = 0.45;   // W6 Runde 5: wie die Verdeckung, die forest am Stamm einbackt (0,44 am Fuß) [G]
         gl.glEnable(GL.GL_DEPTH_TEST);
         gl.glDepthFunc(reversed ? GL.GL_GEQUAL : GL.GL_LEQUAL);
@@ -815,12 +890,35 @@ public final class WaldGl {
         if (cull) gl.glEnable(GL.GL_CULL_FACE);
     }
 
+    /** W6 Runde 7: Moos und Karten hochladen (einmal, beim Anlegen von forest; wartet auf den Hintergrund). */
+    private void belagAnwenden(GL4 gl) {
+        if (belag == null) return;
+        try {
+            Belag b = belag.get();
+            if (moosTex == 0) moosTex = com.dan.moss.gl.MossGl.upload(gl, b.moos);
+            com.dan.moss.MossTexture m = b.moos[0];
+            moosMittel = new double[]{m.meanSeen[0], m.meanSeen[1], m.meanSeen[2]};
+            moosKachel = m.tile;
+            if (FLECHTEN_BILD && bart) {
+                if (kartenTex == 0) kartenTex = com.dan.lichen.gl.LichenGl.upload(gl, b.karten);
+                float[] w = new float[b.karten.length], h = new float[w.length], a = new float[w.length];
+                for (int k = 0; k < w.length; k++) { w[k] = b.karten[k].widthM; h[k] = b.karten[k].heightM; a[k] = b.karten[k].attachV; }
+                forest.beardCards = new com.dan.forest.TreeMesh.Cards(w, h, a);
+                forest.beardTexture = kartenTex;
+            }
+            belagInfo = String.format(Locale.GERMAN, " · Moos %s %d², Kachel %.0f cm%s (%d ms)", m == null ? "-" : "Bild", m.n, m.tile * 100,
+                    FLECHTEN_BILD && bart ? ", Bartflechten " + b.karten.length + " Karten" : "", b.ms);
+        } catch (Exception e) {
+            belagInfo = " · Moos/Flechten: " + e;
+        }
+    }
+
     /** Für HUD und Prüfung: sichtbare Bäume, Stufen, Speicher. */
     public String info() {
         if (forest == null) return status;
         return String.format(Locale.GERMAN, "%s · %,d sichtbar, %.0f MB · Prüfung %d× gespart · %s · Erlen aus Nature %d (%,d Dreiecke)", forest.info(), forest.visible(), forest.vramBytes() / 1e6, cullGespart, knick.info,
                 erlenZahl, d != null && d.erlen != null ? d.erlen.triangles() : 0)
-                + (schattenGueltig ? String.format(Locale.GERMAN, " · Baumschatten %d m, %d px, Stufe 0%s, %d× neu (%.1f ms CPU)", (int) (2 * SCHATTEN_RADIUS), SCHATTEN_KANTE,
+                + belagInfo + (schattenGueltig ? String.format(Locale.GERMAN, " · Baumschatten %d m, %d px, Stufe 0%s, %d× neu (%.1f ms CPU)", (int) (2 * SCHATTEN_RADIUS), SCHATTEN_KANTE,
                         schattenStufen > 1 ? "+1" : "", schattenNeu, schattenNs / 1e6) : " · ohne Baumschatten");
     }
 
@@ -832,6 +930,9 @@ public final class WaldGl {
         schattenKarte = null;
         schattenGueltig = false;
         if (kroneTex != 0) gl.glDeleteTextures(1, new int[]{kroneTex}, 0);
+        com.dan.moss.gl.MossGl.dispose(gl, moosTex);
+        com.dan.lichen.gl.LichenGl.dispose(gl, kartenTex);
+        moosTex = kartenTex = 0;
         exec.shutdownNow();
     }
 }
