@@ -44,6 +44,8 @@ final class KnickGl {
     static final int NAH_MAX = 120;
     /** Runde 4: ab hier (m) ein Kegel statt der Silhouette (ein Baum deckt dort mit 50 mm rund 10–20 Bildpunkte). */
     static final double KEGEL_AB = 1500;
+    /** W6 Runde 6: für Zeitproben (Schalter wald.knick.kegelAb, wald.knick.nah); Standard wie oben. */
+    volatile double kegelAb = KEGEL_AB, nah = NAH;
     static final int MAX = 150000;
     /** Weiter als hier (m) wird kein fallender Baum gezeichnet (wie die Einzelbäume in WaldGl.NAH). */
     static final double WEIT = 3000;
@@ -220,6 +222,7 @@ final class KnickGl {
         }
         java.util.Arrays.fill(binN, 0);
         int T = types, nah = 0;
+        final double kegelM = kegelAb, nahM = this.nah;
         double[] pl = ebenen(vp);
         for (int k = 0; k < n; k++) {
             int o = k * FL;
@@ -234,9 +237,9 @@ final class KnickGl {
             if (!drin) continue;
             int folge = (int) baeume[o + 12];
             boolean liegt = (folge == 3 || folge == 4) && t > baeume[o + 6] + baeume[o + 11] + 2.6;
-            boolean nh = !liegt && d2 < NAH * NAH && nah < NAH_MAX;
+            boolean nh = !liegt && d2 < nahM * nahM && nah < NAH_MAX;
             if (nh) nah++;
-            boolean weit = !liegt && d2 > KEGEL_AB * KEGEL_AB;
+            boolean weit = !liegt && d2 > kegelM * kegelM;
             int b = liegt ? 2 * T : weit ? 2 * T + 1 : nh ? typ : T + typ;
             if (FL * (binN[b] + 1) > bin[b].length) bin[b] = java.util.Arrays.copyOf(bin[b], bin[b].length * 2);
             System.arraycopy(baeume, o, bin[b], FL * binN[b], FL);

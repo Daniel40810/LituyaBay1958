@@ -675,7 +675,9 @@ public final class EreignisGl {
             gl.glBindTexture(GL.GL_TEXTURE_2D, x.boden);
             welle.set(gl, "uBoden", 2);
             welle.set(gl, "uBodenAn", x.boden != 0 ? 1 : 0);
+            Renderer.teil("Welle Kacheln");
             spur(gl, welle, s, p, x, vp, eye, kf, pegel);
+            Renderer.teilEnde("Welle Kacheln");
             zeigtWelle = true;
         }
         // W4b: die Lippe als eigenes Netz über der Wand (E7) [G]
@@ -693,8 +695,10 @@ public final class EreignisGl {
                 }
                 return Double.NaN;
             };
+Renderer.teil("Lippe");
             lippeGl.zeichnen(gl, flutA, flutM, flutNx, flutNz, flutE0, flutN0, FLUT_ZELLE, feldMinA, feldMaxA, FELD, t, eye, pegel, grund,
                     common, (float) (1 / (2 * Site.EARTH_R_OPTICAL)), 1 / kf);
+Renderer.teilEnde("Lippe");
         }
         for (Wiedergabe.Spur s : w.spuren(Wiedergabe.Art.STROM)) {
             Wiedergabe.Paar p = w.paar(s, t);
@@ -707,7 +711,9 @@ public final class EreignisGl {
             strom.set(gl, "uBoden", 2);
             strom.set(gl, "uBodenAn", 1);
             rueckbau(gl, strom, rueckbauAn);   // W3c: auf demselben Grund wie das Gelände
+Renderer.teil("Strom");
             spur(gl, strom, s, p, x, vp, eye, kf, -1000);
+Renderer.teilEnde("Strom");
             zeigtStrom = true;
         }
         gl.glActiveTexture(GL.GL_TEXTURE0);
