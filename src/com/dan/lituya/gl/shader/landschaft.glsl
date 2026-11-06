@@ -28,6 +28,15 @@ vec4 landEis(vec2 xz) {
     return e;
 }
 
+// W6 Runde 3 (Kosten): dasselbe mit fester Mip-Stufe aus der Größe des Bildpunkts px (m), auch in Verzweigungen gültig
+vec4 landEisL(vec2 xz, float px) {
+    vec2 us = (xz - uLandESRect.xy) / uLandESRect.zw, uk = (xz - uLandEKRect.xy) / uLandEKRect.zw;
+    vec4 s = textureLod(uLandES, us, max(0.0, log2(px / 50.0))), k = textureLod(uLandEK, uk, max(0.0, log2(px / 10.0)));
+    vec4 e = mix(s, k, landRand(uk, 500.0 / uLandEKRect.zw));
+    e.rg *= landRand(us, 1500.0 / uLandESRect.zw);
+    return e;
+}
+
 /*
  * Spalten [G]: Scharen quer zum Fließen, also längs der Höhenlinien der geglätteten Eisoberfläche hs (m) mit Gefälle gs;
  * Abstand rund 24 m längs des Fließens, gebogen und stückweise (en échelon); Breite nach der Dehnung st (0..1). Wo st groß
@@ -127,7 +136,6 @@ Land landschaft(vec3 p, vec3 n, float h, float px, vec3 albAlt) {
     float lw;
     vec4 f = landFarbe(p.xz, lw);
     vec4 e = landEis(p.xz);
-    float eX = landEis(p.xz + vec2(20.0, 0.0)).b, eZ = landEis(p.xz + vec2(0.0, 20.0)).b;   // Runde 4: Gefälle der Eisoberfläche
     // cliff im gleichmäßigen Ablauf (Ableitungen im Bild); ohne Fels rechnet es nichts
     CliffSample cs;
     cs.albedo = vec3(1.0); cs.normal = n; cs.rock = 0.0; cs.wet = 0.0; cs.snow = 0.0;
@@ -151,10 +159,12 @@ Land landschaft(vec3 p, vec3 n, float h, float px, vec3 albAlt) {
     // Schneekante ausgefranst (die 20-m-Zellen sollen nicht zu sehen sein); auf steilen Rippen und Wänden hält kein Schnee,
     // in Rinnen bleibt er [G]
     // Runde 2: dazu 160 und 55 m (sonst bleibt in der Ferne die Kante der 20-m-Zellen als Vieleck)
-    float fr = knf(p.xz + 97.0, 160.0, px) * 0.30 + knf(p.xz + 23.0, 55.0, px) * 0.25 + knf(p.xz + 311.0, 17.0, px) * 0.25
-             + knf(p.xz + 71.0, 5.5, px) * 0.13 + knf(p.xz + 5.0, 1.8, px) * 0.07;
+    // W6 Runde 3 (Kosten): nur wo Schnee oder Eis in der Nähe sein kann (sonst wirkt das Ausfransen nicht)
+    float fr = 0.5;
+    if (f.a > 0.004 || e.r > 0.004)
+        fr = knf(p.xz + 97.0, 160.0, px) * 0.30 + knf(p.xz + 23.0, 55.0, px) * 0.25 + knf(p.xz + 311.0, 17.0, px) * 0.25
+           + knf(p.xz + 71.0, 5.5, px) * 0.13 + knf(p.xz + 5.0, 1.8, px) * 0.07;
     float sn = smoothstep(0.34, 0.66, f.a + (fr - 0.5) * uLand.w);
-    float rip = knf(p.xz + 19.0, 38.0, px);
     // Runde 2: auf den Rippen weht der Schnee ab, in den Rinnen bleibt er
     float abwurf = smoothstep(0.26, 0.44, slope + (rippe - 0.5) * 0.5 * steilG + (fr - 0.5) * 0.12);   // ab rund 45°
     sn *= 1.0 - abwurf;
@@ -181,20 +191,28 @@ Land landschaft(vec3 p, vec3 n, float h, float px, vec3 albAlt) {
         v = mix(v, v * vec3(1.15, 1.05, 0.7), smoothstep(0.6, 0.85, knf(p.xz + 77.0, 40.0, px)) * 0.5);
         c = mix(c, v, veg);
     }
+    float eis = smoothstep(0.30, 0.70, e.r + (fr - 0.5) * 0.6) * (1.0 - smoothstep(0.42, 0.62, slope));
+    float blank = eis * (1.0 - smoothstep(850.0, 1150.0, h + (fr - 0.5) * 300.0));
+    // W6 Runde 3 (Kosten): Farbe von Schnee und blankem Eis nur, wo eines davon liegt
+    if (sn > 0.0) {
     // Schnee: hell, leicht bläulich in Mulden; feine Rippeln in der Nähe [G]
+    float rip = knf(p.xz + 19.0, 38.0, px);
     vec3 schnee = vec3(0.86, 0.89, 0.93) * (0.93 + 0.07 * knf(p.xz + 9.0, 3.0, px)) * mix(1.0, 0.94, smoothstep(0.5, 0.0, rip));
     // Runde 2: unter der Schneegrenze der Gletscher (rund 1 000 m [G]) ist es blankes Eis, kein Schnee (die Aufnahme sättigt
     // bei 0,2 Reflexion und trennt beides nicht): grau-blau, mit den Moränen der Aufnahme
     // Runde 4: Rand des Eises ausgefranst (das 50-m-Raster zeigte Treppen)
-    float eis = smoothstep(0.30, 0.70, e.r + (fr - 0.5) * 0.6) * (1.0 - smoothstep(0.42, 0.62, slope));
-    float blank = eis * (1.0 - smoothstep(850.0, 1150.0, h + (fr - 0.5) * 300.0));
-    vec3 blankeis = vec3(0.46, 0.54, 0.60) * (0.82 + 0.36 * knf(p.xz + 33.0, 30.0, px)) * (0.9 + 0.2 * knf(p.xz + 8.0, 6.0, px));
-    schnee = mix(schnee, blankeis, blank);
+    if (blank > 0.0) {
+        vec3 blankeis = vec3(0.46, 0.54, 0.60) * (0.82 + 0.36 * knf(p.xz + 33.0, 30.0, px)) * (0.9 + 0.2 * knf(p.xz + 8.0, 6.0, px));
+        schnee = mix(schnee, blankeis, blank);
+    }
     c = mix(c, schnee, sn);
+    }
     if (eis > 0.0) {
         c = mix(c, c * vec3(0.86, 0.98, 1.12), eis * (1.0 - sn) * (1.0 - veg) * 0.6);
         // Runde 4: Höhenlinien der geglätteten Eisoberfläche (B) und ihr Gefälle aus zwei Nachbarn in 20 m
         float hs = e.b * 5000.0;
+        // W6 Runde 3 (Kosten): die Nachbarn nur noch im Eis (vorher an jedem Bildpunkt vier Abrufe mehr)
+        float eX = landEisL(p.xz + vec2(20.0, 0.0), px).b, eZ = landEisL(p.xz + vec2(0.0, 20.0), px).b;
         float gs = length(vec2(eX, eZ) * 5000.0 - hs) / 20.0;
         // Runde 2: auch ohne Dehnung aus ITS_LIVE einzelne Spalten, im blanken Eis mehr [G]
         float st = max(e.g, 0.15 * eis + 0.25 * blank);

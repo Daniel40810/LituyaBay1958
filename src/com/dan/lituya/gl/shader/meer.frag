@@ -22,6 +22,7 @@ uniform int uNurTeppich;
 uniform int uEisAn;
 uniform vec3 uEisMitte;
 uniform float uEisDichte;
+uniform vec2 uEisNah;   // W6 Runde 3: innen zeichnet com.dan.buoyancy.gl.FloeGl Schollen mit Höhe; flach erst ab x, voll ab y (m)
 
 
 float h2(vec2 i) { return fract(sin(dot(i, vec2(127.1, 311.7))) * 43758.5453); }
@@ -114,6 +115,7 @@ void main() {
             float klein = step(b2.x, dichte) * smoothstep(0.06, 0.18, b2.y);
             float fern = smoothstep(1.5, 6.0, px);
             covE = mix(max(gross, klein * 0.85), dichte * 0.6, fern);
+            if (uEisNah.y > 0.0) covE *= smoothstep(uEisNah.x, uEisNah.y, length(w.xz - uCam.xz));
             float blau = step(0.72, fract(b1.x * 7.3));
             vec3 eisF = mix(vec3(0.78, 0.84, 0.90), vec3(0.30, 0.52, 0.70), blau * (1.0 - fern) * gross);
             eisF *= 0.85 + 0.3 * vnf(q, 2.0, vec2(9.0), px);
