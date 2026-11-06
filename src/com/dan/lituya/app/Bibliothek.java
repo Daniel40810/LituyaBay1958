@@ -27,7 +27,9 @@ public final class Bibliothek {
             // W6 Runde 6: Augenanpassung (WF19 A) und Teilzeiten der Grafikkarte
             "exposure", "gputime",
             // W6 Runde 7: Moos und Bartflechten nach den Fotos in templates/
-            "moss", "lichen"};
+            "moss", "lichen",
+            // W6 Runde 8: Strand und Böschung an der Naht von Lidar und Lotungen (Aufbereitung, Schritt gelaende)
+            "shore"};
 
     /**
      * Packages, die für LituyaBay1958 im Projekt Renderer neu entstehen (Werkbuch 5), mit der Phase, in der sie kommen

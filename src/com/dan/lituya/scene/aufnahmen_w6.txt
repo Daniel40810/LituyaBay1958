@@ -65,3 +65,9 @@ nr=125;name=Unter_Wasser_Auge_fest;schaustueck=7;ereignis=115;brennweite=18;scha
 nr=126;name=Narbe_heute_nicht_dunkler;xz=1000,-1300;auge=20;blick=2;neigung=-4;zeitstand=heute;datum=2026-07-20;uhr=15.0;brennweite=85;schalter=auge.maxDown=0;warum=W6 Runde 7 (WF20): H11, die Augenanpassung macht helle Bilder nicht dunkler
 nr=127;name=Nadelwald_nah_ohne_Moosbild;xz=-5900,3150;auge=1.7;blick=0;neigung=-4;zeitstand=heute;datum=2026-07-20;uhr=14.0;brennweite=35;schalter=wald.moosBild=false;warum=W6 Runde 7: wie 84, Moos aus Rauschen (Zeit)
 nr=128;name=Erlen_nah_ohne_Moosbild;xz=1000,-2200;auge=1.7;blick=0;neigung=-14;zeitstand=heute;datum=2026-07-20;uhr=15.0;brennweite=35;schalter=wald.moosBild=false;warum=W6 Runde 7: wie 82, Moos aus Rauschen (Zeit)
+nr=129;name=Kante_W06;xz=-1266,-964;auge=2.7;blick=49;neigung=0;ereignis=192;brennweite=24;warum=W6 Runde 8: Kante aus docs/status/Kante_W06.png (Bild des Nutzers)
+nr=130;name=Kante_W06_vor_der_Welle;xz=-1266,-964;auge=2.7;blick=49;neigung=0;ereignis=100;brennweite=24;warum=W6 Runde 8: wie 129 vor dem Einschlag (Gelände allein)
+nr=131;name=Kante_W06_von_oben;xz=-1417,-833;auge=80;blick=49;neigung=15;ereignis=192;brennweite=24;warum=W6 Runde 8: wie 129, 200 m zurück und 80 m hoch
+nr=132;name=Kante_W06_von_oben_vor_der_Welle;xz=-1417,-833;auge=80;blick=49;neigung=15;ereignis=100;brennweite=24;warum=W6 Runde 8: wie 131 vor dem Einschlag
+nr=133;name=Kante_W06_spaeter;xz=-1417,-833;auge=80;blick=49;neigung=15;ereignis=240;brennweite=24;warum=W6 Runde 8: wie 131, 48 s später
+nr=134;name=Kante_W06_heute;xz=-1417,-833;auge=80;blick=49;neigung=15;zeitstand=heute;datum=2026-07-20;uhr=14.0;brennweite=24;warum=W6 Runde 8: wie 131 heute
