@@ -388,10 +388,10 @@ public final class Renderer implements GLEventListener {
     /** W6 Runde 6 (WF19 A): Augenanpassung, Schalter (Bildbank: augenanpassung=false). */
     public static volatile boolean augenanpassung = !Boolean.getBoolean("lituya.ohneAugenanpassung");
     /**
-     * W6 Runde 7 (Frage WF20): Augenanpassung auch unter Wasser (Vorgabe wie Runde 6: ja). Aus: unter dem Pegel bleibt die
-     * Belichtung fest. Bildbank: augeUnterWasser=false; dazu auge.maxDown für die hellen Bilder am Boden.
+     * W6 Runde 7, Frage WF20 A: unter Wasser keine Augenanpassung (die Belichtung bleibt fest, H8 wie abgenommen). Schalter
+     * lituya.augeUnterWasser=true: wie Runde 6 (das Auge passt sich auch unter Wasser an). Bildbank: augeUnterWasser=true.
      */
-    public static volatile boolean augeUnterWasser = !Boolean.getBoolean("lituya.augeFestUnterWasser");
+    public static volatile boolean augeUnterWasser = Boolean.getBoolean("lituya.augeUnterWasser");
     public final com.dan.exposure.EyeAdaptation auge = new com.dan.exposure.EyeAdaptation();
     /**
      * W6 Runde 6: Teilzeiten der Grafikkarte innerhalb der Durchgänge (com.dan.gputime), für die Zerlegung von H6. Schalter
@@ -404,10 +404,12 @@ public final class Renderer implements GLEventListener {
     static void teilEnde(String n) { TEILE.end(n); }
     private com.dan.exposure.gl.LuminanceGl lum;
     {
-        // Runde 6b [G]: Bezug 0,08 = Mittel der offenen Heldenbilder am Boden (0,066–0,226, Median 0,079); ins Helle nur eine
-        // drittel Blende (Abendbilder blieben, wie abgenommen), ins Dunkle bis 2 Blenden (der geschlossene Wald)
+        // Runde 6b [G]: Bezug 0,08 = Mittel der offenen Heldenbilder am Boden (0,066–0,226, Median 0,079); ins Dunkle bis
+        // 2 Blenden (der geschlossene Wald)
         auge.key = 0.08;
-        auge.maxDown = 1 / 3.0;
+        // W6 Runde 7, Frage WF20 A: ins Helle nicht dunkler (vorher eine drittel Blende): nur das Dunkle am Boden wird heller,
+        // die abgenommenen hellen Bilder (H1, H2, H11, H12) bleiben, wie sie waren
+        auge.maxDown = 0;
     }
     private double[] augeZuletzt;
     /** Höhe über Grund (m), ab der die Anpassung abnimmt und ganz fort ist [G]. */

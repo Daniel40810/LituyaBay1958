@@ -22,3 +22,4 @@ __pycache__/
 !/docs/QUELLEN.md
 /start.cmd
 /download.probe/
+/daten_vor_strand/
