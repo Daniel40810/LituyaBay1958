@@ -374,17 +374,34 @@ public final class Tempo {
             for (int i = 0; i < nb; i++) { r.step(1 / 60.0); d.display(); }
             System.out.printf(Locale.GERMAN, "Schwenk: %.1f° je Sekunde%n", rate);
         }
+        // W9c Runde 2 (W7e): tropfen = mm/h Regen auf die Linse (oder wetter, wischen, aus); die Linse wird vorher 40 s nass
+        String trs = opt("tropfen");
+        if (trs != null && !trs.isBlank()) {
+            r.linseNass.befehl(trs);
+            double wr = Math.toRadians(r.wiring.windFromDeg + 180);
+            if (r.linseNass.vonHandMmH > 0) r.linseNass.vorlauf(Double.parseDouble(System.getProperty("tropfenzeit", "40")), 0, r.wiring.windSpeed, Math.sin(wr), -Math.cos(wr), r.camera.fwd);
+            System.out.printf(Locale.GERMAN, "Linse: %s%n", r.linseNass.glas.describe());
+        }
         // W9c: teilbilder = n: das Bild in der Kino-Stufe (n Teilbilder über die offene Blende, die Pupille und den Bildpunkt)
         String tbs = opt("teilbilder");
         if (tbs != null && !tbs.isBlank() && Integer.parseInt(tbs.trim()) > 0) {
             r.teilbilder = Integer.parseInt(tbs.trim());
             r.belichtungsTakt = 1 / 24.0;
-            long k0 = System.nanoTime();
-            d.display();
-            d.getContext().makeCurrent();
-            d.getGL().glFinish();
-            d.getContext().release();
-            System.out.printf(Locale.GERMAN, "Kino-Stufe: %d Teilbilder in %.0f ms · %s%n", r.teilbilder, (System.nanoTime() - k0) / 1e6, r.verschlussLine());
+            // W9c Runde 2: kinolichter = aus: Lichter als Punkte wie in Runde 1 (Vergleich); zwei Filmbilder, gemessen das zweite
+            String kli = opt("kinolichter");
+            if (kli != null && !kli.isBlank()) r.kinoLichter = !kli.trim().equalsIgnoreCase("aus");
+            double[] ms = new double[2];
+            for (int k = 0; k < 2; k++) {
+                long k0 = System.nanoTime();
+                d.display();
+                d.getContext().makeCurrent();
+                d.getGL().glFinish();
+                d.getContext().release();
+                ms[k] = (System.nanoTime() - k0) / 1e6;
+            }
+            System.out.printf(Locale.GERMAN, "Kino-Stufe: %d Teilbilder in %.0f ms (%.1f ms je Teilbild; erstes Filmbild %.0f ms) · Lichter %s · %s%n", r.teilbilder, ms[1],
+                    ms[1] / r.teilbilder, ms[0], !r.kinoLichter ? "als Punkte" : r.kinoLichterZahl >= 0 ? "als Kreise, " + r.kinoLichterZahl + " im letzten Teilbild" : "als Kreise",
+                    r.verschlussLine());
             r.teilbilder = 0;
         }
         if (png != null) {

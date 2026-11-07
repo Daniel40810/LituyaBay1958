@@ -19,8 +19,9 @@ import java.util.concurrent.atomic.AtomicLong;
  * füllt ihre Lücken aus der gröberen. Je Zelle zwei Kandidaten, das Land und der Grund:
  * <ul>
  * <li><b>Fern</b> 30 m: Land aus 3DEP 1″ (NAVD88), sonst Copernicus GLO-30 (EGM2008, im Fern ohne Versatz [G]); Grund aus
- * BlueTopo, sonst GEBCO 2025.</li>
- * <li><b>Szene</b> 5 m: Land aus IfSAR 2012 (NAVD88), sonst 3DEP 1/3″; Grund aus USACE 2019, sonst BlueTopo; Rest aus Fern.</li>
+ * BlueTopo, sonst GEBCO 2025. In der Szene danach ihr Mittel ({@link Angleich}).</li>
+ * <li><b>Szene</b> 5 m: Land aus dem Lidar 2019 (seit W9c Runde 2), sonst IfSAR 2012 (NAVD88), sonst 3DEP 1/3″; Grund aus
+ * USACE 2019, sonst BlueTopo; Rest aus Fern. Im Kern danach das Mittel des Kerns ({@link Angleich}).</li>
  * <li><b>Kern</b> 0,5 m: Land aus dem Lidar 2019 (NAVD88), sonst IfSAR; Grund aus USACE 2019 (1 m), sonst BlueTopo (4 m);
  * Rest aus Szene.</li>
  * </ul>
@@ -74,6 +75,9 @@ public final class Gelaende {
     }
     static final com.dan.shore.ShoreRamp RAMPE = rampe();
 
+    /** W9c Runde 2: die Szene ohne das Lidar (der Stand bis W9c), -Dlituya.szeneOhneLidar=true. */
+    static final boolean OHNE_LIDAR_IN_SZENE = Boolean.getBoolean("lituya.szeneOhneLidar");
+
     /** Die Quellen einer Stufe: Land, Grund. */
     static List<List<Quelle>> quellen(Stufe s, Rohdaten r) throws IOException {
         List<Quelle> land = new ArrayList<>(), grund = new ArrayList<>();
@@ -85,6 +89,9 @@ public final class Gelaende {
                 grund.add(new Quelle("GEBCO 2025", r.dateien("bathymetrie/gebco_2025", ".tif"), 0, 0, -9000, 6000));
             }
             case SZENE -> {
+                // W9c Runde 2 („Schwebe“): das Lidar zuerst, wie im Kern. IfSAR liegt unter dichtem Wald im Median 4,9 m zu
+                // hoch; im Kern ersetzt {@link Angleich} die Szene danach durch das Mittel des Kerns, außerhalb gilt dies
+                if (!OHNE_LIDAR_IN_SZENE) land.add(new Quelle("Lidar 2019", r.dateien("hoehe/usgs_lidar_glacierbay", ".tif"), 0, 0, -100, 6000));
                 land.add(new Quelle("IfSAR 2012", r.dateien("hoehe/usgs_ifsar_dtm", ".tif"), 0, 0, -100, 6000));
                 land.add(new Quelle("3DEP 1/3″", r.dateien("hoehe/usgs_3dep_13", ".tif").stream().filter(f -> f.getName().startsWith("USGS_13_")).toList(), 0, 0, -100, 6000));
                 grund.add(new Quelle("USACE 2019", r.dateien("bathymetrie/usace_topobathy_2019", ".tif"), 0, 0, -300, 200));

@@ -345,6 +345,22 @@ public final class Renderer implements GLEventListener {
     private com.dan.shutter.gl.MotionBlurGl bewegungGl;
     private com.dan.shutter.SubFrames.Sample teilbild;
     private double teilFokusM = 1e5, teilPupilleM;
+    /** W9c Runde 2 (W7e): Tropfen auf der Frontlinse (com.dan.wetglass auf der Linse, com.dan.lens.FrontDrops ins Bild). */
+    public final LinseNass linseNass = new LinseNass();
+    /** W9c Runde 2: Tropfen auf der Linse im Bild (Schalter). */
+    public volatile boolean tropfenAn = true;
+    private static double[] tropfenPhase;
+    /** W9c Runde 2: die Fehler des Objektivs für die Teilbilder (sphärische Aberration, Längsfarbfehler) und die Blende. */
+    private com.dan.shutter.Aberration teilAberration;
+    private com.dan.shutter.Pupil teilPupille;
+    private int teilZahl;
+    /** W9c Runde 2: Lichter der Kino-Stufe als ganze Kreise (Schalter, -Dlituya.kinoLichter=false: als Punkte wie Runde 1). */
+    public volatile boolean kinoLichter = !"false".equals(System.getProperty("lituya.kinoLichter"));
+    /** W9c Runde 2: Licht (Sonnenkarten, Horizont) in der Kino-Stufe nur im ersten Teilbild (die Sonne wandert in 1/48 s 0,004°). */
+    private boolean teilLichtFertig;
+    /** W9c Runde 2: Zeit des letzten Filmbilds der Kino-Stufe (ms) und die Lichter im letzten Teilbild. */
+    public volatile double kinoMs;
+    public volatile int kinoLichterZahl = -1;
     private long kinoBildNr;
     private double szeneDt, bildSzeneDt;
     private double[] letzteVpN, letzteSonne;
@@ -874,6 +890,15 @@ public final class Renderer implements GLEventListener {
             System.err.println("LituyaBay1958: Wetter: " + e);
             wetter.an = false;
         }
+        // W9c Runde 2 (W7e): die Frontlinse im Regen (so viel, wie der Wind gegen das Objektiv treibt)
+        try {
+            com.dan.lituya.wiring.Wetter.Zustand wz2 = wetter.zustand();
+            double reg = wetter.an && wz2 != null && wz2.an() ? wz2.regen() : 0;
+            double wr = Math.toRadians(wiring.windFromDeg + 180);
+            linseNass.schritt(ds, reg, wiring.windSpeed, Math.sin(wr), -Math.cos(wr), camera.fwd);
+        } catch (RuntimeException e) {
+            System.err.println("LituyaBay1958: Linse: " + e);
+        }
         if (regieLief && !regie.running() && netzVorher != null) {   // danach den Netzblick wie vorher
             netzblick.bildImBild = (Boolean) netzVorher[0];
             netzblick.inSzene = (Boolean) netzVorher[1];
@@ -1329,6 +1354,7 @@ public final class Renderer implements GLEventListener {
         @Override public void regen(double mmH) { baecheRegenHand = Math.max(0, Math.min(BaecheGl.REGEN_MAX, mmH)); baeche.regen = Math.max(baeche.regen, baecheRegenHand); }
         @Override public void verschluss(double sekunden) { verschlussStellen(sekunden); }   // W7b, W9c: die Kamera und der Regen
         @Override public void umlaufblende(double grad) { verschluss.angleDeg = Math.max(0, Math.min(360, grad)); }   // W9c
+        @Override public void tropfen(String a) { linseNass.befehl(a); }   // W9c Runde 2 (W7e)
         @Override public void bildrate(double fps) { bildrateStellen(fps); }
         @Override public void objektiv(String a) { objektivStellen(a); }   // W9a
         @Override public void blende(double n) { objektiv.fNumber = n; objektivAn = true; }
@@ -1433,9 +1459,21 @@ public final class Renderer implements GLEventListener {
         teilPupilleM = o != null ? o.pupilMm() / 2000 : 0;
         com.dan.shutter.Pupil pu = o != null ? new com.dan.shutter.Pupil(objektiv.aperture.blades, objektiv.aperture.roundness, objektiv.aperture.rotationDeg,
                 Math.max(1, objektiv.squeeze)) : null;
+        // W9c Runde 2: sphärische Aberration und Längsfarbfehler aus den echten Strahlen des Objektivs (com.dan.lens)
+        teilPupille = pu;
+        teilAberration = null;
+        if (o != null && o.transverseMm() != null) {
+            double sMm = teilFokusM * 1000, v = o.efl() * sMm / Math.max(1, sMm - o.efl());
+            teilAberration = new com.dan.shutter.Aberration(o.transverseMm(), o.dzR(), o.dzB(), o.pupilMm(), v);
+            teilAberration.spherical = objektiv.sphericalAberration;
+            teilAberration.chromatic = objektiv.chromatic;
+        }
+        long kino0 = System.nanoTime();
+        teilLichtFertig = false;
         verschluss.fps = kameraBildrate;
         if (filmJetzt()) { verschluss.gateWidthMm = film.format.widthMm(); verschluss.gateHeightMm = film.format.heightMm(); }
         com.dan.shutter.SubFrames.Sample[] plan = com.dan.shutter.SubFrames.plan(verschluss, pu, teilbilder, ++kinoBildNr, true);
+        teilZahl = plan.length;
         double takt = Math.max(1e-4, belichtungsTakt), ts = takt * zeitmass();
         double[] rg = verschluss.openRange();
         boolean lief = szeneLaeuft;
@@ -1460,6 +1498,7 @@ public final class Renderer implements GLEventListener {
         if (rest > 0) schritt(0, rest, false);
         szeneDt = 0;
         int res = verschlussGl != null ? verschlussGl.resolve(gl, teilLetztes) : teilLetztes;
+        kinoLichterZahl = verschlussGl != null ? verschlussGl.lastLights : -1;
         boolean linse = false;
         if (linseAn && letzteVpN != null) {
             boolean dof = objektiv.depthOfField;
@@ -1478,6 +1517,7 @@ public final class Renderer implements GLEventListener {
         }
         gl.glBindVertexArray(emptyVao);
         nachbearbeitung(gl, res, w, h, linse);
+        kinoMs = (System.nanoTime() - kino0) / 1e6;
     }
 
     void renderFrame(GL4 gl, int w, int h) {
@@ -1530,9 +1570,13 @@ public final class Renderer implements GLEventListener {
         // W1: Himmel und Licht aus com.dan.sky (Sonne mit Strahlenbrechung), Horizontkarten, Rundumbild
         teil("Licht");
         try {
-            licht.vorbereiten(gl, clock, camera.eye, camera.fwd, fovy(), aspekt, exposureBias, letztesDt, frozen,
-                    this::stapelHoehe, land.stapel() != null);
-            licht.sonnenKarte(gl);
+            // W9c Runde 2: in der Kino-Stufe nur im ersten Teilbild (Sonnenkarten, Horizont; die Sonne wandert in 1/48 s 0,004°)
+            if (tb == null || !teilLichtFertig) {
+                licht.vorbereiten(gl, clock, camera.eye, camera.fwd, fovy(), aspekt, exposureBias, letztesDt, frozen,
+                        this::stapelHoehe, land.stapel() != null);
+                licht.sonnenKarte(gl);
+                if (tb != null) teilLichtFertig = true;
+            }
         } catch (RuntimeException e) {
             System.err.println("LituyaBay1958: Licht: " + e);
             licht.an = false;
@@ -1571,6 +1615,10 @@ public final class Renderer implements GLEventListener {
         letzteVP = vp;
         float[] inv = Mat4.invert(vp);
         try {
+            // W9c Runde 2 („Schwebe“): der Wald auf dem Grund, den das Gelände zeigt, und mit seiner Erdkrümmung
+            wald.rueckbau1958 = rueckbauJetzt && clock.zeitstand != SceneClock.Zeitstand.HEUTE;
+            com.dan.clipmap.Clipmap cmw = land.clipmap();
+            wald.kruemmung = cmw != null && cmw.curvatureRadius > 0 ? 1 / (2 * cmw.curvatureRadius) : 0;
             wald.vorbereiten(gl, clock);
         } catch (RuntimeException e) {
             System.err.println("LituyaBay1958: Wald: " + e);
@@ -1939,6 +1987,32 @@ teilEnde("Schleier");
                     sv.catEye = lo2.catEye();
                     sv.tanPerPx = objektiv.sensorHeightMm / h / lo2.efl() * lo2.fieldScale();
                     sv.fNumber = lo2.fNumber();
+                    // W9c Runde 2: Fehler des Objektivs je Farbe, Lichter als ganze Kreise
+                    double pitch = objektiv.sensorHeightMm / h;
+                    com.dan.shutter.Aberration ab = teilAberration;
+                    com.dan.shutter.Pupil pu = teilPupille;
+                    if (ab != null) {
+                        sv.shiftUv = ab.shiftUv(tb.u(), tb.v(), Math.max(1, objektiv.squeeze), pitch, w, h);
+                        sv.taBestPx = ab.taBestPx(pitch, pu != null ? pu.scale() : 1);
+                        sv.chromaRPx = ab.chromaticPx(0, pitch);
+                        sv.chromaBPx = ab.chromaticPx(2, pitch);
+                    }
+                    if (pu != null) {
+                        sv.blades = pu.blades;
+                        sv.roundness = pu.roundness;
+                        sv.rotationDeg = pu.rotationDeg;
+                        sv.pupilScale = pu.scale();
+                    }
+                    if (kinoLichter) {
+                        sv.lightThreshold = 2.0 / Math.max(1e-6, exposure() * auge.factor());
+                        sv.depthTexture = depthTex;
+                        sv.reversedZ = reversedZ;
+                        sv.near = NEAR;
+                        sv.far = FAR;
+                        sv.cocPxPerDiopter = teilPupilleM * lo2.efl() / pitch;
+                        sv.focusM = teilFokusM;
+                        sv.subframes = teilZahl;
+                    }
                 }
                 verschlussGl.add(gl, sv);
             } catch (RuntimeException e) {
@@ -2290,6 +2364,29 @@ teilEnde("Schleier");
      * die Sonne mit ihrer Bestrahlung (vorbelichtet) und dem Anteil durch die Wolken; ein Sprung der Kamera und das Standbild
      * stellen den Schärfezieher sofort. Der Regen bekommt dieselbe Pupille und denselben Fokus.
      */
+    /**
+     * W9c Runde 2: steht die Sonne über dem Gelände, vom Auge aus gesehen (0 oder 1, weich über 0,3°)? Für Tropfen auf der
+     * Linse, die die Sonne auch außerhalb des Bilds zum Leuchten bringt; im Bild prüft das Objektiv die Tiefe selbst.
+     */
+    double sonneFrei(double[] sd) {
+        double hz = Math.hypot(sd[0], sd[2]);
+        double alt = Math.atan2(sd[1], hz);
+        if (alt < -0.01) return 0;
+        double[] e = camera.eye;
+        double frei = 1;
+        for (double t = 20; t < 40_000; t *= 1.12) {
+            double x = e[0] + sd[0] / Math.max(1e-6, hz) * t, z = e[2] + sd[2] / Math.max(1e-6, hz) * t;
+            double g = groundHeight(x, z);
+            if (Double.isNaN(g)) continue;
+            double ray = e[1] + Math.tan(alt) * t;
+            // um 0,3° weich (die Scheibe der Sonne ist 0,53° groß)
+            double d = Math.atan2(ray - g, t);
+            frei = Math.min(frei, Math.max(0, Math.min(1, 0.5 + d / Math.toRadians(0.53))));
+            if (frei <= 0) return 0;
+        }
+        return frei;
+    }
+
     private int objektivBild(GL4 gl, int bild, int w, int h, double[] vpN, double[] sun) {
         com.dan.lens.Lens L = objektiv;
         L.focalMm = brennweiteJetzt();
@@ -2329,6 +2426,18 @@ teilEnde("Schleier");
         v.exposure = exposure() * auge.factor();
         v.dt = letztesDt;
         v.snap = sprung || frozen && !kino.laeuft();
+        // W9c Runde 2 (W7e): Tropfen auf der Frontlinse
+        float[] dg = tropfenAn ? linseNass.gitter(objektivGl.optics(), objektiv.sensorHeightMm, w / (double) h) : null;
+        v.dropCover = dg;
+        if (dg != null) {
+            if (tropfenPhase == null) tropfenPhase = linseNass.tropfen.phase(32);
+            v.dropW = LinseNass.GW;
+            v.dropH = LinseNass.GH;
+            v.dropPhase = tropfenPhase;
+            v.dropMaxRad = linseNass.tropfen.maxDeflection();
+            v.dropTransmit = linseNass.tropfen.transmitted();
+            v.dropSunVisible = v.sunDir != null ? sonneFrei(v.sunDir) : 0;
+        }
         int out = objektivGl.apply(gl, v);
         com.dan.lens.Lens.Optics o = objektivGl.optics();
         if (o != null) {
@@ -2622,7 +2731,7 @@ teilEnde("Schleier");
                 (licht.aktiv() ? String.format(Locale.GERMAN, "Vorbelichtung %.3g · %s · %s · Zeitraffer %.0f×", licht.pre(), auge, licht.status(), clock.lapse)
                         : String.format(Locale.GERMAN, "Belichtung %.2g (Platzhalter-Himmel, Licht aus) · Zeitraffer %.0f×", exposure(), clock.lapse)),
                 wiring.zeile(),
-                wetterGl.info(),
+                wetterGl.info() + (linseNass.nass() ? " · " + linseNass.zeile() : ""),
                 physik.describe(),
                 land.zeile(),
                 netzblick.info(),

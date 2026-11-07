@@ -63,6 +63,21 @@ public final class WaldGl {
 
     /** Wald zeigen, Band auf die Belege gezogen (sonst rein gerechnet), Treibgut zeigen. */
     public volatile boolean an = true, gezogen = true, treibgut = true;
+    /**
+     * W9c Runde 2 („Schwebe“): ob das Gelände gerade den Rückbau des Gilbert Inlet 1958 zeigt (vom Renderer je Bild, wie
+     * {@code uRueckbauAn}). Dann steht der Wald im Rechteck und seinem Saum auf {@link com.dan.lituya.scene.Boden1958#rueckbauBild};
+     * vorher stand er dort auf dem Grund von heute und schwebte am Rand des Rückbaus bis 14 m über dem Hang.
+     */
+    public volatile boolean rueckbau1958;
+    /** W9c Runde 2: Erdkrümmung 1/(2R') wie die Clipmap (vom Renderer je Bild; 0 = flach). */
+    public volatile double kruemmung;
+    /**
+     * W9c Runde 2: kein Baum auf einem Grund unter so vielen Metern (über NAVD88). Die Dichte wird zwischen ihren Zellen
+     * (11,7 m) gemittelt; so standen am Ufer und am Rand des Rückbaus Bäume eine Zelle weit auf Grund im Wasser. 1 m wie
+     * die Regel für Wald aus der Kronenhöhe in {@link Wald1958#dichte(double, double, double[])}.
+     */
+    public static final double MIN_GRUND = 1.0;
+    private boolean grundRb;
     private volatile ForestGpu.Quality stufe = ForestGpu.Quality.MEDIUM;
     private volatile String status = "Wald: wird gerechnet …";
 
@@ -96,6 +111,84 @@ public final class WaldGl {
         float[] sperre;           // Runde 6: Höhe, bis zu der der stehende Wald Sicht sperrt (m über Grund), 20-m-Raster
         long maskeZellen = -1;    // W6 Runde 3: Zellen mit Wald, die Schnee oder Eis (überwiegend) wegnimmt
         com.dan.tree.gl.TreeGl erlen;   // W6 Runde 3: Roterle aus der Nähe (Schwarzerle aus Nature, com.dan.tree)
+        // W9c Runde 2: der Grund im Rechteck des Rückbaus und seinem Saum (Zellen i0, j0, Breite, Höhe des Geländegitters),
+        // heute und 1958 (Boden1958.rueckbauBild); im Bild 1958 liegt rb1958 im Gitter, sonst rbHeute
+        int rbI0, rbJ0, rbW, rbH;
+        // W9c Runde 2: Höhe des Kronendachs je Zelle des Dichtegitters (0,25 m je Stufe; 0 im Band 1958, im Wasser, ohne Wert)
+        byte[] kroneHoch;
+        float[] rbHeute, rb1958;
+        double[] rbRect;          // Szene x0, z0, x1, z1
+    }
+
+    /**
+     * W9c Runde 2 („Schwebe“): seit das Gelände auf dem Lidar liegt (Schritt angleich), liegt es auch fern auf dem Boden, und
+     * das Kronendach hinter den Einzelbäumen (gelaende.frag, nur Farbe) lag 20–25 m zu tief: Vorher stand dort das IfSAR-
+     * Gelände, das unter dichtem Wald etwa in halber Kronenhöhe liegt. Jetzt hebt gelaende.vert das Gelände, wo die Bäume enden,
+     * um die Kronenhöhe ({@link Wald1958#krone}, ArcticDEM − Gelände), so weit der Wald dicht ist. Nicht im Band der Welle
+     * 1958 (dort wechseln Altbestand, Kahlschlag und Nachwuchs mit der Uhr) und nicht im Wasser.
+     */
+    static byte[] kroneHoch(Wald1958 w) {
+        int n = N_DICHTE;
+        byte[] b = new byte[n * n];
+        if (w.krone == null) return b;
+        java.util.stream.IntStream.range(0, n).parallel().forEach(j -> {
+            for (int i = 0; i < n; i++) {
+                double x = X0 + (i + 0.5) * KANTE / n, z = Z0 + (j + 0.5) * KANTE / n;
+                double c = w.krone(x, z);
+                if (!(c > 2) || w.imBand(x, z)) continue;
+                b[j * n + i] = (byte) Math.round(Math.min(255, c / KRONE_STUFE));
+            }
+        });
+        return b;
+    }
+
+    /** W9c Runde 2: Meter je Stufe der Kronenhöhe im Alpha der Textur (bis 63,75 m). */
+    static final double KRONE_STUFE = 0.25;
+    /** W9c Runde 2: das Kronendach fern als Fläche (Schalter). */
+    public volatile boolean kronendachHoch = !Boolean.getBoolean("lituya.kronendachFlach");
+
+    /** W9c Runde 2: der Grund 1958 im Rechteck des Rückbaus (± Saum) für das Geländegitter g. */
+    static void rueckbauGrund(Daten x, ForestCulture.Grid g) {
+        double m = com.dan.lituya.scene.Boden1958.BILD_UFER + 2 * g.size / g.n;
+        double[] a = Site.fromUtm(com.dan.lituya.scene.Boden1958.RUECKBAU_E0 - m, com.dan.lituya.scene.Boden1958.RUECKBAU_N1 + m),
+                b = Site.fromUtm(com.dan.lituya.scene.Boden1958.RUECKBAU_E1 + m, com.dan.lituya.scene.Boden1958.RUECKBAU_N0 - m);
+        double c = g.size / g.n;
+        int i0 = Math.max(0, (int) Math.floor((a[0] - g.x0) / c)), i1 = Math.min(g.n, (int) Math.ceil((b[0] - g.x0) / c));
+        int j0 = Math.max(0, (int) Math.floor((a[1] - g.z0) / c)), j1 = Math.min(g.n, (int) Math.ceil((b[1] - g.z0) / c));
+        if (i0 >= i1 || j0 >= j1) return;
+        int w = i1 - i0, h = j1 - j0;
+        float[] heute = new float[w * h], r58 = new float[w * h];
+        long anders = 0;
+        double maxD = 0;
+        for (int j = 0; j < h; j++)
+            for (int i = 0; i < w; i++) {
+                float v = g.v[(j0 + j) * g.n + i0 + i];
+                double xs = g.x0 + (i0 + i + 0.5) * c, zs = g.z0 + (j0 + j + 0.5) * c;
+                double[] u = Site.toUtm(xs, zs);
+                double r = com.dan.lituya.scene.Boden1958.rueckbauBild(u[0], u[1], v);
+                float v58 = (float) Math.max(0, Double.isNaN(r) ? v : r);
+                heute[j * w + i] = v;
+                r58[j * w + i] = v58;
+                if (v58 != v) { anders++; maxD = Math.max(maxD, v - v58); }
+            }
+        x.rbI0 = i0; x.rbJ0 = j0; x.rbW = w; x.rbH = h;
+        x.rbHeute = heute; x.rb1958 = r58;
+        x.rbRect = new double[]{g.x0 + i0 * c, g.z0 + j0 * c, g.x0 + i1 * c, g.z0 + j1 * c};
+        System.out.printf(Locale.GERMAN, "LituyaBay1958: Wald: Grund 1958 im Rückbau für %,d von %,d Zellen (bis %.0f m tiefer)%n", anders, (long) w * h, maxD);
+    }
+
+    /** W9c Runde 2: legt den Grund heute oder 1958 ins Gitter (und meldet das Rechteck an forest). */
+    private void grundSetzen(boolean r58) {
+        Daten x = d;
+        if (x == null || x.rb1958 == null || forest == null) return;
+        ForestCulture.Grid g = x.gelaende;
+        float[] q = r58 ? x.rb1958 : x.rbHeute;
+        for (int j = 0; j < x.rbH; j++) System.arraycopy(q, j * x.rbW, g.v, (x.rbJ0 + j) * g.n + x.rbI0, x.rbW);
+        forest.terrainChanged(x.rbRect[0], x.rbRect[1], x.rbRect[2], x.rbRect[3]);
+        grundRb = r58;
+        erlenAuge = null;    // die nahen Erlen neu auf den Grund
+        zustandNeu = true;
+        updateNoetig = true;
     }
 
     /** Runde 6: Raster der Sichtsperre durch den Wald (Szene, Ecke Nordwest, Zelle, Breite, Höhe). */
@@ -256,6 +349,7 @@ public final class WaldGl {
             }
             x.states = new TreeStates(Wald1958.ABSTAND, su.i0, su.j0, su.w, su.h);
             x.gelaende = new ForestCulture.Grid(X0, Z0, KANTE, N_GELAENDE, 1, x.wald.grundGitter(X0, Z0, KANTE, N_GELAENDE));
+            rueckbauGrund(x, x.gelaende);   // W9c Runde 2
             float[] dg = x.wald.dichteGitter(X0, Z0, KANTE, N_DICHTE);
             // W6 Runde 3: kein Wald auf Schnee und Eis aus Sentinel-2 (im Flug standen am Rand des Walds einzelne Bäume auf Schnee)
             float[] maske = mitSchneeMaske ? LandschaftGl.waldMaske(daten, X0, Z0, KANTE, N_DICHTE) : null;
@@ -269,6 +363,7 @@ public final class WaldGl {
                 x.maskeZellen = weg;
             }
             x.dichte = new ForestCulture.Grid(X0, Z0, KANTE, N_DICHTE, 3, dg);
+            x.kroneHoch = kroneHoch(x.wald);   // W9c Runde 2
             treibgutLesen(new File(daten, "ereignis/treibgut"), x);
             x.sperre = sperreRechnen(x.wald);
             try {
@@ -346,6 +441,7 @@ public final class WaldGl {
                 forest.shootLight = triebe;         // W6 Runde 5: Nadeln als Triebe beleuchtet (Renderer)
                 nah(forest);
                 forest.setTerrain(d.gelaende);
+                grundRb = false;    // W9c Runde 2: das Gitter zeigt zuerst den Grund heute
                 forest.setDensity(d.dichte);
                 forest.setStates(d.states);
                 forest.init(gl);
@@ -381,6 +477,11 @@ public final class WaldGl {
             aufbauen(daten);
         }
         if (d == null || forest == null) return;
+        // W9c Runde 2 („Schwebe“): der Grund wie im Bild (1958 mit Rückbau), kein Wald im Wasser, Erdkrümmung
+        boolean rb = rueckbau1958;
+        if (rb != grundRb) grundSetzen(rb);
+        forest.minGround = MIN_GRUND;
+        forest.curvature = kruemmung;
         int day = clock.local().getDayOfYear();
         if (day != tag) { forest.setSeason(day, 0); tag = day; zustandNeu = true; updateNoetig = true; }
         // W6 (L8): Wind im Wald aus der Verdrahtung (vorher stand der Wald still; forest bewegt Äste und Laub im Shader)
@@ -541,7 +642,7 @@ public final class WaldGl {
         for (int j = 0; j < n; j++)
             for (int i = 0; i < n; i++) {
                 for (int s = 0; s < 3; s++) b.put((byte) (s < L ? Math.round(Math.max(0, Math.min(1, g.v[(s * n + j) * n + i])) * 255) : 0));
-                b.put((byte) 255);
+                b.put(d.kroneHoch != null ? d.kroneHoch[j * n + i] : 0);   // W9c Runde 2: Höhe des Kronendachs
             }
         b.flip();
         gl.glBindTexture(GL.GL_TEXTURE_2D, kroneTex);
@@ -581,6 +682,9 @@ public final class WaldGl {
             gl.glUniform4f(gl.glGetUniformLocation(p, "uKroneRect"), (float) X0, (float) Z0, (float) KANTE, (float) KANTE);
             gl.glUniform2f(gl.glGetUniformLocation(p, "uKroneAb"), (float) (forest.radius * forest.thinFrom), (float) forest.radius);
         }
+        // W9c Runde 2: das Kronendach fern als Fläche (gelaende.vert), Meter je Einheit des Alphas
+        int lh = gl.glGetUniformLocation(p, "uKroneHoch");
+        if (lh >= 0) gl.glUniform2f(lh, kr && kronendachHoch ? (float) (255 * KRONE_STUFE) : 0f, (float) (KANTE / N_DICHTE));
         boolean on = an && d != null && bodenJahr >= 0;
         gl.glUniform1i(gl.glGetUniformLocation(p, "uBandAn"), on ? 1 : 0);
         // W6: Jahre nach 1958 (die Aufnahme aus Sentinel-2 zeigt das Band, wie es 2020–2023 aussah)

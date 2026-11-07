@@ -2,7 +2,7 @@
 
 **Die Welle. Die Bucht. Das Bild.** Das dritte Werkbuch des Projekts. Es hat nur einen Zweck: Aus den vorhandenen Daten, dem vorhandenen Renderer und dem Projekt Nature ein scharfes Bild, eine echte Welle mit großen Effekten, Wetter und eine Landschaft machen, die man nicht vergisst.
 
-> **Stand: 07.11.2026, 14:30. WF36–WF42: alle A. Fragen WF1–WF14: alle A, WF15: B, WF30–WF35: alle A, WF16: A, WF17: alle Punkte („Los!“), WF18: A und B zusammen, beides auch in `Renderer.jar`, WF19: A (Augenanpassung), WF20: A (unter Wasser fest, ins Helle nicht dunkler), WF21–WF24: alle A, WF29: A. W6 Runde 2 committet; W6 Runden 3 bis 8 und W7 (Runden 1 bis 1e) gebaut, warten auf deine Abnahme. **Abschnitt 5b „Wetter groß“ (dein Auftrag vom 07.11.) mit den Phasen W7b–W7h. W7 ist beendet (07.11.): W7b „Regen“ in den Runden 1 bis 6 gebaut (neu `com.dan.precip` in `Renderer.jar`), zuletzt mit WF29 A die Lage „Stiller Regen“; die offenen Punkte der Bucht (5b.4) gehen nach W8, für W9 ist das wegklappende Bedienfeld vorgemerkt. WF25–WF29 nach A gebaut (WF27 genauer als versprochen: spektral statt iWave).** **W8 „Die Bucht“ begonnen (07.11.): Abschnitt 5c mit den Phasen W8a–W8h und den Fragen WF30–WF35; W8a Runde 1 „Spiegel und Kutter“ auf der Radeon gerechnet (W8AP1, W8A1: ein Spiegel, keine Kante, der Kutter im Bild und im Wasser). WF30–WF35: alle A. W8b Runde 1 „Bedeckter Himmel“ auf der Radeon gerechnet (W8BP1, W8B1: die Kette steht im Wasser). W8b Runde 2 „Regen fertig“ gebaut und auf der Radeon gerechnet (W8BP2, W8B2).** **W9 „Kino“ begonnen (07.11., 11:27, dein Auftrag vor W8c): Abschnitt 5d mit den Phasen W9a–W9h und den Fragen WF36–WF42; W9a Runde 1 „Das Objektiv“ gebaut (neu `com.dan.lens` in `Renderer.jar`: ein Doppel-Gauß mit 10 Glasflächen rechnet Tiefenschärfe, Bokeh mit Katzenauge, Farbsäume, Fokusatmung, Verzeichnung, Randabfall, 45 Geisterbilder und den Stern der Sonne; Block KAMERA; das Bedienfeld gleitet weg, F9), auf der Radeon gerechnet (W9AP1, W9A1). WF36–WF42: alle A. W9a Runde 2 „Drei Objektive“ (Weitwinkel nach Nakamura und Tele 250 mm zum Doppel-Gauß, Lichter vereinzelt, Schleierlicht schwächer, Tabellen im Hintergrund) und W9b Runde 1 „Der Film“ gebaut (neu `com.dan.film` in `Renderer.jar`: Negativ und Kopie mit Kurven je Schicht, 1958 Eastman Color 5248 auf 5382 in CinemaScope, heute Vision3 250D und 500T auf 2383, Kopierlicht, Korn nach Selwyn, Halation aus dem Träger, Bildstand, Flackern, verblassende Kopien), auf der Radeon gerechnet (W9AP2, W9BP1, W9B1). Lesbarkeit_W09 behoben (gemalte Zeichen in den Knöpfen). W9c Runde 1 „Die Belichtung“ gebaut (neu `com.dan.shutter` in `Renderer.jar`: Umlaufblende mit Öffnungsgang, die Kino-Stufe aus Teilbildern über Zeit, Pupille und Bildpunkt, Bewegungsunschärfe in Echtzeit, Zeitlupe als Bildrate der Kamera; Objektiv und Film schneller), wartet auf die Radeon (`w9c_runde1.cmd`).** Zeiten „im Fluss“ (wie im Programm), Zeitvergleiche nur im selben Lauf.**
+> **Stand: 07.11.2026, 16:30. WF36–WF42: alle A. Fragen WF1–WF14: alle A, WF15: B, WF30–WF35: alle A, WF16: A, WF17: alle Punkte („Los!“), WF18: A und B zusammen, beides auch in `Renderer.jar`, WF19: A (Augenanpassung), WF20: A (unter Wasser fest, ins Helle nicht dunkler), WF21–WF24: alle A, WF29: A. W6 Runde 2 committet; W6 Runden 3 bis 8 und W7 (Runden 1 bis 1e) gebaut, warten auf deine Abnahme. **Abschnitt 5b „Wetter groß“ (dein Auftrag vom 07.11.) mit den Phasen W7b–W7h. W7 ist beendet (07.11.): W7b „Regen“ in den Runden 1 bis 6 gebaut (neu `com.dan.precip` in `Renderer.jar`), zuletzt mit WF29 A die Lage „Stiller Regen“; die offenen Punkte der Bucht (5b.4) gehen nach W8, für W9 ist das wegklappende Bedienfeld vorgemerkt. WF25–WF29 nach A gebaut (WF27 genauer als versprochen: spektral statt iWave).** **W8 „Die Bucht“ begonnen (07.11.): Abschnitt 5c mit den Phasen W8a–W8h und den Fragen WF30–WF35; W8a Runde 1 „Spiegel und Kutter“ auf der Radeon gerechnet (W8AP1, W8A1: ein Spiegel, keine Kante, der Kutter im Bild und im Wasser). WF30–WF35: alle A. W8b Runde 1 „Bedeckter Himmel“ auf der Radeon gerechnet (W8BP1, W8B1: die Kette steht im Wasser). W8b Runde 2 „Regen fertig“ gebaut und auf der Radeon gerechnet (W8BP2, W8B2).** **W9 „Kino“ begonnen (07.11., 11:27, dein Auftrag vor W8c): Abschnitt 5d mit den Phasen W9a–W9h und den Fragen WF36–WF42; W9a Runde 1 „Das Objektiv“ gebaut (neu `com.dan.lens` in `Renderer.jar`: ein Doppel-Gauß mit 10 Glasflächen rechnet Tiefenschärfe, Bokeh mit Katzenauge, Farbsäume, Fokusatmung, Verzeichnung, Randabfall, 45 Geisterbilder und den Stern der Sonne; Block KAMERA; das Bedienfeld gleitet weg, F9), auf der Radeon gerechnet (W9AP1, W9A1). WF36–WF42: alle A. W9a Runde 2 „Drei Objektive“ (Weitwinkel nach Nakamura und Tele 250 mm zum Doppel-Gauß, Lichter vereinzelt, Schleierlicht schwächer, Tabellen im Hintergrund) und W9b Runde 1 „Der Film“ gebaut (neu `com.dan.film` in `Renderer.jar`: Negativ und Kopie mit Kurven je Schicht, 1958 Eastman Color 5248 auf 5382 in CinemaScope, heute Vision3 250D und 500T auf 2383, Kopierlicht, Korn nach Selwyn, Halation aus dem Träger, Bildstand, Flackern, verblassende Kopien), auf der Radeon gerechnet (W9AP2, W9BP1, W9B1). Lesbarkeit_W09 behoben (gemalte Zeichen in den Knöpfen). W9c Runde 1 „Die Belichtung“ gebaut (neu `com.dan.shutter` in `Renderer.jar`: Umlaufblende mit Öffnungsgang, die Kino-Stufe aus Teilbildern über Zeit, Pupille und Bildpunkt, Bewegungsunschärfe in Echtzeit, Zeitlupe als Bildrate der Kamera; Objektiv und Film schneller), wartet auf die Radeon (`w9c_runde1.cmd`).** Zeiten „im Fluss“ (wie im Programm), Zeitvergleiche nur im selben Lauf.**
 > Neu in W0: Abschnitt 2b „Was nie gebaut wurde“ (das strukturelle Problem), die Versprechensliste (2b.2), K8–K10, Fortschritt (12).
 > Neu am 04.11.: deine Rückmeldung mit den Bildern in `docs/wahrHeeldenbilder` (Abschnitt 2a: Ursachen für Brei und Korn), W0 wird „Scharf“, Wetter als eigenes Kapitel und eigene Phase (Abschnitt 5a, W7), Bäume und Böden aus dem Projekt Nature (Abschnitt 3), Heldenbild H9.
 > Artefakt: „LituyaBay1958 Werkbuch Welle“. Diese Datei ist die Quelle.
@@ -147,7 +147,7 @@ Deine Rückmeldung vom 04.11.: „Die Aufnahmen waren exemplarisch, um ein struk
 | V2 | Schatten der Kette und des Walds | `gelaende.frag` | W1 | **im Bild seit W1** (Horizontkarten; Schatten einzelner Bäume aufeinander noch nicht) |
 | V3 | Wasser aus `ocean`, Spiegelung, Gletschermilch | `meer.frag` | W2 | **im Bild seit W2** (`gl/MeerGl`, H1); unter Wasser und mit Marken weiter `meer.frag`; Welle selbst noch `welle.frag` (W4) |
 | V4 | Texturen aufs Gelände, Farbe aus Sentinel-2 | `gelaende.frag`, `daten/texturen` | W6 | **im Bild seit W6:** Farbe aus Sentinel-2 (Juli 2023/2020, 10 m im Kern, 20 m in der Szene) ohne das Licht der Aufnahme, auf allen Hängen der Szene; Fels mit Schichtung und Klüften aus `cliff`; Grate, Rinnen und Kare aus dem 5-m-Gelände für die Ferne. Die gebackenen Texturen aus `surface` bleiben im Band und auf der Abrissfläche (V14) |
-| V5 | Wetter: Lagen, Übergänge, Wind, Regen im Bild | Block WETTER, `Wiring` | W7 | **im Bild seit W7 (teils):** sechs Lagen (1958 klar nach den Zeugen, heute frei), ein Zustand für alles (`wiring/Wetter` über `com.dan.weather`), Übergänge in Minuten, Wolken am Gelände (Bank, Kappe, Quellwolken, Lücken im Lee, Schatten), Seenebel, der durch den Eingang vorstößt, Regen mit Streifen, Vorhängen und Ringen, Nässe, Abfluss in die Bäche, Wind in Wasser, Wald und Fällen, Befehl `wetter`, Clip „Wetterwechsel“. Offen: Tropfen auf der Linse, Brecher an der Barre, Neuschnee, ferne Regenvorhänge (5a.3) |
+| V5 | Wetter: Lagen, Übergänge, Wind, Regen im Bild | Block WETTER, `Wiring` | W7 | **im Bild seit W7 (teils):** sechs Lagen (1958 klar nach den Zeugen, heute frei), ein Zustand für alles (`wiring/Wetter` über `com.dan.weather`), Übergänge in Minuten, Wolken am Gelände (Bank, Kappe, Quellwolken, Lücken im Lee, Schatten), Seenebel, der durch den Eingang vorstößt, Regen mit Streifen, Vorhängen und Ringen, Nässe, Abfluss in die Bäche, Wind in Wasser, Wald und Fällen, Befehl `wetter`, Clip „Wetterwechsel“. Tropfen auf der Linse seit W9c Runde 2. Offen: Brecher an der Barre, Neuschnee, ferne Regenvorhänge (5a.3) |
 | V6 | Staub mit Licht (oben in der Sonne, unten blau) | `medien.frag`, Befund 13b „heller Schleier mit harter Unterkante“ | W3 | **im Bild seit W3c:** dazu die Staubfahne nach WF15 B bis rund 1 200 m [G], oben warm im Licht des Abendhimmels, unten blaugrau. Ehrlich: direkte Sonne bekommt sie im Inlet nicht (die Kette im Nordwesten schattet bis weit über 1 200 m); das Glühen kommt vom hellen Himmel über der Kimm |
 | V7 | Welle mit Form (Lippe, Durchlicht, Weißwasser) | `welle.frag` (K5) | W4 | **im Bild seit W4:** die Front aufgesteilt zur Wand [G], Lippe als Vorlauf des Kamms, Walze, Schaumfahnen und Kamm, Schaumteppich dahinter, Stämme in der Walze, Durchlicht im dünnen Kamm. Seit W4b: die Lippe als eigenes Netz längs der Front (`gl/LippeGl`, Querschnitt über Krone, Lippe, Spitze und Vorhang bis ins Wasser), Kammgischt als Wolke über der Krone [G]. Seit Runde 2 ohne Lücken, rund (15 Punkte, Bézier-Kurve), in Abschnitten offen (Röhre) oder geschlossen (Vorhang). Seit Runde 4: der Vorhang als eigener Streifen, der sich aus Strängen bildet; Einrollen nach einer Phase [G]; Tropfen von der Spitze und Spritzer am Fuß des Vorhangs als Punkte. Offen: Vorhang als Volumen, Teilchen aus `spray`, die Lippe von der Seite im Bild |
 | V8 | Unterwuchs, Gletscher, Geröll | 6a | W6 | **teils seit W6:** Gletscher mit Spalten (Querspalten längs der Höhenlinien der Eisoberfläche, Seracs im Eisfall [G]), blankes Eis unter der Schneegrenze, Schnee mit Form; Gebüsch als Klumpen [G]. Offen: Unterwuchs und Geröll als eigene Körper in der Nähe (mit 5.1, Nature) |
@@ -477,7 +477,7 @@ Dein Auftrag (07.11.2026, 11:27): „W9 Kino. Für W9 in Werkbuch zurückgestell
 |---|---|---|---|
 | **W9a** · Runden 1 und 2 auf der Radeon 07.11. | Das Objektiv | Tiefenschärfe mit Bokeh in der Form der Blende, das Katzenauge zum Rand, hinter dem Fokus helle Ränder und davor ein weicher Kern, Farbsäume, Fokusatmung, Verzeichnung, Randabfall, 45 Geisterbilder der Sonne in den Farben der Vergütung, ihr Stern aus den Kanten der Lamellen; ein Schärfezieher mit Trägheit; der Regen mit derselben Linse; das Bedienfeld gleitet weg; ab Runde 2 drei Schnitte nach der Brennweite (WF41 A) | neu `com.dan.lens` |
 | **W9b** · Runde 1 auf der Radeon 07.11. | Der Film | Negativ, Kopie, Projektion: Kennlinien je Schicht, Lichtbestimmung mit Kopierlicht in Punkten je Zeitstand (1958 warm und weich, heute kühl), Korn aus Kristallen nach Selwyn (σ_D·√A fest, in der Dichte, darum in Mitten und Schatten), Halation (rote Höfe aus dem Träger, Halbmesser aus Dicke und Grenzwinkel), Bildstand, Flackern; ersetzt im Kino die ACES-Kurve | neu `com.dan.film` |
-| **W9c** · Runde 1 gebaut 07.11. | Die Belichtung | die Kino-Stufe: jedes Filmbild aus 16 bis 256 Teilbildern über die Umlaufblende (180°, mit Öffnungsgang), über die Pupille (echte Tiefenschärfe auch für Gischt, Nebel, Staub und Regen) und über den Bildpunkt; Bewegungsunschärfe in Echtzeit; Hochgeschwindigkeit als echte Bildrate (Zeitlupe 1/8 am Einschlag); Tropfen auf der Linse (W7e) | `lens`, `film`, `kino`, `wetglass` |
+| **W9c** · Runden 1 und 2 gebaut 07.11. | Die Belichtung | die Kino-Stufe: jedes Filmbild aus 16 bis 256 Teilbildern über die Umlaufblende (180°, mit Öffnungsgang), über die Pupille (echte Tiefenschärfe auch für Gischt, Nebel, Staub und Regen) und über den Bildpunkt; Bewegungsunschärfe in Echtzeit; Hochgeschwindigkeit als echte Bildrate (Zeitlupe 1/8 am Einschlag); Tropfen auf der Linse (W7e) | `lens`, `film`, `kino`, `wetglass` |
 | **W9d** | Die Führung | Kamerabahnen (zentripetale Catmull-Rom, nach der Bogenlänge, kleinster Ruck), Hubschrauber mit Querneigung in der Kurve (tan φ = v²/(g·r)), Kran, Dolly, Steadicam (Pendel mit Feder), Hand (Zittern, Atem, Schritt), Boot (die Kamera an Deck rollt und stampft mit der Edrie); der Schärfezieher folgt einem Ziel | neu `com.dan.rig` |
 | **W9e** | Der Ton | Schall mit Laufzeit (343 m/s: das Grollen kommt Sekunden nach dem Bild), Luftdämpfung nach ISO 9613-1, Doppler im Flug, Echo der Fjordwände aus Spiegelquellen am Gelände, J- und L-Schnitt, Lautheit nach EBU R 128 | `soundscape` |
 | **W9f** | Startflug | 20 s von See über die Barre, an Cenotaph vorbei zum Gilbert Inlet (6.2), mit Hubschrauber, Objektiv und Film | `rig`, `kino` |
@@ -750,6 +750,146 @@ Dein Auftrag (07.11.2026, 11:27): „W9 Kino. Für W9 in Werkbuch zurückgestell
 
 **Weiter nach WF36 A:** W9c Runde 2 (Tropfen auf der Linse, dazu was die Abnahme zeigt), dann W9d „Die Führung“.
 
+### 5d.7 W9c auf der Radeon, Runde 2 „Schwebe, Lichter, Tropfen“ (07.11.2026)
+
+**Auftrag:** „docs/status Schwebe_W09C.png bitte fixen. Bäume schweben. Noch offen: Rechenzeit … Kleine Lichter … Bokeh in der Kino-Stufe: Sphärische Aberration und Längsfarbfehler fehlen dort. Tropfen auf der Linse (W7e) … kommen in W9c Runde 2. Los!“
+
+**Danach siehst du:**
+- Die Bäume stehen auf dem Boden, nah wie fern, heute und 1958.
+- Das Gelände hebt und senkt sich nicht mehr, wenn man näher kommt.
+- Der Wald fern hat wieder seine Höhe.
+- In der Kino-Stufe:
+  - Das Ankerlicht und die Lichter der Kette werden glatte Kreise statt körniger Punkte, in der Form der Blende.
+  - Vor der Schärfe haben die Kreise einen hellen Rand, hinter ihr eine helle Mitte (sphärische Aberration).
+  - Die Kreise haben purpurne und grüne Säume (Längsfarbfehler).
+  - Bei offener Blende glüht das Scharfe leicht.
+  - 32 Teilbilder reichen, wo vorher 64 körnig waren.
+- Im Regen liegen Tropfen auf der Frontlinse:
+  - beim Tele als gleichmäßiger Schleier,
+  - beim Weitwinkel als einzelne weiche Flecken,
+  - in der Sonne leuchten sie, auch wenn die Sonne neben dem Bild steht.
+
+#### Befund W9c Runde 1 auf der Radeon (`_transfer/w9/w9c_runde1_log.txt`, `W9CP1`)
+
+| Was | gemessen |
+|---|---|
+| Kino-Stufe je Filmbild | 921 (H1, 64 Teilbilder): 1 381 ms (21,6 ms je Teilbild) · 922 (Regen, 64): 3 049 ms (47,6) · 924 (Schwenk, 48): 1 214 ms · 925 (Sturz, 48): 969 ms · 926 und 927 (Vorhang, 48): 1 482 und 1 488 ms · 928 (Ankerlicht, 128): 4 044 ms (31,6). Die Schätzung „rund 2 s“ trifft: **1 bis 3 s je Filmbild** bei 48–64 Teilbildern; 90 s Film mit 64 Teilbildern rund 50 bis 120 min |
+| Ein Teilbild | so teuer wie die Szene ohne Objektiv, Film und Bewegung (H1: 26,5 ms im Fluss, davon Objektiv 3,9, Film 2,2, Bewegung 1,8) |
+| Objektiv und Film schneller (Runde 1) | 901: 45,3 → 33,3 ms · 905: 55,7 → 47,6 · 911: 31,9 → 25,5 · 915: 49,0 → 38,3 · 904 gleich (30,1 → 29,9); offen 5 aus Runde 1 erledigt |
+| FilmCheck | auf der Radeon 2 von 26 FEHLER (Gipfel der Halation bei 1,46 r_c, jenseits 2 r_c 32,2 %), hier 26 von 26. Ursache: `ant` übersetzt nur geänderte Quellen; `javac` schreibt Konstanten (`HALATION_REACH` …) in `FilmCheck.class`, das darum alt blieb. **Runde 2 baut den Renderer sauber** (`ant clean jar`) |
+| Schwebe (`docs/status/Schwebe_W09C.png`) | siehe unten |
+
+#### Die schwebenden Bäume: Ursache gemessen
+
+| Was | Befund |
+|---|---|
+| Das nahe Gelände | Die Clipmap nimmt für eine Stufe die gröbste Quelle, die noch feiner ist (`TileStack`): Stufen 0,5 bis 4 m (bis rund 380 m um das Auge) aus dem **Kern = Lidar 2019**, ab 8 m aus der **Szene = IfSAR 2012** |
+| Der Wald | stand auf der Szene (`Wald1958.grundGitter` über `Boden1958`) |
+| IfSAR gegen Lidar | Unter dichtem Wald sieht das Radar nicht bis zum Boden (in 14a bei der Kronenhöhe schon vermerkt). Gemessen über alle 432 Kacheln des Kerns, je 5-m-Zelle (Mittel von 10 × 10 Lidar-Zellen): auf 130 km² Wald liegt IfSAR im **Median 4,9 m** über dem Lidar, zu 25 % mehr als 12 m, zu 5 % mehr als 23 m, auf den Vorländern außen am meisten (am Ort der Probe 938 im Median 24 m, Kronenhöhe dort 17,8 m: IfSAR liegt in halber Krone). An steilen Hängen innen liegt es auch tiefer (Schatten des Radars). Karte: `_transfer/w9/schwebe_lidar_ifsar.png` (rot: Bäume schwebten, blau: sie sanken) |
+| Folge | Nah standen die Bäume auf IfSAR über dem Lidar-Boden – sie schwebten, im Bild umso höher, je näher. Fern lag auch das Gelände auf IfSAR, dort passten sie. Die Bäche (Höhen aus dem 5-m-Stapel) schwebten ebenso, und das Gelände selbst hob und senkte sich um diese Meter, wenn eine Stelle von der 8-m- in die 4-m-Stufe kam. Die Naht am Rand des Kerns maß schon in Phase 2 im 95-%-Wert 16,5 m (`STUFE.txt`) |
+| Zweiter Fehler, 1958 | Im Rückbau des Gilbert Inlet (W3c) senkt das Gelände den Grund weich; der Wald blieb bis zu einem Gewicht von 0,04 stehen, aber auf dem Grund von heute: am Rand des Rückbaus bis 7,8 m (innen) und 14,5 m (Saum außen) über dem Hang, auf rund 0,035 km² (`_transfer/w9/schwebe_karte.png`). Dazu reichte die gemittelte Dichte eine Zelle (11,7 m) weit ins Wasser |
+
+#### Was gebaut ist
+
+**Die Daten (`tools/Angleich`, neuer Schritt `angleich` der Aufbereitung, läuft nach jedem `gelaende`):**
+
+| Was | Wie |
+|---|---|
+| Szene im Kern | jede 5-m-Zelle = Mittel der 10 × 10 Zellen des Kerns (mindestens die Hälfte mit Wert) |
+| Szene außerhalb | das Lidar als erste Quelle (`Gelaende`, vor IfSAR); an der Grenze des Kerns keine neue Stufe |
+| Fern in der Szene | jede 30-m-Zelle = Mittel ihrer 6 × 6 Szenezellen |
+| Ergebnis | Jede Stufe der Clipmap zeigt dasselbe Gelände, nur gröber. Was aus der Szene liest – Wald, Bäche, `Boden1958`, die Netze bei ihrem nächsten Lauf – steht auf dem Lidar |
+| Rückweg | Wiederholbar (das Mittel ist jedes Mal dasselbe). `-Dsicherung=…` legt die alten Kacheln vorher ab; `ant aufbereitung -Dschritte=gelaende -Dneu=true -DohneAngleich=true -DszeneOhneLidar=true` rechnet den alten Stand |
+| Kronenhöhe | Der Schritt `wald` läuft danach neu: Kronenhöhe = ArcticDEM − Lidar statt − IfSAR (am Ort von 938 rund 42 statt 18 m), der Abgleich der Wiederbewaldung rechnet mit ihr |
+| Rest | Gemessen nach dem Angleich an 160 000 Orten im Wald (Gitter des Walds bilinear gegen das Lidar am Fuß): Median 0,00 m, 90 % +0,23 m, 99 % +0,84 m. Die Bäume sinken 0,2 · Maßstab (12–21 cm) ein; über 0,5 m schweben noch 3 % (Bulten, Gräben im Lidar unter einer Zelle von 5,9 m) |
+
+**Der Wald (`WaldGl`, `com.dan.forest`):**
+
+| Was | Wie |
+|---|---|
+| 1958 | Wo der Rückbau gilt, liegt im Gitter des Walds der Grund 1958 (`Boden1958.rueckbauBild`): 400 × 330 Zellen, beim Wechsel des Zeitstands ausgetauscht und nur dieses Stück hochgeladen (neu in forest: `terrainChanged(x0, z0, x1, z1)`) |
+| Kein Baum im Wasser | neu in forest: `minGround` (CPU und `forestgpu_cull.comp` gleich): kein Baum unter 1 m über NAVD88 (wie die Regel für Wald aus der Kronenhöhe) |
+| Erdkrümmung | neu in forest: `curvature`, die Bäume sinken wie das Gelände um r²/(2R′) (in 4,5 km 1,4 m) |
+| Kronendach fern | Jetzt, wo fern der Boden liegt statt IfSAR, hebt `gelaende.vert` das Gelände, wo die Einzelbäume enden, um die Kronenhöhe (Alpha der Textur des Kronendachs, 0,25 m je Stufe), so weit der Wald dicht ist; nicht im Band der Welle 1958, nicht im Wasser |
+
+**Die Kino-Stufe (`com.dan.shutter`):**
+
+| Was | Wie | gemessen (Mesa) |
+|---|---|---|
+| Der Schlüssel | Eine andere Schärfenebene für ein Teilbild ändert die Scherung, und die verschiebt das ganze Bild, für jede Tiefe gleich (x_ndc = −P₀₀ x/z − P₀₂) | `ShutterCheck`: reine Unschärfe β ρ = genau eine andere Schärfe |
+| Sphärische Aberration | je Teilbild um −TA_best(ρ)/ρ · (u, v) verschoben; TA(ρ) aus echten Randstrahlen von `com.dan.lens` (neu `Optics.transverseMm`, 33 Zonen); scharfgestellt auf den kleinsten Fleck, α = 4 ∫ TA ρ² dρ. Doppel-Gauß 50 mm f/2: unterkorrigiert bis ρ ≈ 0,8 (−0,011 mm bei 0,6), am Rand +0,038 mm, RMS des Flecks 12 µm (knapp ein Bildpunkt) | Helligkeit im Kreis aus 20 000 verschobenen Orten gegen die Landung der Strahlen: 0,0007 je Ring |
+| Längsfarbfehler | je Farbe um −dz_c · (D/2)/v · (u, v); Doppel-Gauß 50 mm: Rot +0,063, Blau −0,140 mm, bei f/2 bis 2 Bildpunkte Saum | Halbmesser Rot/Grün/Blau 26,7/23,9/20,9 gegen 27/24/21 px |
+| Lichter als ganze Kreise | Vereinzelte helle Bildpunkte (über 2/Belichtung und viermal heller als ihr Ring in 3 Bildpunkten [G]) geben ihren Überschuss nicht als Punkt in die Summe, sondern als ganzen Kreis: Der Ort p der Pupille landet bei Mitte + X(ρ)/ρ · p, X = S_c ρ − TA_best(ρ); umgekehrt je Bildpunkt über 16 Zonen und beide Vorzeichen, Helligkeit E ρ / (π q \|X\| \|X′\|), Blende, Katzenauge und Zeitfenster je Bildpunkt | Energie 498 von 500; im Kreis 1,000 · E/(πR²); Körnung 4,8 → 0,055 (32 Teilbilder), 3,4 → 0,038 (64); mit Öffnungsgang 0,042; Sechseck mit Ecken (26,0 / 22,0 px gegen 26,4 / 22,9); Ring der Aberration gegen die Rechnung 0,006 (die Pupille mit 256 Teilbildern 0,10) |
+| Rechenzeit | Licht (Sonnenkarten, Horizont) nur im ersten Teilbild (die Sonne wandert in 1/48 s um 0,004°); vor allem reichen jetzt 32 statt 64 Teilbilder für glatte Lichter | auf der Radeon [zu prüfen]: 931 gegen 921 |
+
+**Tropfen auf der Frontlinse (W7e; `com.dan.lens.FrontDrops`, `gl/LinseNass`):**
+
+| Was | Wie |
+|---|---|
+| Wo sie liegen | Die Frontlinse liegt nur wenige Zentimeter vor der Eintrittspupille (neu `Optics.pupilBehindFrontMm`): Doppel-Gauß 20 mm, Weitwinkel 12 mm, Tele 15 mm. Ein Tropfen dort ist nie scharf. Jeder Bildpunkt sammelt sein Licht über ein Bündel, das die Linse in einem Kreis vom Halbmesser der Pupille trifft, um den Ort, an dem sein Hauptstrahl durchgeht (z · tan θ) |
+| Ein Tropfen | Kugelkappe, Randwinkel 60° (wie `com.dan.wetglass`). Senkrechtes Licht trifft innen unter der Neigung σ auf die Oberfläche: über 48,6° Totalreflexion (der dunkle Rand), darunter gebrochen, abgelenkt bis 41,4°. Durch gehen (sin σ_g / sin θ_c)² = 75 %, im Mittel um 14° abgelenkt |
+| Im Bild (`lens.frag`) | Der Anteil c des Bündels unter Wasser fehlt dem scharfen Bild; davon kommen 75 % als Mittel des Bilds ringsum zurück (nach der Verteilung der Ablenkung) und die Sonne bis 41° neben dem Bildpunkt (auch außerhalb des Bilds, wenn sie über dem Gelände steht) |
+| Woher | `com.dan.wetglass` rechnet die Frontlinse als kleine senkrechte Scheibe: Einschläge nach Marshall-Palmer, so viel, wie der Wind den Regen gegen das Objektiv treibt (nach oben geneigt mehr), Haften, Laufen, Verschmelzen, Feintropfen, Verdunsten; aus dem Wetter oder von Hand |
+| Gemessen | 30 s mit 20 mm/h: 116 Tropfen bis 2,1 mm. Tele 200 mm: 0,095 bis 0,097 des Bündels unter Wasser (gleichmäßig); Weitwinkel 18 mm: 0,004 bis 0,473 (Flecken). Auf Mesa wird das Bild im Mittel um 3 % dunkler, mit Sonne leuchten die Tropfen neben ihr (+6 %) |
+
+**In LituyaBay1958 außerdem:**
+- `Regie`: `tropfen 20` (mm/h auf die Linse), `tropfen wetter`, `tropfen wischen`, `tropfen aus`
+- `Tempo` und `Bildbank`:
+  - `tropfen=` (die Linse wird vorher 40 s nass)
+  - `kinolichter=aus` (Lichter als Punkte wie in Runde 1)
+  - Die Kino-Stufe rechnet zwei Filmbilder und meldet das zweite: „N Teilbilder in X ms (Y ms je Teilbild; erstes Filmbild Z ms) · Lichter als Kreise, L im letzten Teilbild“.
+- HUD: eine Zeile zur Linse beim Wetter
+- `Pruefung`:
+  - Regiebefehl `tropfen` (mit Abweisung von `tropfen 500`)
+  - Vorgaben
+  - Regen auf die Linse: Tele gleichmäßig, Weitwinkel fleckig
+  - mit Daten: Szene im Kern = Mittel des Lidars, Grund des Walds gegen das Lidar
+- `aufnahmen_w9c2.txt` (931–939)
+
+**Geprüft hier:**
+- ShutterCheck 20 von 20, LensCheck 33 von 33, ForestCheck in Ordnung (neu: `minGround`), FilmCheck 26 von 26.
+- Angleich an Probekacheln: Mittel exakt, Lücken behalten, wiederholbar (zweiter Lauf: nichts geschrieben).
+- Auf Mesa: `lights.comp`, `splat.vert/.frag`, `accumulate.frag`, `forestgpu_cull.comp`, `lens.frag`, `gelaende.vert/.frag` übersetzt; Lichter und Fehler wie oben (`_transfer/w9/lightpipe.py`); Tropfen im Prüfbild des Objektivs (`_transfer/w9/droptest.py`).
+- Teil W7–W9 der Prüfung ohne Daten in Ordnung, mit 3 neuen Prüfungen.
+
+**Abnahme W9c Runde 2** (auf der Radeon: `w9c_runde2.cmd`):
+1. Renderer sauber bauen, die vier Prüfklassen.
+2. LituyaBay1958 sauber bauen.
+3. **Vorher:** 938 und 939 (der Wald am Boden) auf den alten Daten → `W9CP2V`.
+4. Aufbereitung `gelaende` (neu, mit Lidar in der Szene) + `angleich` + `wald` + `inhalt`, alte Kacheln nach `_sicherung/w9c2`.
+5. Prüfung.
+6. Proben 931–939 → `W9CP2`:
+   - 931: H1 mit 32 Teilbildern und Kreisen, gegen 921
+   - 932: Ankerlicht mit 64 Teilbildern, als Kreise
+   - 933: dasselbe als Punkte
+   - 934: stiller Regen mit Tropfen, 50 mm
+   - 935: dasselbe mit 24 mm
+   - 936: dasselbe mit 200 mm
+   - 937: Gegenlicht mit Tropfen
+   - 938: der Wald der Vorländer am Boden, heute
+   - 939: derselbe Ort 1958
+7. H1 und H14 → `W9C2` gegen W9C1. Sie ändern sich, wo das Lidar liegt: Vorländer, Ufer, Kronendach fern.
+
+**Ehrlich offen nach W9c Runde 2:**
+1. Ein Licht, das nur von einem Teil der Pupille aus zu sehen ist (hinter einer nahen Kante), wird als Kreis dunkler, aber nicht „angebissen“. Alles andere behält die echte Verdeckung je Ort der Pupille.
+2. Was nicht vereinzelt ist, bleibt Punkt je Teilbild: dichtes Glitzern, helle Fenster, die Fläche der Sonne. Dort helfen nur mehr Teilbilder.
+3. Die Fehler gelten für einen Punkt auf der Achse in Unendlich. Koma, Astigmatismus und der Gauß-Fehler (Farbe der sphärischen Aberration) fehlen.
+4. Die Tropfen:
+   - Das Bündel ist ein Kreis, nicht die Form der Blende.
+   - Laufende Tropfen sind in `FrontDrops` rund.
+   - Das abgelenkte Licht von außerhalb des Bilds kommt nur von der Sonne.
+   - Geisterbilder und Stern werden durch die Tropfen nicht schwächer.
+   - 1958 bleibt die Linse trocken, bis die Gischt der Welle kommt (W8c).
+5. Rest des Schwebens:
+   - Auf Bulten und an Gräben schweben 3 % der Bäume noch über 0,5 m (das Gitter des Walds hat 5,9 m).
+   - Ändert sich der Grund 1958 der Vorrechnung unter Wasser (`grund58`), kennt der Wald das nicht (die Dichte schließt diese Orte aus).
+6. Der Schritt `wald` rechnet die Wiederbewaldung mit den neuen Kronenhöhen neu ab. Der Wuchs kann sich ändern; Bilder im Band (H6, H8) sind neu zu sehen [zu prüfen].
+7. Die Netze (Sicht, Weg, Flucht, Klassen, Wasser) sind noch auf dem IfSAR-Gelände gerechnet. Ein neuer Lauf ihrer Schritte rechnet sie auf dem Lidar.
+8. Wie viel 32 Teilbilder mit Kreisen kosten und ob sie reichen, zeigt erst die Radeon [zu prüfen: 931 gegen 921, 932 gegen 928].
+
+**Weiter:** W9d „Die Führung“ (WF36 A), dann W9e.
+
+
 ## 6. Inszenierung
 
 ### 6.1 Neun Heldenbilder (Abnahme jeder Phase)
@@ -910,6 +1050,7 @@ Je Frage Möglichkeiten, **A** ist die Empfehlung. „Alle A“ genügt.
 
 | Datum | Phase | Was | Bilder |
 |---|---|---|---|
+| 07.11.2026 | **W9c Runde 2 „Schwebe, Lichter, Tropfen“** (siehe 5d.7) | **Auftrag** „docs/status Schwebe_W09C.png bitte fixen. Bäume schweben. Noch offen: Rechenzeit … Kleine Lichter … Sphärische Aberration und Längsfarbfehler … Tropfen auf der Linse (W7e) … Los!“ **Danach siehst du:** die Bäume auf dem Boden, nah wie fern, heute und 1958; das Gelände hebt und senkt sich nicht mehr beim Näherkommen; in der Kino-Stufe glatte Lichter in der Form der Blende mit Ring, heller Mitte und Farbsäumen, 32 Teilbilder statt 64; Tropfen auf der Frontlinse im Regen (Tele Schleier, Weitwinkel Flecken, Leuchten in der Sonne).<br>• **Befund (gemessen):** Gelände nah aus dem Lidar 2019 (Clipmap bis 4 m), der Wald stand auf IfSAR 2012, das unter dichtem Wald im Median 4,9 m (Vorländer bis 24 m) zu hoch liegt; dazu 1958 am Rand des Rückbaus bis 14,5 m. Kino-Stufe auf der Radeon 1–3 s je Filmbild (921: 1 381 ms, 928 mit 128: 4 044 ms). FilmCheck 2 Fehler nur durch alte Konstanten in FilmCheck.class (jetzt `ant clean jar`).<br>• **Renderer:** `shutter` `Aberration` (sphärische Aberration, Längsfarbfehler je Teilbild als Versatz je Farbe), `ShutterGl` Lichter als ganze Kreise (`lights.comp`, `splat.vert/.frag`, `window.glsl`); `lens` `FrontDrops` (Tropfen auf der Frontlinse), `Optics.transverseMm`, `pupilBehindFrontMm`, `frontRadiusMm`, `lens.frag` Tropfen; `forest` `minGround`, `curvature`, `terrainChanged(Rechteck)`. READMEs fortgeschrieben.<br>• **LituyaBay1958:** Schritt `angleich` (Szene im Kern = Mittel des Lidars, Szene mit Lidar als erster Quelle, Fern = Mittel der Szene), `WaldGl` (Grund 1958 im Rückbau, kein Baum im Wasser, Erdkrümmung, Kronendach fern als Fläche), `LinseNass` (wetglass auf der Frontlinse), Regiebefehl `tropfen`, Bildbank `tropfen=`, `kinolichter=`, Kino-Stufe: Licht nur im ersten Teilbild, Zeit je Teilbild.<br>• **Geprüft hier:** ShutterCheck 20/20, LensCheck 33/33, ForestCheck, FilmCheck 26/26; Angleich an Probekacheln; Mesa: Lichter (Energie 498/500, Körnung 4,8 → 0,055), Ring gegen Rechnung 0,006, Farbsäume, Tropfen im Prüfbild.<br>• **Ehrlich offen:** siehe 5d.7 (angebissene Lichter, dichtes Glitzern, Koma, Tropfenform, 3 % Restschweben, Netze auf IfSAR, Wiederbewaldung neu abgeglichen [zu prüfen]). | `docs/bild/W9CP2V/`, `W9CP2/`, `W9C2/`, Karten `_transfer/w9/schwebe_*.png` | H1, H14 geändert (Lidar) |
 | 07.11.2026 | **W9c „Die Belichtung“, Runde 1** | **Auftrag** „docs/status Lesbarkeit_W09.png bitte fixen. W9c. Los!“ **Danach siehst du** (mit dem Film; die Kino-Stufe im Film ohne Fenster und in Standbildern): beim Schwenk eine Bewegungsunschärfe wie bei 1/48 s; in der Kino-Stufe die Tiefenschärfe aus der Pupille für alles, auch für das Spiegelbild, den Regen, die Gischt und den Staub, das Bokeh in der Form der Blende mit Katzenauge, und die Bewegungsunschärfe für alles, was sich bewegt, mit dem Öffnungsgang der Umlaufblende; Zeitlupe als Bildrate der Kamera (192 B/s: 1/8, 1/384 s); im Film ohne Fenster läuft das Meer mit. Im Block EREIGNIS gemalte Zeichen statt „▯“.<br>• **`Renderer.jar`: neu `com.dan.shutter`** (Kern: `Shutter`, `Pupil`, `SubFrames`, `MotionBlur`; `gl/ShutterGl`, `gl/MotionBlurGl` mit 7 Shadern; `demo/ShutterDemo`, `demo/ShutterCheck`; README mit Quellen); **`com.dan.lens`** schneller beim Sammeln, Zeiten der Teile, ohne Tiefenschärfe für die Kino-Stufe; **`com.dan.film`** Halation mit dem Kern als Textur, Reichweite 3 r_c; README des Renderers ergänzt.<br>• **LituyaBay1958:** `Renderer` (Kino-Stufe, Vorführung und Szene getrennt, Bewegungsunschärfe, Regen durch die Umlaufblende, Meer im Film, Teilzeiten des Objektivs, `nachbearbeitung` ausgelagert), `Regie` (`bildrate`, `umlaufblende`, `verschluss`), `Tempo` und `Bildbank` (Schlüssel), `tools/Film` (`-Dteilbilder`), `build.xml`, `ControlPanel` (Verschluss der Kamera, Bildrate, Bewegungsunschärfe, Öffnungsgang; gemalte Zeichen), neu `ui/Zeichen`, `tools/Wiederbewaldung`, `Pruefung`, Proben 921–928, `w9c_runde1.cmd`.<br>• **Geprüft hier:** ShutterCheck 16 von 16, LensCheck 29, FilmCheck 26, Paketprüfung „film, lens, shutter ok“, Prüfung W7–W9 ohne Daten in Ordnung, Kino-Stufe und Bewegungsunschärfe auf Mesa (stehendes Bild 4 · 10⁻⁶, Schwenk wie ein Kastenfilter 0,011).<br>• **Offen:** 5d.6, Punkte 1–8. | Proben `docs/bild/W9CP1`, Kosten `docs/bild/W9CP1A` und `W9CP1B`; Heldenbilder `docs/bild/W9C1` gegen W9B1 (ohne Objektiv und Film gleich) |
 | 07.11.2026 | **W9b „Der Film“, Runde 1, und W9a Runde 2 „Drei Objektive“** (auf der Radeon gerechnet, siehe 5d.6) | **Auftrag** „Alle A, los!“ (WF36–WF42). **Danach siehst du** (mit dem Film: Block KAMERA, im Kino immer): 1958 ein Bild auf Eastman Color 5248 und 5382 in CinemaScope – kürzerer Spielraum, weniger reine Farben, gröberes Korn, um Lichter der rote Ring der Halation als liegende Ellipse, das Bokeh oval, der Abend warm, die Welle kühl, der Morgen fahl; heute Vision3 250D am Tag und 500T am Abend auf 2383 – feines Korn, kaum Halation, das Kopierlicht gleitet mit der Sonne in die Nacht; das Bild steht nicht ganz still und flackert um Promille; auf Wunsch die Kopie von 1958 nach 68 Jahren, purpur. Mit dem Objektiv unter 35 mm ein Weitwinkel, ab 130 mm ein Tele; das Schleierlicht leiser, bei offener Blende schneller, kein Ruck beim Drehen der Blende.<br>• **`Renderer.jar`: neu `com.dan.film`** (Kern: `Curve`, `Stock`, `Format`, `Grade`, `Film`; `gl/FilmGl` mit 3 Shadern; `demo/FilmDemo`, `demo/FilmCheck`; README mit Quellen); **`com.dan.lens` Runde 2** (`LensSystem.wideAngle`, `telephoto250`, `Lens.Design`, neue Gläser, Lichter vereinzelt in `highlights.comp`, Schleierlicht 0,8 % r^−2,75, Tabellen im Hintergrund; LensCheck 29); README des Renderers ergänzt.<br>• **LituyaBay1958:** `Renderer` (Film statt `post.frag`, Material und Kopierlicht nach dem Zeitstand, Uhr des Films, Korn des Kinos aus, Bokeh oval in CinemaScope), `Regie` (`film`, `kopierlicht`, `kopie`), `Tempo` und `Bildbank` (Schlüssel), `tools/Film` (24 B/s), `ControlPanel` (Film im Block KAMERA, neue Sätze des Objektivs), `Pruefung`, Proben 909–910 und 911–918, `w9b_runde1.cmd`.<br>• **Geprüft hier:** FilmCheck 26 von 26, LensCheck 29 von 29, Paketprüfung „film ok“ und „lens ok“, Prüfung W7–W9 ohne Daten in Ordnung, Film und Halation auf Mesa gegen den Prozessor (0,0019 in sRGB; 0,17 %).<br>• **Offen:** 5d.5, Punkte 1–7; 5d.4 (Kosten in W9AP2). | Proben `docs/bild/W9AP2` (Objektiv Runde 2) und `docs/bild/W9BP1` (Film); Heldenbilder `docs/bild/W9B1` gegen W9A1 (ohne Objektiv und Film gleich) |
 | 07.11.2026 | **W9a „Das Objektiv“, Runde 1** (auf der Radeon gerechnet, siehe 5d.4) | **Auftrag** „W9 Kino. Für W9 in Werkbuch zurückgestellte Themen beachten. … Im Zweifel die Engines überarbeiten bzw. neu anlegen in Renderer. Groß denken! … Liebe zum Detail … Physik … Wiederverwertbarkeit. … Los!“ **Danach siehst du** (mit dem Objektiv: Block KAMERA, im Kino immer): Schärfe, die an einem Abstand liegt; dahinter und davor Unschärfe in der Form der Blende, zum Rand ein Katzenauge, hinter dem Fokus helle Ränder, davor ein weicher Kern, farbige Säume; Lichter als Kreise der Blende; gegen die Sonne 45 Geisterbilder in Purpur und Grün und ein Stern mit so vielen Strahlen, wie die Lamellen gerade Kanten haben; Verzeichnung, Farbquerfehler und Randabfall eines echten Objektivs; der Fokus zieht weich nach; das Bedienfeld gleitet mit F9 oder der Lasche zur Seite.<br>• **`Renderer.jar`: neu `com.dan.lens`** (Kern: `Glass`, `Coating`, `Surface`, `LensSystem`, `Aperture`, `Lens`, `FocusPuller`, `Spectrum`; `gl/LensGl` mit 13 Shadern; `demo/LensDemo`, `demo/LensCheck`; README mit Quellen), README des Renderers ergänzt.<br>• **LituyaBay1958:** `Renderer` (Objektiv nach der Glättung, Regen mit derselben Linse, Fokusatmung, `festeGroesse`, `objektivStellen`, `fokusStellen`), `post.frag` (`uRand`), `Regie` (`objektiv`, `blende`, `fokus`), `Tempo` und `Bildbank` (Schlüssel), `ControlPanel` (Block KAMERA), neu `ui/Schublade`, `LituyaApp` (Schublade, F9), `Hilfe`, `SceneView`, `Pruefung`, Proben 901–908, `w9a_runde1.cmd`.<br>• **Geprüft hier:** LensCheck 26 von 26, Paketprüfung „lens ok“, alle 13 Shader auf Mesa im Ablauf von `LensGl` (`_transfer/w9/lens_vorschau_mesa.png`).<br>• **Offen:** 5d.3, Punkte 1–7. | Proben `docs/bild/W9AP1`; Heldenbilder `docs/bild/W9A1` gegen W8B2 (ohne Objektiv gleich) |

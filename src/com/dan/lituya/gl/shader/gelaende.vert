@@ -17,6 +17,14 @@ out float vRueckbau;          // W3c: Gewicht des Rückbaus (0 … 1), für die 
 out float vGletscher;         // W3c: Eis der Gletscherzunge 1958 (0 … 1) [G]
 uniform vec4 uZungeRect;      // W3c: die Zunge im Norden (nur Farbe), Szene x0, z0, x1, z1
 #include "rueckbau.glsl"
+// W9c Runde 2 („Schwebe“): das Kronendach fern als Fläche. Wo die Einzelbäume enden (uKroneAb), hebt sich das Gelände um die
+// Kronenhöhe (Alpha von uKrone mal uKroneHoch.x m), so weit der Wald dicht ist (rgb). Vorher lag fern IfSAR, das unter dichtem
+// Wald etwa in halber Kronenhöhe liegt; seit dem Angleich ans Lidar liegt dort der Boden. uKroneHoch.y: Zelle der Textur (m).
+uniform int uKroneAn;
+uniform sampler2D uKrone;
+uniform vec4 uKroneRect;
+uniform vec2 uKroneAb;
+uniform vec2 uKroneHoch;
 
 void main() {
     ClipVertex c = clipmapVertex();
@@ -55,6 +63,18 @@ void main() {
             c.normal = normalize(mix(nr, c.normal, c.morph));
             c.height = h1;
             vRueckbau = w;
+        }
+    }
+    if (uKroneAn == 1 && uKroneHoch.x > 0.0) {
+        vec2 ku = (c.world.xz - uKroneRect.xy) / uKroneRect.zw;
+        if (ku.x > 0.0 && ku.y > 0.0 && ku.x < 1.0 && ku.y < 1.0) {
+            float dist = length(c.world - uClipCam);
+            float ramp = smoothstep(uKroneAb.x, mix(uKroneAb.x, uKroneAb.y, 0.85), dist);
+            if (ramp > 0.0) {
+                vec4 dn = textureLod(uKrone, ku, max(0.0, log2(uClipGeo.z / max(uKroneHoch.y, 1e-3))));
+                float dichte = clamp(dn.r + dn.g + dn.b, 0.0, 1.0);
+                c.world.y += dn.a * uKroneHoch.x * smoothstep(0.1, 0.6, dichte) * ramp * smoothstep(1.0, 4.0, c.height);
+            }
         }
     }
     vW = c.world;
