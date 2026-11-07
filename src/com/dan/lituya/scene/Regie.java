@@ -68,6 +68,14 @@ public final class Regie {
         default void objektiv(String a) { }
         default void blende(double fNumber) { }
         default void fokus(String a) { }
+        /**
+         * Werkbuch Welle W9b: der Film „an“, „aus“, „zeitstand“ (Material nach dem Zeitstand) oder ein Material ({@link #FILME});
+         * das Kopierlicht „zeitstand“, ein Name ({@link #KOPIERLICHTER}) oder Punkte „Rot Grün Blau [Dichte]“; das Alter der
+         * Kopie in Jahren (0 = frisch).
+         */
+        default void film(String a) { }
+        default void kopierlicht(String a) { }
+        default void kopie(double jahre) { }
         /** Ob die Szene so weit ist (für {@code warte}). */
         boolean ready(Warte w);
         void capture(String caption);
@@ -226,7 +234,22 @@ public final class Regie {
     /** Die Befehle der Stichworte (klein geschrieben im Text). */
     public static final List<String> BEFEHLE = List.of("zeit", "ereignis", "raffer", "zeitstand", "jahre", "ansicht", "schaustueck", "fahrt", "mitfahrt",
             "netzblick", "echtzeit", "regen", "warte", "foto", "blatt", "sage", "flug", "wetter", "verschluss", "zeitlupe",
-            "objektiv", "blende", "fokus");
+            "objektiv", "blende", "fokus", "film", "kopierlicht", "kopie");
+
+    /** W9b: was „film“ kennt. */
+    public static final List<String> FILME = List.of("an", "aus", "zeitstand", "5248", "vision3_250d", "vision3_500t");
+    /** W9b: die benannten Kopierlichter (dazu „zeitstand“ und Punkte „Rot Grün Blau [Dichte]“). */
+    public static final List<String> KOPIERLICHTER = List.of("zeitstand", "neutral", "abend1958", "welle", "morgen", "heute", "nacht");
+
+    /** W9b: prüft das Argument von „kopierlicht“ (Name oder Punkte), sonst IllegalArgumentException. */
+    public static String kopierlichtPruefen(String a) {
+        String t = a.trim().toLowerCase(Locale.ROOT);
+        if (KOPIERLICHTER.contains(t)) return t;
+        try { com.dan.film.Grade.parse(t); } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException(e.getMessage() + "; oder " + String.join(", ", KOPIERLICHTER));
+        }
+        return t;
+    }
 
     /** W7b: Belichtungszeit „1/250“ oder „0,004“ in s (zwischen 1/20000 und 1 s). */
     public static double belichtung(String a) {
@@ -275,6 +298,9 @@ public final class Regie {
                         double bn = Double.parseDouble(z.argumente().trim().toLowerCase(Locale.ROOT).replaceFirst("^f/", "").replace(',', '.'));
                         if (bn < 1 || bn > 64) throw new IllegalArgumentException("blende 1 … 64 erwartet (f/N)");
                     }
+                    if (z.befehl().equals("film") && !FILME.contains(z.argumente().trim().toLowerCase(Locale.ROOT)))   // W9b
+                        throw new IllegalArgumentException("film " + String.join("|", FILME) + " erwartet");
+                    if (z.befehl().equals("kopierlicht")) kopierlichtPruefen(z.argumente());
                     if (z.befehl().equals("warte")) warten.add(warte(z.argumente(), day[0]));
                     else warten.add(null);
                     zeilen.add(z);
@@ -464,6 +490,16 @@ public final class Regie {
                 return x -> x.blende(v);
             }
             case "fokus": { need(a, "fokus auto|Meter|Ort"); return x -> x.fokus(a); }
+            case "film": {   // W9b
+                if (!FILME.contains(low)) throw new IllegalArgumentException("film " + String.join("|", FILME) + " erwartet");
+                return x -> x.film(low);
+            }
+            case "kopierlicht": { String k = kopierlichtPruefen(a); return x -> x.kopierlicht(k); }
+            case "kopie": {
+                double v = Double.parseDouble(a.trim().toLowerCase(Locale.ROOT).replaceFirst("\\s*jahre?$", "").replace(',', '.'));
+                if (v < 0 || v > 200) throw new IllegalArgumentException("kopie 0 … 200 erwartet (Alter in Jahren)");
+                return x -> x.kopie(v);
+            }
             case "zeitlupe": { double v = Double.parseDouble(a.trim().replace(',', '.')); return x -> x.zeitlupe(Math.max(1e-3, Math.min(1, v))); }
             case "wetter": {
                 // W7: „wetter kuestennebel 30“ = Lage, Übergang in Minuten (ohne: wie eingestellt)

@@ -917,7 +917,7 @@ public final class ControlPanel extends JPanel implements javax.swing.Scrollable
     /** Ist irgendein Aufklappmenü offen (auch die Liste einer Auswahl)? Dann darf sich nichts neu auslegen. */
     public static boolean menuOpen() { return javax.swing.MenuSelectionManager.defaultManager().getSelectedPath().length > 0; }
 
-    /** Blendenreihe in Drittelstufen (f/2 ist die volle Öffnung des Doppel-Gauß). */
+    /** Blendenreihe in Drittelstufen (f/2 ist die volle Öffnung des Doppel-Gauß; der Weitwinkel kann f/1,9, das Tele ab f/5,4). */
     static final double[] BLENDEN = {2, 2.2, 2.5, 2.8, 3.2, 3.5, 4, 4.5, 5, 5.6, 6.3, 7.1, 8, 9, 10, 11, 13, 14, 16, 18, 20, 22};
 
     static int blendeIndex(double n) {
@@ -932,9 +932,10 @@ public final class ControlPanel extends JPanel implements javax.swing.Scrollable
     static int fokusWert(double m) { return m >= 1000 ? 100 : (int) Math.round(100 * Math.log(Math.max(0.5, m) / 0.5) / Math.log(2000)); }
 
     /**
-     * Werkbuch Welle W9a: der Block KAMERA. Das Objektiv aus com.dan.lens (ein Doppel-Gauß, auf die Brennweite gebracht):
-     * Brennweite und Blende als Satz, Blende in Drittelstufen, Fokus von Hand oder aus der Bildmitte, Lamellen, die
-     * einzelnen Fehler, und die Belichtungszeit des Regens (bis W9c die Belichtung allen Lichts wird).
+     * Werkbuch Welle W9a: der Block KAMERA. Das Objektiv aus com.dan.lens (Weitwinkel, Doppel-Gauß oder Tele, nach der
+     * Brennweite, auf sie gebracht): Brennweite und Blende als Satz, Blende in Drittelstufen, Fokus von Hand oder aus der
+     * Bildmitte, Lamellen, die einzelnen Fehler, und die Belichtungszeit des Regens (bis W9c die Belichtung allen Lichts
+     * wird). W9b: der Film aus com.dan.film (Material, Kopierlicht, Korn, Halation, Bildstand, Alter der Kopie).
      */
     private void kamera() {
         block("KAMERA", false);
@@ -947,11 +948,12 @@ public final class ControlPanel extends JPanel implements javax.swing.Scrollable
         JLabel obLbl = small("");
         put(obLbl);
         put(label("Objektiv"));
-        String[] presets = {"Auge (23 mm, f/5,6)", "Weitwinkel 24 mm, f/8", "35 mm, f/4", "Normal 50 mm, f/2", "Porträt 85 mm, f/2", "Tele 135 mm, f/2,8", "Tele 200 mm, f/4", "Tele 400 mm, f/5,6"};
-        double[][] pv = {{0, 5.6}, {24, 8}, {35, 4}, {50, 2}, {85, 2}, {135, 2.8}, {200, 4}, {400, 5.6}};
+        String[] presets = {"Auge (23 mm, f/5,6)", "Weitwinkel 18 mm, f/2", "Weitwinkel 24 mm, f/8", "35 mm, f/4", "Normal 50 mm, f/2", "Porträt 85 mm, f/2",
+                "120 mm, f/2,8", "Tele 250 mm, f/5,6", "Tele 400 mm, f/8"};
+        double[][] pv = {{0, 5.6}, {18, 2}, {24, 8}, {35, 4}, {50, 2}, {85, 2}, {120, 2.8}, {250, 5.6}, {400, 8}};
         FComboBox obPre = new FComboBox(presets);
         obPre.setSelectedIndex(-1);
-        obPre.setToolTipText("Brennweite (Kleinbild, 24 mm Bildhöhe) und Blende als Satz; f/2 ist die volle Öffnung");
+        obPre.setToolTipText("Brennweite (24 mm Bildhöhe) und Blende als Satz; unter 35 mm rechnet der Weitwinkel (Nakamura, ±38°, bis f/1,9), ab 130 mm das Tele (250 mm, ab f/5,4), dazwischen der Doppel-Gauß (bis f/2)");
         put(obPre);
         JLabel blLbl = small("");
         FSlider blSl = new FSlider(0, BLENDEN.length - 1, blendeIndex(ob.fNumber));
@@ -1023,15 +1025,78 @@ public final class ControlPanel extends JPanel implements javax.swing.Scrollable
         vsBox.setToolTipText("Belichtungszeit der Tropfen (W7b, WF26): lang wie ein Film zeigt Spuren, kurz die Form; ab W9c für alles Licht");
         vsBox.addActionListener(e -> { int i = vsBox.getSelectedIndex(); if (i >= 0) r.wetterGl.verschluss = vv[i]; view.requestFocusInWindow(); });
         put(vsBox);
-        put(small("<html><body style='width:215px'><b>Werkbuch Welle W9a.</b> Gerechnet aus einem Doppel-Gauß 50 mm f/2 (Tronnier, 10 Glasflächen, "
-                + "Gläser mit Dispersion, Vergütung MgF₂), auf die Brennweite gebracht: Schärfentiefe nach der dünnen Linse, das Bokeh in der Form der "
+        // W9b: der Film
+        put(label("Film"));
+        FCheckBox fiBox = new FCheckBox("Film statt Filmkurve (im Kino immer)");
+        fiBox.setSelected(r.filmAn);
+        fiBox.setToolTipText("Negativ und Kopie mit Kurven je Schicht, Kopierlicht, Korn nach Selwyn, Halation aus dem Träger, Bildstand, Flackern (com.dan.film)");
+        fiBox.addActionListener(e -> { r.filmAn = fiBox.isSelected(); view.requestFocusInWindow(); });
+        put(fiBox);
+        JLabel fiLbl = small("");
+        put(fiLbl);
+        String[] mat = {"nach dem Zeitstand (1958: 5248, heute: Vision3)", "Eastman Color 5248 → 5382 · CinemaScope", "Kodak Vision3 250D → 2383 · Super 35",
+                "Kodak Vision3 500T → 2383 · Super 35"};
+        FComboBox matBox = new FComboBox(mat);
+        matBox.setSelectedIndex(0);
+        matBox.setToolTipText("1958 drehte Hollywood in CinemaScope auf Eastman Color 5248 (ASA 25, rund 9 Blenden Spielraum, grobes Korn, Halation); "
+                + "heute Vision3 (rund 14 Blenden, feines Korn, Rückschicht gegen die Halation)");
+        matBox.addActionListener(e -> {
+            int i = matBox.getSelectedIndex();
+            if (i == 0) r.filmNachZeitstand = true;
+            else r.filmMaterial(i == 1 ? Renderer.EC5248 : i == 2 ? Renderer.V3_250D : Renderer.V3_500T);
+            r.filmAn = true;
+            fiBox.setSelected(true);
+            view.requestFocusInWindow();
+        });
+        put(matBox);
+        String[] kl = {"Kopierlicht nach dem Zeitstand", "neutral 25-25-25", "Abend 1958 (warm) 23-25-27", "Die Welle (kühl, dicht) 26-25-24 +1",
+                "Morgen danach (fahl) 26-25-23 −1", "Abend heute 24-25-26", "Nacht (blau) 27-25-22 +1"};
+        String[] kn = {"zeitstand", "neutral", "abend1958", "welle", "morgen", "heute", "nacht"};
+        FComboBox klBox = new FComboBox(kl);
+        klBox.setSelectedIndex(0);
+        klBox.setToolTipText("Lichtbestimmung im Kopierwerk: Punkte je Farbe zu 0,025 log E; weniger Rot und mehr Blau macht die Kopie wärmer (Regiebuch: „kopierlicht 24 25 26“)");
+        klBox.addActionListener(e -> { int i = klBox.getSelectedIndex(); if (i >= 0) { r.kopierlichtStellen(kn[i]); r.filmAn = true; fiBox.setSelected(true); } view.requestFocusInWindow(); });
+        put(klBox);
+        JLabel koLbl = small("");
+        FSlider koSl = new FSlider(0, 200, (int) Math.round(100 * r.film.grainGain));
+        koSl.setToolTipText("Korn gegen das Material (100 % wie gemessen: RMS-Körnigkeit nach Selwyn auf die Fläche eines Bildpunkts)");
+        koSl.addChangeListener(e -> { r.film.grainGain = koSl.getValue() / 100.0; txt(koLbl, "Korn " + koSl.getValue() + " %"); });
+        txt(koLbl, "Korn " + koSl.getValue() + " %");
+        put(koLbl);
+        put(koSl);
+        JLabel alLbl = small("");
+        FSlider alSl = new FSlider(0, 70, (int) Math.round(r.film.printAgeYears));
+        alSl.setToolTipText("Alter der Kopie: die Farbstoffe der 1950er verblassen (Gelb und Cyan zuerst, die Kopie wird purpur); 2383 hält");
+        alSl.addChangeListener(e -> { r.film.printAgeYears = alSl.getValue(); txt(alLbl, alSl.getValue() == 0 ? "Kopie frisch" : "Kopie " + alSl.getValue() + " Jahre alt"); });
+        txt(alLbl, "Kopie frisch");
+        put(alLbl);
+        put(alSl);
+        JPanel g1 = grid(2), g2 = grid(2);
+        FCheckBox hal = new FCheckBox("Halation"), wv = new FCheckBox("Bildstand"), fl = new FCheckBox("Flackern"), ko = new FCheckBox("Korn");
+        Object[][] fb = {{hal, (Runnable) () -> r.film.halation = hal.isSelected(), r.film.halation}, {wv, (Runnable) () -> r.film.weave = wv.isSelected(), r.film.weave},
+                {fl, (Runnable) () -> r.film.flicker = fl.isSelected(), r.film.flicker}, {ko, (Runnable) () -> r.film.grain = ko.isSelected(), r.film.grain}};
+        for (Object[] b : fb) {
+            FCheckBox c = (FCheckBox) b[0];
+            c.setSelected((Boolean) b[2]);
+            c.addActionListener(e -> { ((Runnable) b[1]).run(); view.requestFocusInWindow(); });
+        }
+        hal.setToolTipText("Licht aus dem Träger zurück in die rote Schicht: 5248 mit Ring (2·t·tan θ_c), Vision3 mit Rückschicht nur ein Schein");
+        wv.setToolTipText("Das Bild wandert im Fenster des Projektors um Hundertstel Millimeter");
+        g1.add(ko); g1.add(hal); g2.add(wv); g2.add(fl);
+        put(g1);
+        put(g2);
+        put(small("<html><body style='width:215px'><b>Werkbuch Welle W9a.</b> Gerechnet aus einem Linsenschnitt (unter 35 mm Weitwinkel nach Nakamura, "
+                + "bis 130 mm Doppel-Gauß 50 mm f/2 nach Tronnier, darüber Tele 250 mm; Gläser mit Dispersion, Vergütung MgF₂), auf die Brennweite gebracht: Schärfentiefe nach der dünnen Linse, das Bokeh in der Form der "
                 + "Blende mit dem Katzenauge der Fassungen zum Rand, hinter dem Fokus helle Ränder und davor ein weicher Kern (sphärische Aberration "
                 + "aus echten Strahlen), Farbsäume, Fokusatmung, die Reflexe und der Stern der Sonne. Regiebuch: „objektiv 85 2,8“, „blende 11“, "
-                + "„fokus auto“, „fokus 12“, „fokus Ort“. Taste F9: Bedienfeld weg und wieder da.</body></html>"));
+                + "„fokus auto“, „fokus 12“, „fokus Ort“. Taste F9: Bedienfeld weg und wieder da.<br><b>W9b.</b> Der Film: „film an“, „film 5248“, "
+                + "„kopierlicht 24 25 26 +1“, „kopie 68“.</body></html>"));
         new javax.swing.Timer(400, e -> {
             if (!isShowing()) return;
             txt(obLbl, "<html><body style='width:215px'>" + esc(r.objektivLine()) + "</body></html>");
             if (obBox.isSelected() != r.objektivAn) obBox.setSelected(r.objektivAn);
+            txt(fiLbl, "<html><body style='width:215px'>" + esc(r.filmLine()) + "</body></html>");
+            if (fiBox.isSelected() != r.filmAn) fiBox.setSelected(r.filmAn);
             if (afBox.isSelected() != ob.autoFocus) afBox.setSelected(ob.autoFocus);
         }).start();
     }

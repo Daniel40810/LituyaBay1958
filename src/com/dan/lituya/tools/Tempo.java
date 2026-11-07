@@ -112,6 +112,14 @@ public final class Tempo {
         if (fo != null && !fo.isBlank()) {
             try { r.fokusStellen(fo.replace('_', ' ')); } catch (IllegalArgumentException x) { System.err.println("FEHLER: " + x.getMessage()); }
         }
+        // W9b: der Film (com.dan.film): film = an | aus | zeitstand | 5248 | vision3_250d | vision3_500t, kopierlicht = Name
+        // (neutral, abend1958, welle, morgen, heute, nacht) oder Punkte R_G_B[_Dichte], kopie = Alter der Kopie in Jahren
+        String fi = opt("film"), kl = opt("kopierlicht"), ko = opt("kopie");
+        try {
+            if (fi != null && !fi.isBlank()) r.filmStellen(fi);
+            if (kl != null && !kl.isBlank()) { r.kopierlichtStellen(kl.replace('_', ' ')); r.filmAn = true; }
+            if (ko != null && !ko.isBlank()) { r.film.printAgeYears = Double.parseDouble(ko.trim().replace(',', '.')); r.filmAn = true; }
+        } catch (IllegalArgumentException x) { System.err.println("FEHLER: " + x.getMessage()); }
         String wt = opt("wetter"), wtz = opt("wetterzeit");
         if ("aus".equals(wt)) r.wetter.an = false;
         else if (wt != null && !wt.isBlank()) {
