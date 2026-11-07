@@ -1258,9 +1258,9 @@ public final class Pruefung {
         w.schritt(c, 1 / 60.0, false);
         for (int i = 0; i < 120; i++) { c.step(1 / 60.0); w.schritt(c, 1 / 60.0, false); }
         com.dan.lituya.wiring.Wetter.Zustand z = w.zustand();
-        check(z.lage() == K && Math.abs(z.wind() - 2.0) < 1e-6 && Math.abs(z.windVon() - 135) < 1e-6 && Math.abs(z.sichtKm() - 60) < 1e-6
+        check(z.lage() == K && Math.abs(z.wind() - 1.0) < 1e-6 && Math.abs(z.windVon() - 135) < 1e-6 && Math.abs(z.sichtKm() - 60) < 1e-6
                         && !z.wolken() && !z.seenebel() && z.regen() == 0 && z.nass() < 1e-6 && z.bucht() == 1,
-                f("9.7.1958: %s – wie bis W6 (Wind %.1f m/s aus %03.0f°, Sicht %.0f km, Seegang Bft %d, keine Wolken, kein Nebel, kein Regen)", z.lage(), z.wind(), z.windVon(), z.sichtKm(), z.bucht()));
+                f("9.7.1958: %s – wie bis W6, seit W8b Wind 1,0 statt 2,0 m/s (glatte See nach Miller 1960) (Wind %.1f m/s aus %03.0f°, Sicht %.0f km, Seegang Bft %d, keine Wolken, kein Nebel, kein Regen)", z.lage(), z.wind(), z.windVon(), z.sichtKm(), z.bucht()));
         // heute: Wechsel zu Regen gleitet (Uhr läuft 60-fach), bei stehender Uhr sofort
         c.set(java.time.LocalDate.of(2026, 7, 20), 11.0);
         c.zeitstand = SceneClock.Zeitstand.HEUTE;

@@ -56,6 +56,16 @@ public final class MeerGl {
     public volatile double nah = 0.5;
     /** W8a: die Boote im Spiegelbild. */
     public volatile boolean booteImSpiegel = true;
+    /**
+     * W8b: Spiegelruhe in {@code com.dan.ocean}: unter rund 1 m/s keine Kräusel, voll ab 2,0 m/s; Böenfeld mit Flecken von
+     * 45 m und einer Streuung von 0,6 (ln) [G nach Kahma und Donelan 1988, Donelan und Plant 2009]. Bei Windstille spiegelt
+     * die Bucht, bei leisem Zug ziehen Katzenpfoten darüber. {@code -Dlituya.ohneRuhe=true}: aus (wie bis W8a).
+     */
+    /** W8b: {@code -Dlituya.spiegelTruebe=true}: die Trübe aus W7 Runde 1c auch im neuen Spiegel. */
+    public volatile boolean trubeAlt = Boolean.getBoolean("lituya.spiegelTruebe");
+    public volatile boolean ruheAn = !Boolean.getBoolean("lituya.ohneRuhe");
+    public volatile double ruheEin = 1.0, ruheVoll = 2.0, ruheStreuung = 0.6, ruheFleck = 45;   // Runde 2: in 806 waren bei 0,45 und 2,6 kaum Katzenpfoten zu sehen
+    private volatile double windAmWasser, ruheZeit;
     public volatile boolean spiegelImMeer = !Boolean.getBoolean("lituya.alterSpiegel");
     /** W8a: Auge, Blickrichtung, Pegel und tan des halben Blickfelds beim Spiegelbild; gültig, solange es gilt. */
     volatile double[] planarAuge, planarVorn;
@@ -109,6 +119,15 @@ public final class MeerGl {
     /** W7b Runde 5: Rauigkeit des Regens (mittlere quadratische Steigung unter dem Raster und im Raster, Anteile der Fläche). */
     public void ringRauigkeit(double[] r) { ringRau = r == null || r.length < 4 ? new double[]{0, 0, 1, 1} : r.clone(); }
 
+    /** W8b Runde 2: feines zweites Feld (Kaskade) und Karte der Schauer (Ringe nur, wo es regnet). */
+    public void feinUndMaske(int fein, double feinKante, double[] feinMitte, double feinRau, int maske, double[] maskeRechteck) {
+        feinTex = fein; feinKante2 = feinKante; feinMitte2 = feinMitte == null ? new double[2] : feinMitte.clone(); feinRau2 = feinRau;
+        schauerTex = maske; schauerRect = maskeRechteck == null ? new double[]{0, 0, 1} : maskeRechteck.clone();
+    }
+    private int feinTex, schauerTex;
+    private double feinKante2 = 0.75, feinRau2;
+    private double[] feinMitte2 = new double[2], schauerRect = {0, 0, 1};
+
     public final Ocean ocean = Ocean.lago(1);
     private final OceanGl gl = new OceanGl();
     private final OceanGl.Light light = new OceanGl.Light();
@@ -154,6 +173,8 @@ public final class MeerGl {
     /** Je Bild: Seegang, Wind, Wasserstand, FFT auf der Grafikkarte. */
     public void schritt(GL4 g, double dt, double pegel, double windSpeed, double windFromDeg) {
         if (!ok) return;
+        windAmWasser = windSpeed;
+        ruheZeit += dt;
         if (beaufort != bftGebaut) {
             Ocean o = Ocean.lago(beaufort);
             ocean.fetch = o.fetch;
@@ -247,6 +268,18 @@ public final class MeerGl {
         light.detailRoughness = ringArt == 1 ? ringRau[0] : 0;   // W7b Runde 5
         light.detailVariance = ringArt == 1 ? ringRau[1] : 0;
         light.detailShare = new double[]{ringRau[2], ringRau[3]};
+        // W8b Runde 2: feines Feld und Karte der Schauer
+        light.detail2Texture = ringArt == 1 ? feinTex : 0;
+        light.detail2Tile = feinKante2;
+        light.detail2Strength = ringStaerke;
+        light.detail2Center = feinMitte2.clone();
+        light.detail2Roughness = feinRau2;
+        light.detailMask = ringArt == 1 ? schauerTex : 0;
+        light.detailMaskRect = schauerRect.clone();
+        // W8b: Spiegelruhe
+        light.calm = ruheAn ? new double[]{ruheEin, ruheVoll, ruheStreuung, ruheFleck} : new double[]{0, 0, 0.45, 45};
+        light.calmWind = windAmWasser;
+        light.calmTime = ruheZeit;
         // W8a: die planare Spiegelung an die See (nur wenn das Spiegelbild gilt)
         boolean pl = spiegelImMeer && spiegel && spiegelJetzt && planarGueltig && reflTex != 0 && spiegelVP != null && planarAuge != null;
         light.planarTexture = pl ? reflTex : 0;
@@ -259,7 +292,9 @@ public final class MeerGl {
             light.planarNear = nah;
             light.planarReversed = reversed;
             light.planarTanHalfFov = planarTan;
-            light.planarMix = 1 - Math.max(0, Math.min(0.9, spiegelTruebe));
+            // W8b: ohne die Trübe aus W7 Runde 1c – den Spiegel im Regen machen die Ringe und Facetten der See matt (5b.2),
+            // nicht ein Schleier darüber; die Luft zwischen Auge und Wasser trübt der Niederschlag selbst
+            light.planarMix = trubeAlt ? 1 - Math.max(0, Math.min(0.9, spiegelTruebe)) : 1;
             // verborgene Rauigkeit: still 0,25 % (Kräusel unter dem Gitter), im Seegang mehr [G]
             light.planarRough = 0.0025 + 0.02 * (1 - Math.max(0, Math.min(1, spiegelGlatt)));
             light.planarRoughPerM = 6e-6;

@@ -19,7 +19,7 @@ import com.dan.weather.Weather;
 public enum Wetterlage {
     /** 9.7.1958 nach den Zeugen, der Morgen danach und heute: klar, still, Spiegel, Dunst nur in der Tiefe; Wind und Sicht wie seit W1. */
     KLAR("Klar und still", "9.7.1958 nach den Zeugen: klar, glatte See (Miller 1960); am Morgen danach und heute dasselbe Wetter",
-            Weather.Phase.KLAR, v(2.0, 135, 0.10, 0.0, 0.0, 0, 0.0, 60, 0.0, 1018, 12, 75, 0.6),
+            Weather.Phase.KLAR, v(1.0, 135, 0.10, 0.0, 0.0, 0, 0.0, 60, 0.0, 1018, 12, 75, 0.6),   // W8b: 1,0 statt 2,0 m/s – „glatte See“ (Miller 1960): unter der Schwelle der Kräusel
             w(Double.NaN, 0, 0, 0, 0, 0, 0, 0, 0),
             n(Double.NaN, 0, 0, Double.NaN, 0)),
     /** Heute: grauer Morgen – geschlossene tiefe Decke, die in den Hängen hängt, Dunst über dem Wasser, fahles Licht [G]. */

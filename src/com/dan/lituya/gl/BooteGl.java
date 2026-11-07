@@ -38,6 +38,23 @@ public final class BooteGl {
     public volatile double tanHalb = 0.4;
     public volatile int bildHoehe = 1080;
     private final List<Object[]> modelle = new ArrayList<>();   // je gezeichnetem Boot {Rumpf, Modellmatrix}
+    /**
+     * W8b (WF31 A): heute liegt ein Troller vor Anker in Anchorage Cove – die Bucht ist bis heute Ankerplatz der Troller
+     * [G]: „KITTIWAKE“ aus Pelican, weiß mit rotbraunem Schergang, Trollstangen abgesenkt, Ankerlicht in der Dämmerung.
+     * Er schwimmt in seiner Schwimmlage am Pegel, den Bug im Wind, und schwoit und rollt leise [G].
+     * {@code -Dlituya.ohneHeuteBoot=true}: heute ohne Boot.
+     */
+    public volatile boolean heuteAn = !Boolean.getBoolean("lituya.ohneHeuteBoot");
+    /** Pegel und Wind jetzt (setzt der Renderer je Bild). */
+    public volatile double pegelJetzt, windVonJetzt = 135;
+    public static final double[] HEUTE_ORT = {-4440, 2470};
+    /** W8b Runde 2: Höhe des Grunds (setzt der Renderer); das Boot von heute sucht sich Wasser von mindestens 6 m Tiefe. */
+    public volatile java.util.function.DoubleBinaryOperator grund;
+    private double[] heuteOrt;
+    private Boat heute;
+    private double heutePegel = Double.NaN, heuteWind = Double.NaN;
+    private float[] heuteModell;
+    private double[] heuteQ;
     private final List<BootBahn> bahnen = new ArrayList<>();
     private final List<Boat> boote = new ArrayList<>();
     private volatile String geladen, status = "Boote: nicht geladen";
@@ -114,6 +131,14 @@ public final class BooteGl {
     public synchronized void zeichnen(GL4 g, float[] vp, double[] eye, boolean reversed, double[] sun, double t, SceneClock.Zeitstand z, double pegel) {
         boolean spiegel = !Double.isNaN(pegel);
         if (!spiegel) modelle.clear();
+        if (an && z == SceneClock.Zeitstand.HEUTE && heuteAn && !alterKutter) {
+            if (!init) { gl.init(g); craft.init(g); init = true; }
+            float[] mdl = heutePose(t);
+            if (craft.drawOpaque(g, heute.hull, mdl, craftBlick(vp, eye, reversed, pegel), craftLicht(sun)) && !spiegel) modelle.add(new Object[]{heute.hull, mdl});
+            g.glDisable(GL.GL_DEPTH_TEST);
+            g.glUseProgram(0);
+            return;
+        }
         if (!an || bahnen.isEmpty() || !sichtbar(z)) return;
         if (!init) { gl.init(g); craft.init(g); init = true; }
         VesselGl.View v = new VesselGl.View();
@@ -144,10 +169,16 @@ public final class BooteGl {
      * {@link #zeichnen(GL4, float[], double[], boolean, double[], double, SceneClock.Zeitstand, double)}.
      */
     public synchronized void zeichnenDurch(GL4 g, float[] vp, double[] eye, boolean reversed, double[] sun, double t, SceneClock.Zeitstand z, double pegel) {
-        if (!an || alterKutter || bahnen.isEmpty() || !sichtbar(z) || !init) return;
         boolean spiegel = !Double.isNaN(pegel);
         CraftGl.View cv = craftBlick(vp, eye, reversed, pegel);
         CraftGl.Light cl = craftLicht(sun);
+        if (an && z == SceneClock.Zeitstand.HEUTE && heuteAn && !alterKutter && init && heute != null) {
+            craft.drawTransparent(g, heute.hull, spiegel || heuteModell == null ? heutePose(t) : heuteModell, cv, cl);
+            g.glDisable(GL.GL_DEPTH_TEST);
+            g.glUseProgram(0);
+            return;
+        }
+        if (!an || alterKutter || bahnen.isEmpty() || !sichtbar(z) || !init) return;
         if (spiegel) {
             for (int k = 0; k < boote.size(); k++) {
                 Boat b = boote.get(k);
@@ -160,6 +191,70 @@ public final class BooteGl {
         }
         g.glDisable(GL.GL_DEPTH_TEST);
         g.glUseProgram(0);
+    }
+
+    /** W8b: Lage des Boots von heute zur Zeit t: Schwimmlage am Pegel, Bug im Wind, Schwoien ±8° (5 min), Rollen und Stampfen [G]. */
+    private float[] heutePose(double t) {
+        if (heute == null) {
+            heute = Kutter.edrie();
+            Troller tr = Troller.edrie(heute.hull);
+            tr.name = "KITTIWAKE";
+            tr.homeport = "PELICAN, ALASKA";
+            tr.sheerStrake = new double[]{0.20, 0.045, 0.03};
+            tr.houseTrim = new double[]{0.20, 0.045, 0.03};
+            tr.roof = new double[]{0.36, 0.36, 0.33};
+            tr.wear = 0.25; tr.rust = 0.2; tr.growth = 0.3; tr.seed = 4;
+            craft.prepare(heute.hull, tr);
+        }
+        double wind = windVonJetzt;
+        if (Double.isNaN(heutePegel) || Math.abs(pegelJetzt - heutePegel) > 0.02 || Math.abs(wind - heuteWind) > 1) {
+            if (heuteOrt == null) heuteOrt = ankerplatz();
+            double[] ort = heuteOrt != null ? heuteOrt : HEUTE_ORT;
+            heute.settle(com.dan.vessel.Water.still(pegelJetzt), ort[0], ort[1], wind);
+            if (heuteOrt == null) heutePegel = Double.NaN;   // Gelände noch nicht geladen: im nächsten Bild noch einmal
+            heutePegel = pegelJetzt;
+            heuteWind = wind;
+            heuteQ = heute.orientation();
+        }
+        double[] o = heute.position();
+        // Schwimmlage mit dem Bug im Wind (settle), dazu Schwoien, Rollen, Stampfen [G]
+        double yaw = Math.toRadians(8 * Math.sin(2 * Math.PI * t / 300.0));
+        double roll = Math.toRadians(0.6 * Math.sin(2 * Math.PI * t / 4.2)), pitch = Math.toRadians(0.3 * Math.sin(2 * Math.PI * t / 3.1 + 1.0));
+        double[] qy = {Math.cos(yaw / 2), 0, Math.sin(yaw / 2), 0}, qz = {Math.cos(pitch / 2), 0, 0, Math.sin(pitch / 2)}, qx = {Math.cos(roll / 2), Math.sin(roll / 2), 0, 0};
+        double[] q = qmul(qy, qmul(heuteQ, qmul(qz, qx)));
+        heute.pose(new double[]{o[0], o[1] + 0.02 * Math.sin(2 * Math.PI * t / 3.7), o[2]}, q);
+        heuteModell = heute.model();
+        return heuteModell;
+    }
+
+    /**
+     * W8b Runde 2: In W8b Runde 1 lag der Ort (−4 440, 2 470) heute zu flach – das Boot schwebte über dem Strand (808).
+     * Jetzt der nächste Punkt um ihn (Spirale, 5-m-Schritte, bis 600 m), an dem das Wasser bei Niedrigwasser (Pegel − 2 m)
+     * mindestens 6 m tief ist und 25 m ringsum keine Untiefe liegt.
+     */
+    private double[] ankerplatz() {
+        java.util.function.DoubleBinaryOperator g = grund;
+        if (g == null || g.applyAsDouble(HEUTE_ORT[0], HEUTE_ORT[1]) <= Renderer.KEIN_GRUND + 1) return null;   // noch kein Gelände
+        double tief = pegelJetzt - 2 - 6;
+        for (int r = 0; r <= 600; r += 5)
+            for (int k = 0, n = Math.max(1, (int) (2 * Math.PI * r / 5)); k < n; k++) {
+                double a = 2 * Math.PI * k / n, x = HEUTE_ORT[0] + r * Math.cos(a), z = HEUTE_ORT[1] + r * Math.sin(a);
+                boolean ok = true;
+                for (int j = 0; j < 9 && ok; j++) {
+                    double b = 2 * Math.PI * j / 8, rr = j == 8 ? 0 : 25;
+                    ok = g.applyAsDouble(x + rr * Math.cos(b), z + rr * Math.sin(b)) < tief;
+                }
+                if (ok) return new double[]{x, z};
+            }
+        return HEUTE_ORT.clone();
+    }
+
+    /** Wo das Boot von heute liegt (nach der Suche), für Proben und HUD. */
+    public double[] heuteOrt() { return heuteOrt == null ? HEUTE_ORT.clone() : heuteOrt.clone(); }
+
+    private static double[] qmul(double[] a, double[] b) {
+        return new double[]{a[0] * b[0] - a[1] * b[1] - a[2] * b[2] - a[3] * b[3], a[0] * b[1] + a[1] * b[0] + a[2] * b[3] - a[3] * b[2],
+                a[0] * b[2] - a[1] * b[3] + a[2] * b[0] + a[3] * b[1], a[0] * b[3] + a[1] * b[2] - a[2] * b[1] + a[3] * b[0]};
     }
 
     private CraftGl.View craftBlick(float[] vp, double[] eye, boolean reversed, double pegel) {
