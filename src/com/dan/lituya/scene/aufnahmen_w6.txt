@@ -46,7 +46,7 @@ nr=105;name=Narbe_ohne_Baumschatten;xz=1000,-1300;auge=2;blick=20;neigung=-4;zei
 nr=106;name=Narbe_ohne_Triebe;xz=1000,-1300;auge=2;blick=20;neigung=-4;zeitstand=heute;datum=2026-07-20;uhr=15.0;brennweite=85;schalter=wald.triebe=false;warum=W6 Runde 5: Diagnose helle Stämme
 nr=107;name=Narbe_nochmal;xz=1000,-1300;auge=2;blick=20;neigung=-4;zeitstand=heute;datum=2026-07-20;uhr=15.0;brennweite=85;warum=W6 Runde 5: Diagnose: wie 90, zweiter Lauf
 nr=108;name=H6_Zeit_alles;xz=1750,-1350;auge=120;blick=352;neigung=-8;zeitstand=welle;ereignis=137;brennweite=50;warum=W6 Runde 6: Zeitprobe H6 mit Teilzeiten (Bezug für 109 bis 113)
-nr=109;name=H6_Knick_Kegel_800;xz=1750,-1350;auge=120;blick=352;neigung=-8;zeitstand=welle;ereignis=137;brennweite=50;schalter=wald.knick.kegelAb=800;warum=W6 Runde 6: fallende Bäume ab 800 m als Kegel statt ab 1500 m (Zeit, Bild)
+nr=109;name=H6_Knick_Kegel_800;xz=1750,-1350;auge=120;blick=352;neigung=-8;zeitstand=welle;ereignis=137;brennweite=50;schalter=wald.knick.coneFrom=800;warum=W6 Runde 6: fallende Bäume ab 800 m als Kegel statt ab 1500 m (Zeit, Bild)
 nr=110;name=H6_Staub_24_Schritte;xz=1750,-1350;auge=120;blick=352;neigung=-8;zeitstand=welle;ereignis=137;brennweite=50;schalter=ereignisGl.medienSchritte=24;warum=W6 Runde 6: Staub mit 24 statt 32 Schritten (Zeit, Bild)
 nr=111;name=H6_Spiegel_jedes_vierte;xz=1750,-1350;auge=120;blick=352;neigung=-8;zeitstand=welle;ereignis=137;brennweite=50;schalter=spiegelTakt=4;warum=W6 Runde 6: Spiegelbild jedes vierte statt jedes zweite Bild (Zeit)
 nr=112;name=H6_Kacheln_16;xz=1750,-1350;auge=120;blick=352;neigung=-8;zeitstand=welle;ereignis=137;brennweite=50;schalter=ereignisGl.kachelPixel=16;warum=W6 Runde 6: Kacheln der Welle 16 statt 12 Bildpunkte (Zeit, Bild)

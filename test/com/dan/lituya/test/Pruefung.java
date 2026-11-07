@@ -143,8 +143,8 @@ public final class Pruefung {
             for (Site.Ort o : new Site.Ort[]{Site.FAIRWEATHER, Site.CRILLON, Site.GILBERT, Site.CENOTAPH})
                 drin &= o.x() > gr[0] && o.x() < gr[0] + gr[2] && o.z() > gr[1] && o.z() < gr[1] + gr[2];
             check(rd.licht.an && drin && lfr[2] == Licht.FEIN_KANTE, f("W1: Licht an, Horizontkarten %.0f km (fein) und %.0f km (grob) decken Fairweather, Crillon, Gilbert Inlet", lfr[2] / 1000, gr[2] / 1000));
-            for (String sh : new String[]{"schatten.comp", "sonnenkarte.comp"})
-                check(Renderer.class.getResource("/com/dan/lituya/gl/shader/" + sh) != null, "W1: Shader " + sh + " im Klassenpfad");
+            for (String sh : new String[]{"horizon.comp", "sunmap.comp", "sunmap_host.glsl"})
+                check(Renderer.class.getResource("/com/dan/horizon/gl/" + sh) != null, "W1: Shader " + sh + " aus com.dan.horizon im Klassenpfad");
             // Kimm aus 4 000 m (mit Brechung): rund 1,9°; das Alpenglühen hält dort bis gut 1,5° unter der Kimm
             double dip = Math.toDegrees(Math.sqrt(2 * 4000 / Licht.R_EFF));
             check(dip > 1.7 && dip < 2.1, f("W1: Kimm aus 4 000 m %.2f° unter der Waagerechten", dip));
@@ -162,9 +162,10 @@ public final class Pruefung {
             String med = new String(Renderer.class.getResourceAsStream("/com/dan/lituya/gl/shader/medien.frag").readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
             String gel = new String(Renderer.class.getResourceAsStream("/com/dan/lituya/gl/shader/gelaende.frag").readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
             String wel = new String(Renderer.class.getResourceAsStream("/com/dan/lituya/gl/shader/welle.frag").readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
-            check(med.contains("gischtDichte") && !med.contains("vorhangDichte") && med.contains("uFlut"), "W3b: Gischt aus Ankunft und höchstem Stand der Welle, keine Kuppel");
+            // seit 07.11.2026 aus com.dan.surge (surge_spray.glsl: surgeSprayDensity über der Flutkarte uSgFlood)
+            check(med.contains("surgeSprayDensity") && med.contains("/com/dan/surge/gl/surge_spray.glsl") && !med.contains("vorhangDichte"), "W3b: Gischt aus Ankunft und höchstem Stand der Welle, keine Kuppel (com.dan.surge)");
             check(gel.contains("/com/dan/surface/gl/surface.glsl") && gel.contains("vec3 hang(") && gel.contains("uFlut"), "W3b: Gelände mit com.dan.surface und Flut (abgeschürfte Hänge)");
-            check(wel.contains("vTiefe"), "W3b: dünner Film am Hang fällt weg (K11)");
+            check(wel.contains("vTiefe") && wel.contains("surgeShade"), "W3b: dünner Film am Hang fällt weg (K11), Oberfläche aus com.dan.surge");
         } catch (java.io.IOException | RuntimeException e) { check(false, "W3b: Shader lesen: " + e); }
         check(com.dan.lituya.gl.EreignisGl.GISCHT_NACHLAUF > 10 && com.dan.lituya.gl.EreignisGl.UNIT_FLUT != com.dan.lituya.gl.EreignisGl.UNIT_ABRISS, "W3b: Gischt bleibt 40 s, Texturstelle der Flut frei");
         // W0 (K6, WF11 A): keine Karte und keine Netzlinien beim Start
@@ -191,9 +192,15 @@ public final class Pruefung {
         check(pk.contains("kino") && pk.contains("store") && pk.contains("route"), "kino, store und route da");
         for (String[] prog : rd.shaderFiles())
             for (String file : prog)
-                check(Renderer.class.getResource("/com/dan/lituya/gl/shader/" + file) != null, "Shader " + file + " im Klassenpfad");
-        for (String inc : new String[]{"common.glsl", "marken.glsl"})
+                check(Renderer.class.getResource(file.startsWith("/") ? file : "/com/dan/lituya/gl/shader/" + file) != null, "Shader " + file + " im Klassenpfad");
+        for (String inc : new String[]{"common.glsl", "marken.glsl", "paketlicht.glsl"})
             check(Renderer.class.getResource("/com/dan/lituya/gl/shader/" + inc) != null, "Baustein " + inc + " im Klassenpfad");
+        // seit 07.11.2026: die Bausteine aus W1–W5 in Renderer.jar
+        for (String inc : new String[]{"/com/dan/horizon/gl/horizon.glsl", "/com/dan/exposure/gl/bloom.glsl", "/com/dan/ocean/gl/milk.glsl",
+                "/com/dan/dustcloud/gl/dust.glsl", "/com/dan/dustcloud/gl/upsample.frag", "/com/dan/surge/gl/surge_front.glsl",
+                "/com/dan/surge/gl/surge_surface.glsl", "/com/dan/surge/gl/surge_spray.glsl", "/com/dan/cliff/gl/scour.glsl",
+                "/com/dan/surge/gl/lip.frag", "/com/dan/forest/gl/treefall.vert"})
+            check(Renderer.class.getResource(inc) != null, "Baustein " + inc + " in Renderer.jar");
 
         teil("Network Data Model: sdonm.jar und Treiber 21 (F26 A)");
         check(new File(Lod.lib(), "sdonm.jar").isFile(), "lib/sdonm.jar da (" + new File(Lod.lib(), "sdonm.jar").length() / 1024 + " KB)");

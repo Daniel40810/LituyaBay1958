@@ -29,6 +29,9 @@ import java.util.Locale;
  * Unter Wasser, mit Marken und ohne Licht aus {@code sky} zeichnet weiter {@code meer.frag}.
  */
 public final class MeerGl {
+    /** W2: Gletschermilch der Bucht (com.dan.ocean.GlacialMilk) [G]. */
+    public final com.dan.ocean.GlacialMilk milch = new com.dan.ocean.GlacialMilk()
+            .add(Site.GILBERT.x(), Site.GILBERT.z(), 5500, 1).add(Site.CRILLON_INLET.x(), Site.CRILLON_INLET.z(), 4500, 0.8);
     /** An (W2) oder {@code meer.frag}. */
     public volatile boolean an = true;
     /** Spiegelung der Berge (halbe Auflösung); mit Wald im Spiegel ab „Hoch“. */
@@ -370,9 +373,8 @@ public final class MeerGl {
         spiegelShader.set(g, "uFar", far);
         spiegelShader.set(g, "uWelleAn", welleRect != null ? 1 : 0);
         if (welleRect != null) spiegelShader.set(g, "uWelleRect", (float) welleRect[0], (float) welleRect[1], (float) welleRect[2], (float) welleRect[3]);
-        // Gletschermilch: zwei Quellen (Gilbert Inlet, Crillon Inlet) [G]
-        spiegelShader.set(g, "uMilchA", (float) Site.GILBERT.x(), (float) Site.GILBERT.z(), 5500f, 1f);
-        spiegelShader.set(g, "uMilchB", (float) Site.CRILLON_INLET.x(), (float) Site.CRILLON_INLET.z(), 4500f, 0.8f);
+        // Gletschermilch aus com.dan.ocean (aus W2 herausgezogen): Grundton 0,35, zwei Quellen (Gilbert Inlet, Crillon Inlet) [G]
+        com.dan.ocean.gl.MilkGl.bind(g, spiegelShader.id(), milch);
         g.glDisable(GL.GL_DEPTH_TEST);
         g.glEnable(GL.GL_BLEND);
         g.glBlendFunc(GL.GL_ONE, GL.GL_ONE_MINUS_SRC_ALPHA);

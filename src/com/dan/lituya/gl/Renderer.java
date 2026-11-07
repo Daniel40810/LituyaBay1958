@@ -142,7 +142,7 @@ public final class Renderer implements GLEventListener {
     /** Werkbuch Welle W6: die Landschaft (Farbe aus Sentinel-2, Fels aus cliff, Schnee, Gletscher mit Spalten). */
     public final LandschaftGl landschaft = new LandschaftGl();
     /** W5 (E11): Schleier am Sporn. */
-    public final SchleierGl schleier = new SchleierGl();
+    public final SchleierGl schleier = new SchleierGl(ereignisGl.surgeGl, ereignisGl::paket);   // com.dan.surge (seit 07.11.2026)
     /** Phase 15a: die drei Troller auf ihren vorgerechneten Bahnen (tools.Boote1958). */
     public final BooteGl boote = new BooteGl();
     /** Phase 14a: Jahres-Zeitraffer (Jahre je Minute, in ganzen Jahren; Tag und Uhrzeit bleiben), hält am 9.7.2026. */
@@ -191,7 +191,7 @@ public final class Renderer implements GLEventListener {
             post = new Shader("Nachbearbeitung", null, "fullscreen.vert", "post.frag"),
             overlay = new Shader("Überlagerung", null, "fullscreen.vert", "overlay.frag"),
             taaShader = new Shader("Kantenglättung", null, "fullscreen.vert", "taa.frag");
-    private final Shader[] all = {skyShader, gelaendeShader, meerShader, post, overlay, taaShader, ereignisGl.welle, ereignisGl.strom, ereignisGl.medien, ereignisGl.medienHoch, ereignisGl.lippeGl.shader, ereignisGl.lippeGl.tropfen, baeche.shader, wald.knick.shader, schleier.shader};
+    private final Shader[] all = {skyShader, gelaendeShader, meerShader, post, overlay, taaShader, ereignisGl.welle, ereignisGl.strom, ereignisGl.medien, ereignisGl.medienHoch, baeche.shader};
     private final HudOverlay hud = new HudOverlay();
     /** Phase 19a: Befunde als Marken, Zeugen als Untertitel (Archiv). */
     public final ArchivSzene archiv = new ArchivSzene();
@@ -509,13 +509,9 @@ public final class Renderer implements GLEventListener {
      * nichts bis voll ab rund 85 mm (16°). Die Erdkrümmung rechnet die Clipmap weiter vom Auge (uClipCam).
      */
     public double[] lodMitte() {
-        double w = Math.max(0, Math.min(1, (27.0 - fovy()) / 11.0));
-        if (w <= 0) return new double[]{camera.eye[0], camera.eye[2]};
-        double[] p = treffer(0, 0, 1, 1);
-        if (p == null) return new double[]{camera.eye[0], camera.eye[2]};
-        double dx = p[0] - camera.eye[0], dz = p[1] - camera.eye[2], d = Math.hypot(dx, dz);
-        double k = w * Math.min(1, 6000 / Math.max(d, 1));
-        return new double[]{camera.eye[0] + dx * k, camera.eye[2] + dz * k};
+        // com.dan.clipmap (seit 07.11.2026): ab 27° Bildwinkel zum Zielpunkt der Bildmitte, voll ab 16°, höchstens 6 km
+        if ((27.0 - fovy()) / 11.0 <= 0) return new double[]{camera.eye[0], camera.eye[2]};
+        return com.dan.clipmap.Clipmap.focusCenter(camera.eye[0], camera.eye[2], treffer(0, 0, 1, 1), fovy());
     }
 
     /** W5: die Clipmap um {@link #lodMitte()} nachführen. */
@@ -751,6 +747,9 @@ public final class Renderer implements GLEventListener {
         if (reversedZ) gl.glClipControl(GL4.GL_LOWER_LEFT, GL4.GL_ZERO_TO_ONE);
         try {
             for (Shader s : all) s.build(gl);
+            // seit 07.11.2026: Lippe, Tropfen, Schleier (com.dan.surge) und fallende Bäume (com.dan.forest) mit dem Licht dieser App
+            ereignisGl.paketeBauen(gl);
+            wald.paketeBauen(gl);
         } catch (RuntimeException e) {
             fail(e.getMessage());
             return;

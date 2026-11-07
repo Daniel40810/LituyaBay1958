@@ -24,7 +24,7 @@ import java.util.function.DoubleBinaryOperator;
  * <li><b>Wolken</b> ({@code com.dan.cloud}, seit W7 mit Gelände): die Schicht der Lage, dazu die Bank am Hang, die
  * Kappe über dem Fairweather, Quellwolken über der Kette statt über dem kalten Meer und Lücken im Lee. Gelände aus dem
  * groben Gitter von {@link Licht} (66 km, 64 m). Schattenkarte über die ganze Szene (72 km, 384²) für Gelände, Welle,
- * Wasser, Wald und Bäche ({@code sunAt} in {@code common.glsl}, {@code sonnenkarte.comp}); die Wolken im Rundumbild
+ * Wasser, Wald und Bäche ({@code sunAt} in {@code common.glsl}, {@code sunmap.comp} aus com.dan.horizon); die Wolken im Rundumbild
  * spiegeln sich im Wasser und färben Himmelslicht und Dunst.</li>
  * <li><b>Seenebel</b> ({@code com.dan.fog.TerrainFog}, seit W7 mit Vorstoß): ein Nebelmeer bis zur Obergrenze der Lage,
  * das von See durch den Eingang in die Bucht vordringt (Weg durch Gelände unter der Obergrenze, 26 km um den Kern).</li>

@@ -92,7 +92,16 @@ public final class WaldGl {
     private double welleT = Double.NaN;
     private boolean mitTreibgut;
     /** W5 (E11): die Bäume, die gerade in der Zunge fallen. */
-    final KnickGl knick = new KnickGl();
+    /** W5 (E11): fallende Bäume, seit dem 07.11.2026 aus com.dan.forest (TreeFall, TreeFallGl) mit dem Licht dieser App. */
+    final com.dan.forest.gl.TreeFallGl knick = new com.dan.forest.gl.TreeFallGl();
+    private final java.util.Map<Integer, Shader> knickShader = new java.util.HashMap<>();
+
+    /** Das Programm der fallenden Bäume bauen (Licht aus paketlicht.glsl). */
+    void paketeBauen(GL4 gl) {
+        knick.hostLight = Shader.source("paketlicht.glsl", null).text;
+        knick.hostUniforms = p -> { };
+        knick.init(gl);
+    }
     /** W5: Bäume knicken in Reihen (sonst schalten sie wie bis W4 um). */
     public volatile boolean knicken = true;
 
@@ -487,9 +496,9 @@ public final class WaldGl {
         // W6 (L8): Wind im Wald aus der Verdrahtung (vorher stand der Wald still; forest bewegt Äste und Laub im Shader)
         double wr = Math.toRadians(windVonGrad + 180);
         forest.setWind(Math.sin(wr), -Math.cos(wr), windMs, 0.35);
-        if (forest.ready()) knick.vorbauen(gl, forest, tag);   // W5 Runde 4
+        if (forest.ready()) knick.prepare(gl, forest, tag);   // W5 Runde 4
         double t = clock.simSeconds();
-        if (!(t >= Band1958.EINTAUCHEN - 1 && t < KNICK_BIS)) knick.setzen(knick_leer, 0);
+        if (!(t >= Band1958.EINTAUCHEN - 1 && t < KNICK_BIS)) knick.set(knick_leer, 0);
         if (t < Band1958.EINTAUCHEN) {
             if (gezeigt != -1) { d.states.clear(); gezeigt = -1; mitTreibgut = false; zustandNeu = true; updateNoetig = true; }
         } else if (t < 3600) {
@@ -506,15 +515,15 @@ public final class WaldGl {
     }
 
     /** W5: bis zu dieser Ereigniszeit (s) können Bäume fallen (die Ankünfte im Band liegen davor). */
-    static final double KNICK_BIS = 3600;   // Runde 3: umgelegte Stämme liegen bis zum Ende der Welle in KnickGl
+    static final double KNICK_BIS = 3600;   // Runde 3: umgelegte Stämme liegen bis zum Ende der Welle in TreeFallGl
     private static final float[] knick_leer = new float[0];
-    private float[] knickBuf = new float[KnickGl.FL * 4096];
+    private float[] knickBuf = new float[com.dan.forest.TreeFall.FL * 4096];
     private final com.dan.forest.ForestCulture.Tree baum = new com.dan.forest.ForestCulture.Tree();
 
     /**
      * Während der Welle: Plätze, die die Welle erreicht hat, bekommen ihre Folge (Jahr 0 ohne Nachwuchs). Seit W5 (E11)
      * liegt die Ankunft je Platz im Gitter der Vorrechnung (Band1958), und in den Sekunden um sie fällt der Baum in
-     * {@link KnickGl}: forest zeichnet den Platz so lange nicht.
+     * {@link com.dan.forest.gl.TreeFallGl}: forest zeichnet den Platz so lange nicht.
      */
     void welle(double t) {
         TreeStates s = d.states;
@@ -525,7 +534,7 @@ public final class WaldGl {
         com.dan.forest.ForestCulture cu = forest != null ? forest.culture() : null;
         d.su.zustand(0, (i, j, st, fall, art, h) -> {
             double a = an[k[0]++];
-            if (kn && st != TreeStates.STANDING && a - KnickGl.VOR <= t && t < a + KnickGl.dauer(st, 3.0)) {
+            if (kn && st != TreeStates.STANDING && a - com.dan.forest.TreeFall.AIR_BLAST <= t && t < a + com.dan.forest.TreeFall.duration(st, 3.0)) {
                 if (knickBaum(cu, i, j, st, fall, a, t, nk)) { s.set(i, j, TreeStates.GONE, 0); return; }
             }
             if (a <= t) {
@@ -533,19 +542,19 @@ public final class WaldGl {
                 if (art >= 0) s.setGrowth(i, j, art, Math.min(1, h / refHoehe(art)));
             }
         });
-        knick.setzen(knickBuf, nk[0]);
+        knick.set(knickBuf, nk[0]);
     }
 
     static float hash(int i, int j, int k) { return com.dan.forest.ForestCulture.u01(com.dan.forest.ForestCulture.slotHash(i, j, 0x5EED + k), k); }
 
     /** W5: legt den fallenden Baum des Platzes in die Liste (false, wenn dort keiner steht oder er schon liegt). */
     private boolean knickBaum(com.dan.forest.ForestCulture cu, int i, int j, int st, double fallDeg, double a, double t, int[] nk) {
-        if (cu == null || nk[0] >= KnickGl.MAX || !cu.at(i, j, baum)) return false;
+        if (cu == null || nk[0] >= com.dan.forest.gl.TreeFallGl.MAX || !cu.at(i, j, baum)) return false;
         if (baum.state != TreeStates.STANDING) return false;
         com.dan.forest.TreeModel m = forest.model(baum.type);
         double H = Math.max(m.height, 1) * baum.scale;
-        double tf = (0.8 + 0.022 * H) * (0.85 + 0.3 * hash(i, j, 1));
-        if (t >= a + KnickGl.dauer(st, tf)) return false;
+        double tf = com.dan.forest.TreeFall.fallTime(H, hash(i, j, 1));
+        if (t >= a + com.dan.forest.TreeFall.duration(st, tf)) return false;
         // Fallrichtung: umgelegt wie succession ihn legt (dort zeichnet forest ihn danach), sonst die Laufrichtung der Zunge
         double fx, fz;
         if (st == TreeStates.FELLED) {
@@ -564,24 +573,22 @@ public final class WaldGl {
         // liegen auf dem Hang: 90° minus die Neigung in Fallrichtung
         com.dan.forest.ForestCulture.Grid g = d.gelaende;
         double h1 = g.sample(0, (float) (baum.x + fx * 6), (float) (baum.z + fz * 6)), h0 = g.sample(0, (float) (baum.x - fx * 6), (float) (baum.z - fz * 6));
-        double wend = Math.max(0.5, Math.min(1.9, Math.PI / 2 - Math.atan((h1 - h0) / 12)));
-        double hb = st == TreeStates.BROKEN ? (0.15 + 0.3 * hash(i, j, 3)) * H : 0;
-        if (KnickGl.FL * (nk[0] + 1) > knickBuf.length) knickBuf = java.util.Arrays.copyOf(knickBuf, knickBuf.length * 2);
-        float[] o = knickBuf;
-        int q = KnickGl.FL * nk[0]++;
-        o[q] = baum.x; o[q + 1] = baum.y; o[q + 2] = baum.z; o[q + 3] = baum.yaw;
-        o[q + 4] = baum.scale; o[q + 5] = baum.tint; o[q + 6] = (float) a; o[q + 7] = (float) hb;
-        o[q + 8] = (float) fx; o[q + 9] = (float) fz; o[q + 10] = (float) wend; o[q + 11] = (float) tf;
-        o[q + 12] = st; o[q + 13] = (float) (8 + 8 * hash(i, j, 4)); o[q + 14] = (float) H; o[q + 15] = baum.type;
+        double wend = com.dan.forest.TreeFall.restAngle(h1 - h0, 12);
+        double hb = st == TreeStates.BROKEN ? com.dan.forest.TreeFall.breakHeight(H, hash(i, j, 3)) : 0;
+        if (com.dan.forest.TreeFall.FL * (nk[0] + 1) > knickBuf.length) knickBuf = java.util.Arrays.copyOf(knickBuf, knickBuf.length * 2);
+        int q = com.dan.forest.TreeFall.FL * nk[0]++;
+        com.dan.forest.TreeFall.put(knickBuf, q, baum.x, baum.y, baum.z, baum.yaw, baum.scale, baum.tint, a, hb, fx, fz, wend, tf, st,
+                com.dan.forest.TreeFall.drift(hash(i, j, 4)), H, baum.type);
         return true;
     }
 
     /** W5: die fallenden Bäume zeichnen (nach dem Wald, vor der Welle). */
     public void knickZeichnen(GL4 gl, java.util.function.Consumer<Shader> common, double[] eye, float[] vp, double t, boolean reversed) {
-        if (!an || forest == null || knick.zahl() == 0) return;
+        if (!an || forest == null || knick.count() == 0) return;
         gl.glDepthFunc(reversed ? GL.GL_GREATER : GL.GL_LESS);
         Renderer.teil("Knick");
-        knick.zeichnen(gl, forest, tag, common, eye, vp, t, (float) (1 / (2 * Site.EARTH_R_OPTICAL)));
+        knick.hostUniforms = p -> common.accept(knickShader.computeIfAbsent(p, q -> Shader.fremd("Knick", q)));
+        knick.draw(gl, forest, tag, eye, vp, t, (float) (1 / (2 * Site.EARTH_R_OPTICAL)), null);
         Renderer.teilEnde("Knick");
         gl.glDisable(GL.GL_DEPTH_TEST);
     }

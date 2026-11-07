@@ -21,12 +21,10 @@ uniform sampler2D uPano;
 uniform vec3 uSunColor, uMoonColor, uMoonDir;
 uniform float uFogDist, uPre;
 uniform vec3 uSkyAmb;     // ab Phase 5a: Himmelslicht als Bestrahlung/π (vorbelichtet), für das Umgebungslicht
-// Werkbuch Welle W1 (gl/Licht): Sonne außerhalb der Luft (vorbelichtet) und die Horizontkarten (r = Horizontwinkel in
-// Richtung Sonne, g = Boden), fein über den Kern und grob über die Szene; Rechtecke x0, z0, Kante.
+// Werkbuch Welle W1 (gl/Licht): Sonne außerhalb der Luft (vorbelichtet) und die Horizontkarten aus com.dan.horizon
+// (r = Horizontwinkel in Richtung Sonne, g = Boden), fein über den Kern und grob über die Szene (HorizonGl.bind).
 uniform vec3 uSunToa;
-uniform int uSchattenAn;
-uniform sampler2D uSchattenF, uSchattenG;
-uniform vec4 uSchattenFRect, uSchattenGRect;
+#include "/com/dan/horizon/gl/horizon.glsl"
 // Werkbuch Welle W7: Wolkenschatten und Nässe (gl/WetterGl)
 #include "wolken.glsl"
 
@@ -134,12 +132,7 @@ vec3 hazeColor(vec3 dir) {
     // Zenit statt der Kimm, denn dort hat die Richtung zur Sonne keine Bedeutung mehr (sonst eine Halbebene im Bild)
     if (uSkyMode != 1) return mix(skyColor(normalize(vec3(normalize(dir.xz + vec2(1e-5)), 0.0).xzy + vec3(0.0, 0.05, 0.0))),
                                   skyColor(vec3(0.0, 1.0, 0.0)), smoothstep(0.35, 0.9, -dir.y));
-    vec2 h = normalize(dir.xz + vec2(1e-5));
-    float az = atan(h.x, -h.y) / 6.28318530718 + 0.5;
-    float el = asin(0.03) / 3.14159265359 + 0.5;
-    vec3 c = textureLod(uPano, vec2(az, el), 4.0).rgb;
-    float cap = 3.0 * dot(uSkyAmb, vec3(0.2126, 0.7152, 0.0722)) + 1e-6, l = dot(c, vec3(0.2126, 0.7152, 0.0722));
-    return l > cap ? c * (cap / l) : c;
+    return horizonHaze(uPano, dir, uSkyAmb);   // com.dan.horizon (aus W1 herausgezogen)
 }
 
 vec3 aerial(vec3 col, vec3 dir, float dist) {
@@ -149,7 +142,7 @@ vec3 aerial(vec3 col, vec3 dir, float dist) {
         // Sicht). Gezählt in der mittleren Höhe des Wegs; so stehen die Gipfel klar über dem Dunst der Bucht.
         // Dunst mit 0,45 gewichtet: com.dan.sky rechnet die Auslöschung am Boden (Licht und Streuung); sichtbar wird
         // davon rund die Hälfte als Schleier (erste Probe auf der Radeon: der Mittelgrund war grau verwaschen)
-        float od = dist * (exp(-hm / 8000.0) / 150000.0 + 0.45 * exp(-hm / 1200.0) / uFogDist);
+        float od = horizonAerialDepth(dist, hm, uFogDist);   // com.dan.horizon
         return mix(col, hazeColor(dir), 1.0 - exp(-od));
     }
     float f = 1.0 - exp(-dist * exp(-hm / 8000.0) / 120000.0);
@@ -158,43 +151,15 @@ vec3 aerial(vec3 col, vec3 dir, float dist) {
 
 // ------------------------------------------------------------------ W1: Sonne am Punkt
 
-// Durchlässigkeit der Luft für die Sonne an einem Punkt der Höhe h (m) bei Sonnenhöhe sinEl. Rayleigh (Zenit-Dicke
-// 0,046/0,108/0,265, 8 km) und Dunst (0,10, 1,2 km [G]); Luftmasse nach Kasten und Young, unter der Waagerechten der
-// streifende Strahl nach Chapman (Tangentenhöhe). Auf 4 000 m und 1° unter der Kimm: rot, rund ein Zehntel der Sonne.
-float luftmasse(float h, float sinEl, float H) {
-    float el = asin(clamp(sinEl, -1.0, 1.0));
-    float R = 6371000.0;
-    if (el >= 0.0) {
-        float e = degrees(el);
-        return exp(-h / H) / (sin(el) + 0.50572 * pow(e + 6.07995, -1.6364));
-    }
-    float ht = (R + h) * cos(el) - R;                       // Tangentenhöhe
-    float voll = sqrt(6.2831853 * R / H);
-    return max(voll * exp(-max(ht, -200.0) / H) - 0.5 * voll * exp(-h / H), 0.5 * voll * exp(-h / H));
-}
-vec3 sonnenDurchlass(float h, float sinEl) {
-    vec3 tauR = vec3(0.046, 0.108, 0.265);
-    float tauA = 0.10;
-    vec3 od = tauR * luftmasse(h, sinEl, 8000.0) + vec3(tauA * luftmasse(h, sinEl, 1200.0));
-    return exp(-od);
-}
+// Durchlässigkeit der Luft für die Sonne an einem Punkt der Höhe h (m) bei Sonnenhöhe sinEl: Rayleigh und Dunst, Luftmasse
+// nach Kasten und Young, unter der Waagerechten streifend nach Chapman (com.dan.horizon, aus W1 herausgezogen). Auf
+// 4 000 m und 1° unter der Kimm: rot, rund ein Zehntel der Sonne.
+float luftmasse(float h, float sinEl, float H) { return horizonAirmass(h, sinEl, H); }
+vec3 sonnenDurchlass(float h, float sinEl) { return horizonTransmittance(h, sinEl); }
 
 // Sonne ja/nein (0..1) am Punkt w aus den Horizontkarten: Horizontwinkel gegen Sonnenhöhe, Halbschatten der Scheibe
 // (0,53°); ein Punkt über dem Boden (Welle, Staub, Baumkrone) sieht etwas mehr (Hindernis in rund 2 km angenommen).
-float bergSchatten(vec3 w) {
-    if (uSchattenAn == 0) return 1.0;
-    vec2 hz;
-    vec2 uf = (w.xz - uSchattenFRect.xy) / uSchattenFRect.z;
-    if (all(greaterThan(uf, vec2(0.0))) && all(lessThan(uf, vec2(1.0)))) hz = textureLod(uSchattenF, uf, 0.0).rg;
-    else {
-        vec2 ug = (w.xz - uSchattenGRect.xy) / uSchattenGRect.z;
-        if (all(greaterThan(ug, vec2(0.0))) && all(lessThan(ug, vec2(1.0)))) hz = textureLod(uSchattenG, ug, 0.0).rg;
-        else return 1.0;
-    }
-    float el = asin(clamp(uSun.y, -1.0, 1.0));
-    float lift = max(w.y - hz.y, 0.0) / 2000.0;
-    return smoothstep(-0.0046, 0.0046, el - hz.x + lift);
-}
+float bergSchatten(vec3 w) { return horizonSun(w, uSun.y); }
 
 // Werkbuch Welle W3c: Himmelslicht auf eine Fläche mit Normale n. Vorher überall die Farbe des Zenits mal (0,55 + 0,45 n.y):
 // in der Dämmerung ein kaltes Violett auf allem, Hang und Wasser in derselben Farbe. Jetzt mit com.dan.sky aus dem
@@ -204,15 +169,7 @@ vec3 umgebung(vec3 n) {
     vec3 z = skyColor(vec3(0.0, 1.0, 0.0));
     float sicht = 0.55 + 0.45 * n.y;
     if (uSkyMode != 1) return z * sicht;
-    vec3 dd = normalize(vec3(n.x, max(n.y, 0.0) + 0.35, n.z));
-    float az = atan(dd.x, -dd.z) / 6.28318530718 + 0.5;
-    float el = asin(clamp(dd.y, -1.0, 1.0)) / 3.14159265359 + 0.5;
-    vec3 c = textureLod(uPano, vec2(az, el), 6.0).rgb;
-    // in der Helligkeit an das bisherige Mittel gebunden (die Szene bleibt gleich hell, nur die Farbe folgt der Richtung)
-    float lz = dot(z, vec3(0.2126, 0.7152, 0.0722)) + 1e-6, lc = dot(c, vec3(0.2126, 0.7152, 0.0722)) + 1e-6;
-    c *= clamp(lz / lc, 0.6, 1.6);
-    vec3 boden = uSkyAmb * vec3(1.05, 0.95, 0.8) * 0.35;   // Licht vom Boden (warm, schwach)
-    return mix(z, c, 0.75) * sicht + boden * (1.0 - sicht);
+    return horizonSkyLight(uPano, n, z, uSkyAmb);   // com.dan.horizon (aus W3c herausgezogen)
 }
 
 // Licht der Sonne am Punkt w: mit com.dan.sky Durchlässigkeit nach Höhe und Bergschatten, sonst der Platzhalter.

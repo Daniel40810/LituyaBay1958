@@ -29,7 +29,10 @@ public final class Bibliothek {
             // W6 Runde 7: Moos und Bartflechten nach den Fotos in templates/
             "moss", "lichen",
             // W6 Runde 8: Strand und Böschung an der Naht von Lidar und Lotungen (Aufbereitung, Schritt gelaende)
-            "shore"};
+            "shore",
+            // 07.11.2026: W1–W5 aus der App herausgezogen (Licht im Gebirge, Front der Welle; dustcloud gl/, cliff scour.glsl,
+            // clipmap focusCenter, ocean GlacialMilk, forest TreeFall, exposure PreExposure)
+            "horizon", "surge"};
 
     /**
      * Packages, die für LituyaBay1958 im Projekt Renderer neu entstehen (Werkbuch 5), mit der Phase, in der sie kommen

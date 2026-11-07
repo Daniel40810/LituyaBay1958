@@ -12,7 +12,8 @@ uniform sampler2D uRefl, uDepth;
 uniform int uSpiegelAn, uWelleAn;
 uniform vec4 uWelleRect;     // x0, z0, x1, z1 (Szene)
 uniform float uNear, uFar;
-uniform vec4 uMilchA, uMilchB;   // Quelle x, z, Reichweite (m), Stärke
+// Gletschermilch aus com.dan.ocean (aus W2 herausgezogen): Quellen über MilkGl.bind
+#include "/com/dan/ocean/gl/milk.glsl"
 uniform mat4 uSpiegelVP, uJetztVP;   // Runde 7: Blick beim Spiegelbild und jetzt
 uniform sampler2D uSpTiefe;   // Runde 8: Tiefe des Spiegelbilds
 uniform float uSpNah;
@@ -191,12 +192,8 @@ void main() {
         }
     }
     // Gletschermilch: Streulicht im Wasser (Anteil 1 − F), Grundton 0,35 in der ganzen Bucht, zum Inlet hin bis 1 [G]
-    float ma = uMilchA.w * exp(-dot(w.xz - uMilchA.xy, w.xz - uMilchA.xy) / (uMilchA.z * uMilchA.z));
-    float mb = uMilchB.w * exp(-dot(w.xz - uMilchB.xy, w.xz - uMilchB.xy) / (uMilchB.z * uMilchB.z));
-    float milch = clamp(0.35 + ma + mb, 0.0, 1.0);
     vec3 eDown = uSkyAmb * 3.14159 * 1.1 + sunAt(w) * max(uSun.y, 0.0);
-    vec3 milchFarbe = vec3(0.10, 0.20, 0.18);   // Gletschermehl streut grünlich-türkis zurück [G]
-    vec3 m = milchFarbe * eDown * 0.11 * milch * (1.0 - F);
+    vec3 m = oceanMilkLight(w.xz, eDown, F);
     add += m * durch;
     frag = vec4(add, deck);
 }
