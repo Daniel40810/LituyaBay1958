@@ -61,6 +61,9 @@ public final class Regie {
          * Szenenzeit (NaN = wie eingestellt; 0 = sofort).
          */
         default void wetter(Wetterlage lage, double uebergangMin) { }
+        /** Werkbuch Welle W7b: Belichtungszeit des Regens in s (1/250 wie das Auge) und Zeitmaß des Regens (1 Echtzeit, unter 1 Zeitlupe). */
+        default void verschluss(double sekunden) { }
+        default void zeitlupe(double mass) { }
         /** Ob die Szene so weit ist (für {@code warte}). */
         boolean ready(Warte w);
         void capture(String caption);
@@ -218,7 +221,15 @@ public final class Regie {
 
     /** Die Befehle der Stichworte (klein geschrieben im Text). */
     public static final List<String> BEFEHLE = List.of("zeit", "ereignis", "raffer", "zeitstand", "jahre", "ansicht", "schaustueck", "fahrt", "mitfahrt",
-            "netzblick", "echtzeit", "regen", "warte", "foto", "blatt", "sage", "flug", "wetter");
+            "netzblick", "echtzeit", "regen", "warte", "foto", "blatt", "sage", "flug", "wetter", "verschluss", "zeitlupe");
+
+    /** W7b: Belichtungszeit „1/250“ oder „0,004“ in s (zwischen 1/20000 und 1 s). */
+    public static double belichtung(String a) {
+        String t = a.trim().replace(',', '.');
+        int sl = t.indexOf('/');
+        double v = sl > 0 ? Double.parseDouble(t.substring(0, sl).trim()) / Double.parseDouble(t.substring(sl + 1).trim()) : Double.parseDouble(t);
+        return Math.max(5e-5, Math.min(1, v));
+    }
 
     /** Die Bedingungen von {@code warte}. */
     public static final List<String> WARTEN = List.of("uhr", "ereignis", "echtzeit", "jahre", "boote");
@@ -436,6 +447,8 @@ public final class Regie {
                 return x -> x.echtzeit(o, v);
             }
             case "regen": { double v = Double.parseDouble(a); return x -> x.regen(v); }
+            case "verschluss": { double v = belichtung(a); return x -> x.verschluss(v); }   // W7b: „verschluss 1/250“ oder in s
+            case "zeitlupe": { double v = Double.parseDouble(a.trim().replace(',', '.')); return x -> x.zeitlupe(Math.max(1e-3, Math.min(1, v))); }
             case "wetter": {
                 // W7: „wetter kuestennebel 30“ = Lage, Übergang in Minuten (ohne: wie eingestellt)
                 need(a, "wetter Lage [Übergang in min]");

@@ -20,6 +20,11 @@ uniform int uSpSchritte;   // Runde 9: 1 oder 2 Schritte mit der Tiefe
 uniform vec3 uSpVorn;
 uniform float uSpTruebe;   // W7 Runde 1c: Anteil des Spiegelbilds, der im Regen im Dunst des Himmels aufgeht
 uniform float uSpGlatt;    // W7 Runde 1d: wie glatt das Wasser für den Spiegel ist (1 still, kleiner im Seegang)
+uniform sampler2D uSpRing; // W7b: Wellenfeld des Regens (com.dan.precip): Steigung in RG, fest in der Welt
+uniform vec4 uSpRingP;     // Kante (m), Stärke, an (1), Reichweite (m)
+uniform vec2 uSpRingQ;     // Mitte des Fensters
+uniform vec4 uSpRingR;     // W7b Runde 5: mittlere quadratische Steigung unter dem Raster, die das Feld trägt; Anteile der Fläche dazu
+uniform int uSpRingN;      // Bildzähler (die zeitliche Glättung mittelt die Facetten)
 
 // Runde 8: Spiegelbild aus einem früheren Bild an die jetzige Stelle (uv: jetzt, dir: Sehstrahl jetzt, normiert).
 // Erst die Richtung umrechnen (Runde 7), dort die Tiefe des Spiegelbilds lesen; dann den gespiegelten Punkt auf dem
@@ -98,21 +103,91 @@ void main() {
     vec2 g = vec2(vnf(q, 9.0, vec2(uTime * 0.05), px) - vnf(q, 9.0, vec2(3.1, 0.0) - uTime * 0.04, px),
                   vnf(q, 6.0, vec2(-uTime * 0.045), px) - vnf(q, 6.0, vec2(0.0, 5.3) + uTime * 0.035, px)) * 0.10;
     vec3 n = normalize(vec3(g.x, 1.0, g.y));
+    // W7b: die Ringe des Regens kippen den Spiegel (Fresnel und Lage des Spiegelbilds); im Fenster echt, draußen zwei
+    // gedrehte Abfragen derselben Fläche (wie com.dan.ocean detailMode 1)
+    vec2 rsR = vec2(0.0);
+    vec3 nFlat = n;
+    float mss = 0.0;
+    if (uSpRingP.z > 0.5) {
+        vec2 rel = abs(w.xz - uSpRingQ) / uSpRingP.x;
+        float win = 1.0 - smoothstep(0.30, 0.47, max(rel.x, rel.y));
+        vec2 nearS = texture(uSpRing, w.xz / uSpRingP.x).rg;
+        const mat2 R1 = mat2(0.8, 0.6, -0.6, 0.8), R2 = mat2(-0.28, 0.96, -0.96, -0.28);
+        vec2 a1 = texture(uSpRing, (R1 * w.xz) / uSpRingP.x + 0.37).rg, a2 = texture(uSpRing, (R2 * w.xz) / uSpRingP.x + 0.71).rg;
+        vec2 farS = (transpose(R1) * a1 + transpose(R2) * a2) * 0.7071;
+        float fern = exp(-t / max(1.0, uSpRingP.w));
+        rsR = (nearS * win + farS * (1.0 - win) * fern) * uSpRingP.y;
+        // Runde 5: Varianz erhalten – was das Feld hier nicht zeigt (in der Mip-Stufe gemittelt, in der Ferne
+        // ausgeblendet), ist als Neigung einzelner Facetten da; unter dem Raster ohnehin (uSpRingR.x)
+        float shown = (win + (1.0 - win) * fern);
+        shown *= shown * exp2(-max(textureQueryLod(uSpRing, w.xz / uSpRingP.x).y, 0.0));
+        mss = uSpRingR.y * max(0.0, 1.0 - shown);
+        n = normalize(n + vec3(-rsR.x, 0.0, -rsR.y));
+    }
     vec3 v = -d;
-    float F = 0.02 + 0.98 * pow(1.0 - max(dot(n, v), 0.0), 5.0);
     vec3 add = vec3(0.0);
     float deck = 0.0;
     float hm = max(0.0, uCam.y + d.y * t * 0.5);
     float od = t * (exp(-hm / 8000.0) / 150000.0 + 0.45 * exp(-hm / 1200.0) / uFogDist);
     float durch = exp(-od);
-    if (uSpiegelAn == 1) {
-        // Verzerrung im Bild: mit der Neigung, in der Ferne kleiner (Bildpunkte je m)
-        vec2 off = n.xz * 0.6 / max(t, 30.0) * vec2(1.0, 1.6);
-        vec4 R = texture(uRefl, spiegelUV(vUV, d) + off);
-        if (R.a > 0.01) {
-            vec3 r = reflect(d, n);
-            deck = F * clamp(R.a, 0.0, 1.0) * uSpGlatt;
-            add += mix(R.rgb, hazeColor(r), uSpTruebe) * deck;
+    float F;
+    if (uSpRingP.z < 0.5) {
+        F = 0.02 + 0.98 * pow(1.0 - max(dot(n, v), 0.0), 5.0);
+        if (uSpiegelAn == 1) {
+            // Verzerrung im Bild: mit der Neigung, in der Ferne kleiner (Bildpunkte je m)
+            vec2 off = n.xz * 0.6 / max(t, 30.0) * vec2(1.0, 1.6);
+            vec4 R = texture(uRefl, spiegelUV(vUV, d) + off);
+            if (R.a > 0.01) {
+                vec3 r = reflect(d, n);
+                deck = F * clamp(R.a, 0.0, 1.0) * uSpGlatt;
+                add += mix(R.rgb, hazeColor(r), uSpTruebe) * deck;
+            }
+        }
+    } else {
+        // W7b Runde 5, Regen: der Spiegel genau. Die geneigte Facette wirft den Strahl nach reflect(d, n); im glatten
+        // Spiegelbild liegt diese Richtung dort, wohin der Blick d* = (r.x, −r.y, r.z) fällt – dorthin wird gegriffen
+        // (im Gegenlicht zieht das die Bilder lang, wie auf jedem Foto von Regen auf einem See).
+        vec4 c0 = uJetztVP * vec4(d, 0.0);
+        vec2 off0 = nFlat.xz * 0.6 / max(t, 30.0) * vec2(1.0, 1.6);
+        F = 0.0;
+        // Die Facetten: nur ein Anteil p der Fläche trägt die verborgene Steigung, dafür mit Varianz/p (Regen ist
+        // fleckig: unter dem Raster p ≈ 0,2 um die jungen Einschläge, die Ringe p ≈ 0,34) – zwischen den Einschlägen bleibt
+        // der Spiegel glatt: Anteil 1 − p ungestört (genau, ohne Rauschen), Anteil p aus zwei geneigten Facetten, die die
+        // zeitliche Glättung mittelt. Was unter dem Raster liegt, gilt erst, wo ein Bildpunkt viele Einschläge deckt
+        // (Fußabdruck ab rund 1 cm); näher wäre es Korn statt Ringe [G].
+        float s2 = uSpRingP.y * uSpRingP.y, fSub = smoothstep(0.004, 0.03, px);
+        float vS = fSub * uSpRingR.x * s2, vR = mss * s2, vT = vS + vR;
+        float pE = vT > 0.0 ? clamp((vS * uSpRingR.z + vR * uSpRingR.w) / vT, 0.05, 1.0) : 1.0;
+        float sig = sqrt(0.5 * vT / pE);
+        for (int k = 0; k < 3; k++) {
+            if (k > 0 && vT <= 0.0) break;
+            float wk = k == 0 ? (vT > 0.0 ? 1.0 - pE : 1.0) : 0.5 * pE;
+            vec2 j = vec2(0.0);
+            if (k > 0) {
+                uint hs = uint(gl_FragCoord.x) * 1973u ^ uint(gl_FragCoord.y) * 9277u ^ uint(uSpRingN * 2 + k) * 26699u;
+                hs = (hs ^ (hs >> 16u)) * 0x45d9f3bu; hs = (hs ^ (hs >> 16u)) * 0x45d9f3bu; hs ^= hs >> 16u;
+                vec2 ua = (vec2(hs & 0xffffu, hs >> 16u) + 0.5) / 65536.0;
+                j = sig * sqrt(-2.0 * log(ua.x)) * vec2(cos(6.2831853 * ua.y), sin(6.2831853 * ua.y));
+            }
+            vec3 nk = normalize(n + vec3(-j.x, 0.0, -j.y));
+            if (dot(nk, v) < 0.02) nk = normalize(nk + v * (0.02 - dot(nk, v)));
+            float Fk = 0.02 + 0.98 * pow(1.0 - max(dot(nk, v), 0.0), 5.0);
+            F += wk * Fk;
+            if (uSpiegelAn == 1) {
+                // genau nur die Neigung des Regens (Ring und Facette); die Kräusel [G] verschieben wie bisher um off0
+                vec3 r = reflect(d, nk);
+                vec3 rr = reflect(d, normalize(vec3(-(rsR.x + j.x), 1.0, -(rsR.y + j.y))));
+                if (rr.y <= 0.0) continue;   // Facette wirft nach unten: kein Spiegelbild (das Wasser selbst)
+                vec3 ds = vec3(rr.x, -rr.y, rr.z);
+                vec4 c1 = uJetztVP * vec4(ds, 0.0);
+                vec2 du = c1.w > 1e-4 && c0.w > 1e-4 ? (c1.xy / c1.w - c0.xy / c0.w) * 0.5 : vec2(0.0);
+                vec4 R = texture(uRefl, spiegelUV(vUV + du, ds) + off0);
+                if (R.a > 0.01) {
+                    float dk = Fk * clamp(R.a, 0.0, 1.0) * uSpGlatt * wk;
+                    deck += dk;
+                    add += mix(R.rgb, hazeColor(r), uSpTruebe) * dk;
+                }
+            }
         }
     }
     // Gletschermilch: Streulicht im Wasser (Anteil 1 − F), Grundton 0,35 in der ganzen Bucht, zum Inlet hin bis 1 [G]

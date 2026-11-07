@@ -6,6 +6,8 @@ import com.dan.fog.TerrainFog;
 import com.dan.fog.gl.TerrainFogGl;
 import com.dan.lituya.scene.Site;
 import com.dan.lituya.wiring.Wetter;
+import com.dan.precip.Precip;
+import com.dan.precip.gl.PrecipGl;
 import com.dan.rain.Rain;
 import com.dan.rain.gl.RainGl;
 import com.dan.sky.Sky;
@@ -26,8 +28,11 @@ import java.util.function.DoubleBinaryOperator;
  * spiegeln sich im Wasser und färben Himmelslicht und Dunst.</li>
  * <li><b>Seenebel</b> ({@code com.dan.fog.TerrainFog}, seit W7 mit Vorstoß): ein Nebelmeer bis zur Obergrenze der Lage,
  * das von See durch den Eingang in die Bucht vordringt (Weg durch Gelände unter der Obergrenze, 26 km um den Kern).</li>
- * <li><b>Regen</b> ({@code com.dan.rain}): Streifen um das Auge, Vorhänge bis 8 km unter den Wolken, Krönchen und Ringe
- * auf dem Wasser (über {@link MeerGl} an {@code com.dan.ocean}).</li>
+ * <li><b>Regen</b> (seit W7b {@code com.dan.precip}, vorher {@code com.dan.rain}): Tropfen in echter Dichte um das Auge,
+ * die mit Luftwiderstand durch den böigen Wind fallen, schwingen und auf Wasser und Fels aufschlagen (Kronen, Strahlen,
+ * Tröpfchen), Schichten bis 60 m, Vorhänge bis 8 km unter den Wolken mit der Optik des Tropfens (Regenbogen, wo die
+ * Sonne darauf fällt), echte Kapillarwellen auf dem Wasser (über {@link MeerGl} an {@code com.dan.ocean}); im Wald
+ * fällt ein Teil frei durch, der Rest tropft groß von den Kronen. Belichtung {@link #verschluss} (1/250 s wie das Auge).</li>
  * </ul>
  * Ohne Wetter (Lage „klar“, 1958 nach den Zeugen) zeichnet nichts davon, und Licht, Wasser und Sicht bleiben wie vorher.
  */
@@ -59,6 +64,35 @@ public final class WetterGl {
     final TerrainFogGl nebelGl = new TerrainFogGl();
     public final Rain regen = Rain.moderate();
     final RainGl regenGl = new RainGl();
+    /** W7b: der neue Niederschlag (com.dan.precip); false (oder -Dlituya.alterRegen=true) = der Regen bis W7 (com.dan.rain). */
+    public volatile boolean regenNeu = !Boolean.getBoolean("lituya.alterRegen");
+    /** W7b (WF26): Belichtungszeit des Regens in s (Tempo, Bildbank, Regie „verschluss“); 1/250 wie das Auge [G]. */
+    public volatile double verschluss = 1 / 250.0;
+    /** W7b: Zeitmaß des Regens (1 Echtzeit, 0,05 Zeitlupe), Tempo „zeitlupe“. */
+    public volatile double zeitlupe = 1;
+    /** W7b: Stufe des Niederschlags für Proben (−1 nach der Szene, 0 LOW … 3 ULTRA). */
+    public volatile int regenStufe = -1;
+    /** W7b: Gelände (m über NAVD88, NaN ohne Daten) und halbe Kronenhöhe des Walds (m, 0 ohne) für den Regen um das Auge. */
+    public volatile DoubleBinaryOperator grundHoehe, kronenHalb;
+    /** W7b: Blickrichtung und Bildwinkel (Grad, senkrecht) für das Fenster der Wellen auf dem Wasser. */
+    public volatile double[] blick;
+    public volatile double blickFovy = 50;
+    /**
+     * W7b: zeitliche Kantenglättung an (der Renderer setzt es je Bild). Dann zeichnet {@link #zeichnen} nur die Vorhänge;
+     * Schichten, Tropfen und Spritzer kommen nach der Glättung ({@link #nachGlaettung}), sonst mischt der Verlauf (ein
+     * Zehntel je Bild) die bewegten Spuren weg – das war der Hauptgrund, warum der Regen bis W7 so schwach war.
+     */
+    public volatile boolean regenNachTaa;
+    /** W7b: Bilder, seit die Uhr steht (Standbild: 1,5 s einschwingen, dann zwei Schritte zu 1/60 s, dann still). */
+    private int standBilder;
+    private final java.util.Map<Integer, Integer> regenFbos = new java.util.HashMap<>();
+    public final Precip niederschlag = Precip.moderate();
+    final PrecipGl niederschlagGl = new PrecipGl();
+    private boolean niederschlagOk;
+    private String niederschlagFehler = "";
+    private volatile double pegelJetzt;
+    private Precip.Ground grund;
+    private Licht lichtJetzt;
 
     private boolean ok;
     private String status = "Wetter: noch nicht gestartet";
@@ -105,6 +139,15 @@ public final class WetterGl {
             nebel.advancePass = 30;
             nebel.billowSize = 240;   // Runde 1d: kleiner und höher (35 m), von 420 m aus waren 22 m auf 300 m nicht zu sehen [G]
             regen.quality = Rain.Quality.MEDIUM;
+            niederschlag.quality = Precip.Quality.MEDIUM;
+            try {
+                niederschlagGl.init(gl);
+                niederschlagOk = true;
+            } catch (RuntimeException e) {
+                niederschlagOk = false;
+                niederschlagFehler = e.getMessage();
+                System.err.println("LituyaBay1958: Niederschlag (com.dan.precip) nicht verfügbar, alter Regen: " + e.getMessage());
+            }
             ok = true;
             status = "Wetter: Wolken (" + wolkenGl.info() + "), Nebel, Regen bereit";
         } catch (RuntimeException e) {
@@ -119,6 +162,32 @@ public final class WetterGl {
         wolken.quality = q == Quality.ULTRA ? Clouds.Quality.HIGH : q == Quality.NIEDRIG ? Clouds.Quality.FLAT : Clouds.Quality.MEDIUM;
         nebel.quality = q == Quality.ULTRA ? TerrainFog.Quality.HIGH : q == Quality.NIEDRIG ? TerrainFog.Quality.LOW : TerrainFog.Quality.MEDIUM;
         regen.quality = q == Quality.ULTRA ? Rain.Quality.HIGH : q == Quality.NIEDRIG ? Rain.Quality.LOW : Rain.Quality.MEDIUM;
+        niederschlag.quality = q == Quality.ULTRA ? Precip.Quality.HIGH : q == Quality.NIEDRIG ? Precip.Quality.LOW : Precip.Quality.MEDIUM;
+    }
+
+    /** W7b: ob in diesem Bild der neue Niederschlag rechnet und zeichnet. */
+    boolean neuJetzt() { return regenNeu && niederschlagOk; }
+
+    /** W7b: worauf der Regen um das Auge fällt (Gelände über dem Pegel, Wasser darunter, Kronendach im Wald [G]). */
+    private Precip.Ground grund() {
+        if (grund == null && grundHoehe != null) {
+            grund = new Precip.Ground() {
+                @Override public double height(double x, double z) {
+                    double g = grundHoehe.applyAsDouble(x, z), p = pegelJetzt;
+                    return Double.isNaN(g) ? p : Math.max(g, p);
+                }
+                @Override public boolean water(double x, double z) {
+                    double g = grundHoehe.applyAsDouble(x, z);
+                    return Double.isNaN(g) || g < pegelJetzt - 0.1;
+                }
+                @Override public double canopy(double x, double z) {
+                    DoubleBinaryOperator k = kronenHalb;
+                    double c = k == null ? 0 : k.applyAsDouble(x, z);
+                    return c > 5 ? height(x, z) + 2 * c : Double.NaN;
+                }
+            };
+        }
+        return grund;
     }
 
     /** Das Gelände für die Wolken (grobes Gitter aus {@link Licht}: Höhen über NAVD88, Meer 0). */
@@ -261,9 +330,43 @@ public final class WetterGl {
         final Clouds.Snapshot s0 = snap;
         final double ns = Math.max(0.05, zz.niederschlag());
         regen.curtain = s0 == null ? null : (x, zq) -> Math.min(1, Clouds.rain(s0, x, zq) / ns);
-        if (regen.rate > 0.02) {
+        if (regen.rate > 0.02 && !neuJetzt()) {
             regen.step(standbild ? 1 / 30.0 : dt);
             regenGl.update(gl, regen.snapshot());
+        }
+        // W7b: der neue Niederschlag (dieselbe Lage); Physik höchstens 1/15 s je Bild (im Zeitraffer bleibt Regen Regen)
+        lichtJetzt = l;
+        if (neuJetzt()) {
+            Precip n = niederschlag;
+            n.rate = regen.rate;
+            n.windSpeed = regen.windSpeed;
+            n.windFromDeg = regen.windFromDeg;
+            n.gust = regen.gust;
+            n.cloudBase = regen.cloudBase;
+            n.eyeX = eye[0];
+            n.eyeY = eye[1];
+            n.eyeZ = eye[2];
+            n.waterLevel = pegel;
+            pegelJetzt = pegel;
+            n.curtain = s0 == null ? null : (x, zq) -> Math.min(1, Clouds.rain(s0, x, zq) / ns);
+            n.ground = grund();
+            n.shutter = verschluss;
+            n.timeScale = zeitlupe;
+            if (regenStufe >= 0 && regenStufe < Precip.Quality.values().length) n.quality = Precip.Quality.values()[regenStufe];
+            // Standbild: erst 1,5 s in Schritten zu 0,15 s einschwingen (Wellen, Spritzer), dann zwei echte Schritte zu
+            // 1/60 s, dann steht alles still (die Kantenglättung sammelt ein ruhendes Bild, wie bei angehaltener Uhr)
+            standBilder = standbild ? standBilder + 1 : 0;
+            double sdt = standBilder == 0 ? Math.min(dt, 1 / 15.0) : standBilder <= 10 ? 0.15 : standBilder <= 12 ? 1 / 60.0 : 0;
+            if (standBilder == 1) niederschlagGl.reseed = true;
+            if (n.rate > 0.02) {
+                n.step(sdt * zeitlupe);
+                double[] b = blick;
+                niederschlagGl.aim = b == null ? null : b.clone();
+                niederschlagGl.aimFovy = blickFovy;
+                Renderer.teil("Regen rechnen");
+                niederschlagGl.update(gl, n.snapshot(), niederschlagLicht());
+                Renderer.teilEnde("Regen rechnen");
+            }
         }
     }
 
@@ -369,7 +472,31 @@ public final class WetterGl {
             nebelGl.draw(gl, nebel.snapshot(), v, nebelLicht());
             Renderer.teilEnde("Nebel");
         }
-        if (regenAn && regen.rate > 0.02) {
+        if (regenAn && regen.rate > 0.02 && neuJetzt()) {
+            Renderer.teil("Regen Tiefe");
+            tiefeKopieren(gl, hdrFbo, w, h);
+            Renderer.teilEnde("Regen Tiefe");
+            gl.glBindFramebuffer(GL.GL_FRAMEBUFFER, hdrFbo);
+            gl.glViewport(0, 0, w, h);
+            gl.glDepthFunc(reversed ? GL.GL_GEQUAL : GL.GL_LEQUAL);
+            PrecipGl.View v = new PrecipGl.View();
+            v.viewProj = vp;
+            v.invViewProj = inv;
+            v.eye = eye.clone();
+            v.forward = fwd.clone();
+            v.reversedZ = reversed;
+            v.near = near;
+            v.far = far;
+            v.fovyDeg = fovy;
+            v.width = w;
+            v.height = h;
+            v.depthTexture = tiefeKopie;
+            Renderer.teil("Regen");
+            niederschlagGl.draw(gl, v, 1.0, regenNachTaa ? PrecipGl.CURTAIN : PrecipGl.ALL);
+            Renderer.teilEnde("Regen");
+            gl.glDisable(GL.GL_DEPTH_TEST);
+            gl.glBindFramebuffer(GL.GL_FRAMEBUFFER, hdrColorFbo);
+        } else if (regenAn && regen.rate > 0.02) {
             tiefeKopieren(gl, hdrFbo, w, h);
             gl.glBindFramebuffer(GL.GL_FRAMEBUFFER, hdrFbo);
             gl.glViewport(0, 0, w, h);
@@ -394,6 +521,48 @@ public final class WetterGl {
         }
         gl.glDisable(GL.GL_BLEND);
         gl.glDepthMask(true);
+    }
+
+    /**
+     * W7b: Schichten, Tropfen und Spritzer nach der zeitlichen Kantenglättung ins geglättete Bild (bild, HDR), mit der
+     * Tiefe der Szene als Tiefe (Test, ohne Schreiben) und der Kopie für die Schichten; vp und inv ohne Versatz. Danach
+     * sind die Mip-Stufen des Bilds neu (für das Glühen).
+     */
+    public void nachGlaettung(GL4 gl, int bild, int depthTex, float[] vp, float[] inv, double[] eye, double[] fwd, boolean reversed,
+                              int w, int h, double fovy, double near, double far) {
+        if (!regenNachTaa || z == null || !z.an() || !ok || !regenAn || regen.rate <= 0.02 || !neuJetzt() || tiefeKopie == 0) return;
+        Integer fbo = regenFbos.get(bild);
+        if (fbo == null) {
+            if (regenFbos.size() > 4) { for (int f : regenFbos.values()) Gpu.deleteFbos(gl, f); regenFbos.clear(); }
+            fbo = Gpu.fbo(gl, bild, depthTex);
+            regenFbos.put(bild, fbo);
+        }
+        gl.glBindFramebuffer(GL.GL_FRAMEBUFFER, fbo);
+        gl.glViewport(0, 0, w, h);
+        gl.glDepthFunc(reversed ? GL.GL_GEQUAL : GL.GL_LEQUAL);
+        PrecipGl.View v = new PrecipGl.View();
+        v.viewProj = vp;
+        v.invViewProj = inv;
+        v.eye = eye.clone();
+        v.forward = fwd.clone();
+        v.reversedZ = reversed;
+        v.near = near;
+        v.far = far;
+        v.fovyDeg = fovy;
+        v.width = w;
+        v.height = h;
+        v.depthTexture = tiefeKopie;
+        Renderer.teil("Regen Schichten");
+        niederschlagGl.draw(gl, v, 1.0, PrecipGl.LAYERS);
+        Renderer.teilEnde("Regen Schichten");
+        Renderer.teil("Regen Tropfen");
+        niederschlagGl.draw(gl, v, 1.0, PrecipGl.DROPS);
+        Renderer.teilEnde("Regen Tropfen");
+        gl.glDisable(GL.GL_DEPTH_TEST);
+        gl.glBindFramebuffer(GL.GL_FRAMEBUFFER, 0);
+        gl.glBindTexture(GL.GL_TEXTURE_2D, bild);
+        gl.glGenerateMipmap(GL.GL_TEXTURE_2D);
+        gl.glBindTexture(GL.GL_TEXTURE_2D, 0);
     }
 
     /** Kopie der Tiefe für den Regen (Vorhänge und Krönchen lesen sie, die Streifen testen gegen das Original). */
@@ -451,6 +620,44 @@ public final class WetterGl {
         return l;
     }
 
+    /**
+     * W7b: Licht für den Niederschlag: Sonne und Mond als Bestrahlung, Himmel unter den Wolken (wie für den alten Regen),
+     * Grund (Meer und dunkler Wald, Albedo 0,06 [G]), das Rundumbild mit den Wolken, die Sonne am Auge und die
+     * Schattenkarte der Wolken (für Schauer, auf die die Sonne fällt), Dunst.
+     */
+    private PrecipGl.Light niederschlagLicht() {
+        PrecipGl.Light l = new PrecipGl.Light();
+        if (st == null || z == null) return l;
+        double bed = Math.min(1, z.achtel() / 8);
+        DoubleBinaryOperator gh = grundHoehe;
+        double ge = gh == null ? Double.NaN : gh.applyAsDouble(niederschlag.eyeX, niederschlag.eyeZ);
+        boolean ueberWasser = Double.isNaN(ge) || ge < pegelJetzt - 0.1;
+        for (int k = 0; k < 3; k++) {
+            l.sunIrradiance[k] = st.sunColor[k] * pre;
+            l.moonIrradiance[k] = st.moonColor[k] * pre;
+            double amb = st.skyIrradiance[k] / Math.PI * pre * (1 - 0.55 * bed);
+            l.skyTop[k] = amb;
+            l.skyHorizon[k] = amb * 1.2;
+            // unter der Kimm: über Wasser vor allem der streifend gespiegelte Himmel (Fresnel um 0,25 im Mittel des
+            // Vorwärtskegels), über Land und Wald der dunkle Grund (Albedo 0,06) [G]
+            l.ground[k] = ueberWasser ? amb * 1.2 * 0.25 + st.skyIrradiance[k] * 0.01 / Math.PI * pre
+                    : (st.skyIrradiance[k] * (1 - 0.55 * bed) + st.sunColor[k] * Math.max(0, st.sunDir[1]) * sonneAmAuge) * 0.06 / Math.PI * pre;
+            l.fogColor[k] = licht.hazeColor[k];
+        }
+        l.sunDir = st.sunDir.clone();
+        l.moonDir = st.moonDir.clone();
+        l.sunVisible = sonneAmAuge;
+        Licht li = lichtJetzt;
+        l.panorama = li == null ? 0 : li.panoTextur();
+        if (wolkenJetzt()) {
+            l.shadowTexture = wolkenGl.shadowTexture();
+            double[] r = wolkenGl.shadowRect();
+            l.shadowRect = new double[]{r[0], r[1], r[2], snap.shadowHeight()};
+        }
+        l.fogDistance = 1 / Math.max(1e-7, 0.45 * st.groundExtinction);
+        return l;
+    }
+
     /** Die Uniforms von {@code wolken.glsl} (Wolkenschatten, Nässe) für ein gebundenes Programm. */
     public void uniforms(GL4 gl, Shader s) {
         boolean an = wolkenJetzt();
@@ -480,16 +687,35 @@ public final class WetterGl {
     /** Runde 1c: Anteil der Sonne, der im Mittel um das Auge unter den Wolken ankommt (für Wald, Fälle, Boote; 1 ohne Wolken). */
     public double waldSonne() { return wolkenJetzt() ? waldSonneWert : 1; }
     /** Ringe des Regens für das Meer: Textur, Kachel (m), Stärke; Textur 0 ohne Regen. */
-    public int ringTextur() { return regenAn && regen.rate > 0.02 ? regenGl.rippleTexture() : 0; }
-    public double ringKachel() { return regenGl.rippleTile(); }
-    public double ringStaerke() { return regenGl.rippleStrength(); }
+    public int ringTextur() { return regenAn && regen.rate > 0.02 ? (neuJetzt() ? niederschlagGl.rippleTexture() : regenGl.rippleTexture()) : 0; }
+    public double ringKachel() { return neuJetzt() ? niederschlagGl.rippleSize() : regenGl.rippleTile(); }
+    public double ringStaerke() { return neuJetzt() ? niederschlagGl.rippleStrength() : regenGl.rippleStrength(); }
+    /** W7b: Art der Ringe für das Meer (1: Wellenfeld fest in der Welt) und Mitte seines Fensters. */
+    public int ringArt() { return neuJetzt() ? 1 : 0; }
+    public double[] ringMitte() { return niederschlagGl.rippleCenter(); }
+    /** W7b Runde 5: Rauigkeit des Regens aufs Wasser legen (Vorgabe an; aus nur zum Vergleich, {@code schalter=wetterGl.ringRauAn=false}). */
+    public volatile boolean ringRauAn = true;
+
+    /**
+     * W7b Runde 5: Rauigkeit des Regens auf dem Wasser {unter dem Raster, im Raster (mittlere quadratische Steigung),
+     * Anteil der Fläche dazu, ebenso}; 0 ohne neuen Regen.
+     */
+    public double[] ringRauigkeit() {
+        if (!ringRauAn || !neuJetzt() || ringTextur() == 0) return new double[]{0, 0, 1, 1};
+        double[] p = niederschlagGl.rippleShare();
+        return new double[]{niederschlagGl.rippleRoughness(), niederschlagGl.rippleVariance(), p[0], p[1]};
+    }
+    /** W7b: Zeile des Niederschlags (Status, Info). */
+    public String niederschlagInfo() { return neuJetzt() ? niederschlag.describe() + " · " + niederschlagGl.info() : "alter Regen (com.dan.rain)" + (niederschlagFehler.isEmpty() ? "" : ": " + niederschlagFehler); }
+    /** W7b: Selbsttest Grafikkarte = Prozessor des Niederschlags (für die Prüfung auf dem Gerät). */
+    public String niederschlagPruefen(GL4 gl) { return neuJetzt() ? niederschlagGl.selfCheck(gl) : ""; }
 
     public String info() {
         if (z == null || !z.an()) return "Wetter: aus";
         StringBuilder b = new StringBuilder(z.zeile());
         if (wolkenJetzt()) b.append(" · ").append(wolken.describe());
         if (z.seenebel()) b.append(" · ").append(nebel.describe());
-        if (regen.rate > 0.02) b.append(String.format(Locale.GERMAN, " · Regen %.1f mm/h", regen.rate));
+        if (regen.rate > 0.02) b.append(neuJetzt() ? " · " + niederschlag.describe() : String.format(Locale.GERMAN, " · Regen %.1f mm/h", regen.rate));
         return b.toString();
     }
 
@@ -498,6 +724,9 @@ public final class WetterGl {
         wolkenGl.dispose(gl);
         nebelGl.dispose(gl);
         regenGl.dispose(gl);
+        if (niederschlagOk) niederschlagGl.dispose(gl);
+        for (int f : regenFbos.values()) Gpu.deleteFbos(gl, f);
+        regenFbos.clear();
         Gpu.deleteFbos(gl, tiefeFbo);
         Gpu.deleteTextures(gl, tiefeKopie);
     }

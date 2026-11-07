@@ -193,6 +193,8 @@ public final class Hilfe {
                 {"netzblick welle|wasser|weg|sicht [szene]|aus", "Netzblick"},
                 {"echtzeit " + String.join("|", Regie.ECHTZEIT_ORTE) + " Mio.m³|aus", "„Was wäre wenn“ rechnen"},
                 {"regen v", "Regen 0 … 1"},
+                {"verschluss 1/250|s", "Belichtungszeit des Regens (W7b; 1/250 wie das Auge, 1/30 wie Film, 1/2000 friert die Tropfen ein)"},
+                {"zeitlupe v", "Zeitmaß des Regens (1 Echtzeit, 0,05 Zeitlupe)"},
                 {"warte " + String.join("|", Regie.WARTEN), "warten (uhr [TT.MM.] hh:mm, ereignis s, bis die Echtzeit, die Jahre, die Boote fertig sind)"},
                 {"foto Unterschrift", "ein Foto fürs Blatt"},
                 {"blatt [Name]", "die Fotos als Blatt (docs/status und Archiv)"},
