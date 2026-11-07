@@ -4,6 +4,8 @@ import com.dan.lituya.scene.BootBahn;
 import com.dan.lituya.scene.SceneClock;
 import com.dan.vessel.Boat;
 import com.dan.vessel.Kutter;
+import com.dan.vessel.Troller;
+import com.dan.vessel.gl.CraftGl;
 import com.dan.vessel.gl.VesselGl;
 import com.jogamp.opengl.GL;
 import com.jogamp.opengl.GL4;
@@ -18,11 +20,24 @@ import java.util.Locale;
  * {@code tools.Boote1958}) zur Ereigniszeit ab und zeichnet sie mit {@code com.dan.vessel.gl.VesselGl} (Licht wie der Wald,
  * linear ins HDR, Tiefe wie die App). Vor der ersten Bahnzeit liegen die Boote am ersten Bild vor Anker, nach der letzten
  * am letzten. Zu sehen im Zeitstand VOR und WELLE; DANACH und HEUTE nicht. Ohne Bahnen: keine Boote (HUD sagt es).
+ * <p>
+ * Seit Werkbuch Welle W8a zeichnet {@code com.dan.vessel.gl.CraftGl} die Boote nach dem Bootsbauer
+ * ({@code com.dan.vessel.Shipwright}): Kraweel-Rumpf mit Anstrich, Rost und Bewuchs, Steuerhaus mit Scheiben, Rigg,
+ * Trollstangen mit Schlingerdämpfern, Stützsegel, Name an Bug und Spiegel, eigener Schatten, Ankerlicht in der
+ * Dämmerung; dazu im Spiegelbild der Bucht. {@code -Dlituya.alterKutter=true}: die Kästen von Phase 15a.
  */
 public final class BooteGl {
     public static final String[] NAMEN = {"Edrie", "Badger", "Sunmore"};
     public volatile boolean an = true;
     private final VesselGl gl = new VesselGl();
+    /** W8a: die Boote des Bootsbauers. */
+    private final CraftGl craft = new CraftGl();
+    public volatile boolean alterKutter = Boolean.getBoolean("lituya.alterKutter");
+    /** W8a: Rundumbild für Spiegelungen am Boot (vorbelichtet; 0 = Himmelsfarbe), Blickfeld und Bildhöhe für die Drähte. */
+    public volatile int pano;
+    public volatile double tanHalb = 0.4;
+    public volatile int bildHoehe = 1080;
+    private final List<Object[]> modelle = new ArrayList<>();   // je gezeichnetem Boot {Rumpf, Modellmatrix}
     private final List<BootBahn> bahnen = new ArrayList<>();
     private final List<Boat> boote = new ArrayList<>();
     private volatile String geladen, status = "Boote: nicht geladen";
@@ -43,7 +58,9 @@ public final class BooteGl {
             if (!f.isFile()) continue;
             try {
                 bahnen.add(BootBahn.lesen(f, n));
-                boote.add(switch (n) { case "Edrie" -> Kutter.edrie(); case "Badger" -> Kutter.badger(); default -> Kutter.sunmore(); });
+                Boat b = switch (n) { case "Edrie" -> Kutter.edrie(); case "Badger" -> Kutter.badger(); default -> Kutter.sunmore(); };
+                boote.add(b);
+                craft.prepare(b.hull, Troller.fuer(b.hull));   // W8a: im Hintergrund
             } catch (Exception e) {
                 System.err.println("LituyaBay1958: Boote: " + f + ": " + e.getMessage());
             }
@@ -87,8 +104,18 @@ public final class BooteGl {
 
     /** Zeichnet in den gebundenen HDR-Bildspeicher. */
     public synchronized void zeichnen(GL4 g, float[] vp, double[] eye, boolean reversed, double[] sun, double t, SceneClock.Zeitstand z) {
+        zeichnen(g, vp, eye, reversed, sun, t, z, Double.NaN);
+    }
+
+    /**
+     * W8a: wie oben; pegel nicht NaN: für das Spiegelbild (alles unter dem Pegel abgeschnitten, ohne Ketten, Schatten aus
+     * dem Hauptbild).
+     */
+    public synchronized void zeichnen(GL4 g, float[] vp, double[] eye, boolean reversed, double[] sun, double t, SceneClock.Zeitstand z, double pegel) {
+        boolean spiegel = !Double.isNaN(pegel);
+        if (!spiegel) modelle.clear();
         if (!an || bahnen.isEmpty() || !sichtbar(z)) return;
-        if (!init) { gl.init(g); init = true; }
+        if (!init) { gl.init(g); craft.init(g); init = true; }
         VesselGl.View v = new VesselGl.View();
         v.viewProj = vp;
         v.eye = eye.clone();
@@ -100,13 +127,63 @@ public final class BooteGl {
             Boat b = boote.get(k);
             double[] s = bb.zustand(t);
             b.pose(new double[]{s[0], s[1], s[2]}, new double[]{s[3], s[4], s[5], s[6]});
-            gl.draw(g, b, v, l);
+            float[] mdl = b.model();
+            boolean neu = !alterKutter && craft.drawOpaque(g, b.hull, mdl, craftBlick(vp, eye, reversed, pegel), craftLicht(sun));
+            if (!neu && !spiegel) gl.draw(g, b, v, l);
+            if (neu && !spiegel) modelle.add(new Object[]{b.hull, mdl});
             double[][] kn = bb.kette(t);
-            if (kn != null) gl.draw(g, kn, (int) s[9], v, l);
+            if (kn != null && !spiegel) gl.draw(g, kn, (int) s[9], v, l);
             for (int i = 0; i < NAMEN.length; i++) if (NAMEN[i].equals(bb.name)) lage[i] = new double[]{s[0], s[1], s[2], b.heading(), b.pitch(), b.roll(), s[8]};
         }
         g.glDisable(GL.GL_DEPTH_TEST);
         g.glUseProgram(0);
+    }
+
+    /**
+     * W8a: Glas, Drähte und Lichthöfe der Boote nach allem Deckenden (Wasser, Gelände, Wald); pegel wie bei
+     * {@link #zeichnen(GL4, float[], double[], boolean, double[], double, SceneClock.Zeitstand, double)}.
+     */
+    public synchronized void zeichnenDurch(GL4 g, float[] vp, double[] eye, boolean reversed, double[] sun, double t, SceneClock.Zeitstand z, double pegel) {
+        if (!an || alterKutter || bahnen.isEmpty() || !sichtbar(z) || !init) return;
+        boolean spiegel = !Double.isNaN(pegel);
+        CraftGl.View cv = craftBlick(vp, eye, reversed, pegel);
+        CraftGl.Light cl = craftLicht(sun);
+        if (spiegel) {
+            for (int k = 0; k < boote.size(); k++) {
+                Boat b = boote.get(k);
+                double[] s = bahnen.get(k).zustand(t);
+                b.pose(new double[]{s[0], s[1], s[2]}, new double[]{s[3], s[4], s[5], s[6]});
+                craft.drawTransparent(g, b.hull, b.model(), cv, cl);
+            }
+        } else {
+            for (Object[] m : modelle) craft.drawTransparent(g, m[0], (float[]) m[1], cv, cl);
+        }
+        g.glDisable(GL.GL_DEPTH_TEST);
+        g.glUseProgram(0);
+    }
+
+    private CraftGl.View craftBlick(float[] vp, double[] eye, boolean reversed, double pegel) {
+        CraftGl.View v = new CraftGl.View();
+        v.viewProj = vp;
+        v.eye = eye.clone();
+        v.reversedZ = reversed;
+        v.tanHalfFovY = tanHalb;
+        v.viewportHeight = bildHoehe;
+        if (!Double.isNaN(pegel)) { v.clip = new double[]{0, 1, 0, -pegel}; v.updateShadow = false; }
+        return v;
+    }
+
+    /** W8a: Licht wie der Wald (Sonne, Himmel, Dunst), dazu Boden der Halbkugel (dunkles Wasser), Rundumbild, Ankerlicht nach dem Sonnenstand. */
+    private CraftGl.Light craftLicht(double[] sun) {
+        com.dan.forest.gl.ForestGl.Light f = WaldGl.licht(sun);
+        CraftGl.Light l = new CraftGl.Light();
+        l.sunDir = f.sunDir; l.sunColor = f.sunColor; l.skyColor = f.skyColor; l.fogColor = f.fogColor; l.fogDistance = f.fogDistance;
+        l.groundColor = new double[]{f.skyColor[0] * 0.12, f.skyColor[1] * 0.13, f.skyColor[2] * 0.14};   // das Wasser unter dem Boot [G]
+        l.panorama = pano;
+        // Ankerlicht von Sonnenuntergang bis Sonnenaufgang (Kollisionsverhütungsregeln); Lichthof umso stärker, je dunkler [G]
+        double h = sun == null ? 1 : sun[1];
+        l.lampGlow = Math.max(0, Math.min(1, (0.05 - h) / 0.12));
+        return l;
     }
 
     /** „Edrie schwimmt · Badger Kette gerissen · …“ für das HUD (letztes Bild). */
@@ -131,5 +208,5 @@ public final class BooteGl {
         return l;
     }
 
-    public void dispose(GL4 g) { if (init) gl.dispose(g); init = false; }
+    public void dispose(GL4 g) { if (init) { gl.dispose(g); craft.dispose(g); } init = false; }
 }

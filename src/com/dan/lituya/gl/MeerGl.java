@@ -46,6 +46,38 @@ public final class MeerGl {
     public volatile int spiegelSchritte = 2;
     /** Runde 8: Blickrichtung jetzt (für die Entfernung aus der Tiefe des Spiegelbilds). */
     public volatile float[] spiegelVorn = {0, 0, -1};
+    /**
+     * W8a: Die See spiegelt selbst (planare Spiegelung in {@code com.dan.ocean}): das Spiegelbild trägt Himmel, Wolken,
+     * Dunst, Gelände, Wald und Boote, und die See greift mit ihrer eigenen Normale genau hinein. Damit gibt es nur noch
+     * einen Spiegel statt zweier, die an einer Zickzack-Kante aneinanderstießen (5b.4, Punkt 1), und der helle Himmel
+     * scheint nicht mehr durch die dunklen Hänge im Wasser. {@code -Dlituya.alterSpiegel=true}: wie bis W7.
+     */
+    /** W8a: Nahebene der Kamera (umgekehrte Tiefe: Sichttiefe = nah / z). */
+    public volatile double nah = 0.5;
+    /** W8a: die Boote im Spiegelbild. */
+    public volatile boolean booteImSpiegel = true;
+    public volatile boolean spiegelImMeer = !Boolean.getBoolean("lituya.alterSpiegel");
+    /** W8a: Auge, Blickrichtung, Pegel und tan des halben Blickfelds beim Spiegelbild; gültig, solange es gilt. */
+    volatile double[] planarAuge, planarVorn;
+    volatile double planarPegel, planarTan = 0.4;
+    volatile boolean planarGueltig;
+
+    /** W8a: nach dem Spiegelbild aufrufen (Kamera, mit der es entstand); erzeugt die Mip-Stufen. */
+    public void spiegelFertig(GL4 g, double[] auge, double[] vorn, double pegel, double fovyDeg) {
+        planarAuge = auge.clone();
+        planarVorn = vorn.clone();
+        planarPegel = pegel;
+        planarTan = Math.tan(Math.toRadians(fovyDeg) / 2);
+        planarGueltig = true;
+        if (reflTex != 0) {
+            g.glBindTexture(GL.GL_TEXTURE_2D, reflTex);
+            g.glGenerateMipmap(GL.GL_TEXTURE_2D);
+            g.glBindTexture(GL.GL_TEXTURE_2D, 0);
+        }
+    }
+
+    /** W8a: kein gültiges Spiegelbild (zu wenig Wasser im Bild). */
+    public void spiegelUngueltig() { planarGueltig = false; }
 
     /** Runde 8: Tiefe des Spiegelbilds (0 ohne). */
     public int spiegelTiefe() { return spiegel && spiegelJetzt && ok ? reflDepth : 0; }
@@ -146,7 +178,7 @@ public final class MeerGl {
         if (sw != reflW || sh != reflH) {
             Gpu.deleteFbos(g, reflFbo, reflColorFbo);
             Gpu.deleteTextures(g, reflTex, reflDepth);
-            reflTex = Gpu.texture(g, sw, sh, GL.GL_RGBA16F, false);
+            reflTex = Gpu.texture(g, sw, sh, GL.GL_RGBA16F, spiegelImMeer);   // W8a: mit Mip-Stufen (Rauigkeit)
             reflDepth = Gpu.texture(g, sw, sh, GL4.GL_DEPTH_COMPONENT32F, false);
             reflFbo = Gpu.fbo(g, reflTex, reflDepth);
             reflColorFbo = Gpu.fbo(g, reflTex, 0);
@@ -215,6 +247,23 @@ public final class MeerGl {
         light.detailRoughness = ringArt == 1 ? ringRau[0] : 0;   // W7b Runde 5
         light.detailVariance = ringArt == 1 ? ringRau[1] : 0;
         light.detailShare = new double[]{ringRau[2], ringRau[3]};
+        // W8a: die planare Spiegelung an die See (nur wenn das Spiegelbild gilt)
+        boolean pl = spiegelImMeer && spiegel && spiegelJetzt && planarGueltig && reflTex != 0 && spiegelVP != null && planarAuge != null;
+        light.planarTexture = pl ? reflTex : 0;
+        light.planarDepth = pl ? reflDepth : 0;
+        if (pl) {
+            light.planarViewProj = spiegelVP;
+            light.planarEye = planarAuge.clone();
+            light.planarForward = planarVorn.clone();
+            light.planarLevel = planarPegel;
+            light.planarNear = nah;
+            light.planarReversed = reversed;
+            light.planarTanHalfFov = planarTan;
+            light.planarMix = 1 - Math.max(0, Math.min(0.9, spiegelTruebe));
+            // verborgene Rauigkeit: still 0,25 % (Kräusel unter dem Gitter), im Seegang mehr [G]
+            light.planarRough = 0.0025 + 0.02 * (1 - Math.max(0, Math.min(1, spiegelGlatt)));
+            light.planarRoughPerM = 6e-6;
+        }
         g.glEnable(GL.GL_DEPTH_TEST);
         g.glDepthMask(true);
         gl.draw(g, ocean, view, light);
@@ -268,7 +317,7 @@ public final class MeerGl {
         spiegelShader.set(g, "uSpNah", near);
         spiegelShader.set(g, "uSpSchritte", spiegelSchritte);
         { float[] v = spiegelVorn; spiegelShader.set(g, "uSpVorn", v[0], v[1], v[2]); }
-        spiegelShader.set(g, "uSpiegelAn", spiegel && spiegelJetzt && reflTex != 0 ? 1 : 0);
+        spiegelShader.set(g, "uSpiegelAn", spiegel && spiegelJetzt && reflTex != 0 && !spiegelImMeer ? 1 : 0);   // W8a: sonst spiegelt die See
         spiegelShader.set(g, "uSpTruebe", (float) Math.max(0, Math.min(0.9, spiegelTruebe)));
         spiegelShader.set(g, "uSpGlatt", (float) Math.max(0, Math.min(1, spiegelGlatt)));
         // W7b: Ringe des Regens im Spiegel
