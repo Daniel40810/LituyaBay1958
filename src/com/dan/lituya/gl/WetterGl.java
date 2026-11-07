@@ -397,6 +397,11 @@ public final class WetterGl {
      * Himmel in der Decke verschwunden sind (Befund Runde 1, H14 und Clip).
      */
     public void spiegel(GL4 gl, float[] vp, float[] inv, double[] eye, boolean reversed, int depthTex, int w, int h, double pegel) {
+        spiegel(gl, vp, inv, eye, reversed, depthTex, w, h, pegel, false);
+    }
+
+    /** W8a: voll = true auch vor dem gespiegelten Himmel (das ganze Spiegelbild, die See spiegelt selbst). */
+    public void spiegel(GL4 gl, float[] vp, float[] inv, double[] eye, boolean reversed, int depthTex, int w, int h, double pegel, boolean voll) {
         if (!wolkenImSpiegel || depthTex == 0 || z == null || !z.an() || !ok) return;
         // Runde 1c: auch der Seenebel über dem gespiegelten Gelände (volle Auflösung des Spiegelbilds, ohne Zittern); sein
         // Meer beginnt hier am Spiegel, denn der Strahl kommt von unter dem Wasser (sonst Nebel, den es nicht gibt)
@@ -411,7 +416,7 @@ public final class WetterGl {
             f.maxDistance = 80_000;
             f.curvature = 1 / (2 * Site.EARTH_R_OPTICAL);
             f.scale = 1;
-            f.geometryOnly = true;
+            f.geometryOnly = !voll;
             TerrainFog.Snapshot fs = nebel.snapshot();
             nebelGl.draw(gl, fs.sea() ? fs.withSeaBase(Math.max(fs.seaBase(), pegel)) : fs, f, nebelLicht());
         }
@@ -425,7 +430,7 @@ public final class WetterGl {
         v.height = h;
         v.depthTexture = depthTex;
         v.slot = 1;
-        v.geometryOnly = true;
+        v.geometryOnly = !voll;
         wolkenGl.draw(gl, snap, licht, v);
     }
 

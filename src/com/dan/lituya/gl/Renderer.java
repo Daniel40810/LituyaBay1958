@@ -1248,11 +1248,12 @@ public final class Renderer implements GLEventListener {
                         spiegelBild(gl, w, h, proj, view, sun);
                         teilEnde("Spiegel");
                         meer.spiegelVP = Mat4.mul(proj, view);   // Runde 7: Blick, mit dem das Spiegelbild entstand
+                        meer.spiegelFertig(gl, camera.eye, camera.fwd, wiring.pegel, fovy());   // W8a: für die See
                         spiegelAlter = 0;
                         spiegelAuge = camera.eye.clone();
                         spiegelBlick = camera.fwd.clone();
                     }
-                } else spiegelAuge = null;
+                } else { spiegelAuge = null; meer.spiegelUngueltig(); }
                 // Runde 7: das Spiegelbild umrechnen, wenn es aus einem früheren Bild stammt (sonst hing es in Fahrten nach)
                 meer.jetztVP = spiegelUmrechnen ? Mat4.mul(proj, view) : meer.spiegelVP;
                 ereignisGl.spiegelVP = meer.spiegelVP;
@@ -1338,6 +1339,9 @@ public final class Renderer implements GLEventListener {
             } else if (pass == 3) {
                 // 2b Boote (Phase 15a): Edrie, Badger, Sunmore auf den vorgerechneten Bahnen, vor der Welle (sie deckt, was unter Wasser liegt)
                 boote.laden(new java.io.File(System.getProperty("lituya.daten", "daten")), wiedergabe.welle());
+                boote.pano = licht.aktiv() ? licht.panoTextur() : 0;   // W8a: Spiegelungen am Boot
+                boote.tanHalb = Math.tan(Math.toRadians(fovy()) / 2);
+                boote.bildHoehe = h;
                 boote.zeichnen(gl, vp, camera.eye, reversedZ, sun, tE, clock.zeitstand);
                 gl.glBindVertexArray(emptyVao);
             } else {
@@ -1422,6 +1426,9 @@ public final class Renderer implements GLEventListener {
                 if (sch) schollen(gl, vp, eisD);
             }
         }
+        // 3c' W8a: Glas, Drähte und Lichthöfe der Boote (nach Wasser, Gelände und Wald)
+        boote.zeichnenDurch(gl, vp, camera.eye, reversedZ, sun, tE, clock.zeitstand, Double.NaN);
+        gl.glBindVertexArray(emptyVao);
         // 3c'' W5 (E11): Schleier, die oben am Sporn von der Zunge abreißen und zurückfallen
         if (wiedergabe.an()) {
             schleier.laden(new java.io.File(System.getProperty("lituya.daten", "daten")), wiedergabe.welle());
@@ -1587,17 +1594,42 @@ teilEnde("Schleier");
         float[] invR = Mat4.invert(vpR);
         double[] eyeR = {camera.eye[0], 2 * L - camera.eye[1], camera.eye[2]};
         com.dan.clipmap.Clipmap cm = land.clipmap();
+        boolean voll = meer.spiegelImMeer;   // W8a: das ganze Spiegelbild (die See spiegelt selbst)
+        meer.nah = NEAR;
+        if (voll && licht.aktiv()) {
+            // W8a: zuerst der Himmel (ohne Sonnen- und Mondscheibe, den Glanz legt die See), Alpha 1 überall
+            int[] sz0 = meer.spiegelFarbeBinden(gl);
+            gl.glDisable(GL.GL_DEPTH_TEST);
+            gl.glDisable(GL.GL_BLEND);
+            gl.glBindVertexArray(emptyVao);
+            licht.himmel(gl, vpR, invR, reversedZ, sz0[0], sz0[1], fovy(), clock.t(), false);
+            meer.spiegelZiel(gl, w, h);
+            gl.glBindVertexArray(emptyVao);
+            gl.glEnable(GL.GL_DEPTH_TEST);
+            gl.glDepthMask(true);
+            gl.glDepthFunc(reversedZ ? GL.GL_GREATER : GL.GL_LESS);
+        }
         if (showGelaende && cm != null) gelaende(gl, cm, vpR, invR, sun, eyeR, true);
         if (showGelaende && meer.waldImSpiegel && quality.ordinal() >= Quality.HOCH.ordinal()) {
             gl.glFrontFace(GL.GL_CW);
             wald.zeichnen(gl, vpR, eyeR, reversedZ, sun, clock.t());
             gl.glFrontFace(GL.GL_CCW);
         }
+        // W8a: die Boote im Spiegel (auf stillem Wasser steht der Kutter auf seinem Spiegelbild)
+        if (voll && meer.booteImSpiegel) {
+            gl.glFrontFace(GL.GL_CW);
+            boote.zeichnen(gl, vpR, eyeR, reversedZ, sun, clock.simSeconds(), clock.zeitstand, L);
+            boote.zeichnenDurch(gl, vpR, eyeR, reversedZ, sun, clock.simSeconds(), clock.zeitstand, L);
+            gl.glFrontFace(GL.GL_CCW);
+            gl.glEnable(GL.GL_DEPTH_TEST);
+            gl.glDepthMask(true);
+        }
         // W7 Runde 1b: Wolken über das gespiegelte Gelände (Bank, Decke); das Ziel ohne Tiefe, die Tiefe gelesen
+        // W8a: über dem ganzen Spiegel (auch vor dem Himmel), damit Wasser und Himmel dieselbe Decke zeigen
         if (showGelaende && cm != null && wetter.an && (wetterGl.wolkenJetzt() || wetterGl.nebelJetzt())) {
             int[] sz = meer.spiegelFarbeBinden(gl);
             teil("Spiegelwolken");
-            wetterGl.spiegel(gl, vpR, invR, eyeR, reversedZ, meer.spiegelTiefeRoh(), sz[0], sz[1], L);
+            wetterGl.spiegel(gl, vpR, invR, eyeR, reversedZ, meer.spiegelTiefeRoh(), sz[0], sz[1], L, voll);
             teilEnde("Spiegelwolken");
             gl.glEnable(GL.GL_DEPTH_TEST);
             gl.glDepthMask(true);

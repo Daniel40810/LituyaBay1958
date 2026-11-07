@@ -259,7 +259,13 @@ public final class Licht {
 
     /** Himmel in den gebundenen HDR-Puffer (statt sky.frag). */
     public void himmel(GL4 gl, float[] vp, float[] inv, boolean reversed, int w, int h, double fovy, double t) {
+        himmel(gl, vp, inv, reversed, w, h, fovy, t, true);
+    }
+
+    /** W8a: wie oben; scheiben = false ohne Sonnen- und Mondscheibe (für das Spiegelbild). */
+    public void himmel(GL4 gl, float[] vp, float[] inv, boolean reversed, int w, int h, double fovy, double t, boolean scheiben) {
         SkyGl.View v = new SkyGl.View();
+        v.discs = scheiben;
         v.viewProj = vp;
         v.invViewProj = inv;
         v.reversedZ = reversed;

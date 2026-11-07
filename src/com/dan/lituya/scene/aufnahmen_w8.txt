@@ -1,0 +1,7 @@
+# Werkbuch Welle W8 „Die Bucht“: Proben (Format wie bildbank.txt). Edrie vor Anker bei (−4 455, 2 494), Bug nach Osten;
+# Badger und Sunmore bei (−6 847, 2 203) und (−6 862, 2 248). Abend des 9.7.1958, 22:00 (wie H1), klar und still.
+nr=801;name=Edrie_vor_Anker;xz=-4427,2516;auge=2.5;blick=308;neigung=1;zeitstand=vor;uhr=22.0;brennweite=50;warum=W8a: der Kutter des Bootsbauers aus 35 m, Bug und Steuerbord – Rumpf, Steuerhaus, Rigg, Trollstangen, Name
+nr=802;name=Edrie_im_Spiegel;xz=-4435,2374;auge=1.2;blick=190;neigung=-1;zeitstand=vor;uhr=22.0;brennweite=85;warum=W8a: aus 120 m vom Nordufer her, tief am Wasser – der Kutter steht auf seinem Spiegelbild, dahinter das Südufer im Wasser
+nr=803;name=Edrie_am_Heck;xz=-4470,2497;auge=2.4;blick=78;neigung=3;zeitstand=vor;uhr=22.0;brennweite=35;warum=W8a: von achtern aus 15 m – Spiegel mit Name und Heimathafen, Stützsegel, Trollgrube
+nr=804;name=Spiegel_der_Kette_am_Abend;ort=ANCHORAGE;auge=2.2;blick=62;neigung=1;zeitstand=vor;uhr=22.0;brennweite=35;warum=W8a: derselbe Blick wie 776 am klaren Abend – ein Spiegel statt zweier, ohne Zickzack-Kante, die Hänge dunkel im Wasser
+nr=805;name=Badger_und_Sunmore;xz=-6780,2290;auge=3;blick=300;neigung=1;zeitstand=vor;uhr=22.0;brennweite=50;warum=W8a: die beiden anderen Troller in Anchorage Cove, mit eigenem Anstrich
