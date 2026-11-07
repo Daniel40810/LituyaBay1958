@@ -152,7 +152,10 @@ public final class Wetter {
         CloudType art = w < 0.5 ? artAlt : artNeu;
         double basis = glatt[0];
         double abfluss = abfluss(r.rain(), t);
-        int bucht = Math.max(1, Weather.beaufort(r.wind()) - 1);
+        // Seegang in der Bucht eine Stufe ruhiger als draußen, mindestens Bft 1; bei Windstille (unter 0,3 m/s, seit W7b
+        // „Stiller Regen“) Bft 0 – die Lagen bis W7 bleiben, wie sie waren
+        int bft = Weather.beaufort(r.wind());
+        int bucht = bft == 0 ? 0 : Math.max(1, bft - 1);
         return new Zustand(l, t - beginn, w, r, r.wind(), r.fromDeg(), r.gustNow(), r.effectiveVisibilityKm(), r.temperature(), r.wetness(),
                 r.rain(), abfluss, bucht, art, r.oktas(), basis, r.high(), glatt[13], glatt[1], glatt[2], glatt[3], glatt[4], glatt[5], glatt[6],
                 glatt[7], glatt[8], glatt[9], glatt[10], glatt[11], glatt[12], l.vorstoss, an);

@@ -42,6 +42,15 @@ public enum Wetterlage {
             Weather.Phase.STAU, v(8.0, 140, 0.22, 8.0, 0.0, 3, 3.5, 9, 0.10, 1003, 10, 97, 1.6),
             w(650, 0.9, 120, 760, 300, 0, 0, 0, 0.3),
             n(Double.NaN, 0, 0, Double.NaN, 0.9)),
+    /**
+     * Heute, seit W7b (WF29 A): stiller Regen am Abend – der Wind ist nach dem Durchzug eingeschlafen, unter einer
+     * geschlossenen Decke fällt leiser Landregen senkrecht auf die glatte Bucht. Bft 0 im Becken: Hier stehen die Ringe
+     * (com.dan.precip), die im Wind von {@link #REGEN} in den Wellen untergehen [G].
+     */
+    STILLER_REGEN("Stiller Regen", "Abend nach dem Durchzug: Windstille unter geschlossener Decke, leiser Landregen um 2,5 mm/h fällt senkrecht auf die glatte Bucht, jeder Tropfen zieht Ringe [G]",
+            Weather.Phase.ABKLINGEND, v(0.2, 140, 0.03, 8.0, 0.0, 3, 2.5, 14, 0.08, 1006, 11, 96, 0.3),
+            w(900, 0.5, 250, 1000, 300, 0, 0, 0, 0.15),
+            n(Double.NaN, 0, 0, Double.NaN, 0.8)),
     /** Heute, Herbst: Sturm aus Südost, tiefe zerrissene Wolken, Regen in Schauern, hoher Seegang draußen. */
     STURM("Sturm aus Südost", "Herbststurm: Bft 8 aus Südost, tiefe Fetzen unter der Decke, Regen, hoher Seegang an der Barre [G]",
             Weather.Phase.STURM, v(19.0, 145, 0.30, 7.5, 0.0, 3, 6.0, 5, 0.15, 985, 8, 95, 4.0),
@@ -79,7 +88,7 @@ public enum Wetterlage {
     }
 
     /** Die Lagen, die „heute“ wählbar sind. */
-    public static Wetterlage[] heute() { return new Wetterlage[]{KLAR, QUELLWOLKEN, KUESTENNEBEL, GRAUER_MORGEN, REGEN, STURM}; }
+    public static Wetterlage[] heute() { return new Wetterlage[]{KLAR, QUELLWOLKEN, KUESTENNEBEL, GRAUER_MORGEN, REGEN, STILLER_REGEN, STURM}; }
 
     /** Name (Teil des Labels oder der Konstante, ohne Groß- und Kleinschreibung, ü = ue) oder null. */
     public static Wetterlage byName(String s) {
