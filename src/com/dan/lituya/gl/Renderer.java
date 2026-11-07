@@ -314,6 +314,70 @@ public final class Renderer implements GLEventListener {
         film.print = P2383;
     }
 
+    /**
+     * Werkbuch Welle W9c: die Belichtung (com.dan.shutter). Die Umlaufblende der Kamera, 180° bei 24 B/s (1/48 s, WF38 A),
+     * mit Öffnungsgang; mit dem Film belichtet sie den Regen und gibt die Bewegungsunschärfe in Echtzeit (die Bewegungen der
+     * Kamera, McGuire 2012). Eine Bildrate der Kamera über 24 ist Zeitlupe: Die Szene läuft 24/Bildrate so schnell (Regie,
+     * Kino und Vorspann in der Zeit der Vorführung), die Belichtung wird kürzer (Regie „bildrate 192“). Die Kino-Stufe:
+     * {@link #teilbilder} Teilbilder je Filmbild über die Zeit der offenen Blende, die Pupille und den Bildpunkt – echte
+     * Tiefenschärfe für alles (auch Gischt, Nebel, Staub, Regen, Spiegelbilder), echte Bewegungsunschärfe für alles, was sich
+     * bewegt. Nur wenn der Aufrufer die Uhr führt ({@link #frozen}: ant film, Tempo, Standbilder).
+     */
+    public final com.dan.shutter.Shutter verschluss = new com.dan.shutter.Shutter();
+    public final com.dan.shutter.MotionBlur bewegung = new com.dan.shutter.MotionBlur();
+    /** Bilder je Sekunde der Vorführung. */
+    public static final double VORFUEHRUNG = 24;
+    /** Bilder je Sekunde der Kamera (24; mehr: Zeitlupe). */
+    public volatile double kameraBildrate = 24;
+    /** Teilbilder je Filmbild in der Kino-Stufe (0: aus). */
+    public volatile int teilbilder = Integer.getInteger("lituya.teilbilder", 0);
+    /** Zeit der Vorführung je Filmbild in der Kino-Stufe (s); der Film ohne Fenster setzt 1/Bildrate. */
+    public volatile double belichtungsTakt = 1 / 24.0;
+    /** Bewegungsunschärfe in Echtzeit (mit dem Film); aus: wie bis W9b. */
+    public volatile boolean bewegungAn = !Boolean.getBoolean("lituya.ohneBewegung");
+    /** Tempo: ein Schwenk der Kamera während der Aufnahme (Grad je Sekunde Szene). */
+    public volatile double schwenkGradJeS;
+    /** Belichtungszeit des Regens für das Auge (ohne Film), s. */
+    public volatile double regenVerschlussAuge = 1 / 250.0;
+    /** Die Szene läuft Bild für Bild, obwohl die Uhr steht (ant film): das Meer und die Ringe des Bebens laufen mit. */
+    public volatile boolean szeneLaeuft;
+    private com.dan.shutter.gl.ShutterGl verschlussGl;
+    private com.dan.shutter.gl.MotionBlurGl bewegungGl;
+    private com.dan.shutter.SubFrames.Sample teilbild;
+    private double teilFokusM = 1e5, teilPupilleM;
+    private long kinoBildNr;
+    private double szeneDt, bildSzeneDt;
+    private double[] letzteVpN, letzteSonne;
+    private int teilLetztes;
+    private boolean bewegungLetzt;
+
+    /** Wie schnell die Szene gegen die Vorführung läuft (Zeitlupe bei mehr als 24 Bildern je Sekunde der Kamera). */
+    public double zeitmass() { return VORFUEHRUNG / Math.max(1, kameraBildrate); }
+
+    /** W9c: Bildrate der Kamera (Zeitlupe über 24); die Umlaufblende behält ihren Winkel, die Belichtung wird kürzer. */
+    public void bildrateStellen(double fps) {
+        kameraBildrate = Math.max(1, Math.min(10_000, fps));
+        verschluss.fps = kameraBildrate;
+    }
+
+    /** W9c: Belichtungszeit (s): der Winkel der Umlaufblende bei dieser Bildrate, dazu die Belichtung des Regens ohne Film. */
+    public void verschlussStellen(double s) {
+        verschluss.angleDeg = com.dan.shutter.Shutter.angleFor(s, verschluss.fps);
+        regenVerschlussAuge = s;
+    }
+
+    /** Ob die Bewegungsunschärfe in Echtzeit rechnet (mit dem Film, Kantenglättung, nicht in den Teilbildern). */
+    public boolean bewegungJetzt() { return bewegungGl != null && bewegungGl.ready() && bewegungAn && bewegung.enabled && filmJetzt() && teilbild == null; }
+
+    /** „24 B/s · 180° (1/48 s) · Öffnungsgang 4,8 ms · Bewegungsunschärfe an“ */
+    public String verschlussLine() {
+        String z = kameraBildrate != VORFUEHRUNG ? String.format(Locale.GERMAN, " · Zeitlupe 1/%.0f", kameraBildrate / VORFUEHRUNG) : "";
+        return verschluss.describe() + z + (filmJetzt() ? (bewegungJetzt() ? " · Bewegungsunschärfe an" : " · Bewegungsunschärfe aus") : " · ohne Film: das Auge (Regen " + belichtungsText(regenVerschlussAuge) + ")")
+                + (teilbilder > 0 ? " · Kino-Stufe " + teilbilder + " Teilbilder" : "");
+    }
+
+    static String belichtungsText(double s) { return s > 0 && 1 / s >= 10 ? String.format(Locale.GERMAN, "1/%.0f s", 1 / s) : String.format(Locale.GERMAN, "%.3f s", s); }
+
     /** Ob der Film in diesem Bild rechnet (an oder Kino, mit Kantenglättung). */
     public boolean filmJetzt() { return filmGl != null && filmGl.ready() && (filmAn || kino.laeuft()) && taa; }
 
@@ -725,6 +789,16 @@ public final class Renderer implements GLEventListener {
             System.err.println("LituyaBay1958: Kino nicht verfügbar (ohne Balken und Blenden): " + e.getMessage());
             kinoGl = null;
         }
+        try {   // W9c: die Belichtung (com.dan.shutter): Kino-Stufe und Bewegungsunschärfe
+            verschlussGl = new com.dan.shutter.gl.ShutterGl(verschluss);
+            verschlussGl.init(gl);
+            bewegungGl = new com.dan.shutter.gl.MotionBlurGl(bewegung);
+            bewegungGl.init(gl);
+        } catch (RuntimeException e) {
+            System.err.println("LituyaBay1958: Belichtung nicht verfügbar (ohne Kino-Stufe und Bewegungsunschärfe): " + e.getMessage());
+            verschlussGl = null;
+            bewegungGl = null;
+        }
         try {   // W9b: der Film (com.dan.film)
             filmGl = new com.dan.film.gl.FilmGl(film);
             filmGl.init(gl);
@@ -735,6 +809,7 @@ public final class Renderer implements GLEventListener {
         try {   // W9a: das Objektiv (com.dan.lens)
             objektivGl = new com.dan.lens.gl.LensGl(objektiv);
             objektivGl.init(gl);
+            objektivGl.timing = TEILE.enabled;   // W9c: die Teile des Objektivs in den Teilzeiten
         } catch (RuntimeException e) {
             System.err.println("LituyaBay1958: Objektiv nicht verfügbar: " + e.getMessage());
             objektivGl = null;
@@ -757,14 +832,21 @@ public final class Renderer implements GLEventListener {
     }
 
     /** Uhr, Physik und Kamera um dt weiterrechnen (vom Bildlauf aufgerufen; Standbilder rufen es mit festem dt). */
-    public void step(double dt) {
+    public void step(double dt) { schritt(dt, dt * zeitmass(), true); }
+
+    /**
+     * W9c: ein Schritt um dt der Vorführung (Regie, Kino, Filmbild; nur mit vorfuehrung) und ds der Szene (Uhr, Wetter, Klang,
+     * Physik, Kamera). In Zeitlupe ist ds = dt · 24 / Bildrate der Kamera; die Kino-Stufe schreitet zwischen den Teilbildern nur
+     * in der Szene.
+     */
+    private void schritt(double dt, double ds, boolean vorfuehrung) {
         for (Runnable r; (r = imBild.poll()) != null; ) {
             try { r.run(); } catch (RuntimeException e) { System.err.println("LituyaBay1958: Arbeit im Bildlauf: " + e); }
         }
-        clock.step(dt);
+        clock.step(ds);
         if (jahresRaffer) {
             // ganze Jahre am selben Tag und zur selben Uhrzeit (die Jahreszeit bleibt; mit Tagen landete der Sprung im Winter)
-            rafferTage += dt * jahreJeMinute / 60;
+            rafferTage += ds * jahreJeMinute / 60;
             java.time.LocalDate ende = SceneClock.Zeitstand.HEUTE.date;
             while (rafferTage >= 1 && jahresRaffer) {
                 rafferTage -= 1;
@@ -773,12 +855,14 @@ public final class Renderer implements GLEventListener {
                 else clock.set(n, clock.hour());
             }
         }
-        regie.step(dt, regieCtx);   // Phase 17a: fällige Stichworte des Regiebuchs
-        filmUhr += dt;   // W9b: das Filmbild wechselt mit der Szene
-        filmGeschritten = true;
+        if (vorfuehrung) {
+            regie.step(dt, regieCtx);   // Phase 17a: fällige Stichworte des Regiebuchs
+            filmUhr += dt;   // W9b: das Filmbild wechselt mit der Vorführung
+            filmGeschritten = true;
+        }
         // W7: die Wetterregie bis zur Uhr; Wind und Bäche aus ihrem Zustand (1958 klar und still wie bisher)
         try {
-            wetter.schritt(clock, dt, clock.lapse == 0);
+            wetter.schritt(clock, ds, clock.lapse == 0);
             com.dan.lituya.wiring.Wetter.Zustand wz = wetter.zustand();
             boolean wa = wetter.an && wz != null;
             if (wa) { wiring.windSpeed = wz.wind(); wiring.windFromDeg = wz.windVon(); }
@@ -799,15 +883,20 @@ public final class Renderer implements GLEventListener {
         }
         regieLief = regie.running();
         if (klang.on || klang.offline) {
-            try { klang.feed(dt); } catch (RuntimeException e) { klang.note = "!" + e.getMessage(); }
+            try { klang.feed(ds); } catch (RuntimeException e) { klang.note = "!" + e.getMessage(); }
         }
-        kinoSchritt(dt);
+        if (vorfuehrung) kinoSchritt(dt);
         landAuge();   // W5: mit Tele um den Zielpunkt
-        physik.advance(dt);
+        physik.advance(ds);
         camera.groundLevel = groundHeight(camera.eye[0], camera.eye[2]);
         camera.waterLevel = wiring.pegel;
         camera.targetGround = Math.max(groundHeight(camera.tx, camera.tz), wiring.pegel);
-        camera.step(dt);
+        camera.step(ds);
+        if (schwenkGradJeS != 0 && ds > 0) {   // W9c, Tempo: ein Schwenk während der Aufnahme
+            camera.place(camera.fx, camera.fy, camera.fz, camera.fyaw + schwenkGradJeS * ds, camera.fpitch);
+            camera.snap();
+        }
+        szeneDt += ds;
         netzblick.regen = baeche.regen;
         com.dan.clipmap.Clipmap cmk = land.clipmap();
         if (cmk != null && cmk.curvatureRadius > 0) netzblick.kruemmungR = cmk.curvatureRadius;
@@ -1238,7 +1327,9 @@ public final class Renderer implements GLEventListener {
             if (uebergangMin == 0) wetter.sofort();
         }
         @Override public void regen(double mmH) { baecheRegenHand = Math.max(0, Math.min(BaecheGl.REGEN_MAX, mmH)); baeche.regen = Math.max(baeche.regen, baecheRegenHand); }
-        @Override public void verschluss(double sekunden) { wetterGl.verschluss = sekunden; }   // W7b
+        @Override public void verschluss(double sekunden) { verschlussStellen(sekunden); }   // W7b, W9c: die Kamera und der Regen
+        @Override public void umlaufblende(double grad) { verschluss.angleDeg = Math.max(0, Math.min(360, grad)); }   // W9c
+        @Override public void bildrate(double fps) { bildrateStellen(fps); }
         @Override public void objektiv(String a) { objektivStellen(a); }   // W9a
         @Override public void blende(double n) { objektiv.fNumber = n; objektivAn = true; }
         @Override public void fokus(String a) { fokusStellen(a); }
@@ -1312,7 +1403,8 @@ public final class Renderer implements GLEventListener {
         if (w != hdrW || h != hdrH) resizeTargets(gl, w, h);
         long rf0 = System.nanoTime();
         vorCpu = vorCpu * 0.9 + (rf0 - now) / 1e6 * 0.1;   // Runde 11: Uhr, Schritt, Marken lesen
-        renderFrame(gl, w, h);
+        if (teilbilder > 0 && frozen) kinoBelichtung(gl, w, h);   // W9c: die Kino-Stufe (der Aufrufer führt die Uhr)
+        else renderFrame(gl, w, h);
         long rf1 = System.nanoTime();
         regieBild(gl, now);   // Phase 17a: Fotos und Blatt des Regiebuchs, Kino über das fertige Bild; F12 und Tempo mit
         if (photoRequest) { photoRequest = false; takePhoto(gl, surfW, surfH); }
@@ -1324,7 +1416,74 @@ public final class Renderer implements GLEventListener {
         stats(now, w, h);
     }
 
+    /**
+     * W9c: ein Filmbild in der Kino-Stufe. Erst ein Schritt der Vorführung (Regie, Kino), dann die Teilbilder nach der Zeit:
+     * zwischen ihnen läuft die Szene (Wetter, Meer, Welle, Kamera, Klang), jedes wird mit der Kamera am Ort der Pupille und dem
+     * Versatz im Bildpunkt gerechnet und mit seinem Zeitfenster (Öffnungsgang) und dem Katzenauge in die Summe gegeben; am Ende
+     * läuft die Szene bis zum nächsten Filmbild weiter (die Umlaufblende ist zu). Dann einmal: das Objektiv ohne Tiefenschärfe
+     * (die ist jetzt echt) für Reflexe, Stern, Schleier, Verzeichnung, Farbsäume, Randabfall, die Augenanpassung, der Film.
+     */
+    private void kinoBelichtung(GL4 gl, int w, int h) {
+        if (verschlussGl == null || !verschlussGl.ready()) { renderFrame(gl, w, h); return; }
+        boolean linseAn = objektivGl != null && objektivGl.ready() && (objektivAn || kino.laeuft()) && taa;
+        com.dan.lens.Lens.Optics o = linseAn ? objektivGl.optics() : null;
+        double fm = linseAn ? objektivGl.focusM() : Double.NaN;
+        if (Double.isNaN(fm)) fm = objektiv.autoFocus ? 1e5 : objektiv.focusM;
+        teilFokusM = Math.max(0.3, fm);
+        teilPupilleM = o != null ? o.pupilMm() / 2000 : 0;
+        com.dan.shutter.Pupil pu = o != null ? new com.dan.shutter.Pupil(objektiv.aperture.blades, objektiv.aperture.roundness, objektiv.aperture.rotationDeg,
+                Math.max(1, objektiv.squeeze)) : null;
+        verschluss.fps = kameraBildrate;
+        if (filmJetzt()) { verschluss.gateWidthMm = film.format.widthMm(); verschluss.gateHeightMm = film.format.heightMm(); }
+        com.dan.shutter.SubFrames.Sample[] plan = com.dan.shutter.SubFrames.plan(verschluss, pu, teilbilder, ++kinoBildNr, true);
+        double takt = Math.max(1e-4, belichtungsTakt), ts = takt * zeitmass();
+        double[] rg = verschluss.openRange();
+        boolean lief = szeneLaeuft;
+        szeneLaeuft = true;
+        letztesDt = takt;
+        schritt(takt, 0, true);   // die Vorführung: Regie, Kino, Filmbild
+        double last = rg[0];
+        verschlussGl.begin(gl, w, h);
+        try {
+            for (com.dan.shutter.SubFrames.Sample sm : plan) {
+                double d = Math.min(sm.tauS() - last, ts);
+                if (d > 0) schritt(0, d, false);
+                last = sm.tauS();
+                teilbild = sm;
+                renderFrame(gl, w, h);
+            }
+        } finally {
+            teilbild = null;
+            szeneLaeuft = lief;
+        }
+        double rest = ts - (last - rg[0]);
+        if (rest > 0) schritt(0, rest, false);
+        szeneDt = 0;
+        int res = verschlussGl != null ? verschlussGl.resolve(gl, teilLetztes) : teilLetztes;
+        boolean linse = false;
+        if (linseAn && letzteVpN != null) {
+            boolean dof = objektiv.depthOfField;
+            objektiv.depthOfField = false;   // die Tiefenschärfe kam aus der Pupille
+            teil("Objektiv");
+            try {
+                res = objektivBild(gl, res, w, h, letzteVpN, letzteSonne);
+                linse = true;
+            } catch (RuntimeException e) {
+                System.err.println("LituyaBay1958: Objektiv: " + e);
+                objektivGl = null;
+            } finally {
+                objektiv.depthOfField = dof;
+            }
+            teilEnde("Objektiv");
+        }
+        gl.glBindVertexArray(emptyVao);
+        nachbearbeitung(gl, res, w, h, linse);
+    }
+
     void renderFrame(GL4 gl, int w, int h) {
+        bildSzeneDt = szeneDt;   // W9c: Szenenzeit seit dem letzten Bild (Meer, Ringe, Bewegungsunschärfe)
+        szeneDt = 0;
+        final com.dan.shutter.SubFrames.Sample tb = teilbild;
         TEIL_UHR.use(gl);
         mark(gl, 0);
         // W9a: Fokusatmung aus der Optik des letzten Bilds; Seitenverhältnis des Fensters (auch während das Bedienfeld gleitet)
@@ -1395,8 +1554,13 @@ public final class Renderer implements GLEventListener {
             float[] rx = {1, 0, 0, 0, 0, cx, sx, 0, 0, -sx, cx, 0, 0, 0, 0, 1}, ry = {cy, 0, -sy, 0, 0, 1, 0, 0, sy, 0, cy, 0, 0, 0, 0, 1};
             view = Mat4.mul(Mat4.mul(rx, ry), view);
         }
+        if (tb != null) {   // W9c Kino-Stufe: die Kamera am Ort der Pupille, die Schärfenebene steht, dazu der Versatz im Bildpunkt
+            double ex = tb.u() * teilPupilleM, ey = tb.v() * teilPupilleM;
+            view = com.dan.shutter.SubFrames.offsetView(view, ex, ey);
+            proj = com.dan.shutter.SubFrames.shearProjection(proj, ex, ey, teilFokusM, tb.jx(), tb.jy(), w, h);
+        }
         double[] vpN = mulD(proj, view);   // ohne Versatz (für den Verlauf)
-        if (taa) {
+        if (taa && tb == null) {
             // W0 (K2): Versatz nach Halton 2/3 um höchstens einen halben Bildpunkt (8 Lagen)
             int k = (taaFrame++ & 7) + 1;
             proj = proj.clone();
@@ -1422,8 +1586,9 @@ public final class Renderer implements GLEventListener {
         if (meerJetzt) {
             try {
                 // W3 (E1): der Spiegel zerfällt beim Beben in Ringe, rund 8 je Sekunde bei voller Stärke, im Umkreis von 3 km [G]
-                if (!frozen && bst > 0) {
-                    ringeSchuld += letztesDt * 8 * bst;
+                double sdt = frozen && !szeneLaeuft ? 0 : bildSzeneDt;   // W9c: Szenenzeit (im Film ohne Fenster lief das Meer nicht)
+                if (sdt > 0 && bst > 0) {
+                    ringeSchuld += sdt * 8 * bst;
                     for (int k = 0; k < 4 && ringeSchuld >= 1; k++) {
                         ringeSchuld -= 1;
                         double a = bebenRng.nextDouble() * 2 * Math.PI, rr = 30 + 3000 * Math.sqrt(bebenRng.nextDouble());
@@ -1437,7 +1602,7 @@ public final class Renderer implements GLEventListener {
                 meer.spiegelTruebe = wetterJetzt ? Math.min(0.75, wz.regen() / 4.5) : 0;   // W7 Runde 1c: Regen trübt den Spiegel [G]
                 // W7 Runde 1d: im Seegang bricht der Spiegel (Bft 1 still wie bisher, Bft 2 0,65, Bft 3 0,4, ab 4 0,3) [G]
                 meer.spiegelGlatt = !wetterJetzt || wz.bucht() <= 1 ? 1 : wz.bucht() == 2 ? 0.65 : wz.bucht() == 3 ? 0.4 : 0.3;
-                meer.schritt(gl, frozen ? 0 : letztesDt, wiring.pegel, wiring.windSpeed, wiring.windFromDeg);
+                meer.schritt(gl, frozen && !szeneLaeuft ? 0 : bildSzeneDt, wiring.pegel, wiring.windSpeed, wiring.windFromDeg);
                 teilEnde("Meer");
                 // W5 Tempo: Spiegel nur, wenn genug Wasser im Bild ist (Anteil aus Strahlen, alle 8 Bilder, im Standbild jedes)
                 // im Hintergrund (Probe: im Bildfaden kostete es Spitzen, das Mittel der Bildbank stieg um 20–35 ms)
@@ -1454,7 +1619,7 @@ public final class Renderer implements GLEventListener {
                 if (meer.spiegel && meer.spiegelJetzt) {
                     boolean sprung = spiegelAuge == null || Math.abs(camera.eye[0] - spiegelAuge[0]) + Math.abs(camera.eye[1] - spiegelAuge[1]) + Math.abs(camera.eye[2] - spiegelAuge[2]) > 3
                             || camera.fwd[0] * spiegelBlick[0] + camera.fwd[1] * spiegelBlick[1] + camera.fwd[2] * spiegelBlick[2] < Math.cos(Math.toRadians(1));
-                    if (sprung || ++spiegelAlter >= spiegelTakt) {
+                    if (sprung || tb != null || ++spiegelAlter >= spiegelTakt) {   // W9c: in jedem Teilbild neu (die Pupille wandert)
                         teil("Spiegel");
                         spiegelBild(gl, w, h, proj, view, sun);
                         teilEnde("Spiegel");
@@ -1684,11 +1849,46 @@ teilEnde("Schleier");
 
         // 3d Kantenglättung (W0, K2): neues Bild mit dem Verlauf mischen; Zeit unter „Nachbearbeitung“
         int bild = hdrTex;
+        // W9c: Bewegung der Kamera seit dem letzten Bild (für die Bewegungsunschärfe, vor der Glättung, die den Verlauf weiterschreibt)
+        float[] mbReproj = null;
+        if (bewegungJetzt() && taa && taaValid && taaPrevVP != null) {
+            double ddx = camera.eye[0] - taaPrevEye[0], ddy = camera.eye[1] - taaPrevEye[1], ddz = camera.eye[2] - taaPrevEye[2];
+            if (ddx * ddx + ddy * ddy + ddz * ddz < 200 * 200) {
+                double[] m = mulDD(taaPrevVP, invertD(vpN));
+                mbReproj = new float[16];
+                for (int i = 0; i < 16; i++) mbReproj[i] = (float) m[i];
+            }
+        }
+        if (tb != null) taaValid = false;   // W9c: Teilbilder ohne Verlauf (die Summe glättet)
         if (taa) bild = taaPass(gl, w, h, vpN);
         else taaValid = false;
+        // 3d-W9c: Bewegungsunschärfe (die Kamera bewegt sich während der Belichtung), vor dem Objektiv
+        bewegungLetzt = false;
+        if (mbReproj != null && bildSzeneDt > 0) {
+            teil("Bewegung");
+            try {
+                com.dan.shutter.gl.MotionBlurGl.View mv = new com.dan.shutter.gl.MotionBlurGl.View();
+                mv.colorTexture = bild;
+                mv.depthTexture = depthTex;
+                mv.width = w;
+                mv.height = h;
+                mv.reproj = mbReproj;
+                mv.reversedZ = reversedZ;
+                mv.near = NEAR;
+                mv.far = FAR;
+                mv.scale = bewegung.scale(verschluss.openS(), bildSzeneDt);
+                bild = bewegungGl.apply(gl, mv);
+                bewegungLetzt = true;
+            } catch (RuntimeException e) {
+                System.err.println("LituyaBay1958: Bewegungsunschärfe: " + e);
+                bewegungGl = null;
+            }
+            teilEnde("Bewegung");
+            gl.glBindVertexArray(emptyVao);
+        }
         // 3d-W9a: das Objektiv, nach der Glättung und vor dem Regen (der Regen zeichnet seine Unschärfe mit derselben Linse)
         boolean linse = false;
-        if (objektivJetzt()) {
+        if (objektivJetzt() && tb == null) {   // W9c: in den Teilbildern nicht (das Objektiv kommt nach der Summe)
             teil("Objektiv");
             try {
                 bild = objektivBild(gl, bild, w, h, vpN, sun);
@@ -1704,6 +1904,10 @@ teilEnde("Schleier");
             wetterGl.niederschlag.focus = 4;
             regenLinse = false;
         }
+        // W9c: Belichtung des Regens: im Teilbild ein Augenblick durch ein Loch (Spuren und Unschärfe kommen aus der Summe),
+        // mit dem Film die Umlaufblende, sonst das Auge
+        if (tb != null) { wetterGl.verschluss = 5e-5; wetterGl.niederschlag.aperture = 1e-4; wetterGl.niederschlag.focus = teilFokusM; regenLinse = true; }
+        else wetterGl.verschluss = filmJetzt() ? Math.max(5e-5, verschluss.openS()) : regenVerschlussAuge;
         // 3d-W7b: Schichten, Tropfen und Spritzer des Regens nach der Glättung (der Verlauf würde die bewegten Spuren wegmischen)
         if (taa && !unterWasser && wetterJetzt) {
             try {
@@ -1716,6 +1920,39 @@ teilEnde("Schleier");
             gl.glBindVertexArray(emptyVao);
         }
 
+        // 3d-W9c: Kino-Stufe: das Teilbild in die Summe; der Rest (Objektiv, Auge, Film, Kino) einmal nach dem letzten
+        if (tb != null) {
+            teilLetztes = bild;
+            letzteVpN = vpN;
+            letzteSonne = sun;
+            try {
+                com.dan.shutter.gl.ShutterGl.View sv = new com.dan.shutter.gl.ShutterGl.View();
+                sv.hdrTexture = bild;
+                sv.width = w;
+                sv.height = h;
+                sv.tauS = tb.tauS();
+                sv.pupilU = tb.u();
+                sv.pupilV = tb.v();
+                sv.squeeze = objektiv.squeeze;
+                com.dan.lens.Lens.Optics lo2 = teilPupilleM > 0 && objektivGl != null ? objektivGl.optics() : null;
+                if (lo2 != null) {
+                    sv.catEye = lo2.catEye();
+                    sv.tanPerPx = objektiv.sensorHeightMm / h / lo2.efl() * lo2.fieldScale();
+                    sv.fNumber = lo2.fNumber();
+                }
+                verschlussGl.add(gl, sv);
+            } catch (RuntimeException e) {
+                System.err.println("LituyaBay1958: Kino-Stufe: " + e);
+                verschlussGl = null;
+            }
+            gl.glBindVertexArray(emptyVao);
+            return;
+        }
+        nachbearbeitung(gl, bild, w, h, linse);
+    }
+
+    /** Nach dem Bild der Szene: Augenanpassung, Film oder Filmkurve ins Fenster, Netzblick, Archiv, HUD (W9c ausgelagert). */
+    private void nachbearbeitung(GL4 gl, int bild, int w, int h, boolean linse) {
         // 3e W6 Runde 6 (WF19 A): Augenanpassung. Das Histogramm dieses Bilds wird ein bis zwei Bilder später gelesen; am
         // Boden passt sich die Belichtung an (dunkler Wald), im Flug bleibt sie fest. Sprung der Kamera: sofort.
         teil("Auge");
@@ -2378,7 +2615,8 @@ teilEnde("Schleier");
         double kimm = Site.horizon(camera.eye[1] - wiring.pegel);
         return new String[]{
                 String.format(Locale.GERMAN, "%.0f Bilder/s   Grafikkarte %.2f ms   Prozessor %.2f ms   Budget %.1f ms", fps, gpuMs, cpuMs, quality.budgetMs()),
-                passTimes() + (TEILE.enabled ? " · Teile (ms): " + TEILE : ""),
+                passTimes() + (TEILE.enabled ? " · Teile (ms): " + TEILE : "")
+                        + (objektivGl != null && objektivGl.timing ? " · im Objektiv (ms): " + objektivGl.timingLine() : ""),
                 (c == null ? "!Compute-Test läuft …" : (c.ok() ? "" : "!") + c.line()),
                 uhrenZeile(),
                 (licht.aktiv() ? String.format(Locale.GERMAN, "Vorbelichtung %.3g · %s · %s · Zeitraffer %.0f×", licht.pre(), auge, licht.status(), clock.lapse)
@@ -2535,6 +2773,8 @@ teilEnde("Schleier");
         if (kinoGl != null) kinoGl.dispose(gl);
         if (objektivGl != null) objektivGl.dispose(gl);
         if (filmGl != null) filmGl.dispose(gl);
+        if (verschlussGl != null) verschlussGl.dispose(gl);
+        if (bewegungGl != null) bewegungGl.dispose(gl);
         if (lum != null) lum.dispose(gl);
         baeche.dispose(gl);
         ereignisGl.dispose(gl);

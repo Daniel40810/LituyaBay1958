@@ -1425,6 +1425,34 @@ public final class Pruefung {
         double[] g18 = fr.film.develop(0.18, 0.18, 0.18);
         check(f58 && fTag && fNacht && fHand && g18[2] > g18[1] && g18[1] > g18[0],
                 f("W9b: Film nach dem Zeitstand (1958 5248 → 5382 CinemaScope, Abend warm; heute 14 Uhr Vision3 250D neutral, 23:30 Uhr 500T blau); von Hand Vision3 250D, die Welle kühl (Graukarte %.3f %.3f %.3f)", g18[0], g18[1], g18[2]));
+
+        // Werkbuch Welle W9c: die Belichtung (com.dan.shutter): Umlaufblende, Zeitlupe, Regie
+        double[] ve = {Double.NaN, Double.NaN};
+        com.dan.lituya.scene.Regie.Ctx cv9 = (com.dan.lituya.scene.Regie.Ctx) java.lang.reflect.Proxy.newProxyInstance(Pruefung.class.getClassLoader(), new Class<?>[]{com.dan.lituya.scene.Regie.Ctx.class},
+                (o, m, args) -> {
+                    if (m.getName().equals("ready")) return true;
+                    if (m.getName().equals("bildrate")) ve[0] = (Double) args[0];
+                    if (m.getName().equals("umlaufblende")) ve[1] = (Double) args[0];
+                    return null;
+                });
+        com.dan.lituya.scene.Regie r9 = new com.dan.lituya.scene.Regie();
+        r9.start(com.dan.lituya.scene.Regie.parse("Regiebuch: B\n0:00 bildrate 192\n0:00 umlaufblende 172,8°\n0:01 blatt\n"), cv9);
+        for (int i = 0; i < 4 && r9.running(); i++) r9.step(1, cv9);
+        boolean brFalsch = false;
+        try { com.dan.lituya.scene.Regie.parse("Regiebuch: X\n0:00 bildrate 0\n"); } catch (IllegalArgumentException e) { brFalsch = e.getMessage().startsWith("Zeile 2"); }
+        check(ve[0] == 192 && Math.abs(ve[1] - 172.8) < 1e-9 && brFalsch, "W9c: Regiebefehle „bildrate 192“, „umlaufblende 172,8°“; „bildrate 0“ abgewiesen");
+        SceneClock c9 = new SceneClock();
+        Renderer f9 = new Renderer(c9);
+        boolean v48 = Math.abs(f9.verschluss.openS() - 1 / 48.0) < 1e-12;
+        f9.bildrateStellen(192);
+        double e0 = c9.epochMillis(), t0r = c9.t();
+        f9.step(1.0);
+        double dSim = (c9.epochMillis() - e0) / 1000, dT = c9.t() - t0r;
+        check(v48 && Math.abs(f9.zeitmass() - 0.125) < 1e-12 && Math.abs(f9.verschluss.openS() - 1 / 384.0) < 1e-12 && Math.abs(dSim - 0.125) < 1e-9 && Math.abs(dT - 0.125) < 1e-9,
+                f("W9c: 180° bei 24 B/s belichtet 1/48 s; bei 192 B/s Zeitlupe 1/8: 1 s Vorführung sind %.3f s Szene, Belichtung 1/%.0f s", dSim, 1 / f9.verschluss.openS()));
+        f9.bildrateStellen(24);
+        f9.verschlussStellen(1 / 96.0);
+        check(Math.abs(f9.verschluss.angleDeg - 90) < 1e-9 && Math.abs(f9.regenVerschlussAuge - 1 / 96.0) < 1e-12, "W9c: „verschluss 1/96“ stellt die Umlaufblende auf 90° und den Regen ohne Film auf 1/96 s");
     }
 
     static void sicht17(File daten) throws Exception {

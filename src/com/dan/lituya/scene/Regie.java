@@ -76,6 +76,12 @@ public final class Regie {
         default void film(String a) { }
         default void kopierlicht(String a) { }
         default void kopie(double jahre) { }
+        /**
+         * Werkbuch Welle W9c: die Bildrate der Kamera (24 normal; mehr ist Zeitlupe: die Szene läuft 24/Bildrate so schnell,
+         * die Regie in der Zeit der Vorführung) und der Winkel der Umlaufblende (Grad; 180 = halbe Bildzeit).
+         */
+        default void bildrate(double fps) { }
+        default void umlaufblende(double grad) { }
         /** Ob die Szene so weit ist (für {@code warte}). */
         boolean ready(Warte w);
         void capture(String caption);
@@ -234,7 +240,7 @@ public final class Regie {
     /** Die Befehle der Stichworte (klein geschrieben im Text). */
     public static final List<String> BEFEHLE = List.of("zeit", "ereignis", "raffer", "zeitstand", "jahre", "ansicht", "schaustueck", "fahrt", "mitfahrt",
             "netzblick", "echtzeit", "regen", "warte", "foto", "blatt", "sage", "flug", "wetter", "verschluss", "zeitlupe",
-            "objektiv", "blende", "fokus", "film", "kopierlicht", "kopie");
+            "objektiv", "blende", "fokus", "film", "kopierlicht", "kopie", "bildrate", "umlaufblende");
 
     /** W9b: was „film“ kennt. */
     public static final List<String> FILME = List.of("an", "aus", "zeitstand", "5248", "vision3_250d", "vision3_500t");
@@ -301,6 +307,7 @@ public final class Regie {
                     if (z.befehl().equals("film") && !FILME.contains(z.argumente().trim().toLowerCase(Locale.ROOT)))   // W9b
                         throw new IllegalArgumentException("film " + String.join("|", FILME) + " erwartet");
                     if (z.befehl().equals("kopierlicht")) kopierlichtPruefen(z.argumente());
+                    if (z.befehl().equals("bildrate") || z.befehl().equals("umlaufblende")) handlung(z, "");   // W9c: mit der Zeile melden
                     if (z.befehl().equals("warte")) warten.add(warte(z.argumente(), day[0]));
                     else warten.add(null);
                     zeilen.add(z);
@@ -495,6 +502,16 @@ public final class Regie {
                 return x -> x.film(low);
             }
             case "kopierlicht": { String k = kopierlichtPruefen(a); return x -> x.kopierlicht(k); }
+            case "bildrate": {   // W9c
+                double v = Double.parseDouble(a.trim().toLowerCase(Locale.ROOT).replaceFirst("\\s*(b/s|fps)$", "").replace(',', '.'));
+                if (v < 1 || v > 10000) throw new IllegalArgumentException("bildrate 1 … 10 000 erwartet (Bilder je Sekunde der Kamera; 24 normal, 192 Zeitlupe 1/8)");
+                return x -> x.bildrate(v);
+            }
+            case "umlaufblende": {
+                double v = Double.parseDouble(a.trim().replace("°", "").replace(',', '.'));
+                if (v <= 0 || v > 360) throw new IllegalArgumentException("umlaufblende 1 … 360 erwartet (Grad)");
+                return x -> x.umlaufblende(v);
+            }
             case "kopie": {
                 double v = Double.parseDouble(a.trim().toLowerCase(Locale.ROOT).replaceFirst("\\s*jahre?$", "").replace(',', '.'));
                 if (v < 0 || v > 200) throw new IllegalArgumentException("kopie 0 … 200 erwartet (Alter in Jahren)");

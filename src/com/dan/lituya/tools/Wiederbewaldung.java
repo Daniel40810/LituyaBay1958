@@ -381,7 +381,8 @@ public final class Wiederbewaldung implements GLEventListener {
         javax.swing.JLabel lbl = new javax.swing.JLabel();
         lbl.setForeground(new Color(220, 228, 232));
         com.dan.fslider.FSlider jahr = new com.dan.fslider.FSlider(0, JAHRE, 0);
-        com.dan.fbutton.FButton spiel = new com.dan.fbutton.FButton("Zeitraffer ▶");
+        com.dan.fbutton.FButton spiel = new com.dan.fbutton.FButton("Zeitraffer");
+        spiel.setFIcon(com.dan.lituya.ui.Zeichen.von(com.dan.lituya.ui.Zeichen.Art.SPIEL));   // W9c: ▶ fehlt der Schrift der Knöpfe
         com.dan.fcombobox.FComboBox blick = new com.dan.fcombobox.FComboBox(BLICKE);
         jahr.addChangeListener(e -> { if (!wb.spielt) wb.jahr = jahr.getValue(); });
         spiel.addActionListener(e -> { wb.spielJahr = wb.jahr >= JAHRE ? 0 : wb.jahr; wb.spielt = !wb.spielt; });
