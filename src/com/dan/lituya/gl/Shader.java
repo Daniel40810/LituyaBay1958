@@ -41,6 +41,17 @@ public final class Shader {
 
     public int id() { return program; }
 
+    /**
+     * Seit dem 07.11.2026: ein Programm, das ein Package aus Renderer.jar gebaut hat (SurgeGl, TreeFallGl, HorizonGl), als
+     * Shader, damit Renderer.common und die Lichter seine Uniforms wie bei einem eigenen setzen. Bauen und Freigeben
+     * bleiben beim Package.
+     */
+    public static Shader fremd(String name, int program) {
+        Shader s = new Shader(name, null);
+        s.program = program;
+        return s;
+    }
+
     /** Die Dateien dieses Programms (für die Prüfung). */
     public String[] files() { return files.clone(); }
 

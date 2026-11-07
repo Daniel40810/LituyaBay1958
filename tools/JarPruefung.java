@@ -17,7 +17,9 @@ import java.util.zip.ZipFile;
 public final class JarPruefung {
     /** Was LituyaBay1958 aus Renderer.jar braucht (wie {@code app.Bibliothek.GEBRAUCHT}). */
     static final String[] GEBRAUCHT = {"wave", "fracture", "ice", "forest", "tree", "ocean", "sky", "cloud", "fog", "soundscape", "kino", "route",
-            "surf", "spray", "buoyancy", "cliff", "tide", "wind", "weather", "rain", "flock", "seal", "figure", "smoke", "store", "ground"};
+            "surf", "spray", "buoyancy", "cliff", "tide", "wind", "weather", "rain", "flock", "seal", "figure", "smoke", "store", "ground",
+            // 07.11.2026: W1–W5 aus der App herausgezogen
+            "horizon", "surge"};
     /** Die neuen Packages mit ihrer Phase und der Prüfklasse (wie {@code app.Bibliothek.NEU}). */
     static final String[] NEU = {"clipmap", "surface", "understory", "scree", "netview", "quake", "landslide", "impact", "dustcloud", "debris",
             "succession", "vessel", "aurora", "bear"};

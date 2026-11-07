@@ -40,12 +40,12 @@ public final class EreignisGl {
     final Shader welle = new Shader("Welle", null, "spur.vert", "welle.frag"),
             strom = new Shader("Strom", new String[]{"STROM"}, "spur.vert", "strom.frag"),
             medien = new Shader("Staub", null, "fullscreen.vert", "medien.frag"),
-            medienHoch = new Shader("Staub hoch", null, "fullscreen.vert", "medien_hoch.frag");
+            medienHoch = new Shader("Staub hoch", null, "fullscreen.vert", "/com/dan/dustcloud/gl/upsample.frag");   // com.dan.dustcloud
     final Shader[] all = {welle, strom, medien, medienHoch};
 
     /**
      * Werkbuch Welle W4: Staub, Fahne, Gischt und Trübe in halber Auflösung (der Durchgang kostete seit W3c 17–28 ms) und
-     * mit der Tiefe hochgerechnet ({@code medien_hoch.frag}): an Kanten zählt nur, was in derselben Tiefe liegt, so gibt es
+     * mit der Tiefe hochgerechnet ({@code upsample.frag} aus com.dan.dustcloud): an Kanten zählt nur, was in derselben Tiefe liegt, so gibt es
      * keinen Saum um Berge und Wellen. Aus: wie bisher in voller Auflösung.
      */
     public volatile boolean medienHalb = true;
@@ -92,11 +92,19 @@ public final class EreignisGl {
 
     /** Werkbuch Welle W4 (E7): die Lippe an der Front (Scheitel kurz hinter der Front wandern nach vorn) [G]. */
     public volatile boolean lippe = true;
-    /** W4b: die Lippe als eigenes Netz längs der Front (LippeGl); die Ecken der Wellenfläche ziehen dann nicht mehr vor. */
+    /** W4b: die Lippe als eigenes Netz längs der Front; die Ecken der Wellenfläche ziehen dann nicht mehr vor. */
     public volatile boolean lippeNetz = true;
-    final LippeGl lippeGl = new LippeGl();
-    private volatile float[] flutA, flutM;
-    private volatile double flutE0, flutN0;
+    /**
+     * Seit dem 07.11.2026 aus com.dan.surge: die Lippe als Netz mit Vorhang und Tropfen ({@link com.dan.surge.Lip}), gezeichnet
+     * von {@link com.dan.surge.gl.SurgeGl} mit dem Licht dieser App (paketlicht.glsl); dieselbe SurgeGl zeichnet die
+     * Schleier ({@link SchleierGl}).
+     */
+    final com.dan.surge.Surge surge = com.dan.surge.Surge.lituya1958();
+    final com.dan.surge.gl.SurgeGl surgeGl = new com.dan.surge.gl.SurgeGl();
+    /** W3c (WF15 B): die Staubfahne über dem Abriss (com.dan.dustcloud.Plume) [G]. */
+    private final com.dan.dustcloud.Plume fahnePlume = new com.dan.dustcloud.Plume();
+    /** Die Flutkarte (com.dan.surge.FloodMap), null vor dem ersten Lauf. */
+    private volatile com.dan.surge.FloodMap flutKarte;
 
     /** W3c: ob der Rückbau des Gilbert Inlet gilt (vom Renderer je Bild, wie beim Gelände). */
     public volatile boolean rueckbauAn;
@@ -194,9 +202,7 @@ public final class EreignisGl {
     private int flutTex;
     private volatile double[] flutRect;
     private String flutLauf;
-    /** Je Feld zu 32 × 32 Zellen der Flutkarte: früheste und späteste Ankunft, höchster Stand (für die Hülle der Gischt). */
-    private float[] feldMinA, feldMaxA, feldMax;
-    private int flutNx, flutNz;
+    /** Je Feld zu 32 × 32 Zellen der Flutkarte: früheste und späteste Ankunft, höchster Stand (FloodMap.blocks). */
     private static final int FELD = 32;
     private static final double FLUT_ZELLE = 8;
     /** Texturstelle der Abrissfläche im Gelände. */
@@ -205,42 +211,10 @@ public final class EreignisGl {
     /** Texturstelle des 3D-Rauschens für Staub und Vorhang. */
     static final int UNIT_RAUSCH = 4;
 
-    /** Kachelbares Wertrauschen 64³ (R8, trilinear, wiederholt), einmal gebaut. */
+    /** Kachelbares Wertrauschen 64³ (R8, trilinear, wiederholt), einmal gebaut (com.dan.surge.Noise, wie seit W3). */
     private int rausch(GL4 gl) {
         if (rauschTex != 0) return rauschTex;
-        int n = 64;
-        float[] v = new float[n * n * n];
-        java.util.Random r = new java.util.Random(1958);
-        for (int i = 0; i < v.length; i++) v[i] = r.nextFloat();
-        // einmal weich (3er-Kasten, kachelbar), damit die Lagen nicht körnig werden
-        float[] w = new float[v.length];
-        for (int z = 0; z < n; z++)
-            for (int y = 0; y < n; y++)
-                for (int x = 0; x < n; x++) {
-                    float sum = 0;
-                    for (int dz = -1; dz <= 1; dz++)
-                        for (int dy = -1; dy <= 1; dy++)
-                            for (int dx = -1; dx <= 1; dx++)
-                                sum += v[(((z + dz) & 63) * n + ((y + dy) & 63)) * n + ((x + dx) & 63)];
-                    w[(z * n + y) * n + x] = sum / 27;
-                }
-        float lo = 1, hi = 0;
-        for (float f : w) { lo = Math.min(lo, f); hi = Math.max(hi, f); }
-        java.nio.ByteBuffer b = Buffers.newDirectByteBuffer(w.length);
-        for (float f : w) b.put((byte) Math.round((f - lo) / (hi - lo) * 255));
-        b.flip();
-        int[] t = new int[1];
-        gl.glGenTextures(1, t, 0);
-        gl.glBindTexture(GL4.GL_TEXTURE_3D, t[0]);
-        gl.glPixelStorei(GL.GL_UNPACK_ALIGNMENT, 1);
-        gl.glTexImage3D(GL4.GL_TEXTURE_3D, 0, GL.GL_R8, n, n, n, 0, GL4.GL_RED, GL.GL_UNSIGNED_BYTE, b);
-        gl.glPixelStorei(GL.GL_UNPACK_ALIGNMENT, 4);
-        gl.glGenerateMipmap(GL4.GL_TEXTURE_3D);
-        gl.glTexParameteri(GL4.GL_TEXTURE_3D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR_MIPMAP_LINEAR);
-        gl.glTexParameteri(GL4.GL_TEXTURE_3D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_LINEAR);
-        for (int pn : new int[]{GL.GL_TEXTURE_WRAP_S, GL.GL_TEXTURE_WRAP_T, GL4.GL_TEXTURE_WRAP_R}) gl.glTexParameteri(GL4.GL_TEXTURE_3D, pn, GL.GL_REPEAT);
-        gl.glBindTexture(GL4.GL_TEXTURE_3D, 0);
-        rauschTex = t[0];
+        rauschTex = com.dan.surge.gl.SurgeGl.noiseTexture(gl);
         return rauschTex;
     }
     private String abrissLauf;
@@ -412,69 +386,24 @@ public final class EreignisGl {
                 }
             System.out.println(String.format(Locale.GERMAN, "LituyaBay1958: Flut: Nahfeld %d Zellen mit Gischt, wo der Fels ins Wasser fährt [G]", gesetzt));
         }
-        // trockene Zellen: Ankunft der nassen Nachbarn, Stand weit unten
-        for (int runde = 0; runde < 2; runde++) {
-            float[] B = A.clone();
-            for (int j = 0; j < nz; j++)
-                for (int i = 0; i < nx; i++) {
-                    int c = j * nx + i;
-                    if (!Float.isNaN(A[c])) continue;
-                    float best = Float.NaN;
-                    for (int dj = -1; dj <= 1; dj++)
-                        for (int di = -1; di <= 1; di++) {
-                            int ii = i + di, jj = j + dj;
-                            if (ii < 0 || jj < 0 || ii >= nx || jj >= nz) continue;
-                            float v = A[jj * nx + ii];
-                            if (!Float.isNaN(v) && !(v >= best)) best = v;
-                        }
-                    B[c] = best;
-                }
-            System.arraycopy(B, 0, A, 0, A.length);
-        }
-        java.nio.FloatBuffer b = Buffers.newDirectFloatBuffer(nx * nz * 2);
-        int ftx = (nx + FELD - 1) / FELD, ftz = (nz + FELD - 1) / FELD;
-        float[] fa = new float[ftx * ftz], fb = new float[ftx * ftz], fm = new float[ftx * ftz];
-        java.util.Arrays.fill(fa, Float.MAX_VALUE);
-        java.util.Arrays.fill(fb, -Float.MAX_VALUE);
-        java.util.Arrays.fill(fm, -Float.MAX_VALUE);
-        for (int j = 0; j < nz; j++)
-            for (int i = 0; i < nx; i++) {
-                int c = j * nx + i;
-                float a = Float.isNaN(A[c]) ? 1e6f : A[c], m = Float.isNaN(M[c]) ? -1000f : M[c];
-                b.put(a).put(m);
-                if (a < 1e5f && m > pegel + 2) {
-                    int f = (j / FELD) * ftx + i / FELD;
-                    fa[f] = Math.min(fa[f], a);
-                    fb[f] = Math.max(fb[f], a);
-                    fm[f] = Math.max(fm[f], m);
-                }
-            }
-        b.flip();
-        if (flutTex == 0) {
-            int[] t = new int[1];
-            gl.glGenTextures(1, t, 0);
-            flutTex = t[0];
-        }
-        gl.glBindTexture(GL.GL_TEXTURE_2D, flutTex);
-        gl.glPixelStorei(GL.GL_UNPACK_ALIGNMENT, 4);
-        gl.glTexImage2D(GL.GL_TEXTURE_2D, 0, GL4.GL_RG32F, nx, nz, 0, GL4.GL_RG, GL.GL_FLOAT, b);
-        gl.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR);
-        gl.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_LINEAR);
-        gl.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_S, GL.GL_CLAMP_TO_EDGE);
-        gl.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_T, GL.GL_CLAMP_TO_EDGE);
-        gl.glBindTexture(GL.GL_TEXTURE_2D, 0);
-        feldMinA = fa; feldMaxA = fb; feldMax = fm;
-        flutA = A; flutM = M; flutE0 = e0; flutN0 = n0;
-        flutNx = nx; flutNz = nz;
+        // trockene Zellen: Ankunft der nassen Nachbarn (zwei Runden), Textur RG32F, Felder je 32 × 32 Zellen (com.dan.surge)
         double[] o = Site.fromUtm(e0, n0);
-        flutRect = new double[]{o[0], o[1], nx * z, nz * z};
+        com.dan.surge.FloodMap fm = new com.dan.surge.FloodMap(nx, nz, z, o[0], o[1], A, M).fillDry(2);
+        fm.blocks(FELD, pegel);
+        flutTex = com.dan.surge.gl.SurgeGl.floodTexture(gl, fm, flutTex);
+        flutKarte = fm;
+        flutRect = fm.rect();
         System.out.println(String.format(Locale.GERMAN, "LituyaBay1958: Flutkarte %d × %d zu %.0f m (%s)", nx, nz, z, key));
     }
 
-    /** W3b: Uniforms der Flut für das Gelände (Programm gebunden); an, solange die Welle läuft (danach WaldGl). */
+    /**
+     * W3b: Uniforms der Flut für ein gebundenes Programm; an, solange die Welle läuft (danach WaldGl). Das Gelände liest
+     * uFlut…, Welle und Gischt (com.dan.surge) uSgFlood… auf derselben Texturstelle.
+     */
     public void flut(GL4 gl, int p, double t) {
         double[] r = flutRect;
         boolean on = r != null && flutTex != 0 && t < 3600;
+        com.dan.surge.gl.SurgeGl.bindFlood(gl, p, on, UNIT_FLUT, flutTex, r, t);
         gl.glUniform1i(gl.glGetUniformLocation(p, "uFlutAn"), on ? 1 : 0);
         gl.glUniform1i(gl.glGetUniformLocation(p, "uFlut"), UNIT_FLUT);
         gl.glUniform1f(gl.glGetUniformLocation(p, "uEreignis"), (float) t);
@@ -485,25 +414,10 @@ public final class EreignisGl {
         gl.glUniform4f(gl.glGetUniformLocation(p, "uFlutRect"), (float) r[0], (float) r[1], (float) r[2], (float) r[3]);
     }
 
-    /** W3b: Hülle der Gischt zur Zeit t (Szene x0, z0, x1, z1, y0, y1) oder null. */
+    /** W3b: Hülle der Gischt zur Zeit t (Szene x0, z0, x1, z1, y0, y1) oder null (com.dan.surge.FloodMap.sprayBox). */
     double[] gischtHuelle(double t, double pegel) {
-        double[] r = flutRect;
-        float[] fa = feldMinA, fb = feldMaxA, fm = feldMax;
-        if (r == null || fa == null) return null;
-        int ftx = (flutNx + FELD - 1) / FELD, ftz = (flutNz + FELD - 1) / FELD;
-        double x0 = 1e30, x1 = -1e30, zS = -1e30, zN = 1e30, top = -1e30;
-        double fz = FELD * FLUT_ZELLE;
-        for (int j = 0; j < ftz; j++)
-            for (int i = 0; i < ftx; i++) {
-                int f = j * ftx + i;
-                if (!(fa[f] <= t + 0.5) || !(fb[f] >= t - GISCHT_NACHLAUF)) continue;
-                double xa = r[0] + i * fz, za = r[1] - j * fz;
-                x0 = Math.min(x0, xa); x1 = Math.max(x1, xa + fz);
-                zS = Math.max(zS, za); zN = Math.min(zN, za - fz);
-                top = Math.max(top, fm[f]);
-            }
-        if (x0 > x1) return null;
-        return new double[]{x0, zN, x1, zS, pegel - 10, top + 140};
+        com.dan.surge.FloodMap f = flutKarte;
+        return f == null ? null : f.sprayBox(t, pegel, GISCHT_NACHLAUF);
     }
 
     /** Uniforms der Abrissfläche für das Gelände (Programm gebunden); an ab dem Abbruch. */
@@ -525,6 +439,18 @@ public final class EreignisGl {
     public double fovy = com.dan.lituya.camera.Camera.FOVY;
 
     public void build(GL4 gl) { for (Shader s : all) s.build(gl); }
+
+    /** Seit dem 07.11.2026: die Programme von com.dan.surge (Lippe, Tropfen, Schleier) mit dem Licht dieser App. */
+    void paketeBauen(GL4 gl) {
+        surgeGl.hostLight = Shader.source("paketlicht.glsl", null).text;
+        surgeGl.hostUniforms = p -> { };
+        surgeGl.init(gl);
+    }
+
+    private final Map<Integer, Shader> paketShader = new HashMap<>();
+
+    /** Ein Programm eines Packages als Shader (für Renderer.common), je Programm einmal angelegt. */
+    Shader paket(int prog) { return paketShader.computeIfAbsent(prog, q -> Shader.fremd("Paket " + q, q)); }
 
     public String info() { return info; }
 
@@ -661,14 +587,14 @@ public final class EreignisGl {
             welle.set(gl, "uSpTiefe", UNIT_SPIEGEL_TIEFE);
             welle.set(gl, "uSpNah", (float) Renderer.NEAR);
             welle.set(gl, "uSpSchritte", spiegelSchritte);
-            welle.set(gl, "uFrueh", fruehAus ? 1 : 0);
+            welle.set(gl, "uSgEarly", fruehAus ? 1 : 0);
             { float[] v = spiegelVorn; welle.set(gl, "uSpVorn", v[0], v[1], v[2]); }
             welle.set(gl, "uBildPx", (float) bildPx[0], (float) bildPx[1]);
-            welle.set(gl, "uWindXZ", (float) windXZ[0], (float) windXZ[1]);
+            welle.set(gl, "uSgWind", (float) windXZ[0], (float) windXZ[1]);
             welle.set(gl, "uRueckbauAn", 0);
             welle.set(gl, "uLippe", lippe ? 1f : 0f);   // W4 (E7)
-            welle.set(gl, "uLipVor", lippe && lippeNetz ? 0f : 1f);   // W4b: Vorlauf der Ecken nur ohne das Netz der Lippe
-            welle.set(gl, "uLipNetz", lippe && lippeNetz ? 1 : 0);
+            welle.set(gl, "uSgLipAdvance", lippe && lippeNetz ? 0f : 1f);   // W4b: Vorlauf der Ecken nur ohne das Netz der Lippe
+            welle.set(gl, "uSgLipMesh", lippe && lippeNetz ? 1 : 0);
             flut(gl, welle.id(), t);
             // W3b (K11): Grund unter dem Gitter, sobald gerechnet (dünner Film am Hang fällt weg)
             gl.glActiveTexture(GL.GL_TEXTURE2);
@@ -680,11 +606,12 @@ public final class EreignisGl {
             Renderer.teilEnde("Welle Kacheln");
             zeigtWelle = true;
         }
-        // W4b: die Lippe als eigenes Netz über der Wand (E7) [G]
-        lippeGl.info = "Lippe: aus";
-        if (zeigtWelle && lippe && lippeNetz && flutA != null) {
+        // W4b: die Lippe als eigenes Netz über der Wand (E7) [G], aus com.dan.surge
+        surge.lip.info = "Lippe: aus";
+        com.dan.surge.FloodMap fk = flutKarte;
+        if (zeigtWelle && lippe && lippeNetz && fk != null) {
             final List<Wiedergabe.Spur> wsf = ws;
-            LippeGl.Grund grund = (gx, gz) -> {
+            com.dan.surge.Lip.Bed grund = (gx, gz) -> {
                 double e = gx + Site.E0, n = Site.N0 - gz;
                 for (int k = wsf.size() - 1; k >= 0; k--) {
                     Wiedergabe.Spur sp = wsf.get(k);
@@ -696,8 +623,14 @@ public final class EreignisGl {
                 return Double.NaN;
             };
 Renderer.teil("Lippe");
-            lippeGl.zeichnen(gl, flutA, flutM, flutNx, flutNz, flutE0, flutN0, FLUT_ZELLE, feldMinA, feldMaxA, FELD, t, eye, pegel, grund,
-                    common, (float) (1 / (2 * Site.EARTH_R_OPTICAL)), 1 / kf);
+            surge.lip.build(fk, t, eye[0], eye[2], pegel, grund);
+            com.dan.surge.gl.SurgeGl.View sv = new com.dan.surge.gl.SurgeGl.View();
+            sv.viewProj = vp;
+            sv.eye = eye;
+            sv.pxPerM = 1 / kf;
+            sv.curvature = 1 / (2 * Site.EARTH_R_OPTICAL);
+            surgeGl.hostUniforms = p -> common.accept(paket(p));   // Licht, Blick und Zeit wie die Welle (Renderer.common)
+            if (surgeGl.ready()) surgeGl.drawLip(gl, surge.lip, sv, null);
 Renderer.teilEnde("Lippe");
         }
         for (Wiedergabe.Spur s : w.spuren(Wiedergabe.Art.STROM)) {
@@ -721,7 +654,7 @@ Renderer.teilEnde("Strom");
         double e = w.eta(eye[0], eye[2], t);
         ueberAuge = Double.isNaN(e) ? Double.NaN : e - eye[1];
         info = String.format(Locale.GERMAN, "%d Kacheln (%d verdeckt), %.1f Mio. Dreiecke, %d Bilder geladen%s · %s", kacheln, verdeckt, dreiecke / 1e6, hochgeladen,
-                zeigtStrom ? " · Strom" : "", lippeGl.info);
+                zeigtStrom ? " · Strom" : "", surge.lip.info);
         return rect;
     }
 
@@ -776,10 +709,12 @@ Renderer.teilEnde("Strom");
      * ganzen Wand (Probe Röhre). Aus den Feldern der Flutkarte (früheste, späteste Ankunft, höchster Stand je 256 m).
      */
     private void frontFein(Wiedergabe.Spur s, int[] schritt, double[] eye, double pegel) {
-        float[] fa = feldMinA, fb = feldMaxA, fm = feldMax;
+        com.dan.surge.FloodMap fk = flutKarte;
+        if (fk == null) return;
+        float[] fa = fk.blockMin(), fb = fk.blockMax(), fm = fk.blockStage();
         double[] fr = flutRect;
         if (fa == null || fr == null) return;
-        int ftx = (flutNx + FELD - 1) / FELD, ftz = (flutNz + FELD - 1) / FELD;
+        int ftx = (fk.nx + FELD - 1) / FELD, ftz = (fk.nz + FELD - 1) / FELD;
         double fz = FELD * FLUT_ZELLE, t = zeitJetzt;
         int K = Wiedergabe.KACHEL;
         double[] o = Site.fromUtm(s.g.e(0), s.g.n(0));
@@ -979,7 +914,8 @@ Renderer.teilEnde("Strom");
         common.accept(medien);
         gl.glActiveTexture(GL.GL_TEXTURE0 + UNIT_RAUSCH);
         gl.glBindTexture(GL4.GL_TEXTURE_3D, rt);
-        medien.set(gl, "uRausch", UNIT_RAUSCH);
+        medien.set(gl, "uDcNoise", UNIT_RAUSCH);   // com.dan.dustcloud und com.dan.surge: dasselbe Rauschen
+        medien.set(gl, "uSgNoise", UNIT_RAUSCH);
         gl.glActiveTexture(GL.GL_TEXTURE0);
         gl.glBindTexture(GL.GL_TEXTURE_2D, depthTex);
         medien.set(gl, "uDepth", 0);
@@ -989,17 +925,17 @@ Renderer.teilEnde("Strom");
         medien.set(gl, "uSchritte", medienSchritte);
         medien.set(gl, "uUnter", unter ? 1 : 0);
         medien.set(gl, "uStaub", staub ? 1 : 0);
-        medien.set(gl, "uGischt", vh ? 1f : 0f, (float) t, (float) GISCHT_NACHLAUF);
-        medien.set(gl, "uFlut", 5);
-        medien.set(gl, "uGrund", 6);
+        medien.set(gl, "uSgSpray", vh ? 1f : 0f, (float) t, (float) GISCHT_NACHLAUF);
+        medien.set(gl, "uSgFlood", 5);
+        medien.set(gl, "uSgBed", 6);
         if (vh) {
             double[] r = flutRect;
             gl.glActiveTexture(GL.GL_TEXTURE5);
             gl.glBindTexture(GL.GL_TEXTURE_2D, flutTex);
             gl.glActiveTexture(GL.GL_TEXTURE6);
             gl.glBindTexture(GL.GL_TEXTURE_2D, grundTex);
-            medien.set(gl, "uFlutRect", (float) r[0], (float) r[1], (float) r[2], (float) r[3]);
-            medien.set(gl, "uGrundRect", (float) grundRect[0], (float) grundRect[1], (float) grundRect[2]);
+            medien.set(gl, "uSgFloodRect", (float) r[0], (float) r[1], (float) r[2], (float) r[3]);
+            medien.set(gl, "uSgBedRect", (float) grundRect[0], (float) grundRect[1], (float) grundRect[2]);
             medien.set(gl, "uGischtBox", (float) gh[0], (float) gh[1], (float) gh[2], (float) gh[3]);
             medien.set(gl, "uGischtY", (float) gh[4], (float) gh[5]);
         }
@@ -1007,9 +943,11 @@ Renderer.teilEnde("Strom");
         if (fa) {
             // Achse über der Platte, ein Stück zum Einschlag hin; Fuß am Pegel
             double cx = pl[0] + (es[0] - pl[0]) * 0.3, cz = pl[1] + (es[1] - pl[1]) * 0.3;
-            double top = FAHNE_HOCH * (1 - Math.exp(-alter * FAHNE_STEIG / FAHNE_HOCH));
-            medien.set(gl, "uFahne", (float) cx, (float) cz, (float) Math.max(top, 30), (float) alter);
-            medien.set(gl, "uFahneR", (float) pl[2], (float) windXZ[0], (float) windXZ[1]);
+            com.dan.dustcloud.Plume f = fahnePlume;   // com.dan.dustcloud: Kopf H (1 − e^(−t·w/H)), H 1 200 m, w 38 m/s
+            f.x = cx; f.z = cz; f.radius = pl[2]; f.level = 0; f.height = FAHNE_HOCH; f.rise = FAHNE_STEIG; f.life = FAHNE_DAUER;
+            f.windTo = new double[]{windXZ[0], windXZ[1]};
+            double top = f.top(alter);
+            com.dan.dustcloud.gl.DustGl.bindPlume(gl, medien.id(), f, alter);
             fahneInfo = String.format(Locale.GERMAN, "Fahne [G]: Achse %.0f m O, %.0f m S, Kopf %.0f m, Halbmesser %.0f m, %.0f s alt", cx, cz, top, pl[2], alter);
             long jetzt = System.currentTimeMillis();
             if (jetzt - fahneGedruckt > 5000) { fahneGedruckt = jetzt; System.out.println("LituyaBay1958: " + fahneInfo); }
@@ -1096,7 +1034,7 @@ Renderer.teilEnde("Strom");
     public void dispose(GL4 gl) {
         for (Shader s : all) s.dispose(gl);
         verdecktExec.shutdownNow();
-        lippeGl.dispose(gl);
+        surgeGl.dispose(gl);
         if (abrissTex != 0) gl.glDeleteTextures(1, new int[]{abrissTex}, 0);
         if (rauschTex != 0) gl.glDeleteTextures(1, new int[]{rauschTex}, 0);
         if (flutTex != 0) gl.glDeleteTextures(1, new int[]{flutTex}, 0);

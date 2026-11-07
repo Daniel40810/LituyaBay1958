@@ -1,5 +1,10 @@
 package com.dan.lituya.gl;
 
+import com.dan.exposure.PreExposure;
+import com.dan.horizon.Aerial;
+import com.dan.horizon.Airmass;
+import com.dan.horizon.Horizon;
+import com.dan.horizon.gl.HorizonGl;
 import com.dan.lituya.scene.SceneClock;
 import com.dan.lituya.scene.Site;
 import com.dan.sky.Sky;
@@ -27,13 +32,17 @@ import java.util.function.DoubleBinaryOperator;
  * die Nacht im Halbfloat); die Nachbearbeitung belichtet danach mit 1.</li>
  * <li><b>Horizontkarten</b> für den Schatten der Kette: je Bodenpunkt der höchste Winkel des Geländes in Richtung der
  * Sonne (mit Erdkrümmung und Strahlenbrechung, mindestens die Kimm des Meers), gerechnet auf der Grafikkarte
- * ({@code schatten.comp}) für ein feines Gitter über den Kern (24 km, 2048², 11,7 m) und ein grobes über die Szene
+ * ({@code horizon.comp} aus com.dan.horizon) für ein feines Gitter über den Kern (24 km, 2048², 11,7 m) und ein grobes über die Szene
  * (66 km, 1024², 64 m). Neu nur, wenn das Azimut der Sonne um mehr als 0,25° wandert; ob ein Punkt Sonne hat, entscheidet
  * der Shader aus der Sonnenhöhe. So steigt das Alpenglühen beim Sinken der Sonne von selbst die Hänge hinauf.</li>
  * <li><b>Sonne am Punkt</b> ({@code sunAt} in {@code common.glsl}): Durchlässigkeit der Luft nach Höhe des Punkts und
  * Sonnenhöhe (Rayleigh 8 km, Dunst 1,2 km Skalenhöhe, streifender Strahl nach Chapman genähert): auf 4 000 m glüht der
  * Fairweather rot, wenn die Bucht schon im Schatten liegt.</li>
  * </ul>
+ * Seit dem 07.11.2026 liegen die Engines dafür in Renderer.jar: Horizontkarten, Sonne am Punkt, Luftperspektive und
+ * Himmelslicht in {@code com.dan.horizon} ({@link HorizonGl}, {@code horizon.glsl}), die Vorbelichtung in
+ * {@code com.dan.exposure} ({@link PreExposure}). Hier bleibt, was die Bucht betrifft: Ort, Gitter, Sicht des Abends,
+ * der Wald, die Wolken.
  */
 public final class Licht {
     /** Szene-Gitter: Ecke x, z (Szene), Kante (m), Zellen je Kante. Fein über den Kern, grob über die Szene. */
@@ -41,8 +50,8 @@ public final class Licht {
     public static final int FEIN_N = 2048, GROB_N = 1024;
     /** Texturstellen in den Shadern. */
     public static final int UNIT_PANO = 8, UNIT_SCHATTEN_F = 13, UNIT_SCHATTEN_G = 14;
-    /** Wirksamer Erdradius mit Strahlenbrechung (k = 0,13). */
-    public static final double R_EFF = 6_371_000 / (1 - 0.13);
+    /** Wirksamer Erdradius mit Strahlenbrechung (k = 0,13, com.dan.horizon). */
+    public static final double R_EFF = new Horizon().effectiveRadius();
     /** Sicht am Abend des 9.7.1958 [G, nach den Zeugen klar; ERA5 in W7]. */
     public static final double SICHT_KM = 60;
 
@@ -81,14 +90,19 @@ public final class Licht {
     private boolean glOk;
     private String status = "Licht: noch nicht gestartet";
     private double pre = 1, preZiel = 1;
+    /** Vorbelichtung mit Teilanpassung (com.dan.exposure, aus W1 herausgezogen). */
+    public final PreExposure belichtung = new PreExposure();
+    /** Horizontkarten und Karte „Sonne“ (com.dan.horizon, aus W1 herausgezogen). */
+    public final Horizon horizont = new Horizon();
+    private final HorizonGl horizontGl = new HorizonGl(horizont);
+    private final Aerial luft = new Aerial();
     private long panoNanos;
     private int panoTex, panoFbo;
-    private final Shader schatten = new Shader("Horizont", null, "schatten.comp");
-    private int hoeheF, hoeheG, schattenF, schattenG, grundF;
-    private double schattenAz = Double.NaN;
+    private int grundF;
     private final double[] feinRect, grobRect;
     private final ExecutorService exec = Executors.newSingleThreadExecutor(r -> { Thread t = new Thread(r, "Licht"); t.setDaemon(true); return t; });
-    private Future<float[][]> hoehen;
+    private Future<Horizon.Grid[]> hoehen;
+    private Shader sonneS;
     private boolean hoehenDa, schattenDa;
     private volatile float[] grobHoehen;
 
@@ -118,14 +132,19 @@ public final class Licht {
     public void init(GL4 gl) {
         try {
             skyGl.init(gl);
-            schatten.build(gl);
+            // W7: Wolkenschatten auch in der Karte „Sonne“ für Wald und Meer (wolken.glsl als Schatten des Wirts)
+            horizontGl.sunMapHost = Shader.read("wolken.glsl") + "\nfloat hzHostShadow(vec3 w, vec3 sunDir) { return wolkenSchatten(w, sunDir); }\n";
+            horizontGl.sunMapUniforms = p -> {
+                java.util.function.Consumer<Shader> wu = wolkenUniforms;
+                if (sonneS == null || sonneS.id() != p) sonneS = Shader.fremd("Sonnenkarte", p);
+                if (wu != null) wu.accept(sonneS); else sonneS.set(gl, "uWkAn", 0);
+            };
+            horizontGl.init(gl);
             panoTex = Gpu.texture(gl, 512, 256, GL.GL_RGBA16F, true);
             gl.glBindTexture(GL.GL_TEXTURE_2D, panoTex);
             gl.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_S, GL.GL_REPEAT);
             gl.glBindTexture(GL.GL_TEXTURE_2D, 0);
             panoFbo = Gpu.fbo(gl, panoTex, 0);
-            schattenF = Gpu.texture(gl, FEIN_N, FEIN_N, GL4.GL_RG32F, false);
-            schattenG = Gpu.texture(gl, GROB_N, GROB_N, GL4.GL_RG32F, false);
             glOk = true;
             status = "Licht: Himmel aus com.dan.sky, Horizontkarten werden gerechnet …";
         } catch (RuntimeException e) {
@@ -145,25 +164,23 @@ public final class Licht {
         sky.epochMillis = clock.epochMillis();
         sky.eyeHeight = Math.max(1, eye[1]);
         st = sky.step(dt);
-        // Belichtung: Himmel unter 50° und Blickfeld gemittelt, geglättet (im Standbild sofort)
+        // Belichtung (com.dan.exposure.PreExposure): Himmel unter 50° und Blickfeld gemittelt, Teilanpassung, geglättet (im
+        // Standbild sofort); W7: unter Wolken ist der Himmel dunkler; W6: am Tag eine Blende weniger (Proben W6Q8 69/70: mit
+        // −1 lesbar, vorher Schnee, Wiesen und Dunst ausgebrannt), Übergang zwischen 5° und 25° Sonnenhöhe [G]
         double[] up = {0, 1, 0};
-        double a = Math.sqrt(Math.max(1e-14, st.adaptation) * Math.max(1e-14, st.viewLuminance(fwd, up, fovy, aspect)));
-        a *= Math.max(0.05, Math.min(1, hellFaktor));   // W7: unter Wolken ist der Himmel dunkler (com.dan.sky ohne Schleier)
-        // Werkbuch Welle W6: am Tag eine Blende weniger (Proben W6Q8 69/70: mit −1 lesbar, vorher Schnee, Wiesen und Dunst
-        // ausgebrannt); in der Dämmerung unverändert, Übergang zwischen 5° und 25° Sonnenhöhe [G]
         double sonne = Math.toDegrees(Math.asin(Math.max(-1, Math.min(1, st.sunDir[1]))));
-        double tag = tagBlenden * Math.max(0, Math.min(1, (sonne - 5) / 20));
-        preZiel = Sky.State.exposureFor(a, anpassung) * Math.pow(2, bias + tag);
-        pre = standbild || !(pre > 0) ? preZiel : Math.exp(Math.log(pre) + (Math.log(preZiel) - Math.log(pre)) * Math.min(1, dt * 1.5));
+        belichtung.adaptation = anpassung;
+        belichtung.dayStops = tagBlenden;
+        pre = belichtung.update(st.adaptation, st.viewLuminance(fwd, up, fovy, aspect), hellFaktor, sonne, bias, dt, standbild);
+        preZiel = belichtung.target();
         // Höhen
         if (hoehen == null && stapelDa) hoehen = exec.submit(() -> hoehenRechnen(stapel));
         if (!hoehenDa && hoehen != null && hoehen.isDone()) {
             try {
-                float[][] h = hoehen.get();
-                hoeheF = hoehenTextur(gl, h[0], FEIN_N);
-                hoeheG = hoehenTextur(gl, h[1], GROB_N);
-                grobHoehen = h[1];   // W7: für die Wolken am Gelände
-                grundF = hoehenTextur(gl, h[2], FEIN_N);
+                Horizon.Grid[] h = hoehen.get();
+                horizontGl.heights(gl, h[0], h[1]);
+                grobHoehen = h[1].h;   // W7: für die Wolken am Gelände
+                grundF = hoehenTextur(gl, h[2].h, FEIN_N);
                 hoehenDa = true;
             } catch (Exception e) {
                 status = "Licht: Höhen nicht gerechnet (" + e + ")";
@@ -172,15 +189,10 @@ public final class Licht {
         }
         if (hoehenDa) {
             double az = Math.toDegrees(Math.atan2(st.sunDir[0], -st.sunDir[2]));
-            if (Double.isNaN(schattenAz) || Math.abs(((az - schattenAz) % 360 + 540) % 360 - 180) > 0.25) {
-                long t0 = System.nanoTime();
-                horizont(gl, schattenF, FEIN_N, feinRect, az);
-                horizont(gl, schattenG, GROB_N, grobRect, az);
-                gl.glFinish();
-                schattenAz = az;
+            if (horizontGl.update(gl, az)) {
                 schattenDa = true;
-                status = String.format(Locale.GERMAN, "Licht: Himmel com.dan.sky (%s, Sonne %.1f°), Horizontkarten für Azimut %.1f° in %.0f ms",
-                        st.twilight(), st.sunAlt, az, (System.nanoTime() - t0) / 1e6);
+                status = String.format(Locale.GERMAN, "Licht: Himmel com.dan.sky (%s, Sonne %.1f°), Horizontkarten (com.dan.horizon) für Azimut %.1f° in %.0f ms",
+                        st.twilight(), st.sunAlt, az, horizontGl.lastMillis());
             }
         }
         // Rundumbild: im Standbild jedes Bild, sonst höchstens 4-mal je Sekunde
@@ -204,25 +216,17 @@ public final class Licht {
         }
     }
 
-    /** Höhen über NAVD88 für beide Gitter (Meer und Lücken 0), auf allen Kernen. */
-    float[][] hoehenRechnen(DoubleBinaryOperator stapel) {
+    /**
+     * Höhen über NAVD88 für beide Gitter (Meer und Lücken 0) und das feine mit Wassertiefen (W2: Grund für das Meer,
+     * Lücken −200), auf allen Kernen (com.dan.horizon.Horizon.Grid).
+     */
+    Horizon.Grid[] hoehenRechnen(DoubleBinaryOperator stapel) {
         long t0 = System.nanoTime();
-        float[] f = gitter(stapel, feinRect, FEIN_N, false), g = gitter(stapel, grobRect, GROB_N, false), r = gitter(stapel, feinRect, FEIN_N, true);
+        Horizon.Grid f = Horizon.Grid.sample(stapel, feinRect[0], feinRect[1], feinRect[2], FEIN_N, 0);
+        Horizon.Grid g = Horizon.Grid.sample(stapel, grobRect[0], grobRect[1], grobRect[2], GROB_N, 0);
+        Horizon.Grid r = Horizon.Grid.sampleRaw(stapel, feinRect[0], feinRect[1], feinRect[2], FEIN_N, -200);
         System.out.printf(Locale.GERMAN, "LituyaBay1958: Licht: Höhen %d² und %d² in %.1f s%n", FEIN_N, GROB_N, (System.nanoTime() - t0) / 1e9);
-        return new float[][]{f, g, r};
-    }
-
-    /** Höhen eines Gitters; roh = mit Wassertiefen (W2: Grund für das Meer), sonst Meer und Lücken 0. */
-    static float[] gitter(DoubleBinaryOperator stapel, double[] r, int n, boolean roh) {
-        float[] v = new float[n * n];
-        double c = r[2] / n;
-        java.util.stream.IntStream.range(0, n).parallel().forEach(j -> {
-            for (int i = 0; i < n; i++) {
-                double h = stapel.applyAsDouble(r[0] + (i + 0.5) * c, r[1] + (j + 0.5) * c);
-                v[j * n + i] = (float) (roh ? (Double.isNaN(h) ? -200 : h) : (Double.isNaN(h) ? 0 : Math.max(0, h)));
-            }
-        });
-        return v;
+        return new Horizon.Grid[]{f, g, r};
     }
 
     private static int hoehenTextur(GL4 gl, float[] h, int n) {
@@ -233,28 +237,6 @@ public final class Licht {
         gl.glTexSubImage2D(GL.GL_TEXTURE_2D, 0, 0, 0, n, n, GL4.GL_RED, GL.GL_FLOAT, b);
         gl.glBindTexture(GL.GL_TEXTURE_2D, 0);
         return t;
-    }
-
-    /** Horizontkarte eines Gitters für das Azimut az (Grad von Nord) auf der Grafikkarte. */
-    private void horizont(GL4 gl, int ziel, int n, double[] rect, double az) {
-        schatten.use(gl);
-        gl.glActiveTexture(GL.GL_TEXTURE0);
-        gl.glBindTexture(GL.GL_TEXTURE_2D, hoeheF);
-        gl.glActiveTexture(GL.GL_TEXTURE1);
-        gl.glBindTexture(GL.GL_TEXTURE_2D, hoeheG);
-        gl.glActiveTexture(GL.GL_TEXTURE0);
-        schatten.set(gl, "uHoeheF", 0);
-        schatten.set(gl, "uHoeheG", 1);
-        schatten.set(gl, "uFein", (float) feinRect[0], (float) feinRect[1], (float) feinRect[2], 0f);
-        schatten.set(gl, "uGrob", (float) grobRect[0], (float) grobRect[1], (float) grobRect[2], 0f);
-        schatten.set(gl, "uZiel", (float) rect[0], (float) rect[1], (float) rect[2], (float) n);
-        double a = Math.toRadians(az);
-        schatten.set(gl, "uDir", (float) Math.sin(a), (float) -Math.cos(a));
-        schatten.set(gl, "uR", (float) R_EFF);
-        gl.glBindImageTexture(0, ziel, 0, false, 0, GL4.GL_WRITE_ONLY, GL4.GL_RG32F);
-        gl.glDispatchCompute((n + 15) / 16, (n + 15) / 16, 1);
-        gl.glMemoryBarrier(GL4.GL_TEXTURE_FETCH_BARRIER_BIT | GL4.GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
-        gl.glUseProgram(0);
     }
 
     /** Himmel in den gebundenen HDR-Puffer (statt sky.frag). */
@@ -281,7 +263,7 @@ public final class Licht {
     public void uniforms(GL4 gl, Shader s) {
         boolean on = aktiv();
         s.set(gl, "uSkyMode", on ? 1 : 0);
-        if (!on) { s.set(gl, "uSchattenAn", 0); return; }
+        if (!on) { s.set(gl, "uHzOn", 0); return; }
         gl.glActiveTexture(GL.GL_TEXTURE0 + UNIT_PANO);
         gl.glBindTexture(GL.GL_TEXTURE_2D, panoTex);
         s.set(gl, "uPano", UNIT_PANO);
@@ -293,17 +275,7 @@ public final class Licht {
         s.set(gl, "uSkyAmb", (float) (st.skyIrradiance[0] / Math.PI * p), (float) (st.skyIrradiance[1] / Math.PI * p), (float) (st.skyIrradiance[2] / Math.PI * p));
         s.set(gl, "uFogDist", (float) (1 / Math.max(1e-7, st.groundExtinction)));
         s.set(gl, "uPre", (float) p);
-        s.set(gl, "uSchattenAn", schattenDa ? 1 : 0);
-        if (schattenDa) {
-            gl.glActiveTexture(GL.GL_TEXTURE0 + UNIT_SCHATTEN_F);
-            gl.glBindTexture(GL.GL_TEXTURE_2D, schattenF);
-            gl.glActiveTexture(GL.GL_TEXTURE0 + UNIT_SCHATTEN_G);
-            gl.glBindTexture(GL.GL_TEXTURE_2D, schattenG);
-            s.set(gl, "uSchattenF", UNIT_SCHATTEN_F);
-            s.set(gl, "uSchattenG", UNIT_SCHATTEN_G);
-            s.set(gl, "uSchattenFRect", (float) feinRect[0], (float) feinRect[1], (float) feinRect[2], 0f);
-            s.set(gl, "uSchattenGRect", (float) grobRect[0], (float) grobRect[1], (float) grobRect[2], 0f);
-        }
+        horizontGl.bind(gl, s.id(), UNIT_SCHATTEN_F, UNIT_SCHATTEN_G);   // com.dan.horizon: Horizontkarten, uHzOn
         gl.glActiveTexture(GL.GL_TEXTURE0);
     }
 
@@ -315,7 +287,7 @@ public final class Licht {
         l.sunDir = st.sunDir.clone();
         l.sunColor = new double[]{st.sunColor[0] * p, st.sunColor[1] * p, st.sunColor[2] * p};
         if (!Double.isNaN(waldHoehe)) {
-            double[] dl = durchlass(Math.max(0, waldHoehe), st.sunDir[1]);
+            double[] dl = Airmass.standard(Math.max(0, waldHoehe), st.sunDir[1]);   // com.dan.horizon
             l.sunColor = new double[]{st.sunToa[0] * dl[0] * p, st.sunToa[1] * dl[1] * p, st.sunToa[2] * dl[2] * p};
         }
         for (int c = 0; c < 3; c++) l.sunColor[c] *= waldSonne * Math.max(0, Math.min(1, waldWolken));
@@ -328,57 +300,29 @@ public final class Licht {
         // Rundumbild an der Kimm, zur Sonne hin glühend orange. Die fernen Kronen (ab 150 m Impostors) standen damit orange
         // über dem dunklen Hang („rot überzogen“), die nahen blieben dunkel. Belegt in der Probe W5Q: Sonne und Mond am
         // Wald 0, die Kronen trotzdem rot.
-        if (!Double.isNaN(waldHoehe)) {
-            double hh = Math.max(0, waldHoehe);
-            l.fogDistance = 1 / Math.max(1e-9, st.groundExtinction * 0.45 * Math.exp(-hh / 1200) + Math.exp(-hh / 8000) / 150_000);
-        }
+        if (!Double.isNaN(waldHoehe)) l.fogDistance = luft.fogDistanceAt(waldHoehe, st.groundExtinction);   // com.dan.horizon.Aerial
         l.skyWeight = 1;
         l.skyTexture = panoTex;
         l.wetness = Math.max(0, Math.min(1, nass));   // W7
         // Bergschatten als Karte von oben: der Wald steht im feinen Gitter (Kern)
-        l.shadowTexture = schattenDa ? sonnenKarte : 0;
+        l.shadowTexture = schattenDa ? horizontGl.sunTexture() : 0;
         l.shadowRect = new double[]{feinRect[0], feinRect[1], feinRect[2]};
         double[] fc = l.skyColor;
         l.fogColor = new double[]{fc[0] * 2, fc[1] * 2, fc[2] * 2};
         return l;
     }
 
-    /** R8-Karte „Sonne ja/nein“ für den Wald (aus der feinen Horizontkarte und der Sonnenhöhe, je Bild billig). */
-    private int sonnenKarte;
-    private final Shader sonne = new Shader("Sonnenkarte", null, "sonnenkarte.comp");
-    private boolean sonneGebaut;
-
-    /** Nach {@link #vorbereiten}: die Karte für den Wald nachführen (ein Rechenaufruf, 2048²). */
+    /** Nach {@link #vorbereiten}: die Karte „Sonne“ für Wald und Meer nachführen (com.dan.horizon, ein Rechenaufruf, 2048²). */
     public void sonnenKarte(GL4 gl) {
         if (!aktiv() || !schattenDa) return;
-        if (!sonneGebaut) {
-            sonne.build(gl);
-            sonnenKarte = Gpu.texture(gl, FEIN_N, FEIN_N, GL.GL_R8, false);
-            sonneGebaut = true;
-        }
-        sonne.use(gl);
-        gl.glActiveTexture(GL.GL_TEXTURE0);
-        gl.glBindTexture(GL.GL_TEXTURE_2D, schattenF);
-        sonne.set(gl, "uSchatten", 0);
-        sonne.set(gl, "uSonneH", (float) Math.asin(Math.max(-1, Math.min(1, st.sunDir[1]))));
-        sonne.set(gl, "uBaum", 30f);
-        // W7: Wolkenschatten auf Wald und Meer
-        sonne.set(gl, "uFein", (float) feinRect[0], (float) feinRect[1], (float) feinRect[2], (float) FEIN_N);
-        sonne.set(gl, "uSonneD", st.sunDir);
-        java.util.function.Consumer<Shader> wu = wolkenUniforms;
-        if (wu != null) wu.accept(sonne); else sonne.set(gl, "uWkAn", 0);
-        gl.glBindImageTexture(0, sonnenKarte, 0, false, 0, GL4.GL_WRITE_ONLY, GL.GL_R8);
-        gl.glDispatchCompute(FEIN_N / 16, FEIN_N / 16, 1);
-        gl.glMemoryBarrier(GL4.GL_TEXTURE_FETCH_BARRIER_BIT);
-        gl.glUseProgram(0);
+        horizontGl.sunMap(gl, st.sunDir[1], st.sunDir, 30);
     }
 
     public void dispose(GL4 gl) {
         if (glOk) skyGl.dispose(gl);
-        schatten.dispose(gl);
-        sonne.dispose(gl);
+        horizontGl.dispose(gl);
         Gpu.deleteFbos(gl, panoFbo);
-        Gpu.deleteTextures(gl, panoTex, hoeheF, hoeheG, schattenF, schattenG, sonnenKarte, grundF);
+        Gpu.deleteTextures(gl, panoTex, grundF);
         exec.shutdownNow();
     }
 
@@ -387,25 +331,10 @@ public final class Licht {
     /** W2: das Rundumbild des Himmels (vorbelichtet). */
     public int panoTextur() { return panoTex; }
     /** W2: Karte „Sonne“ für Dinge auf dem feinen Gitter (Wald, Meer), 0 solange nicht da. */
-    public int sonnenTextur() { return schattenDa && sonneGebaut ? sonnenKarte : 0; }
+    public int sonnenTextur() { return schattenDa ? horizontGl.sunTexture() : 0; }
 
     /** Für Prüfungen: die Gitter (x0, z0, Kante). */
     public double[] feinRect() { return feinRect.clone(); }
     public double[] grobRect() { return grobRect.clone(); }
 
-    /** W5: wie {@code luftmasse} in common.glsl (Kasten und Young, unter der Waagerechten streifend nach Chapman). */
-    static double luftmasse(double h, double sinEl, double H) {
-        double el = Math.asin(Math.max(-1, Math.min(1, sinEl)));
-        double R = 6371000.0;
-        if (el >= 0) return Math.exp(-h / H) / (Math.sin(el) + 0.50572 * Math.pow(Math.toDegrees(el) + 6.07995, -1.6364));
-        double ht = (R + h) * Math.cos(el) - R, voll = Math.sqrt(2 * Math.PI * R / H);
-        return Math.max(voll * Math.exp(-Math.max(ht, -200) / H) - 0.5 * voll * Math.exp(-h / H), 0.5 * voll * Math.exp(-h / H));
-    }
-
-    /** W5: wie {@code sonnenDurchlass} in common.glsl. */
-    static double[] durchlass(double h, double sinEl) {
-        double[] tauR = {0.046, 0.108, 0.265};
-        double mr = luftmasse(h, sinEl, 8000), ma = luftmasse(h, sinEl, 1200);
-        return new double[]{Math.exp(-(tauR[0] * mr + 0.10 * ma)), Math.exp(-(tauR[1] * mr + 0.10 * ma)), Math.exp(-(tauR[2] * mr + 0.10 * ma))};
-    }
 }
