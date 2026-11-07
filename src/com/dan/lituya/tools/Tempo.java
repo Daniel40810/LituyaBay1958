@@ -98,6 +98,10 @@ public final class Tempo {
         if (rg != null && !rg.isBlank()) { r.baecheRegenHand = Double.parseDouble(rg.replace(',', '.')); r.baeche.regen = r.baecheRegenHand; }
         // Werkbuch Welle W7: wetter = Lage (klar, quellwolken, kuestennebel, regen, sturm; gilt „heute“), wetterzeit = Stunden in der
         // Lage (der Nebel ist dann so weit vorgestoßen), wetter=aus (ohne Wetter wie bis W6)
+        // W7b (WF26): verschluss = Belichtungszeit des Regens (1/250 oder s), zeitlupe = Zeitmaß des Regens
+        String vs = opt("verschluss"), zl = opt("zeitlupe");
+        if (vs != null && !vs.isBlank()) r.wetterGl.verschluss = com.dan.lituya.scene.Regie.belichtung(vs);
+        if (zl != null && !zl.isBlank()) r.wetterGl.zeitlupe = Math.max(1e-3, Math.min(1, Double.parseDouble(zl.replace(',', '.'))));
         String wt = opt("wetter"), wtz = opt("wetterzeit");
         if ("aus".equals(wt)) r.wetter.an = false;
         else if (wt != null && !wt.isBlank()) {

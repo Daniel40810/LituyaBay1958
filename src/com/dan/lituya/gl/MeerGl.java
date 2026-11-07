@@ -56,7 +56,26 @@ public final class MeerGl {
     private double ringKachel = 3, ringStaerke;
 
     /** W7: Ringe des Regens für das nächste Zeichnen. */
-    public void ringe(int tex, double kachel, double staerke) { ringTex = tex; ringKachel = kachel; ringStaerke = staerke; }
+    public void ringe(int tex, double kachel, double staerke) { ringe(tex, kachel, staerke, 0, 0, 0); }
+
+    /** W7b: Ringe aus com.dan.precip (Art 1: Wellenfeld fest in der Welt um cx, cz, echte Steigungen); Art 0 wie bisher. */
+    public void ringe(int tex, double kachel, double staerke, int art, double cx, double cz) {
+        ringTex = tex;
+        ringKachel = kachel;
+        ringStaerke = staerke;
+        ringArt = art;
+        ringMitte[0] = cx;
+        ringMitte[1] = cz;
+    }
+
+    private int ringArt;
+    private final double[] ringMitte = new double[2];
+    /** W7b Runde 5: {unter dem Raster, im Raster, Anteil, Anteil} aus com.dan.precip; 0, 0 = aus. */
+    private double[] ringRau = {0, 0, 1, 1};
+    private int ringBild;
+
+    /** W7b Runde 5: Rauigkeit des Regens (mittlere quadratische Steigung unter dem Raster und im Raster, Anteile der Fläche). */
+    public void ringRauigkeit(double[] r) { ringRau = r == null || r.length < 4 ? new double[]{0, 0, 1, 1} : r.clone(); }
 
     public final Ocean ocean = Ocean.lago(1);
     private final OceanGl gl = new OceanGl();
@@ -190,7 +209,12 @@ public final class MeerGl {
         light.detailTexture = ringTex;   // W7
         light.detailTile = ringKachel;
         light.detailStrength = ringTex != 0 ? ringStaerke : 0;
-        light.detailRange = 60;
+        light.detailRange = ringArt == 1 ? 40 : 60;
+        light.detailMode = ringArt;
+        light.detailCenter = ringMitte.clone();
+        light.detailRoughness = ringArt == 1 ? ringRau[0] : 0;   // W7b Runde 5
+        light.detailVariance = ringArt == 1 ? ringRau[1] : 0;
+        light.detailShare = new double[]{ringRau[2], ringRau[3]};
         g.glEnable(GL.GL_DEPTH_TEST);
         g.glDepthMask(true);
         gl.draw(g, ocean, view, light);
@@ -247,6 +271,15 @@ public final class MeerGl {
         spiegelShader.set(g, "uSpiegelAn", spiegel && spiegelJetzt && reflTex != 0 ? 1 : 0);
         spiegelShader.set(g, "uSpTruebe", (float) Math.max(0, Math.min(0.9, spiegelTruebe)));
         spiegelShader.set(g, "uSpGlatt", (float) Math.max(0, Math.min(1, spiegelGlatt)));
+        // W7b: Ringe des Regens im Spiegel
+        g.glActiveTexture(GL.GL_TEXTURE0 + 27);
+        g.glBindTexture(GL.GL_TEXTURE_2D, ringArt == 1 ? ringTex : 0);
+        g.glActiveTexture(GL.GL_TEXTURE0);
+        spiegelShader.set(g, "uSpRing", 27);
+        spiegelShader.set(g, "uSpRingP", (float) Math.max(0.01, ringKachel), (float) ringStaerke, ringArt == 1 && ringTex != 0 && ringStaerke > 0 ? 1f : 0f, 40f);
+        spiegelShader.set(g, "uSpRingQ", (float) ringMitte[0], (float) ringMitte[1]);
+        spiegelShader.set(g, "uSpRingR", (float) ringRau[0], (float) ringRau[1], (float) ringRau[2], (float) ringRau[3]);
+        spiegelShader.set(g, "uSpRingN", ringBild++);
         { float[] a = spiegelVP, j = jetztVP; if (a == null || j == null) a = j = new float[]{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
           spiegelShader.mat(g, "uSpiegelVP", a); spiegelShader.mat(g, "uJetztVP", j); }
         spiegelShader.set(g, "uNear", near);

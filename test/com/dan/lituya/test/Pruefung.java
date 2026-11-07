@@ -1317,6 +1317,28 @@ public final class Pruefung {
         check(cgl.hazeKeep == 0 && cg.teleMax == 1 && !cg.geometryHistoryTest && !cl.smoothNoise && cgv.slot == 0 && !cgv.geometryOnly
                         && tf.billows == 0 && !rg.curtainSmooth && !new com.dan.fog.gl.TerrainFogGl.View().geometryOnly,
                 "Renderer.jar seit W7 Runde 1b/1c: Wolken im Dunst, Schritte nach der Brennweite, Mischen ohne Texelgitter, ohne Saum, Spiegelansicht, Quellen auf dem Nebelmeer, Vorhänge ohne Balken – alles von Haus aus aus");
+        // W7b: com.dan.precip gegen die Literatur, der alte Regen unverändert, das Meer liest die Ringe wie bisher, Belichtung und Zeitlupe
+        com.dan.precip.demo.PrecipCheck pc = new com.dan.precip.demo.PrecipCheck();
+        java.util.List<String> pl = pc.run();
+        long pf = pl.stream().filter(x -> x.contains("FEHLER")).count(), pok = pl.stream().filter(x -> x.startsWith("  ok")).count();
+        check(pf == 0 && pl.get(pl.size() - 1).equals("Alles in Ordnung."), f("Renderer.jar seit W7b: com.dan.precip gegen die Literatur, %d Prüfungen in Ordnung (Gunn und Kinzer, Beard und Chuang, Rayleigh, Lamb, Regenbogen 42°/51°, ruhige Mitte des Rings …)", pok));
+        com.dan.rain.Rain alt = com.dan.rain.Rain.moderate();
+        com.dan.ocean.gl.OceanGl.Light ol = new com.dan.ocean.gl.OceanGl.Light();
+        check(Math.abs(new com.dan.rain.gl.RainGl.View().shutter - 1 / 30.0) < 1e-12 && alt.quality == com.dan.rain.Rain.Quality.MEDIUM && ol.detailMode == 0,
+                "Renderer.jar seit W7b: der alte Regen (com.dan.rain, 1/30 s) und die Kachel der Ringe im Meer bleiben für andere Szenen, wie sie waren");
+        boolean[] vz = {false, false};
+        com.dan.lituya.scene.Regie.Ctx cv = (com.dan.lituya.scene.Regie.Ctx) java.lang.reflect.Proxy.newProxyInstance(Pruefung.class.getClassLoader(), new Class<?>[]{com.dan.lituya.scene.Regie.Ctx.class},
+                (o, m, args) -> {
+                    if (m.getName().equals("ready")) return true;
+                    if (m.getName().equals("verschluss")) vz[0] = Math.abs((Double) args[0] - 1 / 2000.0) < 1e-12;
+                    if (m.getName().equals("zeitlupe")) vz[1] = Math.abs((Double) args[0] - 0.05) < 1e-12;
+                    return null;
+                });
+        com.dan.lituya.scene.Regie rv = new com.dan.lituya.scene.Regie();
+        rv.start(com.dan.lituya.scene.Regie.parse("Regiebuch: V\n0:00 verschluss 1/2000\n0:00 zeitlupe 0,05\n0:01 blatt\n"), cv);
+        for (int i = 0; i < 4 && rv.running(); i++) rv.step(1, cv);
+        check(vz[0] && vz[1] && Math.abs(com.dan.lituya.scene.Regie.belichtung("1/250") - 0.004) < 1e-12,
+                "W7b (WF26): Regiebefehle „verschluss 1/2000“ und „zeitlupe 0,05“; die Belichtung des Regens ist 1/250 s wie das Auge");
     }
 
     static void sicht17(File daten) throws Exception {

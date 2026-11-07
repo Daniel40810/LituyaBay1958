@@ -1040,6 +1040,8 @@ public final class Renderer implements GLEventListener {
             if (uebergangMin == 0) wetter.sofort();
         }
         @Override public void regen(double mmH) { baecheRegenHand = Math.max(0, Math.min(BaecheGl.REGEN_MAX, mmH)); baeche.regen = Math.max(baeche.regen, baecheRegenHand); }
+        @Override public void verschluss(double sekunden) { wetterGl.verschluss = sekunden; }   // W7b
+        @Override public void zeitlupe(double mass) { wetterGl.zeitlupe = mass; }
         @Override public boolean ready(com.dan.lituya.scene.Regie.Warte w) {
             return switch (w.was()) {
                 case "uhr" -> clock.epochMillis() / 3_600_000.0 >= w.wert();
@@ -1139,6 +1141,11 @@ public final class Renderer implements GLEventListener {
         try {
             if (licht.grobHoehen() != null) wetterGl.gelaende(licht.grobHoehen(), licht.grobRect(), Licht.GROB_N);
             if (land.stapel() != null) wetterGl.nebelGrund(this::stapelHoehe);
+            if (wetterGl.grundHoehe == null) wetterGl.grundHoehe = land::hoehe;   // W7b: worauf der Regen fällt
+            if (wetterGl.kronenHalb == null) wetterGl.kronenHalb = wald::sperre;
+            wetterGl.blick = camera.fwd.clone();
+            wetterGl.blickFovy = fovy();
+            wetterGl.regenNachTaa = taa;
             wetterGl.vorbereiten(gl, wetterJetzt ? wz : null, licht, camera.eye, wetterDt, clock.lapse == 0, wiring.pegel);
         } catch (RuntimeException e) {
             System.err.println("LituyaBay1958: Wetter: " + e);
@@ -1358,7 +1365,9 @@ public final class Renderer implements GLEventListener {
         //   seit Phase 4 mit Tiefe gegen das Gelände
         if (meerJetzt) {
             // W2: com.dan.ocean; dann der Holzteppich am Morgen danach aus meer.frag als Auflage
-            meer.ringe(wetterGl.ringTextur(), wetterGl.ringKachel(), wetterGl.ringStaerke());   // W7: Regen auf dem Wasser
+            double[] rm = wetterGl.ringMitte();   // W7: Regen auf dem Wasser (W7b: Wellenfeld fest in der Welt)
+            meer.ringe(wetterGl.ringTextur(), wetterGl.ringKachel(), wetterGl.ringStaerke(), wetterGl.ringArt(), rm[0], rm[1]);
+            meer.ringRauigkeit(wetterGl.ringRauigkeit());   // W7b Runde 5: was das Feld nicht trägt, als Facetten
             meer.zeichnen(gl, vp, camera.eye, reversedZ, licht, welleRect);
             gl.glBindVertexArray(emptyVao);
         } else if (showMeer) {
@@ -1454,6 +1463,17 @@ teilEnde("Schleier");
         int bild = hdrTex;
         if (taa) bild = taaPass(gl, w, h, vpN);
         else taaValid = false;
+        // 3d-W7b: Schichten, Tropfen und Spritzer des Regens nach der Glättung (der Verlauf würde die bewegten Spuren wegmischen)
+        if (taa && !unterWasser && wetterJetzt) {
+            try {
+                float[] vpf = new float[16];
+                for (int i = 0; i < 16; i++) vpf[i] = (float) vpN[i];
+                wetterGl.nachGlaettung(gl, bild, depthTex, vpf, Mat4.invert(vpf), camera.eye, camera.fwd, reversedZ, w, h, fovy(), NEAR, FAR);
+            } catch (RuntimeException e) {
+                System.err.println("LituyaBay1958: Regen nach der Glättung: " + e);
+            }
+            gl.glBindVertexArray(emptyVao);
+        }
 
         // 3e W6 Runde 6 (WF19 A): Augenanpassung. Das Histogramm dieses Bilds wird ein bis zwei Bilder später gelesen; am
         // Boden passt sich die Belichtung an (dunkler Wald), im Flug bleibt sie fest. Sprung der Kamera: sofort.
