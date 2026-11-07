@@ -84,6 +84,16 @@ public final class ControlPanel extends JPanel implements javax.swing.Scrollable
         try { return Preferences.userRoot().node("com/dan/lituya/bedienfeld"); } catch (RuntimeException | Error e) { return null; }
     }
 
+    private boolean zeichenGeprueft;
+
+    /** W9c (Lesbarkeit_W09): einmal, wenn das Bedienfeld seine Schriften hat, alle Beschriftungen auf fehlende Zeichen prüfen. */
+    @Override public void addNotify() {
+        super.addNotify();
+        if (zeichenGeprueft) return;
+        zeichenGeprueft = true;
+        javax.swing.SwingUtilities.invokeLater(() -> Zeichen.lesbar(this));
+    }
+
     public ControlPanel(SceneView view) {
         this.view = view;
         this.r = view.renderer();
@@ -195,7 +205,11 @@ public final class ControlPanel extends JPanel implements javax.swing.Scrollable
         laufBox.addActionListener(e -> { if (laufBox.getSelectedItem() != null) wg.welle(laufBox.getSelectedItem().toString()); view.requestFocusInWindow(); });
         put(laufBox);
         JPanel sp = grid(4);
-        FButton rueck = new FButton("◀ J"), halt = new FButton("■ K"), vor = new FButton("▶ L"), sturz = new FButton("93 s");
+        // W9c (Lesbarkeit_W09): die Zeichen gemalt; ◀ und ▶ fehlen der Schrift der Knöpfe
+        FButton rueck = new FButton("J"), halt = new FButton("K"), vor = new FButton("L"), sturz = new FButton("93 s");
+        rueck.setFIcon(Zeichen.von(Zeichen.Art.RUECK));
+        halt.setFIcon(Zeichen.von(Zeichen.Art.HALT));
+        vor.setFIcon(Zeichen.von(Zeichen.Art.VOR));
         rueck.setToolTipText("Rückwärts (J)");
         halt.setToolTipText("Anhalten (K)");
         vor.setToolTipText("Vorwärts (L)");
@@ -1017,13 +1031,41 @@ public final class ControlPanel extends JPanel implements javax.swing.Scrollable
         put(f1);
         put(f2);
         put(f3);
-        put(label("Verschluss (Regen)"));
-        String[] vs = {"1/30 s", "1/48 s (180° bei 24 B/s)", "1/60 s", "1/125 s", "1/250 s (Auge)", "1/500 s", "1/1000 s", "1/2000 s"};
+        // W9c: die Belichtung (com.dan.shutter)
+        put(label("Verschluss der Kamera"));
+        JLabel vsLbl = small("");
+        put(vsLbl);
+        String[] ub = {"Umlaufblende 45°", "90°", "144°", "172,8° (Netz 50 Hz bei 25 B/s)", "180° (1/48 s bei 24 B/s)", "270°", "360°"};
+        double[] uv = {45, 90, 144, 172.8, 180, 270, 360};
+        FComboBox ubBox = new FComboBox(ub);
+        ubBox.setSelectedIndex(4);
+        ubBox.setToolTipText("Öffnung der Umlaufblende: 180° belichtet die halbe Bildzeit (1/48 s bei 24 B/s); kleiner: schärfere Bewegung, ruckeliger Lauf");
+        ubBox.addActionListener(e -> { int i = ubBox.getSelectedIndex(); if (i >= 0) r.verschluss.angleDeg = uv[i]; view.requestFocusInWindow(); });
+        put(ubBox);
+        String[] br = {"24 B/s (wie vorgeführt)", "48 B/s (Zeitlupe 1/2)", "96 B/s (1/4)", "192 B/s (1/8, am Einschlag)", "1 000 B/s (1/42)"};
+        double[] bv = {24, 48, 96, 192, 1000};
+        FComboBox brBox = new FComboBox(br);
+        brBox.setSelectedIndex(0);
+        brBox.setToolTipText("Bildrate der Kamera: über 24 läuft die Szene langsamer (Zeitlupe), die Belichtung wird kürzer; Regiebuch „bildrate 192“");
+        brBox.addActionListener(e -> { int i = brBox.getSelectedIndex(); if (i >= 0) r.bildrateStellen(bv[i]); view.requestFocusInWindow(); });
+        put(brBox);
+        JPanel v1 = grid(2);
+        FCheckBox mbBox = new FCheckBox("Bewegungsunschärfe"), ogBox = new FCheckBox("Öffnungsgang");
+        mbBox.setSelected(r.bewegungAn);
+        mbBox.setToolTipText("Mit dem Film: die Bewegung der Kamera während der Belichtung (McGuire 2012); in der Kino-Stufe aus der Zeit selbst");
+        mbBox.addActionListener(e -> { r.bewegungAn = mbBox.isSelected(); view.requestFocusInWindow(); });
+        ogBox.setSelected(r.verschluss.rolling);
+        ogBox.setToolTipText("Die Kante der Umlaufblende läuft in einigen Millisekunden über das Fenster (Kino-Stufe)");
+        ogBox.addActionListener(e -> { r.verschluss.rolling = ogBox.isSelected(); view.requestFocusInWindow(); });
+        v1.add(mbBox); v1.add(ogBox);
+        put(v1);
+        put(label("Verschluss des Auges (Regen ohne Film)"));
+        String[] vs = {"1/30 s", "1/48 s", "1/60 s", "1/125 s", "1/250 s (Auge)", "1/500 s", "1/1000 s", "1/2000 s"};
         double[] vv = {1 / 30.0, 1 / 48.0, 1 / 60.0, 1 / 125.0, 1 / 250.0, 1 / 500.0, 1 / 1000.0, 1 / 2000.0};
         FComboBox vsBox = new FComboBox(vs);
         vsBox.setSelectedIndex(4);
-        vsBox.setToolTipText("Belichtungszeit der Tropfen (W7b, WF26): lang wie ein Film zeigt Spuren, kurz die Form; ab W9c für alles Licht");
-        vsBox.addActionListener(e -> { int i = vsBox.getSelectedIndex(); if (i >= 0) r.wetterGl.verschluss = vv[i]; view.requestFocusInWindow(); });
+        vsBox.setToolTipText("Belichtungszeit der Tropfen ohne Film (W7b, WF26): lang zeigt Spuren, kurz die Form; mit dem Film belichtet die Umlaufblende");
+        vsBox.addActionListener(e -> { int i = vsBox.getSelectedIndex(); if (i >= 0) r.regenVerschlussAuge = vv[i]; view.requestFocusInWindow(); });
         put(vsBox);
         // W9b: der Film
         put(label("Film"));
@@ -1034,8 +1076,8 @@ public final class ControlPanel extends JPanel implements javax.swing.Scrollable
         put(fiBox);
         JLabel fiLbl = small("");
         put(fiLbl);
-        String[] mat = {"nach dem Zeitstand (1958: 5248, heute: Vision3)", "Eastman Color 5248 → 5382 · CinemaScope", "Kodak Vision3 250D → 2383 · Super 35",
-                "Kodak Vision3 500T → 2383 · Super 35"};
+        String[] mat = {"nach dem Zeitstand (1958: 5248, heute: Vision3)", "Eastman Color 5248 auf 5382 · CinemaScope", "Kodak Vision3 250D auf 2383 · Super 35",
+                "Kodak Vision3 500T auf 2383 · Super 35"};
         FComboBox matBox = new FComboBox(mat);
         matBox.setSelectedIndex(0);
         matBox.setToolTipText("1958 drehte Hollywood in CinemaScope auf Eastman Color 5248 (ASA 25, rund 9 Blenden Spielraum, grobes Korn, Halation); "
@@ -1050,7 +1092,7 @@ public final class ControlPanel extends JPanel implements javax.swing.Scrollable
         });
         put(matBox);
         String[] kl = {"Kopierlicht nach dem Zeitstand", "neutral 25-25-25", "Abend 1958 (warm) 23-25-27", "Die Welle (kühl, dicht) 26-25-24 +1",
-                "Morgen danach (fahl) 26-25-23 −1", "Abend heute 24-25-26", "Nacht (blau) 27-25-22 +1"};
+                "Morgen danach (fahl) 26-25-23 -1", "Abend heute 24-25-26", "Nacht (blau) 27-25-22 +1"};
         String[] kn = {"zeitstand", "neutral", "abend1958", "welle", "morgen", "heute", "nacht"};
         FComboBox klBox = new FComboBox(kl);
         klBox.setSelectedIndex(0);
@@ -1090,12 +1132,14 @@ public final class ControlPanel extends JPanel implements javax.swing.Scrollable
                 + "Blende mit dem Katzenauge der Fassungen zum Rand, hinter dem Fokus helle Ränder und davor ein weicher Kern (sphärische Aberration "
                 + "aus echten Strahlen), Farbsäume, Fokusatmung, die Reflexe und der Stern der Sonne. Regiebuch: „objektiv 85 2,8“, „blende 11“, "
                 + "„fokus auto“, „fokus 12“, „fokus Ort“. Taste F9: Bedienfeld weg und wieder da.<br><b>W9b.</b> Der Film: „film an“, „film 5248“, "
-                + "„kopierlicht 24 25 26 +1“, „kopie 68“.</body></html>"));
+                + "„kopierlicht 24 25 26 +1“, „kopie 68“.<br><b>W9c.</b> Die Belichtung: „bildrate 192“ (Zeitlupe), „umlaufblende 180“, „verschluss 1/48“; "
+                + "die Kino-Stufe für Film und Standbild (ant film -Dteilbilder=32).</body></html>"));
         new javax.swing.Timer(400, e -> {
             if (!isShowing()) return;
             txt(obLbl, "<html><body style='width:215px'>" + esc(r.objektivLine()) + "</body></html>");
             if (obBox.isSelected() != r.objektivAn) obBox.setSelected(r.objektivAn);
             txt(fiLbl, "<html><body style='width:215px'>" + esc(r.filmLine()) + "</body></html>");
+            txt(vsLbl, "<html><body style='width:215px'>" + esc(r.verschlussLine()) + "</body></html>");
             if (fiBox.isSelected() != r.filmAn) fiBox.setSelected(r.filmAn);
             if (afBox.isSelected() != ob.autoFocus) afBox.setSelected(ob.autoFocus);
         }).start();

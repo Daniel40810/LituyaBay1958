@@ -100,7 +100,13 @@ public final class Tempo {
         // Lage (der Nebel ist dann so weit vorgestoßen), wetter=aus (ohne Wetter wie bis W6)
         // W7b (WF26): verschluss = Belichtungszeit des Regens (1/250 oder s), zeitlupe = Zeitmaß des Regens
         String vs = opt("verschluss"), zl = opt("zeitlupe");
-        if (vs != null && !vs.isBlank()) r.wetterGl.verschluss = com.dan.lituya.scene.Regie.belichtung(vs);
+        if (vs != null && !vs.isBlank()) r.verschlussStellen(com.dan.lituya.scene.Regie.belichtung(vs));   // W9c: die Kamera und der Regen
+        // W9c: bildrate = Bilder je Sekunde der Kamera (Zeitlupe über 24), umlaufblende = Grad, teilbilder = Kino-Stufe für das
+        // Bild, schwenk = Grad je Sekunde (die Kamera dreht sich während der letzten Bilder vor der Aufnahme), bewegung = aus
+        String br = opt("bildrate"), ub = opt("umlaufblende"), bwg = opt("bewegung");
+        if (br != null && !br.isBlank()) r.bildrateStellen(Double.parseDouble(br.trim().replace(',', '.')));
+        if (ub != null && !ub.isBlank()) r.verschluss.angleDeg = Double.parseDouble(ub.trim().replace("°", "").replace(',', '.'));
+        if ("aus".equals(bwg)) r.bewegungAn = false;
         if (zl != null && !zl.isBlank()) r.wetterGl.zeitlupe = Math.max(1e-3, Math.min(1, Double.parseDouble(zl.replace(',', '.'))));
         // W9a: das Objektiv (com.dan.lens): objektiv = an | aus | Brennweite[_Blende] (mm, f/N), blende = f/N, fokus = auto |
         // Meter | Ort, lamellen = Zahl (0 rund), rundung = 0..1
@@ -354,6 +360,32 @@ public final class Tempo {
                 d.display();
             }
             System.out.printf(Locale.GERMAN, "Fahrt: %.1f m seitwärts, %.1f° gedreht%n", fm, fg);
+        }
+        // W9c: schwenk = Grad je Sekunde: die letzten 12 Bilder dreht sich die Kamera (so steht sie bei der Aufnahme dort, wo
+        // die Probe sie haben will, und die Bewegungsunschärfe sieht die Bewegung)
+        String sw = opt("schwenk");
+        if (sw != null && !sw.isBlank()) {
+            double rate = Double.parseDouble(sw.trim().replace(',', '.'));
+            com.dan.lituya.camera.Camera c = r.camera;
+            int nb = 12;
+            c.place(c.fx, c.fy, c.fz, c.fyaw - rate * nb / 60.0 * r.zeitmass(), c.fpitch);
+            c.snap();
+            r.schwenkGradJeS = rate;
+            for (int i = 0; i < nb; i++) { r.step(1 / 60.0); d.display(); }
+            System.out.printf(Locale.GERMAN, "Schwenk: %.1f° je Sekunde%n", rate);
+        }
+        // W9c: teilbilder = n: das Bild in der Kino-Stufe (n Teilbilder über die offene Blende, die Pupille und den Bildpunkt)
+        String tbs = opt("teilbilder");
+        if (tbs != null && !tbs.isBlank() && Integer.parseInt(tbs.trim()) > 0) {
+            r.teilbilder = Integer.parseInt(tbs.trim());
+            r.belichtungsTakt = 1 / 24.0;
+            long k0 = System.nanoTime();
+            d.display();
+            d.getContext().makeCurrent();
+            d.getGL().glFinish();
+            d.getContext().release();
+            System.out.printf(Locale.GERMAN, "Kino-Stufe: %d Teilbilder in %.0f ms · %s%n", r.teilbilder, (System.nanoTime() - k0) / 1e6, r.verschlussLine());
+            r.teilbilder = 0;
         }
         if (png != null) {
             File dir = png.getAbsoluteFile().getParentFile();

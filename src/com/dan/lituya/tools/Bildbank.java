@@ -182,7 +182,7 @@ public final class Bildbank {
         else cmd.add("-Dkamera=" + kamera(e));
         if (e.get("zeitstand") != null) cmd.add("-Dzeitstand=" + e.get("zeitstand"));
         for (String k : new String[]{"brennweite", "ereignis", "lauf", "regen", "schalter", "seitwaerts", "last", "jfr", "wetter", "wetterzeit", "verschluss", "zeitlupe",
-                "objektiv", "blende", "fokus", "lamellen", "rundung", "film", "kopierlicht", "kopie"})
+                "objektiv", "blende", "fokus", "lamellen", "rundung", "film", "kopierlicht", "kopie", "bildrate", "umlaufblende", "teilbilder", "schwenk", "bewegung"})
             if (e.get(k) != null) cmd.add("-D" + k + "=" + e.get(k));
         // W6 Runde 5: weitere -D-Schalter für jede Aufnahme aus der Umgebung (etwa ein Vergleich „alles aus“ im selben Lauf)
         String zusatz = System.getenv("LITUYA_BILDBANK_ZUSATZ");
@@ -267,6 +267,9 @@ public final class Bildbank {
             s.append(" · Film").append(e.get("film") != null && !e.get("film").equals("an") ? " " + e.get("film") : "")
                     .append(e.get("kopierlicht") != null ? ", Kopierlicht " + e.get("kopierlicht").replace('_', '-') : "")
                     .append(e.get("kopie") != null ? ", Kopie " + e.get("kopie") + " Jahre" : "");
+        if (e.get("teilbilder") != null) s.append(" · Kino-Stufe ").append(e.get("teilbilder")).append(" Teilbilder");   // W9c
+        if (e.get("bildrate") != null) s.append(" · ").append(e.get("bildrate")).append(" B/s");
+        if (e.get("schwenk") != null) s.append(" · Schwenk ").append(e.get("schwenk")).append("°/s");
         if (e.get("schaustueck") != null) s.append(" · Schaustück ").append(e.get("schaustueck"));
         return s.toString();
     }

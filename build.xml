@@ -986,6 +986,7 @@
         <property name="breite" value="1920"/>
         <property name="hoehe" value="1080"/>
         <property name="brennweite" value="0"/>
+        <property name="teilbilder" value="0"/>
         <mkdir dir="docs/film"/>
         <java classname="com.dan.lituya.tools.Film" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="true" output="docs/status/film_Phase${lituya.phase}.txt" append="true" logError="true">
             <jvmarg value="-Dstdout.encoding=UTF-8"/>
@@ -1000,6 +1001,7 @@
             <jvmarg value="-Dbreite=${breite}"/>
             <jvmarg value="-Dhoehe=${hoehe}"/>
             <jvmarg value="-Dbrennweite=${brennweite}"/>
+            <jvmarg value="-Dteilbilder=${teilbilder}"/>
             <classpath><pathelement path="${run.classpath}"/></classpath>
         </java>
         <loadfile property="film.text" srcFile="docs/status/film_Phase${lituya.phase}.txt" encoding="UTF-8"/>

@@ -23,7 +23,9 @@ import java.util.Locale;
  * <p>Schalter (-D…): {@code regiebuch} (Name, Pflicht), {@code film} (Datei, sonst {@code docs/film/<Name>.mp4}),
  * {@code breite}, {@code hoehe} (1920 × 1080), {@code bildrate} (24 wie im Kino, W9b, WF38 A; vorher 30), {@code qualitaet} (HOCH), {@code ffmpeg} (Pfad,
  * sonst PATH und übliche Orte), {@code preset} (veryfast, für die beste Güte slow), {@code crf} (18), {@code bis}
- * (höchstens so viele Sekunden Film, zum Probieren).
+ * (höchstens so viele Sekunden Film, zum Probieren), {@code teilbilder} (W9c: die Kino-Stufe, je Filmbild so viele Teilbilder über
+ * die offene Umlaufblende, die Pupille und den Bildpunkt; 0 = Echtzeit-Bild; 32 bis 64 für den fertigen Film).
+ * <p>W9c: Die Szene läuft Bild für Bild auch im Meer und in den Ringen des Bebens (vorher standen sie im Film still).
  */
 public final class Film {
     private Film() { }
@@ -65,6 +67,8 @@ public final class Film {
         try { double bw = Double.parseDouble(System.getProperty("brennweite", "0").replace(',', '.')); if (bw > 0) r.brennweite = bw; } catch (NumberFormatException e) { }
         r.showHud = false;
         r.film.fps = fps;   // W9b: jedes Bild des Films ein Filmbild (neues Korn, neuer Bildstand)
+        r.szeneLaeuft = true;   // W9c: das Meer läuft mit (die Uhr führt der Film)
+        int teil = Integer.parseInt(opt("teilbilder", "0"));
         r.photoDir = ziel.getAbsoluteFile().getParentFile();
         r.klang.offline = true;
         r.klang.s.quality = Soundscape.Quality.HIGH;
@@ -76,6 +80,7 @@ public final class Film {
         while ((!r.netzblick.fertig || !r.baeche.bereit()) && System.nanoTime() - t0 < 300e9) { d.display(); Thread.sleep(100); }
         while (!r.schleier.fertig() && System.nanoTime() - t0 < 300e9) { d.display(); Thread.sleep(50); }   // W5
         System.out.printf(Locale.GERMAN, "vorbereitet in %.0f s: %s · %s%n", (System.nanoTime() - t0) / 1e9, r.wald.status(), r.netzblick.stand());
+        if (teil > 0) System.out.printf(Locale.GERMAN, "Kino-Stufe: %d Teilbilder je Filmbild · %s%n", teil, r.verschluss.describe());
 
         double dt = 1.0 / fps;
         int rate = r.klang.s.sampleRate();
@@ -90,12 +95,24 @@ public final class Film {
                 long f0 = System.nanoTime();
                 Regie.Warte wt = r.regie.waiting();
                 boolean rechnet = wt != null && (wt.was().equals("echtzeit") || wt.was().equals("boote"));
-                r.step(dt);
-                float[] ton = r.klang.s.render(dt);
-                if (rechnet) { weg++; d.display(); Thread.sleep(5); continue; }
-                if (r.land.da()) r.land.warten(20_000);
-                if (r.wiedergabe.an() && clock.simSeconds() > -60 && clock.simSeconds() < 3600) r.wiedergabe.warten(clock.simSeconds(), 20_000);
-                d.display();
+                float[] ton;
+                if (teil > 0 && !rechnet) {
+                    // W9c: die Kino-Stufe führt die Szene selbst durch das Filmbild (offene Blende in Teilbildern, dann zu)
+                    if (r.land.da()) r.land.warten(20_000);
+                    if (r.wiedergabe.an() && clock.simSeconds() > -60 && clock.simSeconds() < 3600) r.wiedergabe.warten(clock.simSeconds(), 20_000);
+                    r.teilbilder = teil;
+                    r.belichtungsTakt = dt;
+                    d.display();
+                    r.teilbilder = 0;
+                    ton = r.klang.s.render(dt);
+                } else {
+                    r.step(dt);
+                    ton = r.klang.s.render(dt);
+                    if (rechnet) { weg++; d.display(); Thread.sleep(5); continue; }
+                    if (r.land.da()) r.land.warten(20_000);
+                    if (r.wiedergabe.an() && clock.simSeconds() > -60 && clock.simSeconds() < 3600) r.wiedergabe.warten(clock.simSeconds(), 20_000);
+                    d.display();
+                }
                 d.invoke(true, x -> { img[0] = r.grab(x); return true; });
                 fs.bild(img[0]);
                 fs.ton(ton);
