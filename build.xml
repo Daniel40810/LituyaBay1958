@@ -231,7 +231,10 @@
     <!-- Phase 2 (Werkbuch 3.3, 3.4): die Aufbereitung liest das Kartenmaterial (Pfad in daten/rohdaten.properties, Vorgabe
          download/) einmal und schreibt nach daten/. ant aufbereitung rechnet alle Schritte (gelaende, grund, namen, texturen,
          herkunft, bilder, inhalt); -Dschritte=gelaende+grund nur diese (Komma nur in Anführungszeichen, cmd.exe trennt daran); -Dneu=true rechnet fertige Kacheln neu; -Dausschnitt=OstMin,NordMin,OstMax,NordMax
-         nur die Kacheln dort; -Dfaeden=n. Prüfbilder nach docs/status/, Protokoll daten/aufbereitung.log. -->
+         nur die Kacheln dort; -Dfaeden=n. Prüfbilder nach docs/status/, Protokoll daten/aufbereitung.log.
+         W9c Runde 2b: -Dspeicher=12g ist die Grenze des Heaps (vorher fest 24g; am 7.11. wuchs er auf 23 GB, bis Windows
+         nichts mehr zusagen konnte). Gebraucht werden mit 15 Fäden geschätzt 4 GB; Speicher der Rohdaten 2000 MB (höchstens ein
+         Fünftel des Heaps). -->
     <target name="aufbereitung" depends="compile" description="Phase 2: Kartenmaterial einmal nach daten/ aufbereiten (Gelände, Grund, Namen, Prüfbilder, INHALT.txt).">
         <property name="platform.java" value="java"/>
         <property name="schritte" value=""/>
@@ -244,6 +247,7 @@
         <!-- W9c Runde 2: ohneAngleich=true: die Szene nicht aus dem Kern angleichen; szeneOhneLidar=true: Szene ohne Lidar (Stand bis W9c) -->
         <property name="ohneAngleich" value="false"/>
         <property name="szeneOhneLidar" value="false"/>
+        <property name="speicher" value="12g"/>
         <java classname="com.dan.lituya.tools.Aufbereitung" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="true">
             <jvmarg value="-Dstdout.encoding=UTF-8"/>
             <jvmarg value="-Dlituya.sicherung=${sicherung}"/>
@@ -251,10 +255,10 @@
             <jvmarg value="-Dlituya.ohneAngleich=${ohneAngleich}"/>
             <jvmarg value="-Dlituya.szeneOhneLidar=${szeneOhneLidar}"/>
             <jvmarg value="-Djava.awt.headless=true"/>
-            <jvmarg value="-Xmx24g"/>
+            <jvmarg value="-Xmx${speicher}"/>
             <jvmarg value="-Dneu=${neu}"/>
             <jvmarg value="-Dlituya.ausschnitt=${ausschnitt}"/>
-            <jvmarg value="-Dlituya.cache.mb=4000"/>
+            <jvmarg value="-Dlituya.cache.mb=2000"/>
             <arg value="${schritte}"/>
             <syspropertyset><propertyref name="faeden"/></syspropertyset>
             <classpath><pathelement location="lib/Renderer.jar"/><pathelement path="${run.classpath}"/></classpath>

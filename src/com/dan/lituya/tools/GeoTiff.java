@@ -49,9 +49,16 @@ public final class GeoTiff implements Closeable {
     private static final java.util.concurrent.atomic.AtomicInteger NUMMER = new java.util.concurrent.atomic.AtomicInteger();
     /**
      * Ein Speicher der gelesenen Kacheln für alle Dateien zusammen, begrenzt auf {@code -Dlituya.cache.mb} (Vorgabe
-     * 1 500 MB): Mit einem Speicher je Datei hielten 312 Lidar-Kacheln zusammen Gigabytes.
+     * 1 500 MB): Mit einem Speicher je Datei hielten 312 Lidar-Kacheln zusammen Gigabytes. Seit W9c Runde 2b höchstens ein
+     * Fünftel des Heaps (mit -Xmx12g 2,4 GB), damit die Kacheln der Stufen Platz behalten.
      */
-    private static final long BUDGET = Long.getLong("lituya.cache.mb", 1500) * 1024 * 1024 / 4;
+    private static final long BUDGET = Math.min(Long.getLong("lituya.cache.mb", 1500) * 1024 * 1024, Runtime.getRuntime().maxMemory() / 5) / 4;
+
+    /** Obergrenze des Speichers der gelesenen Kacheln (Bytes). */
+    public static long cacheBytes() { return BUDGET * 4; }
+
+    /** Belegt im Speicher der gelesenen Kacheln (Bytes). */
+    public static long cacheBelegt() { synchronized (CACHE) { return belegt * 4; } }
     private static long belegt;
     private static final Map<Long, float[]> CACHE = new LinkedHashMap<>(256, 0.75f, true) {
         @Override protected boolean removeEldestEntry(Map.Entry<Long, float[]> e) {

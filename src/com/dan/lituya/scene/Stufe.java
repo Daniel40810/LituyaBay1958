@@ -62,28 +62,42 @@ public enum Stufe {
 
     public static String name(double e, double n) { return String.format(Locale.ROOT, "E%d_N%d.r32", Math.round(e), Math.round(n)); }
 
-    /** Liest eine Kachel (N² Werte); null, wenn es sie nicht gibt. */
+    /** Liest eine Kachel (N² Werte); null, wenn es sie nicht gibt. In Stücken zu 1 MB (W9c Runde 2b: vorher ein Puffer der ganzen Datei dazu). */
     public static float[] lesen(File f) throws IOException {
         if (!f.isFile()) return null;
         try (FileChannel ch = FileChannel.open(f.toPath(), StandardOpenOption.READ)) {
             long len = ch.size();
-            ByteBuffer b = ByteBuffer.allocate((int) len).order(ByteOrder.LITTLE_ENDIAN);
-            while (b.hasRemaining()) if (ch.read(b) < 0) break;
-            b.flip();
             float[] v = new float[(int) (len / 4)];
-            b.asFloatBuffer().get(v);
+            ByteBuffer b = ByteBuffer.allocate(1 << 20).order(ByteOrder.LITTLE_ENDIAN);
+            int i = 0;
+            while (i < v.length) {
+                b.clear();
+                b.limit((int) Math.min(b.capacity(), 4L * (v.length - i)));
+                while (b.hasRemaining()) if (ch.read(b) < 0) break;
+                b.flip();
+                int k = b.remaining() / 4;
+                if (k == 0) break;
+                b.asFloatBuffer().get(v, i, k);
+                i += k;
+            }
             return v;
         }
     }
 
-    /** Schreibt eine Kachel (oder ein anderes Raster) als float32 Little Endian. */
+    /** Schreibt eine Kachel (oder ein anderes Raster) als float32 Little Endian, in Stücken zu 1 MB. */
     public static void schreiben(File f, float[] v) throws IOException {
         f.getParentFile().mkdirs();
-        ByteBuffer b = ByteBuffer.allocate(v.length * 4).order(ByteOrder.LITTLE_ENDIAN);
-        b.asFloatBuffer().put(v);
+        ByteBuffer b = ByteBuffer.allocate(1 << 20).order(ByteOrder.LITTLE_ENDIAN);
         File tmp = new File(f.getPath() + ".tmp");
         try (FileChannel ch = FileChannel.open(tmp.toPath(), StandardOpenOption.CREATE, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING)) {
-            while (b.hasRemaining()) ch.write(b);
+            for (int i = 0; i < v.length; ) {
+                int k = Math.min(v.length - i, b.capacity() / 4);
+                b.clear();
+                b.asFloatBuffer().put(v, i, k);
+                b.limit(4 * k);
+                while (b.hasRemaining()) ch.write(b);
+                i += k;
+            }
         }
         java.nio.file.Files.move(tmp.toPath(), f.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
     }

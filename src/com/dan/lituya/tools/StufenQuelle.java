@@ -6,15 +6,26 @@ import java.io.File;
 import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 /**
  * Eine schon geschriebene Stufe des Geländes als Rückfall für die feinere (Phase 2): Szene füllt die Lücken des Kerns,
  * Fern die der Szene. Bilinear aus den {@code .r32}-Kacheln, über Kachelgrenzen hinweg.
+ * <p>
+ * W9c Runde 2b: höchstens {@link #MAX} Kacheln im Speicher (je 16 MB), die älteste geht zuerst; vorher hielt sie jede gelesene
+ * Kachel bis zum Ende der Stufe (die Szene ganz: 42 Kacheln, 670 MB).
  */
 final class StufenQuelle {
+    /** Kacheln im Speicher höchstens ({@code -Dlituya.stufen.kacheln}, Vorgabe 24, 384 MB). */
+    static final int MAX = Math.max(4, Integer.getInteger("lituya.stufen.kacheln", 24));
+
+    /** So viel Speicher hält eine StufenQuelle höchstens (Bytes). */
+    static long speicherBytes() { return MAX * 4L * Stufe.N * Stufe.N; }
+
     final Stufe s;
     final File daten;
     private final Map<Long, float[]> kacheln = new ConcurrentHashMap<>();
+    private final ConcurrentLinkedQueue<Long> folge = new ConcurrentLinkedQueue<>();
     private static final float[] LEER = new float[0];
 
     StufenQuelle(Stufe s, File daten) { this.s = s; this.daten = daten; }
@@ -43,7 +54,16 @@ final class StufenQuelle {
             double e = s.gebiet.eMin() + ti * s.kachel(), n = s.gebiet.nMin() + (s.ny() - 1 - tj) * s.kachel();
             float[] v = Stufe.lesen(s.datei(daten, e, n));
             k = v == null ? LEER : v;
-            kacheln.put(key, k);
+            float[] da = kacheln.putIfAbsent(key, k);
+            if (da != null) k = da;
+            else {
+                folge.add(key);
+                while (kacheln.size() > MAX) {
+                    Long alt = folge.poll();
+                    if (alt == null) break;
+                    kacheln.remove(alt);
+                }
+            }
         }
         if (k.length == 0) return Float.NaN;
         return k[(j - tj * Stufe.N) * Stufe.N + (i - ti * Stufe.N)];
