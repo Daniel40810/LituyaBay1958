@@ -1287,6 +1287,15 @@ public final class Pruefung {
         com.dan.lituya.wiring.Wetter.Zustand zn = w.zustand();
         check(zn.lage() == com.dan.lituya.scene.Wetterlage.KUESTENNEBEL && zn.seenebel() && Math.abs(zn.nebelOben() - 230) < 1e-6 && zn.wechsel() > 0.999 && zn.regen() < 0.01,
                 f("Uhr steht: „Küstennebel“ gilt sofort (Seenebel bis %.0f m, Sicht darin %.0f m, Vorstoß %.1f m/s)", zn.nebelOben(), zn.nebelSicht(), zn.vorstoss()));
+        // W7b WF29 A: stiller Regen – Windstille, Bft 0 in der Bucht, leiser Regen
+        w.waehle(com.dan.lituya.scene.Wetterlage.STILLER_REGEN);
+        w.schritt(c, 1 / 60.0, true);
+        com.dan.lituya.wiring.Wetter.Zustand zs = w.zustand();
+        check(zs.lage() == com.dan.lituya.scene.Wetterlage.STILLER_REGEN && zs.bucht() == 0 && zs.wind() < 0.3 && zs.regen() > 2 && zs.regen() < 3
+                        && java.util.Arrays.asList(com.dan.lituya.scene.Wetterlage.heute()).contains(com.dan.lituya.scene.Wetterlage.STILLER_REGEN)
+                        && com.dan.lituya.scene.Wetterlage.byName("stiller regen") == com.dan.lituya.scene.Wetterlage.STILLER_REGEN
+                        && com.dan.lituya.scene.Wetterlage.byName("regen") == com.dan.lituya.scene.Wetterlage.REGEN,
+                f("W7b, WF29 A: „Stiller Regen“ – Wind %.1f m/s, Seegang in der Bucht Bft %d, Regen %.1f mm/h (die Ringe stehen; wählbar, „regen“ bleibt „Regen am Berg“)", zs.wind(), zs.bucht(), zs.regen()));
         double abflussVor = zr.abfluss();
         check(abflussVor > 1.5 && abflussVor < zr.regen() + 1e-6, f("Abfluss in die Bäche folgt dem Regen verzögert (%.1f von %.1f mm/h nach 2 h)", abflussVor, zr.regen()));
         // Regiebefehl
@@ -1324,8 +1333,9 @@ public final class Pruefung {
         check(pf == 0 && pl.get(pl.size() - 1).equals("Alles in Ordnung."), f("Renderer.jar seit W7b: com.dan.precip gegen die Literatur, %d Prüfungen in Ordnung (Gunn und Kinzer, Beard und Chuang, Rayleigh, Lamb, Regenbogen 42°/51°, ruhige Mitte des Rings …)", pok));
         com.dan.rain.Rain alt = com.dan.rain.Rain.moderate();
         com.dan.ocean.gl.OceanGl.Light ol = new com.dan.ocean.gl.OceanGl.Light();
-        check(Math.abs(new com.dan.rain.gl.RainGl.View().shutter - 1 / 30.0) < 1e-12 && alt.quality == com.dan.rain.Rain.Quality.MEDIUM && ol.detailMode == 0,
-                "Renderer.jar seit W7b: der alte Regen (com.dan.rain, 1/30 s) und die Kachel der Ringe im Meer bleiben für andere Szenen, wie sie waren");
+        check(Math.abs(new com.dan.rain.gl.RainGl.View().shutter - 1 / 30.0) < 1e-12 && alt.quality == com.dan.rain.Rain.Quality.MEDIUM && ol.detailMode == 0
+                        && ol.detailRoughness == 0 && ol.detailVariance == 0,
+                "Renderer.jar seit W7b: der alte Regen (com.dan.rain, 1/30 s), die Kachel der Ringe im Meer und ohne Rauigkeit der Störung bleiben für andere Szenen, wie sie waren");
         boolean[] vz = {false, false};
         com.dan.lituya.scene.Regie.Ctx cv = (com.dan.lituya.scene.Regie.Ctx) java.lang.reflect.Proxy.newProxyInstance(Pruefung.class.getClassLoader(), new Class<?>[]{com.dan.lituya.scene.Regie.Ctx.class},
                 (o, m, args) -> {
