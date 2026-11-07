@@ -1374,6 +1374,57 @@ public final class Pruefung {
         check(endlich, f("W9a: Objektiv mit dem Bildwinkel der App (%.1f mm, f/%.1f): 45 Geisterbilder, Randabfall %.2f, Verzeichnung am Rand %.1f %%", lo.efl(), lo.fNumber(),
                 lo.relIllum()[16], 100 * (lo.distortion()[16] - 1)));
         check(java.util.Arrays.asList(com.dan.lituya.ui.ControlPanel.REIHENFOLGE).indexOf("KAMERA") == 1, "W9a: Bedienfeld mit Block KAMERA nach ANSICHT");
+        // W9a Runde 2 (WF41 A): der Schnitt nach der Brennweite
+        com.dan.lens.Lens l2 = new com.dan.lens.Lens();
+        l2.background = false;
+        l2.focalMm = 18;
+        com.dan.lens.Lens.Design dw = l2.designJetzt();
+        com.dan.lens.Lens.Optics ow = l2.optics(10);
+        l2.focalMm = 250;
+        com.dan.lens.Lens.Design dt = l2.designJetzt();
+        com.dan.lens.Lens.Optics ot = l2.optics(200);
+        check(dw == com.dan.lens.Lens.Design.WIDE && dt == com.dan.lens.Lens.Design.TELE && Math.abs(ow.efl() - 18) < 0.5 && Math.abs(ot.efl() - 250) < 3 && ot.fNumber() >= 5.3,
+                f("W9a Runde 2: 18 mm rechnet der Weitwinkel (f = %.1f mm), 250 mm das Tele (f = %.1f mm, ab f/%.1f)", ow.efl(), ot.efl(), ot.fNumber()));
+
+        // Werkbuch Welle W9b: der Film (com.dan.film) im Regiebuch und nach dem Zeitstand
+        String[] fi = new String[3];
+        double[] fiJ = {Double.NaN};
+        com.dan.lituya.scene.Regie.Ctx cf = (com.dan.lituya.scene.Regie.Ctx) java.lang.reflect.Proxy.newProxyInstance(Pruefung.class.getClassLoader(), new Class<?>[]{com.dan.lituya.scene.Regie.Ctx.class},
+                (o, m, args) -> {
+                    if (m.getName().equals("ready")) return true;
+                    if (m.getName().equals("film")) fi[0] = (String) args[0];
+                    if (m.getName().equals("kopierlicht")) fi[1] = (String) args[0];
+                    if (m.getName().equals("kopie")) fiJ[0] = (Double) args[0];
+                    return null;
+                });
+        com.dan.lituya.scene.Regie rf = new com.dan.lituya.scene.Regie();
+        rf.start(com.dan.lituya.scene.Regie.parse("Regiebuch: F\n0:00 film 5248\n0:00 kopierlicht 24 25 26 +1\n0:00 kopie 68\n0:01 blatt\n"), cf);
+        for (int i = 0; i < 4 && rf.running(); i++) rf.step(1, cf);
+        boolean fiFalsch1 = false, fiFalsch2 = false;
+        try { com.dan.lituya.scene.Regie.parse("Regiebuch: X\n0:00 film super8\n"); } catch (IllegalArgumentException e) { fiFalsch1 = e.getMessage().startsWith("Zeile 2"); }
+        try { com.dan.lituya.scene.Regie.parse("Regiebuch: X\n0:00 kopierlicht 24 25\n"); } catch (IllegalArgumentException e) { fiFalsch2 = e.getMessage().startsWith("Zeile 2"); }
+        check("5248".equals(fi[0]) && "24 25 26 +1".equals(fi[1]) && fiJ[0] == 68 && fiFalsch1 && fiFalsch2,
+                "W9b: Regiebefehle „film 5248“, „kopierlicht 24 25 26 +1“, „kopie 68“; „film super8“ und „kopierlicht 24 25“ abgewiesen");
+        SceneClock fc = new SceneClock();
+        Renderer fr = new Renderer(fc);
+        fc.set(SceneClock.Zeitstand.VOR);
+        fr.filmEinrichten();
+        boolean f58 = fr.film.negative == Renderer.EC5248 && fr.film.print == Renderer.P5382 && fr.film.format == com.dan.film.Format.CINEMASCOPE
+                && fr.film.grade == com.dan.film.Grade.ABEND_1958;
+        fc.set(SceneClock.Zeitstand.HEUTE);
+        fc.set(SceneClock.Zeitstand.HEUTE.date, 14.0);
+        fr.filmEinrichten();
+        boolean fTag = fr.film.negative == Renderer.V3_250D && fr.film.format == com.dan.film.Format.SUPER35_239 && fr.film.grade == com.dan.film.Grade.NEUTRAL;
+        fc.set(SceneClock.Zeitstand.HEUTE.date, 23.5);
+        fr.filmEinrichten();
+        boolean fNacht = fr.film.negative == Renderer.V3_500T && fr.film.grade.blue() < 25 && fr.film.grade.red() > 25;
+        fr.filmStellen("vision3_250d");
+        fc.set(SceneClock.Zeitstand.WELLE);
+        fr.filmEinrichten();
+        boolean fHand = fr.film.negative == Renderer.V3_250D && fr.film.grade == com.dan.film.Grade.WELLE && fr.filmAn;
+        double[] g18 = fr.film.develop(0.18, 0.18, 0.18);
+        check(f58 && fTag && fNacht && fHand && g18[2] > g18[1] && g18[1] > g18[0],
+                f("W9b: Film nach dem Zeitstand (1958 5248 → 5382 CinemaScope, Abend warm; heute 14 Uhr Vision3 250D neutral, 23:30 Uhr 500T blau); von Hand Vision3 250D, die Welle kühl (Graukarte %.3f %.3f %.3f)", g18[0], g18[1], g18[2]));
     }
 
     static void sicht17(File daten) throws Exception {

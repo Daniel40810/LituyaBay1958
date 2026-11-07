@@ -284,6 +284,129 @@ public final class Renderer implements GLEventListener {
     /** W9: während das Bedienfeld gleitet, bleiben die Ziele in ihrer Größe (gestreckt ins Fenster, kein Neuanlegen je Bild). */
     public volatile boolean festeGroesse;
 
+    /**
+     * Werkbuch Welle W9b: der Film aus {@code com.dan.film} statt der Filmkurve der App (ACES): Negativ und Kopie mit je drei
+     * Schichten und ihren Kurven, das Kopierlicht in Punkten, Korn nach Selwyn, Halation aus dem Träger, Bildstand und
+     * Flackern, 24 Filmbilder je Sekunde. Nach dem Zeitstand (WF39 A): 1958 Eastman Color Negative 5248 auf Eastman Color
+     * Print 5382 in CinemaScope (anamorphotisch, das Bokeh des Objektivs wird oval), heute Kodak Vision3 250D am Tag und 500T
+     * am Abend und in der Nacht auf Vision Print 2383 in Super 35; das Kopierlicht nach dem Zeitstand, heute nach dem
+     * Sonnenstand. An mit {@link #filmAn} (Block KAMERA, Regie „film an“, Bildbank film=an, -Dlituya.film=true), im Kino
+     * immer; die abgenommenen Heldenbilder bleiben ohne (wie das Objektiv, bis W9h).
+     */
+    public final com.dan.film.Film film = new com.dan.film.Film();
+    public volatile boolean filmAn = Boolean.getBoolean("lituya.film");
+    /** Material und Format nach dem Zeitstand (true) oder wie eingestellt (Regie „film 5248“, Block KAMERA). */
+    public volatile boolean filmNachZeitstand = true;
+    /** Kopierlicht von Hand (Regie „kopierlicht“, Block KAMERA); null: nach dem Zeitstand. */
+    public volatile com.dan.film.Grade kopierlicht;
+    private com.dan.film.gl.FilmGl filmGl;
+    /** Uhr des Films (s): läuft mit der Szene (auch im Film ohne Fenster, Bild für Bild), im Standbild mit der Wanduhr. */
+    private double filmUhr;
+    private boolean filmGeschritten, filmTag = true;
+    /** Das Korn des Kinos (Phase 17a) bleibt, wo der Film aus ist; mit dem Film kommt das Korn aus dem Film. */
+    private final double kinoKornVorher = kino.filmStaerke;
+    /** Die Materialien (je eines: die Kopie merkt sich ihre Kalibrierung am Material). */
+    public static final com.dan.film.Stock V3_250D = com.dan.film.Stock.vision3_250D(), V3_500T = com.dan.film.Stock.vision3_500T(),
+            EC5248 = com.dan.film.Stock.eastmanColor5248(), P2383 = com.dan.film.Stock.print2383(), P5382 = com.dan.film.Stock.print5382();
+    {
+        film.exposureStops = 0.3;   // die Graukarte so hell wie mit der Filmkurve der App (sRGB rund 0,55 statt 0,48) [G]
+        film.negative = V3_250D;
+        film.print = P2383;
+    }
+
+    /** Ob der Film in diesem Bild rechnet (an oder Kino, mit Kantenglättung). */
+    public boolean filmJetzt() { return filmGl != null && filmGl.ready() && (filmAn || kino.laeuft()) && taa; }
+
+    public com.dan.film.gl.FilmGl filmGl() { return filmGl; }
+
+    /** W9b: „an“, „aus“, „zeitstand“ (Material nach dem Zeitstand) oder ein Material: „5248“, „vision3_250d“, „vision3_500t“. */
+    public void filmStellen(String a) {
+        String t = a.trim().toLowerCase(Locale.ROOT);
+        switch (t) {
+            case "aus" -> { filmAn = false; return; }
+            case "an", "" -> { filmAn = true; return; }
+            case "zeitstand", "auto" -> filmNachZeitstand = true;
+            case "5248", "1958" -> filmMaterial(EC5248);
+            case "vision3_250d", "250d" -> filmMaterial(V3_250D);
+            case "vision3_500t", "500t" -> filmMaterial(V3_500T);
+            default -> throw new IllegalArgumentException("film: an, aus, zeitstand, 5248, vision3_250d oder vision3_500t, nicht „" + a + "“");
+        }
+        filmAn = true;
+    }
+
+    /** Ein Material von Hand, mit seiner Kopie und seinem Format (5248: 5382 und CinemaScope, Vision3: 2383 und Super 35). */
+    public void filmMaterial(com.dan.film.Stock n) {
+        filmNachZeitstand = false;
+        boolean alt = n == EC5248;
+        film.print = alt ? P5382 : P2383;
+        film.format = alt ? com.dan.film.Format.CINEMASCOPE : com.dan.film.Format.SUPER35_239;
+        film.negative = n;
+    }
+
+    /** W9b: das Kopierlicht „zeitstand“, ein Name (neutral, abend1958, welle, morgen, heute, nacht) oder „Rot Grün Blau [Dichte]“. */
+    public void kopierlichtStellen(String a) {
+        String t = a.trim().toLowerCase(Locale.ROOT);
+        kopierlicht = switch (t) {
+            case "zeitstand", "auto" -> null;
+            case "neutral" -> com.dan.film.Grade.NEUTRAL;
+            case "abend1958" -> com.dan.film.Grade.ABEND_1958;
+            case "welle" -> com.dan.film.Grade.WELLE;
+            case "morgen" -> com.dan.film.Grade.MORGEN_DANACH;
+            case "heute" -> com.dan.film.Grade.HEUTE_ABEND;
+            case "nacht" -> com.dan.film.Grade.NACHT;
+            default -> com.dan.film.Grade.parse(t);
+        };
+    }
+
+    /**
+     * Material, Format und Kopierlicht für dieses Bild (WF39 A). 1958: 5248 auf 5382, CinemaScope; Abend vor Anker warm, die
+     * Welle kühl und dicht, der Morgen danach fahl. Heute: über 8° Sonnenhöhe Vision3 250D, darunter 500T (mit einem halben
+     * Grad Abstand, damit es an der Grenze nicht springt), auf 2383, Super 35; das Kopierlicht gleitet mit der Sonne von
+     * neutral (über 10°) über den Abend (2°) in die Nacht (unter −6°) [G].
+     */
+    public void filmEinrichten() {
+        SceneClock.Zeitstand z = clock.zeitstand;
+        double el = clock.sun()[0];
+        boolean heute = z == SceneClock.Zeitstand.HEUTE;
+        if (filmNachZeitstand) {
+            if (heute) {
+                if (filmTag && el < 7.5) filmTag = false;
+                else if (!filmTag && el > 8.5) filmTag = true;
+                film.negative = filmTag ? V3_250D : V3_500T;
+                film.print = P2383;
+                film.format = com.dan.film.Format.SUPER35_239;
+            } else {
+                film.negative = EC5248;
+                film.print = P5382;
+                film.format = com.dan.film.Format.CINEMASCOPE;
+            }
+        }
+        com.dan.film.Grade g = kopierlicht;
+        if (g == null) {
+            if (!heute) g = switch (z) {
+                case VOR -> com.dan.film.Grade.ABEND_1958;
+                case WELLE -> com.dan.film.Grade.WELLE;
+                default -> com.dan.film.Grade.MORGEN_DANACH;
+            };
+            else if (el >= 10) g = com.dan.film.Grade.NEUTRAL;
+            else if (el >= 2) g = com.dan.film.Grade.mix(com.dan.film.Grade.HEUTE_ABEND, com.dan.film.Grade.NEUTRAL, (el - 2) / 8);
+            else g = com.dan.film.Grade.mix(com.dan.film.Grade.NACHT, com.dan.film.Grade.HEUTE_ABEND, (el + 6) / 8);
+        }
+        film.grade = g;
+    }
+
+    /** „Eastman Color Negative 5248 → Eastman Color Print 5382 · CinemaScope · Abend 1958 · 24 B/s · Korn …“ oder „Film aus“. */
+    public String filmLine() {
+        if (!filmJetzt()) return filmGl == null ? "Film nicht verfügbar" : "Film aus (Filmkurve der App)";
+        com.dan.film.Film f = film;
+        double s = f.grainSigma(f.negative, 1, 1, f.grainArea(surfW)) * f.grainGain;
+        int[] hb = filmGl.halationSize();
+        return f.describe() + String.format(Locale.GERMAN, " · Korn σ_D %.3f bei %d Bildpunkten · Halation %s%s%s", s, surfW,
+                f.halation ? String.format(Locale.GERMAN, "%.0f px (Puffer %d × %d)", f.halationRadiusPx(surfW), hb[0], hb[1]) : "aus",
+                f.printAgeYears > 0 ? String.format(Locale.GERMAN, " · Kopie %.0f Jahre alt", f.printAgeYears) : "",
+                filmNachZeitstand ? " · nach dem Zeitstand" : "");
+    }
+
     /** Ob das Objektiv in diesem Bild rechnet (an oder Kino, und mit Kantenglättung: es sitzt hinter ihr). */
     public boolean objektivJetzt() { return objektivGl != null && objektivGl.ready() && (objektivAn || kino.laeuft()) && taa; }
 
@@ -602,6 +725,13 @@ public final class Renderer implements GLEventListener {
             System.err.println("LituyaBay1958: Kino nicht verfügbar (ohne Balken und Blenden): " + e.getMessage());
             kinoGl = null;
         }
+        try {   // W9b: der Film (com.dan.film)
+            filmGl = new com.dan.film.gl.FilmGl(film);
+            filmGl.init(gl);
+        } catch (RuntimeException e) {
+            System.err.println("LituyaBay1958: Film nicht verfügbar (Filmkurve der App): " + e.getMessage());
+            filmGl = null;
+        }
         try {   // W9a: das Objektiv (com.dan.lens)
             objektivGl = new com.dan.lens.gl.LensGl(objektiv);
             objektivGl.init(gl);
@@ -644,6 +774,8 @@ public final class Renderer implements GLEventListener {
             }
         }
         regie.step(dt, regieCtx);   // Phase 17a: fällige Stichworte des Regiebuchs
+        filmUhr += dt;   // W9b: das Filmbild wechselt mit der Szene
+        filmGeschritten = true;
         // W7: die Wetterregie bis zur Uhr; Wind und Bäche aus ihrem Zustand (1958 klar und still wie bisher)
         try {
             wetter.schritt(clock, dt, clock.lapse == 0);
@@ -1110,6 +1242,9 @@ public final class Renderer implements GLEventListener {
         @Override public void objektiv(String a) { objektivStellen(a); }   // W9a
         @Override public void blende(double n) { objektiv.fNumber = n; objektivAn = true; }
         @Override public void fokus(String a) { fokusStellen(a); }
+        @Override public void film(String a) { filmStellen(a); }   // W9b
+        @Override public void kopierlicht(String a) { kopierlichtStellen(a); filmAn = true; }
+        @Override public void kopie(double jahre) { film.printAgeYears = jahre; filmAn = true; }
         @Override public void zeitlupe(double mass) { wetterGl.zeitlupe = mass; }
         @Override public boolean ready(com.dan.lituya.scene.Regie.Warte w) {
             return switch (w.was()) {
@@ -1166,6 +1301,8 @@ public final class Renderer implements GLEventListener {
         letztesDt = frozen ? 1 / 60.0 : dt;
         lastNanos = now;
         if (!frozen) step(dt);
+        if (!filmGeschritten) filmUhr += dt;   // W9b: im Standbild läuft der Projektor weiter (neues Korn)
+        filmGeschritten = false;
 
         surfW = Math.max(1, width);
         surfH = Math.max(1, height);
@@ -1585,9 +1722,32 @@ teilEnde("Schleier");
         augeAnpassen(gl, bild, w, h);
         teilEnde("Auge");
 
-        // 4 Nachbearbeitung ins Fenster
+        // 4 Nachbearbeitung ins Fenster; W9b: mit dem Film statt der Filmkurve (Negativ, Kopie, Korn, Halation, Bildstand)
+        kino.filmStaerke = filmJetzt() ? 0 : kinoKornVorher;
+        boolean filmGezeigt = false;
+        if (filmJetzt()) {
+            teil("Film");
+            try {
+                filmEinrichten();
+                com.dan.film.gl.FilmGl.View fv = new com.dan.film.gl.FilmGl.View();
+                fv.hdrTexture = bild;
+                fv.targetFbo = defaultFbo;
+                fv.outWidth = surfW;
+                fv.outHeight = surfH;
+                fv.exposure = exposure() * auge.factor();
+                fv.timeS = filmUhr;
+                filmGl.apply(gl, fv);
+                filmGezeigt = true;
+            } catch (RuntimeException e) {
+                System.err.println("LituyaBay1958: Film: " + e);
+                filmGl = null;
+            }
+            teilEnde("Film");
+            gl.glBindVertexArray(emptyVao);
+        }
         gl.glBindFramebuffer(GL.GL_FRAMEBUFFER, defaultFbo);
         gl.glViewport(0, 0, surfW, surfH);
+        if (!filmGezeigt) {
         post.use(gl);
         gl.glActiveTexture(GL.GL_TEXTURE0);
         gl.glBindTexture(GL.GL_TEXTURE_2D, bild);
@@ -1600,6 +1760,7 @@ teilEnde("Schleier");
         post.set(gl, "uRand", linse ? 0f : 1f);                          // und der Randabfall kommt aus den Fassungen
         gl.glBindVertexArray(emptyVao);
         gl.glDrawArrays(GL.GL_TRIANGLES, 0, 3);
+        }
         mark(gl, 8);
 
         // 4b Netzblick als Bild im Bild unten rechts (Phase 7a)
@@ -1895,6 +2056,7 @@ teilEnde("Schleier");
     private int objektivBild(GL4 gl, int bild, int w, int h, double[] vpN, double[] sun) {
         com.dan.lens.Lens L = objektiv;
         L.focalMm = brennweiteJetzt();
+        L.squeeze = filmJetzt() ? film.format.squeeze() : 1;   // W9b: CinemaScope anamorphotisch, das Bokeh oval
         L.quality = switch (quality) {
             case NIEDRIG -> com.dan.lens.Lens.Quality.LOW;
             case ULTRA -> com.dan.lens.Lens.Quality.HIGH;
@@ -2372,6 +2534,7 @@ teilEnde("Schleier");
         surface.dispose(gl);
         if (kinoGl != null) kinoGl.dispose(gl);
         if (objektivGl != null) objektivGl.dispose(gl);
+        if (filmGl != null) filmGl.dispose(gl);
         if (lum != null) lum.dispose(gl);
         baeche.dispose(gl);
         ereignisGl.dispose(gl);

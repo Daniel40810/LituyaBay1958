@@ -21,7 +21,7 @@ import java.util.Locale;
  * sind; so ruckelt nichts, auch wenn ein Bild länger als 1/30 s braucht. Während ein {@code warte} auf die Echtzeit oder
  * die Boote rechnet, steht die Uhr des Regiebuchs: diese Bilder fallen weg (im Kino sieht man dort ein Standbild).
  * <p>Schalter (-D…): {@code regiebuch} (Name, Pflicht), {@code film} (Datei, sonst {@code docs/film/<Name>.mp4}),
- * {@code breite}, {@code hoehe} (1920 × 1080), {@code bildrate} (30), {@code qualitaet} (HOCH), {@code ffmpeg} (Pfad,
+ * {@code breite}, {@code hoehe} (1920 × 1080), {@code bildrate} (24 wie im Kino, W9b, WF38 A; vorher 30), {@code qualitaet} (HOCH), {@code ffmpeg} (Pfad,
  * sonst PATH und übliche Orte), {@code preset} (veryfast, für die beste Güte slow), {@code crf} (18), {@code bis}
  * (höchstens so viele Sekunden Film, zum Probieren).
  */
@@ -41,7 +41,7 @@ public final class Film {
             System.err.println("FEHLER: kein Regiebuch „" + name + "“. Bekannt: " + Regie.all().stream().map(Regie.Book::name).toList());
             System.exit(1);
         }
-        int w = Integer.parseInt(opt("breite", "1920")), h = Integer.parseInt(opt("hoehe", "1080")), fps = Integer.parseInt(opt("bildrate", "30"));
+        int w = Integer.parseInt(opt("breite", "1920")), h = Integer.parseInt(opt("hoehe", "1080")), fps = Integer.parseInt(opt("bildrate", "24"));
         Quality q = Quality.valueOf(opt("qualitaet", "HOCH"));
         double bis = Double.parseDouble(opt("bis", "0").replace(',', '.'));
         File ziel = new File(opt("film", "docs/film/" + DateiSpeicherName.von(b.name()) + ".mp4"));
@@ -64,6 +64,7 @@ public final class Film {
         // W5: Brennweite des Films (mm, 0 = der feste Bildwinkel der App)
         try { double bw = Double.parseDouble(System.getProperty("brennweite", "0").replace(',', '.')); if (bw > 0) r.brennweite = bw; } catch (NumberFormatException e) { }
         r.showHud = false;
+        r.film.fps = fps;   // W9b: jedes Bild des Films ein Filmbild (neues Korn, neuer Bildstand)
         r.photoDir = ziel.getAbsoluteFile().getParentFile();
         r.klang.offline = true;
         r.klang.s.quality = Soundscape.Quality.HIGH;
