@@ -102,6 +102,16 @@ public final class Tempo {
         String vs = opt("verschluss"), zl = opt("zeitlupe");
         if (vs != null && !vs.isBlank()) r.wetterGl.verschluss = com.dan.lituya.scene.Regie.belichtung(vs);
         if (zl != null && !zl.isBlank()) r.wetterGl.zeitlupe = Math.max(1e-3, Math.min(1, Double.parseDouble(zl.replace(',', '.'))));
+        // W9a: das Objektiv (com.dan.lens): objektiv = an | aus | Brennweite[_Blende] (mm, f/N), blende = f/N, fokus = auto |
+        // Meter | Ort, lamellen = Zahl (0 rund), rundung = 0..1
+        String ob = opt("objektiv"), obBl = opt("blende"), fo = opt("fokus"), la = opt("lamellen"), ru = opt("rundung");
+        if (ob != null && !ob.isBlank()) r.objektivStellen(ob.replace('_', ' '));
+        if (obBl != null && !obBl.isBlank()) { r.objektiv.fNumber = Double.parseDouble(obBl.trim().replaceFirst("^f/", "").replace(',', '.')); r.objektivAn = true; }
+        if (la != null && !la.isBlank()) r.objektiv.aperture.blades = Integer.parseInt(la.trim());
+        if (ru != null && !ru.isBlank()) r.objektiv.aperture.roundness = Double.parseDouble(ru.trim().replace(',', '.'));
+        if (fo != null && !fo.isBlank()) {
+            try { r.fokusStellen(fo.replace('_', ' ')); } catch (IllegalArgumentException x) { System.err.println("FEHLER: " + x.getMessage()); }
+        }
         String wt = opt("wetter"), wtz = opt("wetterzeit");
         if ("aus".equals(wt)) r.wetter.an = false;
         else if (wt != null && !wt.isBlank()) {

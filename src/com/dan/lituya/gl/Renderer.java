@@ -266,7 +266,37 @@ public final class Renderer implements GLEventListener {
      */
     public volatile double brennweite;
 
-    public double fovy() { return brennweite > 0 ? Math.toDegrees(2 * Math.atan(12.0 / brennweite)) : Camera.FOVY; }
+    /**
+     * Werkbuch Welle W9a: das Objektiv aus {@code com.dan.lens}: Tiefenschärfe mit Bokeh in der Form der Blende (Katzenauge
+     * zum Rand, helle Ränder und weicher Kern aus der sphärischen Aberration, Farbsäume), Schärfezieher mit Trägheit,
+     * Geisterbilder und Stern der Sonne, Verzeichnung, Farbquerfehler, Randabfall, Schleierlicht, Fokusatmung; gerechnet aus
+     * einem Doppel-Gauß mit 10 Glasflächen. An mit {@link #objektivAn} (Block KAMERA, Regie „objektiv an“, Bildbank
+     * objektiv=an, -Dlituya.objektiv=true), im Kino immer (WF8 A, WF37 A); die abgenommenen Heldenbilder bleiben ohne.
+     */
+    public final com.dan.lens.Lens objektiv = new com.dan.lens.Lens();
+    public volatile boolean objektivAn = Boolean.getBoolean("lituya.objektiv");
+    private com.dan.lens.gl.LensGl objektivGl;
+    /** W9a: Schärfe auf einen Ort (Welt x, y, z; Regie „fokus Ort“) statt Autofokus oder Meter; null = aus. */
+    public volatile double[] fokusZiel;
+    private double objektivAtmung = 1;
+    private double[] objektivAuge;
+    private boolean regenLinse;
+    /** W9: während das Bedienfeld gleitet, bleiben die Ziele in ihrer Größe (gestreckt ins Fenster, kein Neuanlegen je Bild). */
+    public volatile boolean festeGroesse;
+
+    /** Ob das Objektiv in diesem Bild rechnet (an oder Kino, und mit Kantenglättung: es sitzt hinter ihr). */
+    public boolean objektivJetzt() { return objektivGl != null && objektivGl.ready() && (objektivAn || kino.laeuft()) && taa; }
+
+    public com.dan.lens.gl.LensGl objektivGl() { return objektivGl; }
+
+    /** Brennweite (mm, Bildhöhe 24 mm) des Bildwinkels jetzt; ohne Vorgabe die feste der App (rund 23 mm). */
+    public double brennweiteJetzt() { return brennweite > 0 ? brennweite : 12.0 / Math.tan(Math.toRadians(Camera.FOVY) / 2); }
+
+    public double fovy() {
+        double f = brennweite > 0 ? Math.toDegrees(2 * Math.atan(12.0 / brennweite)) : Camera.FOVY;
+        // W9a: Fokusatmung (das Objektiv fährt beim Fokussieren auf nah vom Sensor weg, der Bildwinkel wird enger)
+        return objektivAtmung != 1 ? Math.toDegrees(2 * Math.atan(Math.tan(Math.toRadians(f) / 2) / objektivAtmung)) : f;
+    }
 
     /**
      * Werkbuch Welle W5: Mitte der Clipmap des Geländes. Die Stufen der Clipmap liegen ringförmig um ihre Mitte; mit dem
@@ -459,6 +489,35 @@ public final class Renderer implements GLEventListener {
         return 0.6 * Math.pow(b, -0.85) * Math.pow(2, exposureBias);
     }
 
+    /** W9a: „an“, „aus“ oder „Brennweite [Blende]“ (mm, f/N), etwa „objektiv 85 2,8“. */
+    public void objektivStellen(String a) {
+        String t = a.trim().toLowerCase(Locale.ROOT);
+        if (t.equals("aus")) { objektivAn = false; return; }
+        objektivAn = true;
+        if (t.equals("an") || t.isEmpty()) return;
+        String[] p = t.replace("mm", " ").replace("f/", " ").trim().split("\\s+");
+        brennweite = Math.max(10, Math.min(1200, Double.parseDouble(p[0].replace(',', '.'))));
+        if (p.length > 1) objektiv.fNumber = Double.parseDouble(p[1].replace(',', '.'));
+    }
+
+    /** W9a: „auto“ (Bildmitte), Meter („12,5“) oder ein Ort (Ansicht, Punkt von LB_NET_SICHT, Ort): die Schärfe folgt ihm. */
+    public void fokusStellen(String a) {
+        String t = a.trim();
+        objektivAn = true;
+        if (t.equalsIgnoreCase("auto")) { objektiv.autoFocus = true; fokusZiel = null; return; }
+        try {
+            double m = Double.parseDouble(t.replace(',', '.').replaceFirst("\\s*m$", ""));
+            objektiv.autoFocus = false;
+            objektiv.focusM = Math.max(0.3, m);
+            fokusZiel = null;
+            return;
+        } catch (NumberFormatException e) { /* ein Ort */ }
+        double[] p = punkt(t);
+        if (p == null) throw new IllegalArgumentException("fokus: kein Ort „" + t + "“");
+        fokusZiel = new double[]{p[0], p[1], p[2]};
+        objektiv.autoFocus = false;
+    }
+
     /** Kinomodus verlassen (Esc im Kino; das Regiebuch läuft im Fenster weiter). */
     public void kinoVerlassen() { frozen = false; kino.abbrechen(); }
 
@@ -542,6 +601,13 @@ public final class Renderer implements GLEventListener {
         } catch (RuntimeException e) {
             System.err.println("LituyaBay1958: Kino nicht verfügbar (ohne Balken und Blenden): " + e.getMessage());
             kinoGl = null;
+        }
+        try {   // W9a: das Objektiv (com.dan.lens)
+            objektivGl = new com.dan.lens.gl.LensGl(objektiv);
+            objektivGl.init(gl);
+        } catch (RuntimeException e) {
+            System.err.println("LituyaBay1958: Objektiv nicht verfügbar: " + e.getMessage());
+            objektivGl = null;
         }
         if (!Boolean.getBoolean("lituya.ohneWald")) wald.aufbauen(new java.io.File(System.getProperty("lituya.daten", "daten")));
         boote.laden(new java.io.File(System.getProperty("lituya.daten", "daten")), wiedergabe.welle());
@@ -1041,6 +1107,9 @@ public final class Renderer implements GLEventListener {
         }
         @Override public void regen(double mmH) { baecheRegenHand = Math.max(0, Math.min(BaecheGl.REGEN_MAX, mmH)); baeche.regen = Math.max(baeche.regen, baecheRegenHand); }
         @Override public void verschluss(double sekunden) { wetterGl.verschluss = sekunden; }   // W7b
+        @Override public void objektiv(String a) { objektivStellen(a); }   // W9a
+        @Override public void blende(double n) { objektiv.fNumber = n; objektivAn = true; }
+        @Override public void fokus(String a) { fokusStellen(a); }
         @Override public void zeitlupe(double mass) { wetterGl.zeitlupe = mass; }
         @Override public boolean ready(com.dan.lituya.scene.Regie.Warte w) {
             return switch (w.was()) {
@@ -1102,6 +1171,7 @@ public final class Renderer implements GLEventListener {
         surfH = Math.max(1, height);
         regulateScale(now);
         int w = Math.max(64, (int) Math.round(surfW * renderScale)), h = Math.max(64, (int) Math.round(surfH * renderScale));
+        if (festeGroesse && hdrW > 0 && hdrH > 0) { w = hdrW; h = hdrH; }   // W9: Bedienfeld gleitet
         if (w != hdrW || h != hdrH) resizeTargets(gl, w, h);
         long rf0 = System.nanoTime();
         vorCpu = vorCpu * 0.9 + (rf0 - now) / 1e6 * 0.1;   // Runde 11: Uhr, Schritt, Marken lesen
@@ -1120,6 +1190,10 @@ public final class Renderer implements GLEventListener {
     void renderFrame(GL4 gl, int w, int h) {
         TEIL_UHR.use(gl);
         mark(gl, 0);
+        // W9a: Fokusatmung aus der Optik des letzten Bilds; Seitenverhältnis des Fensters (auch während das Bedienfeld gleitet)
+        com.dan.lens.Lens.Optics lo = objektivJetzt() ? objektivGl.optics() : null;
+        objektivAtmung = lo != null && objektiv.breathing ? lo.breathing() : 1;
+        double aspekt = festeGroesse ? surfW / (double) surfH : w / (double) h;
         // 0 Phase 13c: die Echtzeit rechnet hinter der Uhr her (Zeitbudget je Bild), bevor gezeichnet wird
         try {
             if (echtzeit.schritt(gl, clock.simSeconds(), wiedergabe) && echtzeit.grund == Echtzeit.Grund.HEUTE) rueckbauJetzt = false;
@@ -1160,7 +1234,7 @@ public final class Renderer implements GLEventListener {
         // W1: Himmel und Licht aus com.dan.sky (Sonne mit Strahlenbrechung), Horizontkarten, Rundumbild
         teil("Licht");
         try {
-            licht.vorbereiten(gl, clock, camera.eye, camera.fwd, fovy(), w / (double) h, exposureBias, letztesDt, frozen,
+            licht.vorbereiten(gl, clock, camera.eye, camera.fwd, fovy(), aspekt, exposureBias, letztesDt, frozen,
                     this::stapelHoehe, land.stapel() != null);
             licht.sonnenKarte(gl);
         } catch (RuntimeException e) {
@@ -1172,7 +1246,7 @@ public final class Renderer implements GLEventListener {
         { double[] lm = lodMitte(); double gh = groundHeight(lm[0], lm[1]); licht.waldHoehe = Double.isNaN(gh) ? Double.NaN : Math.max(gh, wiring.pegel) + 15; }
         WaldGl.himmel = licht.waldLicht();
         final double[] sun = licht.aktiv() ? licht.state().sunDir.clone() : sunPh;
-        float[] proj = Mat4.perspective(fovy(), w / (double) h, NEAR, FAR, reversedZ);
+        float[] proj = Mat4.perspective(fovy(), aspekt, NEAR, FAR, reversedZ);
         float[] view = camera.view();
         // W3 (E1): Zittern beim Beben, um die Kamera (Drehung um zwei Achsen, rund 0,35° bei voller Stärke) [G]
         double bst = bebenStaerke(clock.simSeconds());
@@ -1475,6 +1549,24 @@ teilEnde("Schleier");
         int bild = hdrTex;
         if (taa) bild = taaPass(gl, w, h, vpN);
         else taaValid = false;
+        // 3d-W9a: das Objektiv, nach der Glättung und vor dem Regen (der Regen zeichnet seine Unschärfe mit derselben Linse)
+        boolean linse = false;
+        if (objektivJetzt()) {
+            teil("Objektiv");
+            try {
+                bild = objektivBild(gl, bild, w, h, vpN, sun);
+                linse = true;
+            } catch (RuntimeException e) {
+                System.err.println("LituyaBay1958: Objektiv: " + e);
+                objektivGl = null;
+            }
+            teilEnde("Objektiv");
+            gl.glBindVertexArray(emptyVao);
+        } else if (regenLinse) {
+            wetterGl.niederschlag.aperture = 0.003;
+            wetterGl.niederschlag.focus = 4;
+            regenLinse = false;
+        }
         // 3d-W7b: Schichten, Tropfen und Spritzer des Regens nach der Glättung (der Verlauf würde die bewegten Spuren wegmischen)
         if (taa && !unterWasser && wetterJetzt) {
             try {
@@ -1504,7 +1596,8 @@ teilEnde("Schleier");
         post.set(gl, "uTexel", 1f / w, 1f / h);
         post.set(gl, "uExposure", (float) (exposure() * auge.factor()));
         post.set(gl, "uScotopic", licht.aktiv() ? (float) licht.state().scotopic() : 0f);
-        post.set(gl, "uBloom", taa ? (float) bloom : 0f);
+        post.set(gl, "uBloom", taa && !linse ? (float) bloom : 0f);   // W9a: mit dem Objektiv streut das Schleierlicht statt des Glühens
+        post.set(gl, "uRand", linse ? 0f : 1f);                          // und der Randabfall kommt aus den Fassungen
         gl.glBindVertexArray(emptyVao);
         gl.glDrawArrays(GL.GL_TRIANGLES, 0, 3);
         mark(gl, 8);
@@ -1792,6 +1885,74 @@ teilEnde("Schleier");
         taaValid = false;
         hdrW = w;
         hdrH = h;
+    }
+
+    /**
+     * W9a: ein Bild durch das Objektiv. Brennweite aus dem Bildwinkel, Fokus von Hand, auf einen Ort oder aus der Bildmitte;
+     * die Sonne mit ihrer Bestrahlung (vorbelichtet) und dem Anteil durch die Wolken; ein Sprung der Kamera und das Standbild
+     * stellen den Schärfezieher sofort. Der Regen bekommt dieselbe Pupille und denselben Fokus.
+     */
+    private int objektivBild(GL4 gl, int bild, int w, int h, double[] vpN, double[] sun) {
+        com.dan.lens.Lens L = objektiv;
+        L.focalMm = brennweiteJetzt();
+        L.quality = switch (quality) {
+            case NIEDRIG -> com.dan.lens.Lens.Quality.LOW;
+            case ULTRA -> com.dan.lens.Lens.Quality.HIGH;
+            default -> com.dan.lens.Lens.Quality.MEDIUM;
+        };
+        double[] e = camera.eye;
+        boolean sprung = objektivAuge == null || Math.abs(e[0] - objektivAuge[0]) + Math.abs(e[1] - objektivAuge[1]) + Math.abs(e[2] - objektivAuge[2]) > 200;
+        objektivAuge = e.clone();
+        double[] fz = fokusZiel;
+        if (fz != null) {
+            double[] f = camera.fwd;
+            L.autoFocus = false;
+            L.focusM = Math.max(0.5, (fz[0] - e[0]) * f[0] + (fz[1] - e[1]) * f[1] + (fz[2] - e[2]) * f[2]);
+        }
+        com.dan.lens.gl.LensGl.View v = new com.dan.lens.gl.LensGl.View();
+        v.colorTexture = bild;
+        v.depthTexture = depthTex;
+        v.width = w;
+        v.height = h;
+        v.reversedZ = reversedZ;
+        v.near = NEAR;
+        v.far = FAR;
+        float[] vpf = new float[16];
+        for (int i = 0; i < 16; i++) vpf[i] = (float) vpN[i];
+        v.viewProj = vpf;
+        if (licht.aktiv()) {
+            double p = licht.pre();
+            double[] sc = licht.state().sunColor;
+            v.sunDir = sun;
+            v.sunIrradiance = new double[]{sc[0] * p, sc[1] * p, sc[2] * p};
+            v.sunVisible = wetter.an && wetterGl.wolkenJetzt() ? wetterGl.sonneAmAuge() : 1;
+        }
+        v.exposure = exposure() * auge.factor();
+        v.dt = letztesDt;
+        v.snap = sprung || frozen && !kino.laeuft();
+        int out = objektivGl.apply(gl, v);
+        com.dan.lens.Lens.Optics o = objektivGl.optics();
+        if (o != null) {
+            wetterGl.niederschlag.aperture = o.pupilMm() / 1000;
+            double fm = objektivGl.focusM();
+            if (!Double.isNaN(fm)) wetterGl.niederschlag.focus = fm;
+            regenLinse = true;
+        }
+        return out;
+    }
+
+    /** „50 mm · f/2,8 · Fokus 12,0 m · …“ oder „Objektiv aus“ (Bedienfeld, HUD). */
+    public String objektivLine() {
+        if (!objektivJetzt()) return objektivGl == null ? "Objektiv nicht verfügbar" : "Objektiv aus (Lochkamera)";
+        double fm = objektivGl.focusM();
+        com.dan.lens.Lens.Optics o = objektivGl.optics();
+        String s = objektiv.describe(Double.isNaN(fm) ? objektiv.focusM : fm);
+        if (o != null) {
+            double c = 0.03;   // zulässiger Kreis wie im Kleinbild (Diagonale / 1500)
+            double[] dof = o.dofM(c);
+            s += String.format(Locale.GERMAN, " · scharf %.1f m bis %s · %d Geisterbilder", dof[0], Double.isInfinite(dof[1]) ? "∞" : String.format(Locale.GERMAN, "%.0f m", dof[1]), o.ghostCount());
+        }
+        return s;
     }
 
     /**
@@ -2210,6 +2371,7 @@ teilEnde("Schleier");
         netzblick.dispose(gl);
         surface.dispose(gl);
         if (kinoGl != null) kinoGl.dispose(gl);
+        if (objektivGl != null) objektivGl.dispose(gl);
         if (lum != null) lum.dispose(gl);
         baeche.dispose(gl);
         ereignisGl.dispose(gl);

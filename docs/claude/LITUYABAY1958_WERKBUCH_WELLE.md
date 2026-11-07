@@ -2,7 +2,7 @@
 
 **Die Welle. Die Bucht. Das Bild.** Das dritte Werkbuch des Projekts. Es hat nur einen Zweck: Aus den vorhandenen Daten, dem vorhandenen Renderer und dem Projekt Nature ein scharfes Bild, eine echte Welle mit großen Effekten, Wetter und eine Landschaft machen, die man nicht vergisst.
 
-> **Stand: 07.11.2026, 05:00. Fragen WF1–WF14: alle A, WF15: B, WF30–WF35: alle A, WF16: A, WF17: alle Punkte („Los!“), WF18: A und B zusammen, beides auch in `Renderer.jar`, WF19: A (Augenanpassung), WF20: A (unter Wasser fest, ins Helle nicht dunkler), WF21–WF24: alle A, WF29: A. W6 Runde 2 committet; W6 Runden 3 bis 8 und W7 (Runden 1 bis 1e) gebaut, warten auf deine Abnahme. **Abschnitt 5b „Wetter groß“ (dein Auftrag vom 07.11.) mit den Phasen W7b–W7h. W7 ist beendet (07.11.): W7b „Regen“ in den Runden 1 bis 6 gebaut (neu `com.dan.precip` in `Renderer.jar`), zuletzt mit WF29 A die Lage „Stiller Regen“; die offenen Punkte der Bucht (5b.4) gehen nach W8, für W9 ist das wegklappende Bedienfeld vorgemerkt. WF25–WF29 nach A gebaut (WF27 genauer als versprochen: spektral statt iWave).** **W8 „Die Bucht“ begonnen (07.11.): Abschnitt 5c mit den Phasen W8a–W8h und den Fragen WF30–WF35; W8a Runde 1 „Spiegel und Kutter“ auf der Radeon gerechnet (W8AP1, W8A1: ein Spiegel, keine Kante, der Kutter im Bild und im Wasser). WF30–WF35: alle A. W8b Runde 1 „Bedeckter Himmel“ auf der Radeon gerechnet (W8BP1, W8B1: die Kette steht im Wasser). W8b Runde 2 „Regen fertig“ gebaut (5b.4 Punkte 4–8 und 10: feines zweites Wellenfeld, Facetten an den Einschlägen, Maske der Schauer, Schichten mit dem Wind, halbe Schritte im Vorhang, Vorhang im Spiegel), wartet auf deine Abnahme.** Zeiten „im Fluss“ (wie im Programm), Zeitvergleiche nur im selben Lauf.**
+> **Stand: 07.11.2026, 12:30. Neue Fragen WF36–WF42 (W9). Fragen WF1–WF14: alle A, WF15: B, WF30–WF35: alle A, WF16: A, WF17: alle Punkte („Los!“), WF18: A und B zusammen, beides auch in `Renderer.jar`, WF19: A (Augenanpassung), WF20: A (unter Wasser fest, ins Helle nicht dunkler), WF21–WF24: alle A, WF29: A. W6 Runde 2 committet; W6 Runden 3 bis 8 und W7 (Runden 1 bis 1e) gebaut, warten auf deine Abnahme. **Abschnitt 5b „Wetter groß“ (dein Auftrag vom 07.11.) mit den Phasen W7b–W7h. W7 ist beendet (07.11.): W7b „Regen“ in den Runden 1 bis 6 gebaut (neu `com.dan.precip` in `Renderer.jar`), zuletzt mit WF29 A die Lage „Stiller Regen“; die offenen Punkte der Bucht (5b.4) gehen nach W8, für W9 ist das wegklappende Bedienfeld vorgemerkt. WF25–WF29 nach A gebaut (WF27 genauer als versprochen: spektral statt iWave).** **W8 „Die Bucht“ begonnen (07.11.): Abschnitt 5c mit den Phasen W8a–W8h und den Fragen WF30–WF35; W8a Runde 1 „Spiegel und Kutter“ auf der Radeon gerechnet (W8AP1, W8A1: ein Spiegel, keine Kante, der Kutter im Bild und im Wasser). WF30–WF35: alle A. W8b Runde 1 „Bedeckter Himmel“ auf der Radeon gerechnet (W8BP1, W8B1: die Kette steht im Wasser). W8b Runde 2 „Regen fertig“ gebaut und auf der Radeon gerechnet (W8BP2, W8B2).** **W9 „Kino“ begonnen (07.11., 11:27, dein Auftrag vor W8c): Abschnitt 5d mit den Phasen W9a–W9h und den Fragen WF36–WF42; W9a Runde 1 „Das Objektiv“ gebaut (neu `com.dan.lens` in `Renderer.jar`: ein Doppel-Gauß mit 10 Glasflächen rechnet Tiefenschärfe, Bokeh mit Katzenauge, Farbsäume, Fokusatmung, Verzeichnung, Randabfall, 45 Geisterbilder und den Stern der Sonne; Block KAMERA; das Bedienfeld gleitet weg, F9), wartet auf die Radeon (`w9a_runde1.cmd`).** Zeiten „im Fluss“ (wie im Programm), Zeitvergleiche nur im selben Lauf.**
 > Neu in W0: Abschnitt 2b „Was nie gebaut wurde“ (das strukturelle Problem), die Versprechensliste (2b.2), K8–K10, Fortschritt (12).
 > Neu am 04.11.: deine Rückmeldung mit den Bildern in `docs/wahrHeeldenbilder` (Abschnitt 2a: Ursachen für Brei und Korn), W0 wird „Scharf“, Wetter als eigenes Kapitel und eigene Phase (Abschnitt 5a, W7), Bäume und Böden aus dem Projekt Nature (Abschnitt 3), Heldenbild H9.
 > Artefakt: „LituyaBay1958 Werkbuch Welle“. Diese Datei ist die Quelle.
@@ -24,12 +24,13 @@
 5a. Wetter
 5b. Wetter groß (Auftrag 07.11.: Regen, Bogen und Ferne, Wind, Gewitter, Winter, Polarlicht, Klang)
 5c. Die Bucht groß (Auftrag 07.11.: Spiegel, Kutter, Himmel, Möwen, Front, Treibholz, Hänge, Klang)
+5d. Das Kino groß (Auftrag 07.11.: Objektiv, Film, Belichtung, Führung, Ton, Startflug, „Die Welle“, Vorführung)
 6. Inszenierung: neun Heldenbilder, Startflug, Kino
 7. Zwei Stufen: Echtzeit und Kino
 8. Phasen W0–W9
 9. Arbeitsweise
 10. Risiken
-11. Fragen WF1–WF35
+11. Fragen WF1–WF42
 12. Fortschritt
 
 ---
@@ -449,6 +450,106 @@ Punkt 9 (der Regenbogen doppelt) gehört zu W7c. Jede Runde endet wie bisher mit
 - **Punkt 10, der helle Fleck in 764:** Die weißen Scheiben in 764 sind Schaumkronen der See: Die Lage „Regen am Berg“ hat 8 m/s Wind, in der Bucht Bft 4 bis 5, und `ocean` legt dann Schaum auf rund 2 % der Fläche. Physikalisch richtig, aber als flache weiße Scheiben gezeichnet; ihr Aussehen gehört zu W7d (Schaumkronen nach der Windstärke). Den rechteckigen Fleck oben links prüfe ich an 764 und 775 aus diesem Lauf.
 - **Abnahme:** Proben 806, 808, 809 (der Troller von heute weit), 810 (stiller Regen ganz nah: das feine Feld), 764, 775, 776, 777 in `W8BP2`; 810, 764, 776, 777 wie W7b in `W8BP2ALT`; H1 und H14 gegen W8B1.
 
+## 5d. Das Kino groß (Auftrag 07.11.2026)
+
+Dein Auftrag (07.11.2026, 11:27): „W9 Kino. Für W9 in Werkbuch zurückgestellte Themen beachten. Dieses Project bietet uns die Möglichkeit, Szenen und die daraus resultierenden Packages richtig liebevoll auszugestalten, nutzen wir sie! … das gesamte Thema wirklich ausreizen. Im Zweifel die Engines überarbeiten bzw. neu anlegen in Renderer. Groß denken! … Die absolute Liebe zum Detail, so wie die dahinterliegende Physik ist sehr wichtig, insbesondere im Blick auf Wiederverwertbarkeit. … Los!“
+
+### 5d.1 Befund vor W9 (am Code) und was für W9 zurückgestellt war
+
+- **Die Kamera ist eine Lochkamera.** Alles ist scharf von 0,3 m bis 400 km. Es gibt keine Blende, kein Objektiv und keinen Verschluss (außer für den Regen: `precip` mit eigener „Linse“ 3 mm auf 4 m). Die Brennweite ist nur ein Bildwinkel (`Renderer.fovy`, 24 mm Bildhöhe, ohne Vorgabe 55° ≈ 23 mm).
+- **`post.frag` (64 Zeilen):** Filmkurve ACES nach Narkowicz, ein Glühen als Schwelle über fünf Mip-Stufen, Randabdunklung als Formel 1 − 0,22 r², Rauschen 1/255. Kein Film, keine Lichtbestimmung; die Sonne hat weder Stern noch Reflexe.
+- **`com.dan.kino` (Glacier Phase 16)** ist ein Vorführer: Balken 2,39 : 1, Titel, Untertitel, Überblendung, ein Schwenk von ±3° über 70 s, Korn als Hash-Rauschen, Randabdunklung. Eine Kamera kennt es nicht.
+- **Bewegung:** `Fahrt` fährt mit gleichmäßiger Geschwindigkeit an Punkten entlang, der Blick folgt dem Weg. Es gibt keinen Rig, keine Trägheit und keine Querneigung.
+- **Film (Phase 20):** `ant film` mit 30 B/s und 1920 × 1080, H.264, Ton offline am Ohr der Kamera. Die Kino-Stufe aus Abschnitt 7 (Akkumulation gegen Kanten und Rauschen, Bewegungsunschärfe) wurde nie gebaut.
+- **Zurückgestellt für W9:**
+  - das Bedienfeld, das zur Seite weggleitet (vorgemerkt 07.11.)
+  - Startflug (6.2), Regiebuch „Die Welle“ (6.3), Kinomodus mit Breitbild, Korn, Farbe je Zeitstand, Tiefenschärfe, Bewegungsunschärfe und Zeitlupe (6.4)
+  - die Kino-Stufe (7)
+  - Kamera-Effekte im Kino immer (WF8 A)
+  - Tropfen auf der Linse im Kino (W7e)
+  - Film in 4K mit Klang, neue README-Bilder
+  - WF16 A: Unreal bleibt außen vor.
+- **Offen aus W8:** W8b Runde 2 ist auf der Radeon gerechnet (07.11., 10:20: W8BP2, W8BP2ALT, W8B2). W8c bis W8h stehen noch aus (der Kutter reitet, Möwen, die Front, Danach, Hänge, Klang); dein Auftrag nimmt W9 vor. Wie es weitergeht, fragt WF36.
+
+### 5d.2 Phasen
+
+| Phase | Name | Danach siehst du | Bausteine (Renderer) |
+|---|---|---|---|
+| **W9a** · Runde 1 gebaut 07.11. | Das Objektiv | Tiefenschärfe mit Bokeh in der Form der Blende, das Katzenauge zum Rand, hinter dem Fokus helle Ränder und davor ein weicher Kern, Farbsäume, Fokusatmung, Verzeichnung, Randabfall, 45 Geisterbilder der Sonne in den Farben der Vergütung, ihr Stern aus den Kanten der Lamellen; ein Schärfezieher mit Trägheit; der Regen mit derselben Linse; das Bedienfeld gleitet weg | neu `com.dan.lens` |
+| **W9b** | Der Film | Negativ, Kopie, Projektion: Kennlinien je Schicht, Lichtbestimmung mit Kopierlicht in Punkten je Zeitstand (1958 warm und weich, heute kühl), Korn aus Kristallen nach Selwyn (σ_D·√A fest, in der Dichte, darum in Mitten und Schatten), Halation (rote Höfe aus dem Träger, Halbmesser aus Dicke und Grenzwinkel), Bildstand, Flackern; ersetzt im Kino die ACES-Kurve | neu `com.dan.film` |
+| **W9c** | Die Belichtung | die Kino-Stufe: jedes Filmbild aus 16 bis 256 Teilbildern über die Umlaufblende (180°, mit Öffnungsgang), über die Pupille (echte Tiefenschärfe auch für Gischt, Nebel, Staub und Regen) und über den Bildpunkt; Bewegungsunschärfe in Echtzeit; Hochgeschwindigkeit als echte Bildrate (Zeitlupe 1/8 am Einschlag); Tropfen auf der Linse (W7e) | `lens`, `film`, `kino`, `wetglass` |
+| **W9d** | Die Führung | Kamerabahnen (zentripetale Catmull-Rom, nach der Bogenlänge, kleinster Ruck), Hubschrauber mit Querneigung in der Kurve (tan φ = v²/(g·r)), Kran, Dolly, Steadicam (Pendel mit Feder), Hand (Zittern, Atem, Schritt), Boot (die Kamera an Deck rollt und stampft mit der Edrie); der Schärfezieher folgt einem Ziel | neu `com.dan.rig` |
+| **W9e** | Der Ton | Schall mit Laufzeit (343 m/s: das Grollen kommt Sekunden nach dem Bild), Luftdämpfung nach ISO 9613-1, Doppler im Flug, Echo der Fjordwände aus Spiegelquellen am Gelände, J- und L-Schnitt, Lautheit nach EBU R 128 | `soundscape` |
+| **W9f** | Startflug | 20 s von See über die Barre, an Cenotaph vorbei zum Gilbert Inlet (6.2), mit Hubschrauber, Objektiv und Film | `rig`, `kino` |
+| **W9g** | „Die Welle“ | das Regiebuch (6.3) als Folge von Einstellungen (Objektiv, Blende, Schärfe, Rig, Schnitt, Zeitlupe), in der Kino-Stufe als Film in 4K mit Ton | alle |
+| **W9h** | Vorführung | neue README-Bilder, H1–H14 mit Objektiv und Film, ein Plakat | – |
+
+### 5d.3 W9a Runde 1: wie es gebaut ist (07.11.2026)
+
+**Neu in `Renderer.jar`: `com.dan.lens`.** Der Kern rechnet nur Java: `Glass`, `Coating`, `Surface`, `LensSystem`, `Aperture`, `Lens`, `FocusPuller`, `Spectrum`. Die Grafik (`gl/LensGl` mit 13 Shadern) braucht GL 4.3 mit einem Compute-Shader und einem indirekten Aufruf. Dazu `demo/LensDemo` (Kai mit Lichterkette, Kasten, Pfahl und Sonne; Fenster oder `--bild`) und `demo/LensCheck` (26 Prüfungen) und eine README mit den Quellen. Das Paket kennt keine Szene: Es bekommt ein HDR-Bild mit Tiefe und gibt das Bild auf dem Sensor zurück.
+
+| Was | Wie (gerechnet, nicht gemalt) |
+|---|---|
+| Der Schnitt | Doppel-Gauß 50 mm f/2 nach Tronnier (Smith, *Modern Lens Design*; derselbe Schnitt wie in pbrt), 11 Flächen mit 10 Glasflächen und der Blende, Gläser N-BAF10, SF15, F5, N-SSK5, N-LAF3 [Abbe-Zahlen G]. Gerechnet: **f = 50,33 mm, f/2,03**. Für andere Brennweiten wird er maßstäblich skaliert. |
+| Tiefenschärfe | dünne Linse c = D·f·(d − s)/(d·(s − f)) je Bildpunkt aus der Tiefe, mit Vorzeichen |
+| Bokeh | Sammeln in halber Auflösung. Ob ein Punkt einen Bildpunkt trifft, sagt die Pupille selbst (Form der Blende, **Katzenauge** aus den Kreisen der Fassungen, gegen echte Strahlen geprüft). Unscharfer Vordergrund wird von beiden Seiten weich. Helle Lichter werden **gestreut**, jedes als Kreis der Blende mit seiner Energie. Kleine Kreise laufen in voller Auflösung. |
+| Helligkeit im Kreis | sphärische Aberration aus echten Randstrahlen über die ganze Pupille. Der Doppel-Gauß hat eine unterkorrigierte Zone (−0,011 mm bei 70 %) und einen überkorrigierten Rand (+0,039 mm). Darum hat das Bokeh **hinter dem Fokus helle Ränder** und **davor einen weichen Kern**. Gegen ein Strahlenbündel stimmt das im äußeren Fünftel: 0,146 gegen 0,142 und 0,581 gegen 0,622. |
+| Farbsäume | Längsfarbfehler je Farbkanal als eigener Kreis (Blau −0,14 mm, Rot +0,06 mm Schnittweite); Farbquerfehler aus echten Hauptstrahlen |
+| Fokusatmung | Beim Fokussieren fährt das ganze Objektiv vor. Der Bildwinkel wird auf 1 m 4,8 % enger, und die App nimmt ihn mit. |
+| Verzeichnung, Randabfall | echte Hauptstrahlen (−1,1 % bei 20°); Durchgang der Pupille durch alle Fassungen mal cos⁴. Die Fassungen sind so groß, dass der Schnitt das 16 : 9-Bild der App deckt [G]. Unter ±26° Halbdiagonale (unter 35 mm) wird das Feld gestaucht [G]. |
+| Geisterbilder | alle 45 Doppelspiegelungen paraxial mit umgekehrtem Vorzeichen der Brechzahl. Jedes ist ein Bild der Blende, je Farbkanal mit eigener Lage, Größe und Stärke (Fluss durch die Pupille · Reflexionsgrade der **Vergütung MgF₂ λ/4 bei 550 nm**, 1,28 % gegen 4,22 % unvergütet, Rot und Blau stärker: purpur und grün). Zusammen 0,04 % des Sonnenlichts. Abgeblendet werden sie kleiner und schärfer, nicht dunkler. |
+| Stern | Fraunhofer an den geraden Kanten: je Kante ein Strahl mit der Energie L·λ·f/(4π²·x²·A) je Länge (gegen die FFT der Blende: **103 %**), gefaltet mit der Sonnenscheibe. Eine gerade Lamellenzahl gibt n Strahlen, eine ungerade 2n (7 gerade Lamellen: 14 Strahlen). |
+| Schleierlicht | 1,5 % allen Lichts mit einem Kern ∝ r^−2,5 [G]. Mit dem Objektiv ersetzt es das Glühen (`bloom`); der Randabfall der Fassungen ersetzt die Formel in `post.frag`. |
+| Schärfezieher | Er läuft auf der Grafikkarte in Dioptrien und ist kritisch gedämpft (0,9 s bis 98 %, höchstens 4 dpt/s). Der Autofokus nimmt das 65. Perzentil von 5 × 5 Punkten in der Bildmitte [G]. Der Prozessor liest den Wert ein Bild später, ohne zu warten. Sprung oder Standbild: sofort. |
+
+**In LituyaBay1958:**
+- `Renderer`: das Objektiv nach der Kantenglättung und vor dem Regen. Der Regen bekommt dieselbe Pupille und denselben Fokus.
+  - Die Sonne kommt mit ihrer Bestrahlung und dem Anteil durch die Wolken (`sonneAmAuge`).
+  - An mit `objektivAn`, im Kino immer (WF8 A).
+  - Ohne Objektiv bleibt das Bild, wie es war (H1, H14 gegen W8B2).
+  - Neu `festeGroesse`: Während das Bedienfeld gleitet, bleiben die Ziele gleich groß; das Seitenverhältnis kommt aus dem Fenster.
+- **Block KAMERA** (nach ANSICHT):
+  - Objektiv an oder aus
+  - Sätze von 23 bis 400 mm
+  - Blende in Drittelstufen f/2 bis f/22
+  - Autofokus oder Fokus von 0,5 m bis ∞
+  - Lamellen (rund, 5, 6, 7, 8, 9, 11, 16; gerade oder gerundet)
+  - Reflexe, Stern, Verzeichnung, Farbsäume, Randabfall, Schleierlicht einzeln
+  - Verschluss des Regens (1/30 bis 1/2000 s)
+  - eine Zeile mit Fokus, Schärfentiefe und Zahl der Geisterbilder
+- **Regiebuch:** `objektiv an|aus|Brennweite [Blende]`, `blende f/11`, `fokus auto|12|Ort` (die Schärfe folgt dem Ort). Bildbank: `objektiv=`, `blende=`, `fokus=`, `lamellen=`, `rundung=`.
+- **Das Bedienfeld gleitet** (`ui/Schublade`, vorgemerkt 07.11.):
+  - Klick auf die schmale Lasche am rechten Rand oder F9 schiebt es in 0,32 s nach rechts hinaus (schnell los, sanft an). Die Szene wächst mit, die Lasche bleibt.
+  - Ein zweiter Klick holt es zurück.
+  - Offen oder zu wird gemerkt. F11 (alles weg) und das Kino bleiben, wie sie waren.
+- **Prüfung:** Regiebefehle mit Abweisung von `blende 0,5`, die Optik mit dem Bildwinkel der App, der Block KAMERA.
+
+**Geprüft hier:**
+- `LensCheck` 26 von 26 („Alles in Ordnung.“).
+- Paketprüfung „lens ok ok ok ok“.
+- Beide Projekte übersetzen.
+- Alle 13 Shader laufen auf Mesa (llvmpipe, GL 4.5) im selben Ablauf wie `LensGl` über die Testszene der Demo. Die Vorschau liegt in `_transfer/w9/lens_vorschau_mesa.png`; der Prüfstand dazu ist `_transfer/w9/lenspipe.py`.
+
+**Abnahme W9a Runde 1 (auf der Radeon: `w9a_runde1.cmd`):**
+- `LensCheck`, `LensDemo --bild` (Renderer `docs/img/lens.png`, Kopie in `docs/bild/W9AP1/LensDemo.png`), Prüfung
+- Proben 901–908 in `scene/aufnahmen_w9.txt` → `docs/bild/W9AP1`:
+  - 901/902: die Edrie mit 85 mm auf 35 m bei f/2 und f/8
+  - 903/904: Gegenlicht heute 18:00 mit 7 geraden Lamellen bei f/11 und f/2
+  - 905: stiller Regen mit 50 mm f/2 auf 3 m
+  - 906: H1 mit 24 mm f/2,8
+  - 907: H2 mit dem Objektiv
+  - 908: H1 bei f/4
+- H1 und H14 ohne Objektiv in `W9A1` gegen W8B2 (müssen gleich bleiben).
+
+**Ehrlich offen nach Runde 1:**
+1. Nicht auf der Radeon gerechnet. Die Kosten kenne ich nicht; ich erwarte 2 bis 4 ms für das Bokeh in halber Auflösung [zu prüfen in den Teilzeiten „Objektiv“].
+2. Ändern Blende oder Brennweite, rechnet der Prozessor die Tabellen neu (echte Strahlen): rund 25 ms, ein kleiner Ruck beim Drehen. Das kommt in Runde 2 in den Hintergrund.
+3. Reflexe gibt es nur, wenn die Sonne im Bild steht. Ein echtes Objektiv wirft sie auch knapp außerhalb; dafür brauche ich die Horizontkarte am Auge.
+4. Ein Schnitt für alle Brennweiten. Weitwinkel und Tele anderer Bauart (Retrofokus, Teleobjektiv) fehlen (WF41).
+5. Nebel, Wolken und Staub bekommen die Unschärfe der Fläche dahinter (Volumen haben keine eigene Tiefe). Ehrlich lösen kann das erst die Kino-Stufe (W9c).
+6. Die Geisterbilder werden von den übrigen Fassungen nicht beschnitten; anamorphotisch gibt es nur das ovale Bokeh.
+7. Im Kino ist das Objektiv jetzt immer an. Die bestehenden Regiebücher sehen im Kino anders aus (Autofokus auf die Bildmitte, Blende f/2,8), bis die Einstellungen in W9g eigene Werte bekommen.
+
 ## 6. Inszenierung
 
 ### 6.1 Neun Heldenbilder (Abnahme jeder Phase)
@@ -518,7 +619,7 @@ Jede Phase beginnt mit dem Satz **„Danach siehst du …“** und endet mit ein
 | **W7g** | Polarlicht | siehe 5b.1 | `aurora` (neu) | Polarlicht über der Kette (Clip) |
 | **W7h** | Klang | siehe 5b.1 | `soundscape` | Hörprobe Regen auf Wasser, Laub, Fels |
 | **W8** · W8a gebaut 07.11. (Runde 1) | Die Bucht · Phasen W8a–W8h in 5c.2 | die Front die Bucht hinab, ein Kutter reitet die Welle, Möwen fliehen, danach Treibholz und Dunst; dazu aus W7b (5b.4, zurückgestellt am 07.11.): die Zickzack-Kante im Spiegel bei rund 60 m, der bedeckte Himmel ohne Verlauf zum Horizont, die Kosten von Schichten und Vorhang, ein feines zweites Wellenfeld nah an der Kamera, der helle Fleck in 764 | E13, E14 | H7 aus dem Boot, H8 |
-| **W9** | Kino | Startflug, Regiebuch „Die Welle“, Kinomodus, Film in 4K mit Klang, neue README-Bilder; **vorgemerkt 07.11.:** das Bedienfeld gleitet zur Seite weg und klappt bei Bedarf wieder aus – mehr Bild | 6.2–6.4, Klang | Film „Die Welle“ (90 s), alle neun Heldenbilder |
+| **W9** · Phasen W9a–W9h in 5d.2 · W9a Runde 1 gebaut 07.11. | Kino | Startflug, Regiebuch „Die Welle“, Kinomodus, Film in 4K mit Klang, neue README-Bilder; das Bedienfeld gleitet zur Seite weg und klappt bei Bedarf wieder aus (gebaut in W9a, F9); dazu das Objektiv (W9a), der Film (W9b), die Kino-Stufe (W9c), die Führung (W9d), der Ton (W9e) | 6.2–6.4, 7, Klang | Film „Die Welle“ (90 s), alle Heldenbilder |
 
 Reihenfolge nach WF3 A: erst scharf, dann Licht (es hebt alles), dann Wasser, dann die Welle in drei Schritten, dann Landschaft und Wetter, zum Schluss das Kino.
 
@@ -548,7 +649,7 @@ Reihenfolge nach WF3 A: erst scharf, dann Licht (es hebt alles), dann Wasser, da
 
 ---
 
-## 11. Fragen WF1–WF29
+## 11. Fragen WF1–WF42
 
 Je Frage Möglichkeiten, **A** ist die Empfehlung. „Alle A“ genügt.
 
@@ -592,6 +693,13 @@ Je Frage Möglichkeiten, **A** ist die Empfehlung. „Alle A“ genügt.
 | WF33 | Treibholz in W8f (**A**, 07.11.) | **A** neues Package `com.dan.driftwood`: Stämme als Körper (entrindet und ohne Äste, wie Miller 1960 sie beschreibt, gesplittert, mit Wurzelteller), Packung zu Teppichen, Zeichnung mit Instanzen; `debris` rechnet weiter das Treiben · B `debris` erweitern |
 | WF34 | Trollstangen vor Anker (**A**, 07.11.) | **A** abgesenkt mit Schlingerdämpfern (so gebaut) · B am Mast aufgeholt |
 | WF35 | Anstrich der drei Boote (**A**, 07.11.) | **A** wie gebaut: Edrie weiß und grün, Badger weiß und blau mit rotem Dach, Sunmore grau und rotbraun [G] · B alle gleich |
+| WF36 | Reihenfolge nach W9a (W8c–W8h stehen noch aus) | **A** W9b–W9e (Film, Belichtung, Führung, Ton), dann W8c–W8h (der Kutter reitet, Möwen, die Front, Danach, Hänge, Klang der Bucht) mit der neuen Kamera, dann W9f–W9h (Startflug, „Die Welle“, Vorführung: sie brauchen den reitenden Kutter, die Front und den Morgen danach) · B W9 ganz, dann W8c–W8h · C erst W8c–W8h, dann der Rest von W9 |
+| WF37 | Das Objektiv in Echtzeit (so gebaut nach A) | **A** an im Kino und auf Wunsch (Block KAMERA, Regie, Bildbank); die Heldenbilder H1–H14 bleiben bis W9h ohne und werden dann alle mit Objektiv und Film neu gerechnet · B ab sofort überall an (Vorgabe „Auge“ 23 mm f/5,6, Autofokus), Heldenbilder jetzt neu |
+| WF38 | Bild und Bildrate des Films (W9b, W9c) | **A** Breitwand 2,39 : 1 (Balken wie bisher) mit 24 Bildern/s und Umlaufblende 180° (1/48 s) · B 16 : 9 ohne Balken mit 30 Bildern/s wie in Phase 20 · C 2,39 : 1 mit 30 Bildern/s |
+| WF39 | Filmmaterial (W9b) | **A** 1958 auf Eastman Color Negative 5248 (das Farbnegativ der 1950er: gröberes Korn, weichere Kennlinie, Kopie auf 5382), heute auf Kodak Vision3 250D (Tag) und 500T (Abend, Nacht), Kennlinien nach den Datenblättern [zu prüfen] · B alles auf Vision3 · C kein Film, nur das Objektiv und die Filmkurve |
+| WF40 | Musik (W9e) | **A** keine Musik, nur der Klang der Szene wie bisher · B eine leise Klangfläche [G] in Vor- und Abspann |
+| WF41 | Weitere Objektive (W9a Runde 2) | **A** zum Doppel-Gauß zwei echte Schnitte aus der Literatur: ein Retrofokus-Weitwinkel (24–28 mm) und ein Teleobjektiv (135–200 mm); die App nimmt den passenden nach der Brennweite · B beim Doppel-Gauß bleiben (Weitwinkel mit gestauchtem Feld [G], so gebaut) |
+| WF42 | Das Bedienfeld (so gebaut nach A) | **A** es gleitet nach rechts hinaus, eine schmale Lasche bleibt, F9 schaltet, offen oder zu wird gemerkt · B es verschwindet ganz wie mit F11, F9 holt es zurück |
 | WF14 | Bäume in der Nähe | **A** echte Modelle aus Nature und dem Baumgenerator in der Nähe, Kronendach in der Ferne · B nur der Baumgenerator aus `forest` |
 
 ---
@@ -600,6 +708,7 @@ Je Frage Möglichkeiten, **A** ist die Empfehlung. „Alle A“ genügt.
 
 | Datum | Phase | Was | Bilder |
 |---|---|---|---|
+| 07.11.2026 | **W9a „Das Objektiv“, Runde 1** | **Auftrag** „W9 Kino. Für W9 in Werkbuch zurückgestellte Themen beachten. … Im Zweifel die Engines überarbeiten bzw. neu anlegen in Renderer. Groß denken! … Liebe zum Detail … Physik … Wiederverwertbarkeit. … Los!“ **Danach siehst du** (mit dem Objektiv: Block KAMERA, im Kino immer): Schärfe, die an einem Abstand liegt; dahinter und davor Unschärfe in der Form der Blende, zum Rand ein Katzenauge, hinter dem Fokus helle Ränder, davor ein weicher Kern, farbige Säume; Lichter als Kreise der Blende; gegen die Sonne 45 Geisterbilder in Purpur und Grün und ein Stern mit so vielen Strahlen, wie die Lamellen gerade Kanten haben; Verzeichnung, Farbquerfehler und Randabfall eines echten Objektivs; der Fokus zieht weich nach; das Bedienfeld gleitet mit F9 oder der Lasche zur Seite.<br>• **`Renderer.jar`: neu `com.dan.lens`** (Kern: `Glass`, `Coating`, `Surface`, `LensSystem`, `Aperture`, `Lens`, `FocusPuller`, `Spectrum`; `gl/LensGl` mit 13 Shadern; `demo/LensDemo`, `demo/LensCheck`; README mit Quellen), README des Renderers ergänzt.<br>• **LituyaBay1958:** `Renderer` (Objektiv nach der Glättung, Regen mit derselben Linse, Fokusatmung, `festeGroesse`, `objektivStellen`, `fokusStellen`), `post.frag` (`uRand`), `Regie` (`objektiv`, `blende`, `fokus`), `Tempo` und `Bildbank` (Schlüssel), `ControlPanel` (Block KAMERA), neu `ui/Schublade`, `LituyaApp` (Schublade, F9), `Hilfe`, `SceneView`, `Pruefung`, Proben 901–908, `w9a_runde1.cmd`.<br>• **Geprüft hier:** LensCheck 26 von 26, Paketprüfung „lens ok“, alle 13 Shader auf Mesa im Ablauf von `LensGl` (`_transfer/w9/lens_vorschau_mesa.png`).<br>• **Offen:** 5d.3, Punkte 1–7. | Proben `docs/bild/W9AP1`; Heldenbilder `docs/bild/W9A1` gegen W8B2 (ohne Objektiv gleich) |
 | 07.11.2026 | **W8b Runde 2 „Regen fertig“** | **Auftrag** „Offen für W8b Runde 2 sind die restlichen zurückgestellten Regenpunkte aus 5b.4 … und der helle Fleck aus 764. Los!“ **Danach siehst du**: im stillen Regen die fernen Berge im Wasser so verhangen wie über dem Wasser, ganz nah feinste Ringe und Kapillarwellen, die Rauigkeit dort, wo Tropfen einschlagen, keine Ringe unter trockenem Himmel, Regen, der mit dem Wind zieht; über der klaren Bucht Katzenpfoten; der Troller von heute im Wasser.<br>• **W8b Runde 1 auf der Radeon:** CieCheck 10 von 10, CraftCheck 36 von 36, Prüfung „alles in Ordnung“; Befund 5c.6.<br>• **`Renderer.jar`:** `precip` feines Feld, Schichten mit dem Wind, Schritte im Vorhang, `ocean` feines Feld, Maske der Schauer, Facetten an den Einschlägen, Spiegelrand; READMEs; PrecipCheck hier „Alles in Ordnung“.<br>• **LituyaBay1958:** `WetterGl` (feines Feld, Karte, Vorhang im Spiegel), `MeerGl`, `Renderer`, `BooteGl` (Ankerplatz von heute), Proben 808–810, `w8b_runde2.cmd`. | Proben `docs/bild/W8BP2`, `W8BP2ALT`; Heldenbilder `docs/bild/W8B2` gegen W8B1 |
 | 07.11.2026 | **W8b „Bedeckter Himmel“, Runde 1** (auf der Radeon gerechnet, siehe 5c.6) | **Auftrag** „Neue Fragen WF30–WF35: Alle A, Los!“ **Danach siehst du**: am klaren Abend eine spiegelglatte Bucht, über die nur bei leisem Zug Katzenpfoten ziehen; unter der geschlossenen Decke einen Himmel, der zum Zenit heller und zur Kimm dunkler wird, auch im Wasser; im Regen den Wald wieder im Wasser; heute einen Troller vor Anker in Anchorage Cove.<br>• **W8a auf der Radeon:** CraftCheck 36 von 36, Prüfung der App „alles in Ordnung“; Proben W8AP1 gegen W8AP1ALT, H1 und H14 in W8A1 (5c.5).<br>• **`Renderer.jar`:** `sky` neu `CieSky` und `demo/CieCheck` (10 von 10), `cloud` `Light.gradation`, `ocean` Spiegelruhe (`Light.calm`, `calmWind`, `calmTime`); READMEs ergänzt.<br>• **LituyaBay1958:** `MeerGl` (Spiegelruhe, ohne Trübe), `WetterGl` (CIE-Typ nach der Decke), `Wetterlage.KLAR` 1,0 m/s, `BooteGl` (Boot von heute), `Renderer`, Prüfung, Proben 806–808, `w8b_runde1.cmd`. | Proben `docs/bild/W8BP1`, `W8BP1OHNE`; Heldenbilder `docs/bild/W8B1` gegen W8A1 |
 | 07.11.2026 | **W8a „Spiegel und Kutter“, Runde 1** (auf der Radeon gerechnet, siehe 5c.5) | **Auftrag** „W8 Die Bucht. Für W8 in Werkbuch zurückgestellte Themen beachten. … Im Zweifel die Engines überarbeiten bzw. neu anlegen in Renderer. Groß denken! … Los!“ **Danach siehst du**: eine einzige Spiegelung – die Hänge dunkel und so wellig wie das Wasser in der Bucht, Himmel und Wolken im Wasser wie am Himmel, keine Zickzack-Kante; den Kutter des Bootsbauers vor Anker, mit Planken, Anstrich, Rostfahnen, Steuerhaus, Rigg, abgesenkten Trollstangen, Stützsegel, Name am Spiegel, eigenem Schatten und Ankerlicht, auch im Spiegelbild.<br>• **Plan:** Abschnitt 5c (Befund, Phasen W8a–W8h, Physik), Fragen WF30–WF35.<br>• **`Renderer.jar`:** `ocean` planare Spiegelung (Vorgabe aus), `sky` `View.discs`, `vessel` neu `Troller`, `Shipwright`, `gl/CraftGl` mit Shadern `craft`, `craft_shadow`, `wire`, `lamp`, Prüfung `demo/CraftCheck` (hier 36 von 36, Bau 2 s je Boot auf zwei Kernen); READMEs ergänzt.<br>• **LituyaBay1958:** `MeerGl` (See spiegelt selbst, Mip-Stufen), `Renderer` (Himmel, Boote, Wolken ins ganze Spiegelbild), `Licht`, `WetterGl`, `BooteGl` (Bootsbauer, zwei Durchgänge, Spiegel), Proben `scene/aufnahmen_w8.txt`, `w8a_runde1.cmd`.<br>• **Hier geprüft:** alles übersetzt, alle geänderten Shader mit Mesa übersetzt, der Kutter mit den echten Shadern gerendert (`_transfer/w8/edrie_vorschau.jpg`). Die Szene selbst nur auf der Radeon. | Proben `docs/bild/W8AP1` (neu) und `W8AP1ALT` (alter Spiegel und Kutter), Heldenbilder `docs/bild/W8A1` gegen W7B6 |

@@ -147,7 +147,13 @@ public final class LituyaApp {
             side.getVerticalScrollBar().setUnitIncrement(16);
         }
         side.setPreferredSize(new Dimension(340, 600));   // Befund aus Timmendorf Phase 19: breiter, sonst brechen die Knöpfe um
-        root.add(side, BorderLayout.EAST);
+        // Werkbuch Welle W9: das Bedienfeld als Schublade, die nach rechts weggleitet (Lasche, F9) und offen oder zu gemerkt wird
+        java.util.prefs.Preferences pref = null;
+        try { pref = java.util.prefs.Preferences.userRoot().node("com/dan/lituya/bedienfeld"); } catch (RuntimeException | Error e) { /* ohne Merken */ }
+        final java.util.prefs.Preferences pf = pref;
+        com.dan.lituya.ui.Schublade schub = new com.dan.lituya.ui.Schublade(side, 340, pf == null || pf.getBoolean("schublade.offen", true), g -> rd.festeGroesse = g);
+        schub.geschaltet = offen -> { if (pf != null) pf.putBoolean("schublade.offen", offen); };
+        root.add(schub, BorderLayout.EAST);
         JPanel south = new JPanel(new BorderLayout());
         south.setBackground(Theme.status());
         south.add(status, BorderLayout.CENTER);
@@ -165,16 +171,18 @@ public final class LituyaApp {
         Runtime.getRuntime().addShutdownHook(new Thread(view::stop, "LituyaBay1958-Ende"));
         // F11: nur die Szene (Bedienfeld und Statuszeile weg und wieder da)
         view.setKeyAction(java.awt.event.KeyEvent.VK_F11, () -> SwingUtilities.invokeLater(() -> {
-            boolean an = !side.isVisible();
-            side.setVisible(an);
+            boolean an = !schub.isVisible();
+            schub.setVisible(an);
             south.setVisible(an);
             root.revalidate();
         }));
+        // W9: F9 lässt das Bedienfeld gleiten (die Lasche bleibt)
+        view.setKeyAction(java.awt.event.KeyEvent.VK_F9, () -> SwingUtilities.invokeLater(schub::umschalten));
         // Phase 17a: im Kino Bedienfeld und Statuszeile weg, Zeiger weg; danach wie vorher
         boolean[] vorher = {true};
         rd.kinoFenster = an -> SwingUtilities.invokeLater(() -> {
-            if (an) vorher[0] = side.isVisible();
-            side.setVisible(!an && vorher[0]);
+            if (an) vorher[0] = schub.isVisible();
+            schub.setVisible(!an && vorher[0]);
             south.setVisible(!an && vorher[0]);
             view.zeigerVerbergen(an);
             root.revalidate();

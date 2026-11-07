@@ -181,7 +181,8 @@ public final class Bildbank {
         if (e.get("schaustueck") != null) cmd.add("-Dschaustueck=" + e.get("schaustueck"));
         else cmd.add("-Dkamera=" + kamera(e));
         if (e.get("zeitstand") != null) cmd.add("-Dzeitstand=" + e.get("zeitstand"));
-        for (String k : new String[]{"brennweite", "ereignis", "lauf", "regen", "schalter", "seitwaerts", "last", "jfr", "wetter", "wetterzeit", "verschluss", "zeitlupe"})
+        for (String k : new String[]{"brennweite", "ereignis", "lauf", "regen", "schalter", "seitwaerts", "last", "jfr", "wetter", "wetterzeit", "verschluss", "zeitlupe",
+                "objektiv", "blende", "fokus", "lamellen", "rundung"})
             if (e.get(k) != null) cmd.add("-D" + k + "=" + e.get(k));
         // W6 Runde 5: weitere -D-Schalter für jede Aufnahme aus der Umgebung (etwa ein Vergleich „alles aus“ im selben Lauf)
         String zusatz = System.getenv("LITUYA_BILDBANK_ZUSATZ");
@@ -260,6 +261,8 @@ public final class Bildbank {
         }
         if (e.get("zeitstand") != null) s.append(" · ").append(e.get("zeitstand"));
         if (e.get("wetter") != null) s.append(" · Wetter ").append(e.get("wetter"));   // W7
+        if (e.get("objektiv") != null || e.get("blende") != null) s.append(" · Objektiv").append(e.get("blende") != null ? " f/" + e.get("blende") : "")
+                .append(e.get("fokus") != null ? ", Fokus " + e.get("fokus") : "");   // W9a
         if (e.get("schaustueck") != null) s.append(" · Schaustück ").append(e.get("schaustueck"));
         return s.toString();
     }

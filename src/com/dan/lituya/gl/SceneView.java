@@ -29,7 +29,7 @@ import java.util.function.Consumer;
  * <li>Links ziehen: kreisen bzw. umschauen · rechts ziehen: verschieben · Rad: zoomen</li>
  * <li>W A S D: gleiten bzw. fliegen (Umschalt schneller) · Q/E: ab/auf (frei) · Pfeiltasten: drehen · Bild auf/ab: zoomen</li>
  * <li>F: frei fliegen an/aus · R: von selbst kreisen · Pos1: Grundansicht · H: HUD · F12: Foto nach docs/status · F5: Shader neu laden</li>
- * <li>1 bis 9: die Ansichten nach Namen (vom Bedienfeld gesetzt) · F1: alle Tasten · F11: nur die Szene</li>
+ * <li>1 bis 9: die Ansichten nach Namen (vom Bedienfeld gesetzt) · F1: alle Tasten · F9: Bedienfeld gleitet weg · F11: nur die Szene</li>
  * </ul>
  * Mit {@code -Dlituya.gljpanel=true} zeichnet statt des GLCanvas ein leichtes GLJPanel (Rückfall, falls ein
  * Treiber den Canvas im FFrame nicht zeigt).
