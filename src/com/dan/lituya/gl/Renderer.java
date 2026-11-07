@@ -1340,6 +1340,9 @@ public final class Renderer implements GLEventListener {
                 // 2b Boote (Phase 15a): Edrie, Badger, Sunmore auf den vorgerechneten Bahnen, vor der Welle (sie deckt, was unter Wasser liegt)
                 boote.laden(new java.io.File(System.getProperty("lituya.daten", "daten")), wiedergabe.welle());
                 boote.pano = licht.aktiv() ? licht.panoTextur() : 0;   // W8a: Spiegelungen am Boot
+                boote.pegelJetzt = wiring.pegel;   // W8b: das Boot von heute
+                if (boote.grund == null) boote.grund = this::groundHeight;
+                boote.windVonJetzt = wiring.windFromDeg;
                 boote.tanHalb = Math.tan(Math.toRadians(fovy()) / 2);
                 boote.bildHoehe = h;
                 boote.zeichnen(gl, vp, camera.eye, reversedZ, sun, tE, clock.zeitstand);
@@ -1372,6 +1375,8 @@ public final class Renderer implements GLEventListener {
             double[] rm = wetterGl.ringMitte();   // W7: Regen auf dem Wasser (W7b: Wellenfeld fest in der Welt)
             meer.ringe(wetterGl.ringTextur(), wetterGl.ringKachel(), wetterGl.ringStaerke(), wetterGl.ringArt(), rm[0], rm[1]);
             meer.ringRauigkeit(wetterGl.ringRauigkeit());   // W7b Runde 5: was das Feld nicht trägt, als Facetten
+            meer.feinUndMaske(wetterGl.feinTextur(), wetterGl.feinKachel(), wetterGl.feinMitte(), wetterGl.feinRauigkeit(),
+                    wetterGl.schauerKarte(), wetterGl.schauerRechteck());   // W8b Runde 2
             meer.zeichnen(gl, vp, camera.eye, reversedZ, licht, welleRect);
             gl.glBindVertexArray(emptyVao);
         } else if (showMeer) {
@@ -1630,6 +1635,10 @@ teilEnde("Schleier");
             int[] sz = meer.spiegelFarbeBinden(gl);
             teil("Spiegelwolken");
             wetterGl.spiegel(gl, vpR, invR, eyeR, reversedZ, meer.spiegelTiefeRoh(), sz[0], sz[1], L, voll);
+            if (voll) {   // W8b Runde 2: der Vorhang des Regens auch im Spiegelbild
+                double[] fwdR = {camera.fwd[0], -camera.fwd[1], camera.fwd[2]};
+                wetterGl.spiegelRegen(gl, vpR, invR, eyeR, fwdR, reversedZ, (float) NEAR, (float) FAR, fovy(), sz[0], sz[1], meer.spiegelTiefeRoh());
+            }
             teilEnde("Spiegelwolken");
             gl.glEnable(GL.GL_DEPTH_TEST);
             gl.glDepthMask(true);

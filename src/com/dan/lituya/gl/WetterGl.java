@@ -88,6 +88,13 @@ public final class WetterGl {
     private final java.util.Map<Integer, Integer> regenFbos = new java.util.HashMap<>();
     public final Precip niederschlag = Precip.moderate();
     final PrecipGl niederschlagGl = new PrecipGl();
+    {   // W8b Runde 2 (5b.4 Punkte 4, 5, 7): feines zweites Wellenfeld nah, Schichten ziehen mit dem Wind, halbe Schritte im
+        // Vorhang (er liegt vor der zeitlichen Glättung, die die versetzten Schritte mittelt); -Dlituya.regenW7b=true: wie W7b
+        boolean alt = Boolean.getBoolean("lituya.regenW7b");
+        niederschlagGl.fine = !alt;
+        niederschlagGl.layersDrift = !alt;
+        niederschlagGl.curtainStepShare = alt ? 1 : 0.5;
+    }
     private boolean niederschlagOk;
     private String niederschlagFehler = "";
     private volatile double pegelJetzt;
@@ -98,6 +105,9 @@ public final class WetterGl {
     private String status = "Wetter: noch nicht gestartet";
     private Clouds.Snapshot snap;
     private final CloudGl.Light licht = new CloudGl.Light();
+    /** W8b: Abstufung der Decke nach dem CIE-Normhimmel ({@code -Dlituya.ohneCie=true}: aus, wie bis W8a); zuletzt gewählter Typ. */
+    public volatile boolean cieAn = !Boolean.getBoolean("lituya.ohneCie");
+    public volatile int cieTyp;
     private Wetter.Zustand z;
     private double sonneAmAuge = 1, sonneHoch;
     private com.dan.lituya.scene.Wetterlage nebelFuer;
@@ -253,6 +263,15 @@ public final class WetterGl {
         // Wolken
         wolken.type = zz.wolkenart();
         wolken.oktas = zz.achtel();
+        // W8b (5b.4 Punkt 2): eine dicke Decke streut nach dem CIE-Normhimmel – zum Zenit heller, zur Kimm dunkler, bei
+        // gleichem Licht am Boden (com.dan.sky.CieSky, ISO 15469); ab 6/8, voll ab 7,5/8
+        {
+            int typ = com.dan.sky.CieSky.forCover(zz.achtel(), zz.regen() > 0.05);
+            double[] tp = com.dan.sky.CieSky.TYPES[typ - 1];
+            double st = Math.max(0, Math.min(1, (zz.achtel() - 6) / 1.5));
+            licht.gradation = new double[]{tp[0], tp[1], 1 / com.dan.sky.CieSky.meanGradation(typ), cieAn ? st : 0};
+            cieTyp = typ;
+        }
         wolken.baseHeight = zz.basis();
         wolken.highCover = zz.hoch();
         wolken.precipitation = zz.niederschlag();
@@ -695,6 +714,38 @@ public final class WetterGl {
     public int ringTextur() { return regenAn && regen.rate > 0.02 ? (neuJetzt() ? niederschlagGl.rippleTexture() : regenGl.rippleTexture()) : 0; }
     public double ringKachel() { return neuJetzt() ? niederschlagGl.rippleSize() : regenGl.rippleTile(); }
     public double ringStaerke() { return neuJetzt() ? niederschlagGl.rippleStrength() : regenGl.rippleStrength(); }
+    /** W8b Runde 2: das feine Feld für das Meer (0 = keins), Kante, Mitte, Rauigkeit unter seinem Raster. */
+    public int feinTextur() { return ringTextur() != 0 && neuJetzt() ? niederschlagGl.fineTexture() : 0; }
+    public double feinKachel() { return niederschlagGl.fineSize(); }
+    public double[] feinMitte() { return niederschlagGl.fineCenter(); }
+    public double feinRauigkeit() { return ringRauAn ? niederschlagGl.fineRoughness() : 0; }
+    /** W8b Runde 2 (5b.4 Punkt 8): Karte der Schauer für das Meer (Ringe nur, wo es regnet) und ihr Rechteck. */
+    public int schauerKarte() { return ringTextur() != 0 && neuJetzt() ? niederschlagGl.curtainTexture() : 0; }
+    public double[] schauerRechteck() { return niederschlagGl.curtainRect(); }
+
+    /**
+     * W8b Runde 2: der Vorhang des Regens auch im Spiegelbild – der gespiegelte Strahl läuft durch dieselbe Luft voller
+     * Tropfen. Ohne ihn standen im Regen die fernen Berge dunkel im Wasser, die das Auge über dem Wasser im Vorhang nicht
+     * mehr sieht (776). vp, inv: gespiegelte Kamera; eye: gespiegeltes Auge; die Tiefe des Spiegelbilds; ins gebundene Ziel.
+     */
+    public void spiegelRegen(GL4 gl, float[] vp, float[] inv, double[] eye, double[] fwd, boolean reversed, float near, float far, double fovy, int w, int h, int depthTex) {
+        if (!ok || !regenAn || regen.rate <= 0.02 || !neuJetzt()) return;
+        PrecipGl.View v = new PrecipGl.View();
+        v.viewProj = vp;
+        v.invViewProj = inv;
+        v.eye = eye.clone();
+        v.forward = fwd.clone();
+        v.reversedZ = reversed;
+        v.near = near;
+        v.far = far;
+        v.fovyDeg = fovy;
+        v.width = w;
+        v.height = h;
+        v.depthTexture = depthTex;
+        niederschlagGl.draw(gl, v, 1.0, PrecipGl.CURTAIN);
+        gl.glDisable(GL.GL_BLEND);
+    }
+
     /** W7b: Art der Ringe für das Meer (1: Wellenfeld fest in der Welt) und Mitte seines Fensters. */
     public int ringArt() { return neuJetzt() ? 1 : 0; }
     public double[] ringMitte() { return niederschlagGl.rippleCenter(); }
