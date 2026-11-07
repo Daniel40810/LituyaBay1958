@@ -138,7 +138,7 @@ public final class Hilfe {
                 + "<h2>Bild, Netze, Klang</h2>" + tabelle(new String[][]{
                 {"N", "Netzblick an und aus"}, {"M", "Klang an und aus"}, {"F12", "Foto (nach docs/status und ins Archiv)"}, {"F5", "Shader neu laden"}})
                 + "<h2>Fenster und Daten</h2>" + tabelle(new String[][]{
-                {"F1", "diese Hilfe"}, {"F2", "das Archiv"}, {"F11", "nur die Szene (Bedienfeld und Statuszeile weg und wieder da)"},
+                {"F1", "diese Hilfe"}, {"F2", "das Archiv"}, {"F9", "das Bedienfeld gleitet zur Seite weg und wieder herein (W9)"}, {"F11", "nur die Szene (Bedienfeld und Statuszeile weg und wieder da)"},
                 {"Strg + S", "Sitzung sichern (Oracle, sonst daten/speicher)"}})
                 + "<h2>Im Kino</h2>" + tabelle(new String[][]{{"Leertaste", "anhalten und weiter"}, {"Esc", "Kino verlassen"}, {"F12 · F5", "Foto · Shader"}});
     }

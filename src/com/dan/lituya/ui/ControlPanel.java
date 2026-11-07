@@ -78,7 +78,7 @@ public final class ControlPanel extends JPanel implements javax.swing.Scrollable
     private volatile String lodProbe = "Probe läuft …";
 
     /** Die Reihenfolge der Blöcke (Werkbuch, Abschnitt 12). */
-    public static final String[] REIHENFOLGE = {"ANSICHT", "ZEIT", "EREIGNIS", "NETZE", "WETTER", "KLANG", "REGIEBÜCHER", "DATEN", "TECHNIK"};
+    public static final String[] REIHENFOLGE = {"ANSICHT", "KAMERA", "ZEIT", "EREIGNIS", "NETZE", "WETTER", "KLANG", "REGIEBÜCHER", "DATEN", "TECHNIK"};
 
     private static Preferences prefs() {
         try { return Preferences.userRoot().node("com/dan/lituya/bedienfeld"); } catch (RuntimeException | Error e) { return null; }
@@ -137,6 +137,9 @@ public final class ControlPanel extends JPanel implements javax.swing.Scrollable
         put(fz);
         put(small("<html><body style='width:215px'>Die Ansichten stehen seit Phase 4 auf dem Gelände aus clipmap (vor dem ersten Laden über dem Wasser)."
                 + " Seit Phase 17 die Fahrten aus LB_NET_SICHT (ant aufbereitung -Dschritte=sicht): Tasten F oder R, Pfeile oder Ziehen beenden sie.</body></html>"));
+
+        // ============================================================== KAMERA (Werkbuch Welle W9a)
+        kamera();
 
         // ============================================================== ZEIT
         block("ZEIT", true);
@@ -913,6 +916,125 @@ public final class ControlPanel extends JPanel implements javax.swing.Scrollable
 
     /** Ist irgendein Aufklappmenü offen (auch die Liste einer Auswahl)? Dann darf sich nichts neu auslegen. */
     public static boolean menuOpen() { return javax.swing.MenuSelectionManager.defaultManager().getSelectedPath().length > 0; }
+
+    /** Blendenreihe in Drittelstufen (f/2 ist die volle Öffnung des Doppel-Gauß). */
+    static final double[] BLENDEN = {2, 2.2, 2.5, 2.8, 3.2, 3.5, 4, 4.5, 5, 5.6, 6.3, 7.1, 8, 9, 10, 11, 13, 14, 16, 18, 20, 22};
+
+    static int blendeIndex(double n) {
+        int best = 0;
+        for (int i = 1; i < BLENDEN.length; i++) if (Math.abs(Math.log(BLENDEN[i] / n)) < Math.abs(Math.log(BLENDEN[best] / n))) best = i;
+        return best;
+    }
+
+    /** Fokusregler 0 … 100: 0,5 m bis 1 000 m (logarithmisch), 100 = ∞. */
+    static double fokusAus(int x) { return x >= 100 ? 1e5 : 0.5 * Math.pow(2000, x / 100.0); }
+
+    static int fokusWert(double m) { return m >= 1000 ? 100 : (int) Math.round(100 * Math.log(Math.max(0.5, m) / 0.5) / Math.log(2000)); }
+
+    /**
+     * Werkbuch Welle W9a: der Block KAMERA. Das Objektiv aus com.dan.lens (ein Doppel-Gauß, auf die Brennweite gebracht):
+     * Brennweite und Blende als Satz, Blende in Drittelstufen, Fokus von Hand oder aus der Bildmitte, Lamellen, die
+     * einzelnen Fehler, und die Belichtungszeit des Regens (bis W9c die Belichtung allen Lichts wird).
+     */
+    private void kamera() {
+        block("KAMERA", false);
+        com.dan.lens.Lens ob = r.objektiv;
+        FCheckBox obBox = new FCheckBox("Objektiv statt Lochkamera (im Kino immer)");
+        obBox.setSelected(r.objektivAn);
+        obBox.setToolTipText("Tiefenschärfe mit Bokeh, Schärfezieher, Reflexe und Stern der Sonne, Verzeichnung, Farbsäume, Randabfall (com.dan.lens)");
+        obBox.addActionListener(e -> { r.objektivAn = obBox.isSelected(); view.requestFocusInWindow(); });
+        put(obBox);
+        JLabel obLbl = small("");
+        put(obLbl);
+        put(label("Objektiv"));
+        String[] presets = {"Auge (23 mm, f/5,6)", "Weitwinkel 24 mm, f/8", "35 mm, f/4", "Normal 50 mm, f/2", "Porträt 85 mm, f/2", "Tele 135 mm, f/2,8", "Tele 200 mm, f/4", "Tele 400 mm, f/5,6"};
+        double[][] pv = {{0, 5.6}, {24, 8}, {35, 4}, {50, 2}, {85, 2}, {135, 2.8}, {200, 4}, {400, 5.6}};
+        FComboBox obPre = new FComboBox(presets);
+        obPre.setSelectedIndex(-1);
+        obPre.setToolTipText("Brennweite (Kleinbild, 24 mm Bildhöhe) und Blende als Satz; f/2 ist die volle Öffnung");
+        put(obPre);
+        JLabel blLbl = small("");
+        FSlider blSl = new FSlider(0, BLENDEN.length - 1, blendeIndex(ob.fNumber));
+        blSl.setToolTipText("Blende in Drittelstufen: offen wenig Schärfentiefe und das Katzenauge am Rand, abgeblendet ein Stern um die Sonne; die Belichtung bleibt (wie mit Graufilter)");
+        blSl.addChangeListener(e -> { ob.fNumber = BLENDEN[blSl.getValue()]; txt(blLbl, String.format(Locale.GERMAN, "Blende f/%.1f", ob.fNumber)); });
+        txt(blLbl, String.format(Locale.GERMAN, "Blende f/%.1f", ob.fNumber));
+        put(blLbl);
+        put(blSl);
+        obPre.addActionListener(e -> {
+            int i = obPre.getSelectedIndex();
+            if (i < 0) return;
+            r.brennweite = pv[i][0];
+            ob.fNumber = pv[i][1];
+            r.objektivAn = true;
+            obBox.setSelected(true);
+            blSl.setValue(blendeIndex(ob.fNumber));
+            view.requestFocusInWindow();
+        });
+        FCheckBox afBox = new FCheckBox("Autofokus (Bildmitte, mit Trägheit)");
+        afBox.setSelected(ob.autoFocus);
+        JLabel foLbl = small("");
+        FSlider foSl = new FSlider(0, 100, fokusWert(ob.focusM));
+        foSl.setToolTipText("Fokus von Hand, 0,5 m bis ∞ (der Schärfezieher führt nach, ohne Überschwingen)");
+        afBox.addActionListener(e -> { ob.autoFocus = afBox.isSelected(); r.fokusZiel = null; view.requestFocusInWindow(); });
+        foSl.addChangeListener(e -> {
+            ob.focusM = fokusAus(foSl.getValue());
+            if (foSl.getValueIsAdjusting()) { ob.autoFocus = false; afBox.setSelected(false); r.fokusZiel = null; }
+            txt(foLbl, ob.focusM >= 1e4 ? "Fokus ∞" : String.format(Locale.GERMAN, "Fokus %.1f m", ob.focusM));
+        });
+        txt(foLbl, String.format(Locale.GERMAN, "Fokus %.1f m", ob.focusM));
+        put(afBox);
+        put(foLbl);
+        put(foSl);
+        put(label("Blende"));
+        String[] lam = {"kreisrund", "5 gerade Lamellen (Stern mit 10)", "6 Lamellen", "7 gerade Lamellen (Stern mit 14)", "8 Lamellen, leicht gerundet", "9 Lamellen, gerundet", "11 Lamellen, gerundet", "16 Lamellen"};
+        double[][] lv = {{0, 1}, {5, 0}, {6, 0.15}, {7, 0}, {8, 0.35}, {9, 0.6}, {11, 0.7}, {16, 0.5}};
+        FComboBox lamBox = new FComboBox(lam);
+        lamBox.setSelectedIndex(4);
+        lamBox.addActionListener(e -> {
+            int i = lamBox.getSelectedIndex();
+            if (i < 0) return;
+            ob.aperture.blades = (int) lv[i][0];
+            ob.aperture.roundness = lv[i][1];
+            view.requestFocusInWindow();
+        });
+        put(lamBox);
+        JPanel f1 = grid(2), f2 = grid(2), f3 = grid(2);
+        FCheckBox geist = new FCheckBox("Reflexe"), stern = new FCheckBox("Stern"), verz = new FCheckBox("Verzeichnung"), farb = new FCheckBox("Farbsäume"),
+                rand = new FCheckBox("Randabfall"), schl = new FCheckBox("Schleierlicht");
+        Object[][] bind = {{geist, (Runnable) () -> ob.ghosts = geist.isSelected(), ob.ghosts}, {stern, (Runnable) () -> ob.star = stern.isSelected(), ob.star},
+                {verz, (Runnable) () -> ob.distortion = verz.isSelected(), ob.distortion}, {farb, (Runnable) () -> ob.chromatic = farb.isSelected(), ob.chromatic},
+                {rand, (Runnable) () -> ob.vignetting = rand.isSelected(), ob.vignetting}, {schl, (Runnable) () -> ob.glare = schl.isSelected(), ob.glare}};
+        for (Object[] b : bind) {
+            FCheckBox c = (FCheckBox) b[0];
+            c.setSelected((Boolean) b[2]);
+            c.addActionListener(e -> { ((Runnable) b[1]).run(); view.requestFocusInWindow(); });
+        }
+        geist.setToolTipText("45 Geisterbilder der Sonne aus allen Doppelspiegelungen, gefärbt durch die Vergütung (MgF₂, λ/4 bei 550 nm)");
+        stern.setToolTipText("Beugung an den geraden Kanten der Lamellen: je Kante ein Strahl, gerade Zahl n Strahlen, ungerade 2n");
+        f1.add(geist); f1.add(stern); f2.add(verz); f2.add(farb); f3.add(rand); f3.add(schl);
+        put(f1);
+        put(f2);
+        put(f3);
+        put(label("Verschluss (Regen)"));
+        String[] vs = {"1/30 s", "1/48 s (180° bei 24 B/s)", "1/60 s", "1/125 s", "1/250 s (Auge)", "1/500 s", "1/1000 s", "1/2000 s"};
+        double[] vv = {1 / 30.0, 1 / 48.0, 1 / 60.0, 1 / 125.0, 1 / 250.0, 1 / 500.0, 1 / 1000.0, 1 / 2000.0};
+        FComboBox vsBox = new FComboBox(vs);
+        vsBox.setSelectedIndex(4);
+        vsBox.setToolTipText("Belichtungszeit der Tropfen (W7b, WF26): lang wie ein Film zeigt Spuren, kurz die Form; ab W9c für alles Licht");
+        vsBox.addActionListener(e -> { int i = vsBox.getSelectedIndex(); if (i >= 0) r.wetterGl.verschluss = vv[i]; view.requestFocusInWindow(); });
+        put(vsBox);
+        put(small("<html><body style='width:215px'><b>Werkbuch Welle W9a.</b> Gerechnet aus einem Doppel-Gauß 50 mm f/2 (Tronnier, 10 Glasflächen, "
+                + "Gläser mit Dispersion, Vergütung MgF₂), auf die Brennweite gebracht: Schärfentiefe nach der dünnen Linse, das Bokeh in der Form der "
+                + "Blende mit dem Katzenauge der Fassungen zum Rand, hinter dem Fokus helle Ränder und davor ein weicher Kern (sphärische Aberration "
+                + "aus echten Strahlen), Farbsäume, Fokusatmung, die Reflexe und der Stern der Sonne. Regiebuch: „objektiv 85 2,8“, „blende 11“, "
+                + "„fokus auto“, „fokus 12“, „fokus Ort“. Taste F9: Bedienfeld weg und wieder da.</body></html>"));
+        new javax.swing.Timer(400, e -> {
+            if (!isShowing()) return;
+            txt(obLbl, "<html><body style='width:215px'>" + esc(r.objektivLine()) + "</body></html>");
+            if (obBox.isSelected() != r.objektivAn) obBox.setSelected(r.objektivAn);
+            if (afBox.isSelected() != ob.autoFocus) afBox.setSelected(ob.autoFocus);
+        }).start();
+    }
 
     // ------------------------------------------------------------ Aufbau
 

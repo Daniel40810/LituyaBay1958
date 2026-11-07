@@ -12,6 +12,7 @@ uniform float uScotopic;
 uniform int uFxaa;
 uniform float uBloom;     // W1: Glühen um Helles aus den Mip-Stufen 2–6 des Bilds (nur mit Kantenglättung, die die Stufen baut)
 uniform vec2 uTexel;
+uniform float uRand = 1.0;  // W9a: Randabdunklung als Formel (0 mit dem Objektiv: dann aus den Fassungen, com.dan.lens)
 
 vec3 aces(vec3 x) {
     const float a = 2.51, b = 0.03, c = 2.43, d = 0.59, e = 0.14;
@@ -32,7 +33,7 @@ vec3 tone(vec2 uv) {
     float lum = dot(hdr, vec3(0.2126, 0.7152, 0.0722));
     hdr = mix(hdr, ys * vec3(0.62, 0.78, 1.08), uScotopic * (1.0 - smoothstep(0.12, 0.7, lum)));
     vec2 q = uv - 0.5;
-    hdr *= 1.0 - 0.22 * dot(q, q);
+    hdr *= 1.0 - 0.22 * uRand * dot(q, q);
     return pow(aces(hdr), vec3(1.0 / 2.2));
 }
 

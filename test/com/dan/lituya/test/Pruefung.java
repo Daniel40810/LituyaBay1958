@@ -1349,6 +1349,31 @@ public final class Pruefung {
         for (int i = 0; i < 4 && rv.running(); i++) rv.step(1, cv);
         check(vz[0] && vz[1] && Math.abs(com.dan.lituya.scene.Regie.belichtung("1/250") - 0.004) < 1e-12,
                 "W7b (WF26): Regiebefehle „verschluss 1/2000“ und „zeitlupe 0,05“; die Belichtung des Regens ist 1/250 s wie das Auge");
+        // Werkbuch Welle W9a: das Objektiv (com.dan.lens) im Regiebuch und in der Optik
+        String[] ob = new String[3];
+        double[] obN = {Double.NaN};
+        com.dan.lituya.scene.Regie.Ctx co = (com.dan.lituya.scene.Regie.Ctx) java.lang.reflect.Proxy.newProxyInstance(Pruefung.class.getClassLoader(), new Class<?>[]{com.dan.lituya.scene.Regie.Ctx.class},
+                (o, m, args) -> {
+                    if (m.getName().equals("ready")) return true;
+                    if (m.getName().equals("objektiv")) ob[0] = (String) args[0];
+                    if (m.getName().equals("fokus")) ob[1] = (String) args[0];
+                    if (m.getName().equals("blende")) obN[0] = (Double) args[0];
+                    return null;
+                });
+        com.dan.lituya.scene.Regie ro = new com.dan.lituya.scene.Regie();
+        ro.start(com.dan.lituya.scene.Regie.parse("Regiebuch: O\n0:00 objektiv 85 2,8\n0:00 blende f/11\n0:00 fokus Cenotaph Island\n0:01 blatt\n"), co);
+        for (int i = 0; i < 4 && ro.running(); i++) ro.step(1, co);
+        boolean obFalsch = false;
+        try { com.dan.lituya.scene.Regie.parse("Regiebuch: X\n0:00 blende 0,5\n"); } catch (IllegalArgumentException e) { obFalsch = e.getMessage().startsWith("Zeile 2"); }
+        check("85 2,8".equals(ob[0]) && "Cenotaph Island".equals(ob[1]) && obN[0] == 11 && obFalsch, "W9a: Regiebefehle „objektiv 85 2,8“, „blende f/11“, „fokus Ort“; „blende 0,5“ abgewiesen");
+        com.dan.lens.Lens ln = new com.dan.lens.Lens();
+        ln.focalMm = 12.0 / Math.tan(Math.toRadians(com.dan.lituya.camera.Camera.FOVY) / 2);
+        com.dan.lens.Lens.Optics lo = ln.optics(1e5);
+        boolean endlich = !Double.isNaN(lo.efl()) && lo.ghostCount() == 45 && lo.relIllum()[16] > 0.05 && lo.relIllum()[16] <= 1;
+        for (double v : lo.distortion()) endlich &= !Double.isNaN(v) && v > 0.9 && v < 1.1;
+        check(endlich, f("W9a: Objektiv mit dem Bildwinkel der App (%.1f mm, f/%.1f): 45 Geisterbilder, Randabfall %.2f, Verzeichnung am Rand %.1f %%", lo.efl(), lo.fNumber(),
+                lo.relIllum()[16], 100 * (lo.distortion()[16] - 1)));
+        check(java.util.Arrays.asList(com.dan.lituya.ui.ControlPanel.REIHENFOLGE).indexOf("KAMERA") == 1, "W9a: Bedienfeld mit Block KAMERA nach ANSICHT");
     }
 
     static void sicht17(File daten) throws Exception {

@@ -64,6 +64,10 @@ public final class Regie {
         /** Werkbuch Welle W7b: Belichtungszeit des Regens in s (1/250 wie das Auge) und Zeitmaß des Regens (1 Echtzeit, unter 1 Zeitlupe). */
         default void verschluss(double sekunden) { }
         default void zeitlupe(double mass) { }
+        /** Werkbuch Welle W9a: das Objektiv „an“, „aus“ oder „Brennweite [Blende]“; die Blende (f/N); der Fokus „auto“, Meter oder ein Ort. */
+        default void objektiv(String a) { }
+        default void blende(double fNumber) { }
+        default void fokus(String a) { }
         /** Ob die Szene so weit ist (für {@code warte}). */
         boolean ready(Warte w);
         void capture(String caption);
@@ -221,7 +225,8 @@ public final class Regie {
 
     /** Die Befehle der Stichworte (klein geschrieben im Text). */
     public static final List<String> BEFEHLE = List.of("zeit", "ereignis", "raffer", "zeitstand", "jahre", "ansicht", "schaustueck", "fahrt", "mitfahrt",
-            "netzblick", "echtzeit", "regen", "warte", "foto", "blatt", "sage", "flug", "wetter", "verschluss", "zeitlupe");
+            "netzblick", "echtzeit", "regen", "warte", "foto", "blatt", "sage", "flug", "wetter", "verschluss", "zeitlupe",
+            "objektiv", "blende", "fokus");
 
     /** W7b: Belichtungszeit „1/250“ oder „0,004“ in s (zwischen 1/20000 und 1 s). */
     public static double belichtung(String a) {
@@ -266,6 +271,10 @@ public final class Regie {
                     if (z.befehl().equals("zeit")) day[0] = datum(z.argumente().split("\\s+")[0]);
                     if (z.befehl().equals("wetter") && Wetterlage.byName(z.argumente().replaceAll("\\s+[0-9]+([.,][0-9]+)?$", "").trim()) == null)
                         throw new IllegalArgumentException("wetter: keine Lage „" + z.argumente() + "“");   // W7
+                    if (z.befehl().equals("blende")) {   // W9a
+                        double bn = Double.parseDouble(z.argumente().trim().toLowerCase(Locale.ROOT).replaceFirst("^f/", "").replace(',', '.'));
+                        if (bn < 1 || bn > 64) throw new IllegalArgumentException("blende 1 … 64 erwartet (f/N)");
+                    }
                     if (z.befehl().equals("warte")) warten.add(warte(z.argumente(), day[0]));
                     else warten.add(null);
                     zeilen.add(z);
@@ -448,6 +457,13 @@ public final class Regie {
             }
             case "regen": { double v = Double.parseDouble(a); return x -> x.regen(v); }
             case "verschluss": { double v = belichtung(a); return x -> x.verschluss(v); }   // W7b: „verschluss 1/250“ oder in s
+            case "objektiv": { need(a, "objektiv an|aus|Brennweite [Blende]"); return x -> x.objektiv(a); }   // W9a
+            case "blende": {
+                double v = Double.parseDouble(a.trim().toLowerCase(java.util.Locale.ROOT).replaceFirst("^f/", "").replace(',', '.'));
+                if (v < 1 || v > 64) throw new IllegalArgumentException("blende 1 … 64 erwartet (f/N)");
+                return x -> x.blende(v);
+            }
+            case "fokus": { need(a, "fokus auto|Meter|Ort"); return x -> x.fokus(a); }
             case "zeitlupe": { double v = Double.parseDouble(a.trim().replace(',', '.')); return x -> x.zeitlupe(Math.max(1e-3, Math.min(1, v))); }
             case "wetter": {
                 // W7: „wetter kuestennebel 30“ = Lage, Übergang in Minuten (ohne: wie eingestellt)
