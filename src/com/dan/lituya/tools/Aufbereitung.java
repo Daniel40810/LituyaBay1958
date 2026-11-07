@@ -51,33 +51,34 @@ public final class Aufbereitung {
         boolean braucheRoh = s.contains("gelaende") || s.contains("grund") || s.contains("herkunft") || s.contains("texturen") || s.contains("stoerung") || s.contains("wald") || s.contains("wasser") || s.contains("klassen");
         if (braucheRoh && !r.roh.isDirectory()) throw new java.io.IOException("Kartenmaterial nicht gefunden: " + r.roh.getAbsolutePath()
                 + " (Pfad in daten/rohdaten.properties oder -Drohdaten=…)");
+        // W9c Runde 2b („Speicher“): je Schritt, wie viel Heap er brauchte und was das System noch zusagt
+        Speicher.an();
+        r.log("  Speicher: %s", Speicher.system());
+        String warn = Speicher.warnung();
+        if (warn != null) r.log("  %s", warn);
+        final int fd = faeden;
         try {
             if (s.contains("gelaende"))
-                for (Stufe st : new Stufe[]{Stufe.FERN, Stufe.SZENE, Stufe.KERN}) {
-                    r.log("--- gelaende %s (%s m, %d Kacheln)", st, Gelaende.fmt(st.zelle), st.nx() * st.ny());
-                    Gelaende.stufe(st, r, neu, faeden);
-                }
+                for (Stufe st : new Stufe[]{Stufe.FERN, Stufe.SZENE, Stufe.KERN})
+                    lauf(r, String.format(Locale.ROOT, "gelaende %s (%s m, %d Kacheln)", st, Gelaende.fmt(st.zelle), st.nx() * st.ny()), () -> Gelaende.stufe(st, r, neu, fd));
             // W9c Runde 2 („Schwebe“): die gröberen Stufen, wo die feinere liegt, als ihr Mittel; nach jedem gelaende
-            if (s.contains("angleich") || (s.contains("gelaende") && !Boolean.getBoolean("lituya.ohneAngleich"))) {
-                r.log("--- angleich");
-                Angleich.rechnen(r, faeden);
-            }
-            if (s.contains("grund")) { r.log("--- grund"); Grund.rechnen(r); }
-            if (s.contains("namen")) { r.log("--- namen"); Namen.rechnen(r, new File("geodaten/namen_szene.geojson")); }
-            if (s.contains("welle")) { r.log("--- welle"); Welle.rechnen(r); }
-            if (s.contains("ufer")) { r.log("--- ufer"); Ufer.rechnen(r); }
-            if (s.contains("see")) { r.log("--- see"); See.rechnen(r); }
-            if (s.contains("wasser")) { r.log("--- wasser"); Wasser.rechnen(r); }
-            if (s.contains("stoerung")) { r.log("--- stoerung"); Stoerung.rechnen(r); }
-            if (s.contains("texturen")) { r.log("--- texturen"); Texturen.rechnen(r, neu); }
-            if (s.contains("herkunft")) { r.log("--- herkunft"); Herkunft.rechnen(r); }
-            if (s.contains("wald")) { r.log("--- wald"); Wald.rechnen(r); }
-            if (s.contains("klassen")) { r.log("--- klassen"); Klassen.rechnen(r); }
-            if (s.contains("weg")) { r.log("--- weg"); Weg.rechnen(r); }
-            if (s.contains("landflucht")) { r.log("--- landflucht"); Landflucht.rechnen(r); }
-            if (s.contains("sicht")) { r.log("--- sicht"); Sicht.rechnen(r); }
-            if (s.contains("bilder")) { r.log("--- bilder"); Pruefbilder.alle(daten, new File("docs/status"), r); }
-            if (s.contains("inhalt")) { r.log("--- inhalt"); inhalt(r); }
+            if (s.contains("angleich") || (s.contains("gelaende") && !Boolean.getBoolean("lituya.ohneAngleich"))) lauf(r, "angleich", () -> Angleich.rechnen(r, fd));
+            if (s.contains("grund")) lauf(r, "grund", () -> Grund.rechnen(r));
+            if (s.contains("namen")) lauf(r, "namen", () -> Namen.rechnen(r, new File("geodaten/namen_szene.geojson")));
+            if (s.contains("welle")) lauf(r, "welle", () -> Welle.rechnen(r));
+            if (s.contains("ufer")) lauf(r, "ufer", () -> Ufer.rechnen(r));
+            if (s.contains("see")) lauf(r, "see", () -> See.rechnen(r));
+            if (s.contains("wasser")) lauf(r, "wasser", () -> Wasser.rechnen(r));
+            if (s.contains("stoerung")) lauf(r, "stoerung", () -> Stoerung.rechnen(r));
+            if (s.contains("texturen")) lauf(r, "texturen", () -> Texturen.rechnen(r, neu));
+            if (s.contains("herkunft")) lauf(r, "herkunft", () -> Herkunft.rechnen(r));
+            if (s.contains("wald")) lauf(r, "wald", () -> Wald.rechnen(r));
+            if (s.contains("klassen")) lauf(r, "klassen", () -> Klassen.rechnen(r));
+            if (s.contains("weg")) lauf(r, "weg", () -> Weg.rechnen(r));
+            if (s.contains("landflucht")) lauf(r, "landflucht", () -> Landflucht.rechnen(r));
+            if (s.contains("sicht")) lauf(r, "sicht", () -> Sicht.rechnen(r));
+            if (s.contains("bilder")) lauf(r, "bilder", () -> Pruefbilder.alle(daten, new File("docs/status"), r));
+            if (s.contains("inhalt")) lauf(r, "inhalt", () -> inhalt(r));
             r.log("=== fertig in %.1f min", (System.nanoTime() - t0) / 60e9);
         } catch (Exception e) {
             r.log("FEHLER: %s", e);
@@ -85,6 +86,18 @@ public final class Aufbereitung {
         } finally {
             r.schliessen();
         }
+    }
+
+    /** Ein Schritt der Aufbereitung. */
+    interface Schritt { void run() throws Exception; }
+
+    /** „--- name“, der Schritt, danach Dauer und Speicher (W9c Runde 2b). */
+    static void lauf(Rohdaten r, String name, Schritt x) throws Exception {
+        r.log("--- %s", name);
+        Speicher.neu();
+        long t = System.nanoTime();
+        x.run();
+        r.log("    %s: %.0f s · %s", name.split(" ")[0], (System.nanoTime() - t) / 1e9, Speicher.stand());
     }
 
     /** Schreibt daten/INHALT.txt: je Datei Größe und SHA-256 (ohne Protokoll, Rohdatenpfad und INHALT selbst). */
