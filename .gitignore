@@ -23,3 +23,8 @@ __pycache__/
 /start.cmd
 /download.probe/
 /daten_vor_strand/
+# Sicherungen der Aufbereitung (-Dsicherung, ab W9c Runde 2): alte Kacheln, nur auf diesem Rechner
+/_sicherung/
+# Absturzprotokolle der JVM
+hs_err_pid*.log
+replay_pid*.log

@@ -82,6 +82,8 @@ public final class Regie {
          */
         default void bildrate(double fps) { }
         default void umlaufblende(double grad) { }
+        /** Werkbuch Welle W9c Runde 2 (W7e): Tropfen auf der Linse: „20“ (mm/h Regen auf die Linse), „wetter“, „wischen“, „aus“. */
+        default void tropfen(String a) { }
         /** Ob die Szene so weit ist (für {@code warte}). */
         boolean ready(Warte w);
         void capture(String caption);
@@ -240,7 +242,7 @@ public final class Regie {
     /** Die Befehle der Stichworte (klein geschrieben im Text). */
     public static final List<String> BEFEHLE = List.of("zeit", "ereignis", "raffer", "zeitstand", "jahre", "ansicht", "schaustueck", "fahrt", "mitfahrt",
             "netzblick", "echtzeit", "regen", "warte", "foto", "blatt", "sage", "flug", "wetter", "verschluss", "zeitlupe",
-            "objektiv", "blende", "fokus", "film", "kopierlicht", "kopie", "bildrate", "umlaufblende");
+            "objektiv", "blende", "fokus", "film", "kopierlicht", "kopie", "bildrate", "umlaufblende", "tropfen");
 
     /** W9b: was „film“ kennt. */
     public static final List<String> FILME = List.of("an", "aus", "zeitstand", "5248", "vision3_250d", "vision3_500t");
@@ -307,7 +309,7 @@ public final class Regie {
                     if (z.befehl().equals("film") && !FILME.contains(z.argumente().trim().toLowerCase(Locale.ROOT)))   // W9b
                         throw new IllegalArgumentException("film " + String.join("|", FILME) + " erwartet");
                     if (z.befehl().equals("kopierlicht")) kopierlichtPruefen(z.argumente());
-                    if (z.befehl().equals("bildrate") || z.befehl().equals("umlaufblende")) handlung(z, "");   // W9c: mit der Zeile melden
+                    if (z.befehl().equals("bildrate") || z.befehl().equals("umlaufblende") || z.befehl().equals("tropfen")) handlung(z, "");   // W9c: mit der Zeile melden
                     if (z.befehl().equals("warte")) warten.add(warte(z.argumente(), day[0]));
                     else warten.add(null);
                     zeilen.add(z);
@@ -511,6 +513,13 @@ public final class Regie {
                 double v = Double.parseDouble(a.trim().replace("°", "").replace(',', '.'));
                 if (v <= 0 || v > 360) throw new IllegalArgumentException("umlaufblende 1 … 360 erwartet (Grad)");
                 return x -> x.umlaufblende(v);
+            }
+            case "tropfen": {   // W9c Runde 2 (W7e)
+                String tl = low.trim();
+                if (tl.equals("wetter") || tl.equals("an") || tl.equals("aus") || tl.equals("wischen")) return x -> x.tropfen(tl);
+                double v = Double.parseDouble(tl.replace("mm/h", "").trim().replace(',', '.'));
+                if (v < 0 || v > 200) throw new IllegalArgumentException("tropfen wetter|wischen|aus|0 … 200 (mm/h Regen auf die Linse) erwartet");
+                return x -> x.tropfen(String.valueOf(v));
             }
             case "kopie": {
                 double v = Double.parseDouble(a.trim().toLowerCase(Locale.ROOT).replaceFirst("\\s*jahre?$", "").replace(',', '.'));

@@ -241,10 +241,15 @@
         <!-- W6 Runde 8: alte Kacheln vor dem Überschreiben dorthin (leer: keine Sicherung); ohneStrand=true: Mischung wie vor Runde 8 -->
         <property name="sicherung" value=""/>
         <property name="ohneStrand" value="false"/>
+        <!-- W9c Runde 2: ohneAngleich=true: die Szene nicht aus dem Kern angleichen; szeneOhneLidar=true: Szene ohne Lidar (Stand bis W9c) -->
+        <property name="ohneAngleich" value="false"/>
+        <property name="szeneOhneLidar" value="false"/>
         <java classname="com.dan.lituya.tools.Aufbereitung" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="true">
             <jvmarg value="-Dstdout.encoding=UTF-8"/>
             <jvmarg value="-Dlituya.sicherung=${sicherung}"/>
             <jvmarg value="-Dlituya.ohneStrand=${ohneStrand}"/>
+            <jvmarg value="-Dlituya.ohneAngleich=${ohneAngleich}"/>
+            <jvmarg value="-Dlituya.szeneOhneLidar=${szeneOhneLidar}"/>
             <jvmarg value="-Djava.awt.headless=true"/>
             <jvmarg value="-Xmx24g"/>
             <jvmarg value="-Dneu=${neu}"/>

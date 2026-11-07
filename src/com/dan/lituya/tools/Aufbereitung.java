@@ -20,7 +20,8 @@ import java.util.Set;
  * was App, Netze und Prüfungen brauchen. Aufruf {@code ant aufbereitung} (alle Schritte) oder
  * {@code ant aufbereitung -Dschritte=gelaende+grund} (unter Windows trennt cmd.exe an Kommas: dann {@code "-Dschritte=gelaende,grund"} in Anführungszeichen); fertige Kacheln bleiben stehen, {@code -Dneu=true} rechnet sie neu.
  * <p>
- * Schritte in Phase 2: {@code gelaende} (Fern, Szene, Kern), {@code grund} (heute, 1926, 1940, 1959), {@code namen},
+ * Schritte in Phase 2: {@code gelaende} (Fern, Szene, Kern; seit W9c Runde 2 danach {@code angleich}, {@link Angleich}: Szene im
+ * Kern als Mittel des Kerns, Fern in der Szene als Mittel der Szene; auch allein), {@code grund} (heute, 1926, 1940, 1959), {@code namen},
  * {@code bilder} (Prüfbilder nach {@code docs/status/}), {@code inhalt} ({@code daten/INHALT.txt} mit SHA-256 je Datei).
  * Phase 3: {@code herkunft} (das Herkunftsnetz nach {@code daten/netz/herkunft/}, {@link Herkunft}). Phase 5: {@code texturen}
  * (die CC0-Sätze aus {@code download/texturen} gebacken nach {@code daten/texturen/}, {@link Texturen}). Phase 7a:
@@ -32,7 +33,7 @@ import java.util.Set;
 public final class Aufbereitung {
     private Aufbereitung() { }
 
-    public static final String[] SCHRITTE = {"gelaende", "grund", "namen", "welle", "ufer", "see", "wasser", "stoerung", "texturen", "herkunft", "wald", "klassen", "weg", "landflucht", "sicht", "bilder", "inhalt"};
+    public static final String[] SCHRITTE = {"gelaende", "angleich", "grund", "namen", "welle", "ufer", "see", "wasser", "stoerung", "texturen", "herkunft", "wald", "klassen", "weg", "landflucht", "sicht", "bilder", "inhalt"};
 
     public static void main(String[] a) throws Exception {
         File daten = new File(System.getProperty("lituya.daten", "daten"));
@@ -56,6 +57,11 @@ public final class Aufbereitung {
                     r.log("--- gelaende %s (%s m, %d Kacheln)", st, Gelaende.fmt(st.zelle), st.nx() * st.ny());
                     Gelaende.stufe(st, r, neu, faeden);
                 }
+            // W9c Runde 2 („Schwebe“): die gröberen Stufen, wo die feinere liegt, als ihr Mittel; nach jedem gelaende
+            if (s.contains("angleich") || (s.contains("gelaende") && !Boolean.getBoolean("lituya.ohneAngleich"))) {
+                r.log("--- angleich");
+                Angleich.rechnen(r, faeden);
+            }
             if (s.contains("grund")) { r.log("--- grund"); Grund.rechnen(r); }
             if (s.contains("namen")) { r.log("--- namen"); Namen.rechnen(r, new File("geodaten/namen_szene.geojson")); }
             if (s.contains("welle")) { r.log("--- welle"); Welle.rechnen(r); }

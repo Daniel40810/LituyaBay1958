@@ -751,6 +751,33 @@ public final class Pruefung {
                     double[] hafen = com.dan.lituya.scene.Site.fromUtm(352_000, 6_503_000);
                     wd.dichte(hafen[0], hafen[1], dd);
                     check(dd[0] + dd[1] + dd[2] == 0, "Dichte des Walds: kein Baum im Wasser der Bucht");
+                    // W9c Runde 2 („Schwebe“): die Szene im Kern ist das Mittel des Lidars, der Wald steht auf ihm
+                    if (!new File(daten, "gelaende/kern_0.5m/E344000_N6507000.r32").isFile()) hinweis("W9c Runde 2: Kern fehlt, Angleich nicht geprüft");
+                    else {
+                        com.dan.lituya.tools.Angleich.Vergleich vq = new com.dan.lituya.tools.Angleich.Vergleich(daten);
+                        java.util.Random rq = new java.util.Random(1958);
+                        double[][] kq = {{344_000, 6_507_000}, {345_000, 6_504_000}, {351_000, 6_500_000}, {354_000, 6_497_000}};
+                        double maxQ = 0;
+                        int nq = 0;
+                        java.util.List<Double> fuss = new java.util.ArrayList<>();
+                        for (double[] kk : kq)
+                            for (int q = 0; q < 150; q++) {
+                                double e = kk[0] + 20 + 960 * rq.nextDouble(), n = kk[1] + 20 + 960 * rq.nextDouble();
+                                double[] v = vq.zelle(e, n);
+                                if (Double.isNaN(v[0]) || Double.isNaN(v[1])) continue;
+                                maxQ = Math.max(maxQ, Math.abs(v[0] - v[1]));
+                                nq++;
+                                double[] sx = com.dan.lituya.scene.Site.fromUtm(e, n);
+                                wd.dichte(sx[0], sx[1], dd);
+                                if (dd[0] + dd[1] + dd[2] < 0.3) continue;
+                                fuss.add(wd.grundHeute(sx[0], sx[1]) - vq.kern(e, n));
+                            }
+                        java.util.Collections.sort(fuss);
+                        double fm = fuss.isEmpty() ? Double.NaN : fuss.get(fuss.size() / 2), f95 = fuss.isEmpty() ? Double.NaN : fuss.get((int) (fuss.size() * 0.95));
+                        check(nq > 500 && maxQ < 0.01, f("W9c Runde 2: Szene im Kern = Mittel des Lidars an %d Orten (größte Abweichung %.3f m; sonst ant aufbereitung -Dschritte=angleich)", nq, maxQ));
+                        check(fuss.size() > 200 && Math.abs(fm) < 0.2 && f95 < 1.0,
+                                f("W9c Runde 2: der Grund des Walds gegen das Lidar an %d Orten im Wald: Median %+.2f m, 95 %% %+.2f m (vorher IfSAR: Median +4,9 m)", fuss.size(), fm, f95));
+                    }
                 }
                 File tg = new File(daten, "ereignis/treibgut/staemme.tsv");
                 if (!tg.isFile()) hinweis("daten/ereignis/treibgut fehlt (ant treibgut1958): Treibgut übersprungen");
@@ -1453,6 +1480,45 @@ public final class Pruefung {
         f9.bildrateStellen(24);
         f9.verschlussStellen(1 / 96.0);
         check(Math.abs(f9.verschluss.angleDeg - 90) < 1e-9 && Math.abs(f9.regenVerschlussAuge - 1 / 96.0) < 1e-12, "W9c: „verschluss 1/96“ stellt die Umlaufblende auf 90° und den Regen ohne Film auf 1/96 s");
+        // Werkbuch Welle W9c Runde 2: Kino-Stufe mit Lichtern als Kreisen, Fehler des Objektivs je Teilbild, Tropfen auf der Linse
+        String[] tr = {null};
+        com.dan.lituya.scene.Regie.Ctx ct9 = (com.dan.lituya.scene.Regie.Ctx) java.lang.reflect.Proxy.newProxyInstance(Pruefung.class.getClassLoader(), new Class<?>[]{com.dan.lituya.scene.Regie.Ctx.class},
+                (o, m, args) -> {
+                    if (m.getName().equals("ready")) return true;
+                    if (m.getName().equals("tropfen")) tr[0] = tr[0] == null ? (String) args[0] : tr[0] + "|" + args[0];
+                    return null;
+                });
+        com.dan.lituya.scene.Regie r9b = new com.dan.lituya.scene.Regie();
+        r9b.start(com.dan.lituya.scene.Regie.parse("Regiebuch: T\n0:00 tropfen 20\n0:00 tropfen wischen\n0:01 blatt\n"), ct9);
+        for (int i = 0; i < 4 && r9b.running(); i++) r9b.step(1, ct9);
+        boolean trFalsch = false;
+        try { com.dan.lituya.scene.Regie.parse("Regiebuch: X\n0:00 tropfen 500\n"); } catch (IllegalArgumentException e) { trFalsch = e.getMessage().startsWith("Zeile 2"); }
+        check("20.0|wischen".equals(tr[0]) && trFalsch, f("W9c Runde 2: Regiebefehle „tropfen 20“, „tropfen wischen“ (%s); „tropfen 500“ abgewiesen", tr[0]));
+        check(f9.kinoLichter && f9.tropfenAn && f9.wald.kronendachHoch, "W9c Runde 2: Vorgaben – Lichter der Kino-Stufe als Kreise, Tropfen auf der Linse, Kronendach fern als Fläche");
+        com.dan.lituya.gl.LinseNass ln9 = new com.dan.lituya.gl.LinseNass();
+        ln9.befehl("20");
+        ln9.vorlauf(30, 0, 4, 1, 0, new double[]{0, 0, -1});
+        com.dan.lens.Lens lt = new com.dan.lens.Lens();
+        lt.background = false;
+        lt.focalMm = 200; lt.fNumber = 5.6;
+        float[] gt = ln9.gitter(lt.optics(10), 18.6, 2.39);
+        double[] mt = minMax(gt);
+        com.dan.lens.Lens lw = new com.dan.lens.Lens();
+        lw.background = false;
+        lw.focalMm = 18; lw.fNumber = 2.8;
+        com.dan.lens.Lens.Optics owt = lw.optics(10);
+        float[] gw = ln9.gitter(owt, 18.6, 2.39);
+        double[] mw = minMax(gw);
+        check(ln9.glas.count() > 10 && mt[0] > 0 && (mt[1] - mt[0]) < 0.2 * mt[1] && mw[1] > 2 * Math.max(mw[0], 1e-3) && owt.transverseMm().length == 33 && owt.pupilBehindFrontMm() > 3 && owt.pupilBehindFrontMm() < 60,
+                f("W9c Runde 2: 30 s Regen von 20 mm/h auf die Frontlinse: %s; beim Tele 200 mm %.3f … %.3f des Bündels unter Wasser (Schleier), beim Weitwinkel 18 mm %.3f … %.3f (Flecken); Pupille %.1f mm hinter der Frontlinse",
+                        ln9.glas.describe(), mt[0], mt[1], mw[0], mw[1], owt.pupilBehindFrontMm()));
+    }
+
+    static double[] minMax(float[] g) {
+        double lo = Double.MAX_VALUE, hi = -Double.MAX_VALUE;
+        if (g == null) return new double[]{0, 0};
+        for (float v : g) { lo = Math.min(lo, v); hi = Math.max(hi, v); }
+        return new double[]{lo, hi};
     }
 
     static void sicht17(File daten) throws Exception {
