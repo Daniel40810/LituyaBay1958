@@ -26,6 +26,7 @@
 5c. Die Bucht groß (Auftrag 07.11.: Spiegel, Kutter, Himmel, Möwen, Front, Treibholz, Hänge, Klang)
 5d. Das Kino groß (Auftrag 07.11.: Objektiv, Film, Belichtung, Führung, Ton, Startflug, „Die Welle“, Vorführung)
 5e. W1–W5 in Renderer (Auftrag 07.11.: `horizon`, `surge` und sechs erweiterte Packages, das Bild bleibt gleich)
+5f. W10 „Malweise“ (Auftrag 08.11.: die Szene nach Franz Gertsch, im Bedienfeld MALWEISE zuschaltbar)
 6. Inszenierung: neun Heldenbilder, Startflug, Kino
 7. Zwei Stufen: Echtzeit und Kino
 8. Phasen W0–W9
@@ -1024,6 +1025,58 @@ Protokoll `_transfer\w15\w1w5_pakete_log.txt`. **Abnahme:** vorher gegen nachher
 
 ---
 
+## 5f. W10 „Malweise“: die Szene nach Franz Gertsch (Auftrag 08.11.2026)
+
+**Auftrag** (Notiz am Ende von `templates/PhasenPlanGertsch.txt`): das Probe-Paket `com.dan.gertsch` (Renderer, Phasen 1–5) in LituyaBay1958 einbauen, mit denselben Baummodellen wie im Wald der App, **über das Menü zuschaltbar**.
+
+### 5f.1 Was gebaut ist
+
+| Was | Wo |
+|---|---|
+| **Block MALWEISE** im Bedienfeld (nach KAMERA). Art: „aus“, „Gertsch: der Wald ringsum“, „Gertsch als Holzschnitt“, „Holzschnitt der ganzen Szene“. Vorlage: Sommer, Herbst, Winter, Blätter, Gräser. Umkreis 20–90 m (Vorgabe 50), Unterwuchs an/aus, Ton des Holzschnitts der Szene. Knopf „In den Wald (bei Fish Lake, 1,8 m)“, Status. | `ui/ControlPanel.malweise()`, Hilfe (F1) |
+| **Brücke** Wald → `gertsch.Quelle`. Lituya zeichnet mit `ForestGpu`, nicht mit `Forest`, und dessen `culture().at(i, j, baum)` und `model(baum.type)` gaben die Modelle schon heraus. Jeder Baum wird wie in `forest.vert` gesetzt (Fuß, Drehung, Größe, Tönung) und auf seinen eigenen Grund gestellt (Höhengitter der Kultur). Je Blattstelle entsteht ein Büschel (der Fächer von `forest`), je Aststück ein Glied (Äste unter 1,5 cm fallen weg). Die Farben richten sich nach dem Tag (`Season`). Die nächsten Bäume kommen zuerst, höchstens 1,5 Mio. Büschel. | `gl/MalweiseGl.quelle` |
+| **Bezug:** Gertschs Kamera hat rechts = oben × vorn, die Szene ist rechtshändig (x Ost, y oben, z Süd). Beim Übertrag wird darum x gespiegelt; ohne das wäre das Bild seitenverkehrt. Geprüft an der Sonne aus WNW: Die Lichtseiten der Stämme liegen links, wie in der Szene. | `MalweiseGl` |
+| **Unterwuchs** aus `understory` (in der App bisher nicht gezeichnet), nach dem Licht unter dem Kronendach (Blattflächenindex 7 × Dichte des Walds). Farne bestehen aus einzelnen Fiedern (`Quelle.Blatt`), Moospolster und Nadelstreu sind liegende Büschel, die Teufelskeule hat Stiele und einen Schirm großer Blätter, Beerensträucher sind Büschel, Totholz ist ein liegendes Glied mit Moos. Dazu kommt ein **Teppich** aus Moos (zwei Töne) und orange-brauner Nadelstreu im Raster von 0,9 m. Ohne ihn war die untere Bildhälfte glatt. | `MalweiseGl.unterwuchs`, `farn`, `teppich` |
+| **Ausschnitt** im Hintergrund (Faden „Malweise“). Seine Mitte liegt 0,35 · Umkreis vor dem Auge. Neu gebaut wird nach 0,3 · Umkreis Weg, bei neuem Tag, neuem Umkreis, Unterwuchs an oder aus und neuen Zuständen des Walds (höchstens alle 3 s). Bis dahin malt der alte. Gemalt wird bis 120 m über Grund. Ohne Bäume im Umkreis oder höher zeichnet die Szene wie sonst, und das HUD sagt, warum. | `MalweiseGl.vorbereiten` |
+| **Licht und Wind** aus der Szene: die Sonne aus der Uhr (gespiegelt; unter dem Horizont bleibt nur der Himmel), Achsen und Schattenkarten neu ab 0,25° (`GertschGl.sonneGeaendert`, neu). Der Wind kommt aus der Verdrahtung (Kompass + 180°). | `MalweiseGl.zeichnen` |
+| **Im Renderer:** Bei „Gertsch …“ ersetzt das gemalte Bild die Szene (`malweiseBild`), danach kommt das HUD. Beim Holzschnitt der Szene wird das fertige Bild nach Filmkurve oder Film kopiert und gedruckt, vor Netzblick, Archiv und HUD. F12 fotografiert, was zu sehen ist. | `gl/Renderer` |
+| **Renderer.jar:** `Forest.model(TreeInstance)` (der Zugriff aus dem Plan, für den Wald auf dem Prozessor), `Licht.vorbereitenGl` (nur der Himmel; die Schattenkarte des Prozessors kostete bei einer Million Büscheln Sekunden und 36 MB), `GertschGl.sonneGeaendert`. `gertsch` steht in der Liste der gebrauchten Packages. | `forest`, `gertsch`, `tools/JarPruefung`, `app/Bibliothek` |
+| **Standbilder:** `Tempo` und die Bildbank kennen `malweise`, `vorlage`, `umkreis` und `unterwuchs`. Die Proben 1001–1007 stehen in `scene/aufnahmen_w10.txt`. | `tools/Tempo`, `tools/Bildbank` |
+
+### 5f.2 Gemessen (Radeon 680M, 1920 × 1080, Stufe Hoch)
+
+Ort wie Probe 939: xz −6500, −1500, Auge 1,8 m, Blick 090°, 35 mm, 9.7.1958 21:00.
+
+| | Bäume | Büschel | Glieder | Unterwuchs | gebaut | im Fluss |
+|---|---|---|---|---|---|---|
+| Gertsch, nur Bäume | 202 in 50 m | 1,50 Mio. | 318 099 | – | 1,3 s | 21,5 ms |
+| Gertsch mit Unterwuchs und Teppich | 202 | 1,51 Mio. | 318 437 | 2 531 Pflanzen, 117 126 Fiedern | 1,4 s | 27,8 ms |
+| Gertsch als Holzschnitt (nur Bäume) | 202 | 1,50 Mio. | 318 099 | – | 1,3 s | 26,7 ms |
+| H1 als Holzschnitt der Szene | – | – | – | – | – | 22,7 ms |
+
+Gegen die Vorlagen, gemessen mit `gertsch.Messung` (HIGH) wie in Phase 5:
+
+| | dunkler Grund | Median L* | Farbton | Akzente | Fleck hell D50 | Lücke dunkel D50 | senkrecht | Kohärenz |
+|---|---|---|---|---|---|---|---|---|
+| 21:00, nur Bäume (erste Probe, ohne Boden) | 34,6 % | 22,8 | 119° | 3,9 % | 2,44 % | 4,16 % | 61 % | 0,89 |
+| 1002 21:00, mit Unterwuchs und Teppich | 40,1 % | 28,9 | 115° | 0,0 % | 1,09 % | 1,95 % | 21 % | 0,68 |
+| 1003 15:00, mit Unterwuchs und Teppich | 48,5 % | 24,0 | 109° | 0,0 % | 0,92 % | 2,49 % | 8 % | 0,71 |
+| 1004 15:00, ohne Unterwuchs | 46,2 % | 27,9 | 112° | 0,0 % | 2,09 % | 3,28 % | 11 % | 0,87 |
+| 1007 heute 15:00, junger Wald am Sporn | 31,1 % | 28,4 | 124° | 0,1 % | 0,81 % | 1,61 % | 22 % | 0,66 |
+| Soll Sommer | 29,2 % | 31,9 | 125° | 0,5 % | 0,64 % | 1,17 % | 24 % | 0,50 |
+| Soll Blätter | 32,4 % | 33,4 | 118° | 1,7 % | 1,06 % | 1,97 % | 40 % | 0,69 |
+
+Mit dem Boden rücken Fleckgrößen, senkrechte Linien und Kohärenz an die Vorlagen heran. Nur mit Bäumen standen große glatte Flächen und viele senkrechte Stämme im Bild. Am nächsten an „Sommer“ liegt der junge Erlenwald am Sporn (1007). Die Bildzeiten auf dem Kontaktbogen `docs/bild/W10A` (82–137 ms) gelten nicht: Daneben lief die App auf derselben Grafikkarte. Gültig sind die Zeiten in der Tabelle oben (Tempo allein).
+
+**Ehrlich offen:**
+1. Im alten Wald ist das Bild zu dunkel (Grund 40–49 statt 29 %, Median 24–29 statt 31,9), und Akzente fehlen (0,0 statt 0,5 %): Die orange Streu ist zu selten und zu dunkel. Das ist die eigentliche Abstimmung W10a, gemessen an den Proben 1002–1007.
+2. Der Hang wird zur Ebene: Jeder Baum steht auf seinem eigenen Grund, das Auge auf dem seinen. Am Steilhang stehen die Bäume darum zu tief oder zu hoch zueinander (Grenze der Schnittstelle, `gertsch` Phase 5).
+3. Ein Ausschnitt deckt einen Kreis. Bei schneller Fahrt endet der Wald am Rand, bis der nächste fertig ist (1,4 s).
+4. Bartflechten (sie hängen an den Ästen), Bäche und Wasser fehlen in der Malweise. Die Zustände der Welle (gebrochen, entrindet, umgelegt) kommen mit, sind aber nicht eigens geprüft.
+5. Die Bedienung im Fenster habe ich nicht selbst geprüft (Zugriff abgelehnt). Geprüft sind Übersetzen, `ant pruefung`, Paketprüfung und die Standbilder über `Tempo` und die Bildbank.
+
+---
+
 ## 6. Inszenierung
 
 ### 6.1 Neun Heldenbilder (Abnahme jeder Phase)
@@ -1094,6 +1147,7 @@ Jede Phase beginnt mit dem Satz **„Danach siehst du …“** und endet mit ein
 | **W7h** | Klang | siehe 5b.1 | `soundscape` | Hörprobe Regen auf Wasser, Laub, Fels |
 | **W8** · W8a gebaut 07.11. (Runde 1) | Die Bucht · Phasen W8a–W8h in 5c.2 | die Front die Bucht hinab, ein Kutter reitet die Welle, Möwen fliehen, danach Treibholz und Dunst; dazu aus W7b (5b.4, zurückgestellt am 07.11.): die Zickzack-Kante im Spiegel bei rund 60 m, der bedeckte Himmel ohne Verlauf zum Horizont, die Kosten von Schichten und Vorhang, ein feines zweites Wellenfeld nah an der Kamera, der helle Fleck in 764 | E13, E14 | H7 aus dem Boot, H8 |
 | **W9** · Phasen W9a–W9h in 5d.2 · W9a und W9b auf der Radeon, W9c Runde 1 gebaut 07.11. | Kino | Startflug, Regiebuch „Die Welle“, Kinomodus, Film in 4K mit Klang, neue README-Bilder; das Bedienfeld gleitet zur Seite weg und klappt bei Bedarf wieder aus (gebaut in W9a, F9); dazu das Objektiv (W9a), der Film (W9b), die Kino-Stufe (W9c), die Führung (W9d), der Ton (W9e) | 6.2–6.4, 7, Klang | Film „Die Welle“ (90 s), alle Heldenbilder |
+| **W10** · gebaut 08.11. (5f) | Malweise | im Bedienfeld MALWEISE den Wald am Boden nach Franz Gertsch gemalt (dieselben Bäume, Unterwuchs, Tonstufen der Vorlage), als Holzschnitt, und jede Ansicht als Holzschnitt | `gertsch`, `forest`, `understory` | Proben 1001–1007 (`aufnahmen_w10.txt`); W10a: gegen die Vorlagen abstimmen |
 
 Reihenfolge nach WF3 A: erst scharf, dann Licht (es hebt alles), dann Wasser, dann die Welle in drei Schritten, dann Landschaft und Wetter, zum Schluss das Kino.
 
@@ -1184,6 +1238,7 @@ Je Frage Möglichkeiten, **A** ist die Empfehlung. „Alle A“ genügt.
 
 | Datum | Phase | Was | Bilder |
 |---|---|---|---|
+| 08.11.2026 | **W10 „Malweise“** (siehe 5f) | **Auftrag** „Für den Einbau in LituyaBay1958 … Bitte zuschaltbar machen, so dass ich Effekt über Menu wählen kann.“ **Danach siehst du:** im Bedienfeld den Block MALWEISE. Mit „Gertsch: der Wald ringsum“ und „In den Wald“ ist der alte Wald am Boden Fleck für Fleck in den Tonstufen von Gertschs „Sommer“ gemalt, mit Farnen, Moos, Streu und Totholz. Als Holzschnitt ist er in Punkten gedruckt, und jede Ansicht lässt sich als Holzschnitt zeigen.<br>• **Renderer.jar:** `Forest.model(TreeInstance)`, `gertsch.Licht.vorbereitenGl`, `GertschGl.sonneGeaendert`.<br>• **LituyaBay1958:** `gl/MalweiseGl` (Brücke `ForestGpu` und `understory` → `Quelle`), `Renderer.malweiseBild`, Holzschnitt nach der Nachbearbeitung, Block MALWEISE, `Tempo`/Bildbank `malweise`, `vorlage`, `umkreis`, `unterwuchs`.<br>• **Gemessen:** 202 Bäume in 50 m, 1,51 Mio. Büschel, 2 531 Pflanzen, gebaut in 1,4 s, 27,8 ms je Bild; Fleckgrößen nahe der Vorlage, zu dunkel, ohne Akzente (5f.2). | `docs/bild/W10A` (Proben 1001–1007) |
 | 07.11.2026 | **W1–W5 in Renderer** (siehe 5e) | **Auftrag** „… W1 - W5 auch in Packages in Renderer herausziehen, in der selben Art und Weise, wie wir es ab W6 gemacht haben … Los!“ **Danach siehst du:** dasselbe Bild; die Effekte aus W1 bis W5 kommen aus `Renderer.jar`.<br>• **Renderer:** neu `com.dan.horizon` (Horizontkarten, Bergschatten, Alpenglühen, Luftperspektive, Himmelslicht) und `com.dan.surge` (Flutkarte, Front, Oberfläche der Welle, Gischt, Lippe mit Vorhang und Tropfen, Schleier), je mit Demo, Check, README und Bild; erweitert `exposure` (Vorbelichtung, Glühen), `ocean` (Gletschermilch), `dustcloud` (Staub im Strahl, Fahne, Hochrechnen), `cliff` (abgeschürfter Hang, Stämme), `forest` (fallende Bäume), `clipmap` (Mitte beim Tele). Paketprüfung: 75 unabhängig.<br>• **LituyaBay1958:** nimmt alles aus `Renderer.jar`; Lichtvertrag `paketlicht.glsl`; 2 511 Zeilen weniger, 13 Shader und `LippeGl`, `KnickGl` entfallen; `welle.frag` 420 → 76 Zeilen.<br>• **Geprüft hier:** alle Shader alt gegen neu auf Mesa Bit für Bit gleich (Gletschermilch 3 · 10⁻⁷), die Rechnung auf dem Prozessor alt gegen neu bis aufs Bit gleich (31 Prüfungen), Prüfung mit denselben Meldungen wie vorher.<br>• **Auf der Radeon:** `w1w5_pakete.cmd` (Heldenbilder vorher mit den alten Jars, nachher, `tools/BildVergleich.java`) | `PAKETE_VORHER`, `PAKETE`, `PAKETE_VORHER2` |
 | 07.11.2026 | **W9c Runde 2b „Speicher“** (siehe 5d.8) | **Auftrag** „… warum der Speicher ausging, und mache den Schritt sparsamer. Los!“ **Danach siehst du:** die Aufbereitung von W9c Runde 2 läuft durch (Kern, Angleich, Wald, Inhalt) und damit alles, was 5d.7 verspricht; im Protokoll je Schritt Dauer und Speicher.<br>• **Befund (gemessen):** Abbruch 15:55 im Kern bei 147 von 432 Kacheln. Windows konnte nichts mehr zusagen (Grenze 72,1 GB, die JVM 23,5 GB, die anderen Programme 48,6 GB); lebendig waren nur 8,6–9,8 GB, der Heap wuchs ohne Not.<br>• **Renderer:** `shore` `HydroFlat` (Quellen als byte, `attached` sparsam), `ShoreCheck` 16 von 16, README.<br>• **LituyaBay1958:** `Gelaende` je Kachel in Schritten ohne Kopien, Fäden nach dem Speicher; `StufenQuelle` begrenzt, `GeoTiff` höchstens ⅕ des Heaps, `Stufe` liest und schreibt stückweise; neu `Speicher`; `build.xml` `-Dspeicher=12g`; `w9c_runde2b.cmd` misst die freie Zusage und bricht bei Fehler ab.<br>• **Geprüft hier:** 20 Kacheln Kern und 2 Szene mit den echten Rohdaten, alt gegen neu Bit für Bit gleich; je Kachel rund 100 statt 250 MB, zugesagt halb so viel.<br>• **Ehrlich offen:** siehe 5d.8. | `_transfer/w9/w9c_runde2b_log.txt`; Bilder wie W9c Runde 2 | — |
 | 07.11.2026 | **W9c Runde 2 „Schwebe, Lichter, Tropfen“** (siehe 5d.7) | **Auftrag** „docs/status Schwebe_W09C.png bitte fixen. Bäume schweben. Noch offen: Rechenzeit … Kleine Lichter … Sphärische Aberration und Längsfarbfehler … Tropfen auf der Linse (W7e) … Los!“ **Danach siehst du:** die Bäume auf dem Boden, nah wie fern, heute und 1958; das Gelände hebt und senkt sich nicht mehr beim Näherkommen; in der Kino-Stufe glatte Lichter in der Form der Blende mit Ring, heller Mitte und Farbsäumen, 32 Teilbilder statt 64; Tropfen auf der Frontlinse im Regen (Tele Schleier, Weitwinkel Flecken, Leuchten in der Sonne).<br>• **Befund (gemessen):** Gelände nah aus dem Lidar 2019 (Clipmap bis 4 m), der Wald stand auf IfSAR 2012, das unter dichtem Wald im Median 4,9 m (Vorländer bis 24 m) zu hoch liegt; dazu 1958 am Rand des Rückbaus bis 14,5 m. Kino-Stufe auf der Radeon 1–3 s je Filmbild (921: 1 381 ms, 928 mit 128: 4 044 ms). FilmCheck 2 Fehler nur durch alte Konstanten in FilmCheck.class (jetzt `ant clean jar`).<br>• **Renderer:** `shutter` `Aberration` (sphärische Aberration, Längsfarbfehler je Teilbild als Versatz je Farbe), `ShutterGl` Lichter als ganze Kreise (`lights.comp`, `splat.vert/.frag`, `window.glsl`); `lens` `FrontDrops` (Tropfen auf der Frontlinse), `Optics.transverseMm`, `pupilBehindFrontMm`, `frontRadiusMm`, `lens.frag` Tropfen; `forest` `minGround`, `curvature`, `terrainChanged(Rechteck)`. READMEs fortgeschrieben.<br>• **LituyaBay1958:** Schritt `angleich` (Szene im Kern = Mittel des Lidars, Szene mit Lidar als erster Quelle, Fern = Mittel der Szene), `WaldGl` (Grund 1958 im Rückbau, kein Baum im Wasser, Erdkrümmung, Kronendach fern als Fläche), `LinseNass` (wetglass auf der Frontlinse), Regiebefehl `tropfen`, Bildbank `tropfen=`, `kinolichter=`, Kino-Stufe: Licht nur im ersten Teilbild, Zeit je Teilbild.<br>• **Geprüft hier:** ShutterCheck 20/20, LensCheck 33/33, ForestCheck, FilmCheck 26/26; Angleich an Probekacheln; Mesa: Lichter (Energie 498/500, Körnung 4,8 → 0,055), Ring gegen Rechnung 0,006, Farbsäume, Tropfen im Prüfbild.<br>• **Ehrlich offen:** siehe 5d.7 (angebissene Lichter, dichtes Glitzern, Koma, Tropfenform, 3 % Restschweben, Netze auf IfSAR, Wiederbewaldung neu abgeglichen [zu prüfen]). | `docs/bild/W9CP2V/`, `W9CP2/`, `W9C2/`, Karten `_transfer/w9/schwebe_*.png` | H1, H14 geändert (Lidar) |

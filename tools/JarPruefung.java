@@ -19,7 +19,9 @@ public final class JarPruefung {
     static final String[] GEBRAUCHT = {"wave", "fracture", "ice", "forest", "tree", "ocean", "sky", "cloud", "fog", "soundscape", "kino", "route",
             "surf", "spray", "buoyancy", "cliff", "tide", "wind", "weather", "rain", "flock", "seal", "figure", "smoke", "store", "ground",
             // 07.11.2026: W1–W5 aus der App herausgezogen
-            "horizon", "surge"};
+            "horizon", "surge",
+            // 08.11.2026: Werkbuch Welle W10, die Malweise nach Franz Gertsch
+            "gertsch"};
     /** Die neuen Packages mit ihrer Phase und der Prüfklasse (wie {@code app.Bibliothek.NEU}). */
     static final String[] NEU = {"clipmap", "surface", "understory", "scree", "netview", "quake", "landslide", "impact", "dustcloud", "debris",
             "succession", "vessel", "aurora", "bear"};
