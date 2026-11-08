@@ -238,6 +238,10 @@ public final class Tempo {
             }
             if (mu != null && !mu.isBlank()) r.malweise.umkreis = Double.parseDouble(mu.replace(',', '.'));
             if ("aus".equals(opt("unterwuchs"))) r.malweise.unterwuchs = false;
+            String fe = opt("ferne"), bu = opt("bueschel"), au = opt("ausloeschung");
+            if (au != null && !au.isBlank()) r.malweise.ausloeschung = Double.parseDouble(au.replace(',', '.'));
+            if (fe != null && !fe.isBlank()) r.malweise.ferne = Double.parseDouble(fe.replace(',', '.'));
+            if (bu != null && !bu.isBlank()) r.malweise.hoechstensBueschel = Integer.parseInt(bu.trim());
             if (r.malweise.art.gertsch()) {
                 long t0 = System.nanoTime();
                 while (!r.malweise.fertig() && System.nanoTime() - t0 < 300e9) { d.display(); Thread.sleep(100); }
@@ -245,7 +249,7 @@ public final class Tempo {
             }
         }
         for (int i = 0; i < 20; i++) { r.step(1 / 60.0); d.display(); }
-        if (r.malweise.art != com.dan.lituya.gl.MalweiseGl.Art.AUS) System.out.println("Malweise: " + r.malweise.status());
+        if (r.malweise.art != com.dan.lituya.gl.MalweiseGl.Art.AUS) System.out.println("Malweise: " + r.malweise.status() + " · Grenzen log2 Y " + java.util.Arrays.toString(r.malweise.grenzen()));
         // W5: die Grafikkarte die 20 Vorlaufbilder abarbeiten lassen. Ohne das wartete das erste gemessene Bild auf alle
         // (500–900 ms seit W5, als die Bilder teurer wurden) und hob das Mittel von 30 Bildern um 15–30 ms über das Übliche
         d.getContext().makeCurrent();

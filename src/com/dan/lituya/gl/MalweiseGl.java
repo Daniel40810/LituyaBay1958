@@ -48,8 +48,8 @@ import java.util.function.Supplier;
  * wie in {@code forest.vert} in die Welt gesetzt (Fuß, Drehung um die Senkrechte, Größe) und dann in den Bezug von
  * {@code gertsch} gebracht: Boden y = 0, die Mitte des Ausschnitts im Ursprung, x gespiegelt. Gertschs Kamera hat
  * „rechts = oben × vorn“, die Szene der App ist rechtshändig (x Ost, y oben, z Süd); ohne die Spiegelung stünde das Bild
- * seitenverkehrt. Jeder Baum steht auf seinem eigenen Grund (aus dem Höhengitter der Kultur): Gelände mit Höhen trägt die
- * Schnittstelle nicht, der Hang wird zur Ebene. Eine Blattstelle wird ein Büschel (Fächer von {@code forest}: Radius
+ * seitenverkehrt. Seit W10a geht das Höhengitter der Kultur als {@code gertsch.Gelaende} mit (tiefste Stelle auf y = 0): Bäume,
+ * Unterwuchs und Auge stehen auf ihrer echten Höhe. Eine Blattstelle wird ein Büschel (Fächer von {@code forest}: Radius
  * {@code cluster · 0,5 · (0,75 + 0,5 · tone)}), ein Stück Ast ein Glied; Äste dünner als {@link #MIN_AST} fallen weg.
  * <p>
  * Der Ausschnitt entsteht im Hintergrund und wird neu gebaut, wenn die Kamera aus seiner Mitte wandert, der Tag oder
@@ -110,6 +110,13 @@ public final class MalweiseGl {
     /** Umkreis des Ausschnitts (m) und höchstens so viele Büschel (die nächsten Bäume zuerst). */
     public volatile double umkreis = 50;
     public volatile int hoechstensBueschel = 1_500_000;
+    /**
+     * Auslöschung des Himmelslichts je Blattfläche im Dickicht (W10a; gertsch: 0,5). Die Bäume aus {@code forest} tragen
+     * für {@code gertsch} rund dreimal zu viel Blattfläche (jede Blattstelle mindestens drei Triebe von 40 cm): über dem
+     * Stammraum des alten Walds rund 29 m²/m² statt 6 bis 10 (understory, [G]). Mit 0,5 kam dort kein Himmelslicht an,
+     * die Hälfte des Bilds lag unter 2⁻²⁴ und fiel in die dunkelste Stufe. Mit k · LAI ≈ 0,45 · 8 wie im Regenwald.
+     */
+    public volatile double ausloeschung = 0.13;
     /** Den Unterwuchs aus {@code understory} mitmalen (Farne, Moos, Streu, Teufelskeule, Beeren, Totholz). */
     public volatile boolean unterwuchs = true;
     /** Ton des Holzschnitts der ganzen Szene: wie die Szene (LINEAR, Vorgabe) oder nach der Vorlage (sehr dunkel). */
@@ -136,14 +143,19 @@ public final class MalweiseGl {
         final Dickicht d;
         final com.dan.gertsch.Licht licht = new com.dan.gertsch.Licht();
         final double cx, cz, umkreis;
-        final int tag, version, baeume, bueschel, glieder, blaetter, pflanzen;
+        double ferne = 1;
+        final int tag, version, baeume, baeumeNah, bueschel, glieder, blaetter, pflanzen;
         final boolean unterwuchs;
+        /** Höhe der tiefsten Stelle (m über NAVD88) und Höhenunterschied im Ausschnitt (m). */
+        final float gRef, relief;
         double ms;
 
         Ausschnitt(Dickicht d, double cx, double cz, double umkreis, int tag, int version, WaldQuelle q, boolean unterwuchs) {
             this.d = d; this.cx = cx; this.cz = cz; this.umkreis = umkreis; this.tag = tag; this.version = version;
-            this.baeume = q.baeume; this.bueschel = q.bueschelZahl(); this.glieder = q.glieder(); this.blaetter = q.blaetter(); this.pflanzen = q.pflanzen;
+            this.baeume = q.baeume; this.baeumeNah = q.baeumeNah; this.bueschel = q.bueschelZahl(); this.glieder = q.glieder(); this.blaetter = q.blaetter(); this.pflanzen = q.pflanzen;
             this.unterwuchs = unterwuchs;
+            this.gRef = q.gRef;
+            this.relief = q.gel == null ? 0 : q.gel.max();
         }
     }
 
@@ -153,27 +165,41 @@ public final class MalweiseGl {
      * {@code max} Büschel. Farben nach dem Tag im Jahr wie im Wald der App ({@link Season}); die Tönung je Baum wie in
      * {@code forest.vert}. Ohne Grafikkarte (für Hintergrund und Prüfung).
      */
-    public static WaldQuelle quelle(ForestGpu f, double cx, double cz, double r, double ex, double ez, int max, int tag, boolean mitUnterwuchs) {
-        WaldQuelle q = baeume(f, cx, cz, r, ex, ez, max, tag);
+    public static WaldQuelle quelle(ForestGpu f, double cx, double cz, double r, double ferne, double ex, double ez, int max, int tag, boolean mitUnterwuchs) {
+        WaldQuelle q = new WaldQuelle();
+        q.gelaende(f.culture(), cx, cz, ferne * r + 12);
+        baeume(q, f, cx, cz, r, ferne * r, ex, ez, max, tag);
         if (mitUnterwuchs) unterwuchs(q, f.culture(), cx, cz, r);
         return q;
     }
 
-    static WaldQuelle baeume(ForestGpu f, double cx, double cz, double r, double ex, double ez, int max, int tag) {
+    /**
+     * Bis zu so vielen Umkreisen stehen hinter dem Umkreis noch Bäume, zusammengefasst (W10a). Ohne sie endete der Blick
+     * zwischen den Stämmen nach 50 m im leeren Grund: Die Tonstufe 0 deckte 37 bis 47 % des Bilds statt 29 % der Vorlage,
+     * weil die Rangregel jedem gezeichneten Fleck schon seinen Anteil gibt und der leere Grund obendrauf kommt.
+     */
+    public static final double FERNE = 2.5;
+    /** Ferne in Umkreisen (Vorgabe {@link #FERNE}; 1 = nur der Umkreis). */
+    public volatile double ferne = 1;
+    /** Hinter dem Umkreis: so viele Blattstellen eines Asts in einem Büschel, und Äste erst ab dieser Dicke (m). */
+    static final int ZUSAMMEN = 4;
+    static final double FERN_AST = 0.05;
+
+    static void baeume(WaldQuelle q, ForestGpu f, double cx, double cz, double r, double rFern, double ex, double ez, int max, int tag) {
         ForestCulture cu = f.culture();
         cu.minGround = (float) f.minGround;
         double sp = cu.spacing;
-        int i0 = (int) Math.floor((cx - r) / sp), i1 = (int) Math.floor((cx + r) / sp);
-        int j0 = (int) Math.floor((cz - r) / sp), j1 = (int) Math.floor((cz + r) / sp);
+        int i0 = (int) Math.floor((cx - rFern) / sp), i1 = (int) Math.floor((cx + rFern) / sp);
+        int j0 = (int) Math.floor((cz - rFern) / sp), j1 = (int) Math.floor((cz + rFern) / sp);
         List<ForestCulture.Tree> baeume = new ArrayList<>();
         for (int j = j0; j <= j1; j++)
             for (int i = i0; i <= i1; i++) {
                 ForestCulture.Tree t = new ForestCulture.Tree();
-                if (cu.at(i, j, t) && Math.hypot(t.x - cx, t.z - cz) <= r) baeume.add(t);
+                if (cu.at(i, j, t) && Math.hypot(t.x - cx, t.z - cz) <= rFern) baeume.add(t);
             }
         baeume.sort((a, b) -> Double.compare(Math.hypot(a.x - ex, a.z - ez), Math.hypot(b.x - ex, b.z - ez)));
-        WaldQuelle q = new WaldQuelle();
         q.bodenAlbedo = BODEN.clone();
+        float gy = q.gRef;   // seit dem Gelände: alles auf seiner Höhe über der tiefsten Stelle des Ausschnitts
         Map<Integer, Season> jahreszeit = new HashMap<>();
         float[] c3 = new float[3];
         for (ForestCulture.Tree t : baeume) {
@@ -181,32 +207,50 @@ public final class MalweiseGl {
             TreeModel m = f.model(t.type);
             Species art = m.species;
             Season se = jahreszeit.computeIfAbsent(t.type, k -> Season.of(art, tag, 0));
-            float gy = cu.height != null ? cu.height.sample(0, t.x, t.z) : t.y;
-            if (t.state == TreeStates.FELLED) gy = t.y;
             double c = Math.cos(t.yaw), s = Math.sin(t.yaw), k = t.scale;
             // die Tönung je Baum wie forest.vert: mix(vec3(0.84, 0.88, 0.86), vec3(1.14, 1.08, 0.96), tint)
             float tr = 0.84f + 0.30f * t.tint, tg = 0.88f + 0.20f * t.tint, tb = 0.86f + 0.10f * t.tint;
+            boolean fein = Math.hypot(t.x - cx, t.z - cz) <= r;
+            double minAst = fein ? MIN_AST : FERN_AST;
             for (TreeModel.Branch b : m.branches)
                 for (int n = 0; n + 1 < b.nodes(); n++) {
-                    if (b.level > 0 && k * Math.max(b.r[n], b.r[n + 1]) < MIN_AST) continue;
+                    if (b.level > 0 && (k * Math.max(b.r[n], b.r[n + 1]) < minAst || (!fein && b.level > 1))) continue;
                     double ax = b.x[n], az = b.z[n], bx = b.x[n + 1], bz = b.z[n + 1];
                     q.glied((float) -(t.x + k * (c * ax - s * az) - cx), (float) (t.y + k * b.y[n] - gy), (float) (t.z + k * (s * ax + c * az) - cz), (float) (k * b.r[n]),
                             (float) -(t.x + k * (c * bx - s * bz) - cx), (float) (t.y + k * b.y[n + 1] - gy), (float) (t.z + k * (s * bx + c * bz) - cz), (float) (k * b.r[n + 1]),
                             art.bark[0] * tr, art.bark[1] * tg, art.bark[2] * tb, b.level == 0);
                 }
-            if (se.foliage <= 0.02f) continue;
-            for (TreeModel.LeafSpot l : m.leaves) {
-                if (!se.evergreen && l.drop < se.drop) continue;   // schon gefallen
-                double rr = art.cluster * 0.5 * (0.75 + 0.5 * l.tone);
-                double lx = l.x + l.dx * rr * 0.5, ly = l.y + l.dy * rr * 0.5, lz = l.z + l.dz * rr * 0.5;
-                se.leafColor(art, l.tone, c3);
-                int n = (int) Math.max(3, Math.min(255, Math.round(0.55 * Math.PI * rr * rr / (0.7 * l.size * l.size * art.leafAspect))));
-                q.bueschel((float) -(t.x + k * (c * lx - s * lz) - cx), (float) (t.y + k * ly - gy), (float) (t.z + k * (s * lx + c * lz) - cz),
-                        (float) (k * rr), n, (float) (k * l.size), art.leafAspect, c3[0] * tr, c3[1] * tg, c3[2] * tb);
+            if (se.foliage > 0.02f) {
+                // nah: jede Blattstelle ein Büschel; dahinter je ZUSAMMEN Stellen desselben Asts in einem (Mitte, Farbe gemittelt,
+                // Radius so, dass die Fläche bleibt, Blätter √ZUSAMMEN-mal so lang, also gleiche Blattfläche mit weniger Blättern)
+                int gruppe = fein ? 1 : ZUSAMMEN, zahl = 0, ast = -1, blaetter = 0;
+                double sx = 0, sy = 0, sz = 0, sr2 = 0, sl = 0, fr = 0, fg = 0, fb = 0;
+                List<TreeModel.LeafSpot> stellen = m.leaves;
+                for (int li = 0; li <= stellen.size(); li++) {
+                    TreeModel.LeafSpot l = li < stellen.size() ? stellen.get(li) : null;
+                    if (l != null && !se.evergreen && l.drop < se.drop) continue;   // schon gefallen
+                    if (zahl > 0 && (l == null || zahl == gruppe || l.branch != ast)) {
+                        double rr = Math.sqrt(sr2), lang = sl / zahl * Math.sqrt(gruppe);
+                        int n = (int) Math.max(3, Math.min(255, Math.round(blaetter / (double) gruppe)));
+                        q.bueschel((float) -(t.x + k * (c * sx / zahl - s * sz / zahl) - cx), (float) (t.y + k * sy / zahl - gy), (float) (t.z + k * (s * sx / zahl + c * sz / zahl) - cz),
+                                (float) (k * rr), n, (float) (k * lang), art.leafAspect, (float) (fr / zahl) * tr, (float) (fg / zahl) * tg, (float) (fb / zahl) * tb);
+                        zahl = 0; blaetter = 0; sx = sy = sz = sr2 = sl = fr = fg = fb = 0;
+                    }
+                    if (l == null) break;
+                    double rr = art.cluster * 0.5 * (0.75 + 0.5 * l.tone);
+                    sx += l.x + l.dx * rr * 0.5; sy += l.y + l.dy * rr * 0.5; sz += l.z + l.dz * rr * 0.5;
+                    sr2 += rr * rr;
+                    sl += l.size;
+                    se.leafColor(art, l.tone, c3);
+                    fr += c3[0]; fg += c3[1]; fb += c3[2];
+                    blaetter += (int) Math.max(3, Math.min(255, Math.round(0.55 * Math.PI * rr * rr / (0.7 * l.size * l.size * art.leafAspect))));
+                    ast = l.branch;
+                    zahl++;
+                }
             }
             q.baeume++;
+            if (fein) q.baeumeNah++;
         }
-        return q;
     }
 
     /** Arten des Waldbodens aus {@code understory} (ohne Bartflechten: die hängen an den Ästen). */
@@ -250,33 +294,33 @@ public final class MalweiseGl {
                 double wx = o[i], wz = o[i + 2];
                 if (Math.hypot(wx - cx, wz - cz) > r) continue;
                 float x = (float) -(wx - cx), z = (float) (wz - cz), rot = o[i + 3], ton = 0.85f + 0.3f * o[i + 5];
-                float s = groesse[ki][v] * o[i + 4];
+                float s = groesse[ki][v] * o[i + 4], gy = q.grund(x, z);
                 java.util.SplittableRandom zr = new java.util.SplittableRandom(Float.floatToIntBits(o[i]) * 31L + Float.floatToIntBits(o[i + 2]));
                 // Richtung rot in der Szene (cos, sin) um die Senkrechte, gespiegelt wie alles andere
                 float dx = (float) -Math.cos(rot), dz = (float) Math.sin(rot);
                 switch (kind) {
-                    case MOSS -> q.bueschel(x, 0.12f * s, z, s / 2, anzahl(s / 2, 0.05f, 0.6f), 0.05f, 0.6f, 0.075f * ton, 0.13f * ton, 0.018f * ton, 8, true);
-                    case LITTER -> q.bueschel(x, 0.02f, z, s / 2, anzahl(s / 2, 0.05f, 0.35f), 0.05f, 0.35f, 0.10f * ton, 0.055f * ton, 0.025f * ton, 8, true);
-                    case FERN -> farn(q, x, z, s, rot, v % 2 == 0, ton, gruppe++, zr);
+                    case MOSS -> q.bueschel(x, gy + 0.12f * s, z, s / 2, anzahl(s / 2, 0.05f, 0.6f), 0.05f, 0.6f, 0.075f * ton, 0.13f * ton, 0.018f * ton, 8, true);
+                    case LITTER -> q.bueschel(x, gy + 0.02f, z, s / 2, anzahl(s / 2, 0.05f, 0.35f), 0.05f, 0.35f, 0.10f * ton, 0.055f * ton, 0.025f * ton, 8, true);
+                    case FERN -> farn(q, x, gy, z, s, rot, v % 2 == 0, ton, gruppe++, zr);
                     case BERRY -> {
-                        q.bueschel(x, 0.40f * s, z, 0.40f * s, anzahl(0.40f * s, 0.045f, 0.6f), 0.045f, 0.6f, 0.07f * ton, 0.165f * ton, 0.032f * ton, 35, false);
-                        q.bueschel(x, 0.78f * s, z, 0.28f * s, anzahl(0.28f * s, 0.045f, 0.6f), 0.045f, 0.6f, 0.07f * ton, 0.165f * ton, 0.032f * ton, 35, false);
+                        q.bueschel(x, gy + 0.40f * s, z, 0.40f * s, anzahl(0.40f * s, 0.045f, 0.6f), 0.045f, 0.6f, 0.07f * ton, 0.165f * ton, 0.032f * ton, 35, false);
+                        q.bueschel(x, gy + 0.78f * s, z, 0.28f * s, anzahl(0.28f * s, 0.045f, 0.6f), 0.045f, 0.6f, 0.07f * ton, 0.165f * ton, 0.032f * ton, 35, false);
                     }
                     case DEVILS_CLUB -> {
                         int stiele = 2 + zr.nextInt(3);
                         for (int c = 0; c < stiele; c++) {
                             double az = zr.nextDouble() * 2 * Math.PI, lean = Math.toRadians(8 + 28 * zr.nextDouble());
                             float h = s * (0.6f + 0.4f * (float) zr.nextDouble());
-                            float tx = x + (float) (Math.cos(az) * Math.sin(lean) * h), ty = (float) (Math.cos(lean) * h), tz = z + (float) (Math.sin(az) * Math.sin(lean) * h);
-                            q.glied(x, 0, z, 0.025f, tx, ty, tz, 0.015f, 0.16f * ton, 0.12f * ton, 0.07f * ton, false);
+                            float tx = x + (float) (Math.cos(az) * Math.sin(lean) * h), ty = gy + (float) (Math.cos(lean) * h), tz = z + (float) (Math.sin(az) * Math.sin(lean) * h);
+                            q.glied(x, gy, z, 0.025f, tx, ty, tz, 0.015f, 0.16f * ton, 0.12f * ton, 0.07f * ton, false);
                             q.bueschel(tx, ty, tz, 0.45f, 7, 0.32f, 0.95f, 0.055f * ton, 0.16f * ton, 0.025f * ton, 15, false);
                         }
                     }
                     case DEADWOOD -> {
                         float rad = 0.18f + 0.025f * s * 0.9f;
-                        q.glied(x, rad * 0.8f, z, rad, x + dx * s, rad * 0.8f * 0.75f, z + dz * s, rad * 0.75f, 0.085f * ton, 0.07f * ton, 0.055f * ton, false);
+                        q.glied(x, gy + rad * 0.8f, z, rad, x + dx * s, q.grund(x + dx * s, z + dz * s) + rad * 0.8f * 0.75f, z + dz * s, rad * 0.75f, 0.085f * ton, 0.07f * ton, 0.055f * ton, false);
                         for (float a = 0.5f; a < s; a += 1.2f)
-                            q.bueschel(x + dx * a, rad * 1.6f, z + dz * a, rad * 1.1f, anzahl(rad * 1.1f, 0.05f, 0.6f), 0.05f, 0.6f, 0.05f * ton, 0.11f * ton, 0.02f * ton, 8, true);
+                            q.bueschel(x + dx * a, q.grund(x + dx * a, z + dz * a) + rad * 1.6f, z + dz * a, rad * 1.1f, anzahl(rad * 1.1f, 0.05f, 0.6f), 0.05f, 0.6f, 0.05f * ton, 0.11f * ton, 0.02f * ton, 8, true);
                     }
                     default -> { }
                 }
@@ -285,6 +329,9 @@ public final class MalweiseGl {
         }
         teppich(q, cx, cz, r);
     }
+
+    /** Zelle des Geländes im Ausschnitt (m); das Höhengitter der Kultur hat rund 5,9 m. */
+    static final double GELAENDE_ZELLE = 1.0;
 
     /** Abstand des Teppichs aus Moos und Streu (m). */
     static final double TEPPICH = 0.9;
@@ -305,10 +352,10 @@ public final class MalweiseGl {
                 if (Math.hypot(wx - cx, wz - cz) > r) continue;
                 float rad = (float) (TEPPICH * (0.45 + 0.2 * v)), ton = (float) (0.8 + 0.4 * u);
                 float cr, cg, cb;
-                if (w < 0.16) { cr = 0.12f; cg = 0.065f; cb = 0.03f; }          // Nadelstreu
-                else if (w < 0.45) { cr = 0.035f; cg = 0.07f; cb = 0.014f; }    // Moos im Schatten
+                if (w < 0.22) { cr = 0.17f; cg = 0.065f; cb = 0.02f; }          // Nadelstreu, kräftig: bleibt auch im Schatten ein Akzent (W10a)
+                else if (w < 0.50) { cr = 0.035f; cg = 0.07f; cb = 0.014f; }    // Moos im Schatten
                 else { cr = 0.065f; cg = 0.115f; cb = 0.02f; }                  // Moos
-                q.bueschel((float) -(wx - cx), 0.03f, (float) (wz - cz), rad, anzahl(rad, 0.08f, 0.5f), 0.08f, 0.5f, cr * ton, cg * ton, cb * ton, 8, true);
+                q.bueschel((float) -(wx - cx), q.grund((float) -(wx - cx), (float) (wz - cz)) + 0.03f, (float) (wz - cz), rad, anzahl(rad, 0.08f, 0.5f), 0.08f, 0.5f, cr * ton, cg * ton, cb * ton, 8, true);
             }
     }
 
@@ -322,7 +369,7 @@ public final class MalweiseGl {
      * schmal, Frauenfarn hell), die zur Spitze kleiner werden. Die Spindel ist eine Bézierkurve vom Fuß über (0,35 s, 0,7 s)
      * zur Spitze (0,85 s, 0,25 s) in (nach außen, nach oben).
      */
-    static void farn(WaldQuelle q, float x, float z, float s, float rot, boolean schwert, float ton, int gruppe, java.util.SplittableRandom zr) {
+    static void farn(WaldQuelle q, float x, float gy, float z, float s, float rot, boolean schwert, float ton, int gruppe, java.util.SplittableRandom zr) {
         float cr = (schwert ? 0.028f : 0.06f) * ton, cg = (schwert ? 0.075f : 0.15f) * ton, cb = (schwert ? 0.018f : 0.028f) * ton;
         int wedel = 8 + zr.nextInt(5), paare = 9;
         for (int f = 0; f < wedel; f++) {
@@ -332,7 +379,7 @@ public final class MalweiseGl {
             float L = s * (0.8f + 0.25f * (float) zr.nextDouble());
             for (int k = 0; k < paare; k++) {
                 float t = 0.18f + 0.78f * k / (paare - 1), a = (1 - t) * (1 - t), b = 2 * t * (1 - t), c = t * t;
-                float rad = b * 0.35f * L + c * 0.85f * L, hoch = 0.04f + b * 0.7f * L + c * 0.25f * L;
+                float rad = b * 0.35f * L + c * 0.85f * L, hoch = gy + 0.04f + b * 0.7f * L + c * 0.25f * L;
                 // Tangente der Spindel (nach außen, nach oben)
                 float tr = 2 * (1 - t) * 0.35f * L + 2 * t * (0.85f - 0.35f) * L, th = 2 * (1 - t) * 0.7f * L + 2 * t * (0.25f - 0.7f) * L;
                 float lang = 0.17f * L * (1 - 0.55f * t), breit = lang * (schwert ? 0.28f : 0.40f);
@@ -358,8 +405,37 @@ public final class MalweiseGl {
         int[] blGruppe = new int[4096];
         boolean[] stamm = new boolean[4096];
         int nb, ng, nl;
-        public int baeume, pflanzen;
+        public int baeume, baeumeNah, pflanzen;
         float[] bodenAlbedo;
+        /** Das Gelände des Ausschnitts (im Bezug von gertsch) und die Höhe seiner tiefsten Stelle in der Szene (m). */
+        com.dan.gertsch.Gelaende gel;
+        float gRef;
+
+        /**
+         * Das Höhengitter der Kultur um (cx, cz) bis r als Gelände: Zellen zu {@link #GELAENDE_ZELLE}, x gespiegelt, die
+         * tiefste Stelle auf y = 0 (so liegt das Blattflächenfeld von gertsch ganz über dem Boden). Ohne Höhengitter: die Ebene.
+         */
+        void gelaende(ForestCulture cu, double cx, double cz, double r) {
+            if (cu.height == null) return;
+            int n = (int) Math.ceil(2 * r / GELAENDE_ZELLE) + 1;
+            float[] h = new float[n * n];
+            float min = Float.MAX_VALUE;
+            for (int j = 0; j < n; j++)
+                for (int i = 0; i < n; i++) {
+                    double xl = -r + i * GELAENDE_ZELLE, zl = -r + j * GELAENDE_ZELLE;
+                    float v = cu.height.sample(0, (float) (cx - xl), (float) (cz + zl));
+                    h[j * n + i] = v;
+                    min = Math.min(min, v);
+                }
+            for (int k = 0; k < h.length; k++) h[k] -= min;
+            gRef = min;
+            gel = new com.dan.gertsch.Gelaende(-r, -r, GELAENDE_ZELLE, n, n, h);
+        }
+
+        /** Höhe des Bodens im Bezug von gertsch bei (x, z) (0 ohne Gelände). */
+        float grund(float x, float z) { return gel == null ? 0 : gel.hoehe(x, z); }
+
+        @Override public com.dan.gertsch.Gelaende gelaende() { return gel; }
 
         void bueschel(float x, float y, float z, float radius, int blaetter, float laenge, float schmal, float r, float g, float b) {
             bueschel(x, y, z, radius, blaetter, laenge, schmal, r, g, b, 20, false);
@@ -455,16 +531,18 @@ public final class MalweiseGl {
             long jetztMs = System.currentTimeMillis();
             boolean mitUw = unterwuchs;
             boolean neu = jetzt == null || Math.hypot(cx - jetzt.cx, cz - jetzt.cz) > r * 0.3 || tag != jetzt.tag || Math.abs(r - jetzt.umkreis) > 0.5
-                    || mitUw != jetzt.unterwuchs || (ver != jetzt.version && jetztMs - letzterBau > 3000);
+                    || mitUw != jetzt.unterwuchs || ferne != jetzt.ferne || (ver != jetzt.version && jetztMs - letzterBau > 3000);
             if (neu && bau == null) {
                 final double fx = cx, fz = cz, ex = auge[0], ez = auge[2];
                 final int max = hoechstensBueschel;
+                final double fe = ferne;
                 letzterBau = jetztMs;
                 status = "Gertsch: der Ausschnitt wird gerechnet …";
                 bau = exec.submit(() -> {
                     long t0 = System.nanoTime();
-                    WaldQuelle wq = quelle(f, fx, fz, r, ex, ez, max, tag, mitUw);
+                    WaldQuelle wq = quelle(f, fx, fz, r, fe, ex, ez, max, tag, mitUw);
                     Ausschnitt a = new Ausschnitt(Dickicht.aus(wq), fx, fz, r, tag, ver, wq, mitUw);
+                    a.ferne = fe;
                     a.licht.vorbereitenGl(a.d);
                     a.ms = (System.nanoTime() - t0) / 1e6;
                     return a;
@@ -479,7 +557,8 @@ public final class MalweiseGl {
                 sonneGeladen[0] = Double.NaN;
             }
             if (jetzt == null) return false;
-            if (jetzt.baeume == 0) {
+            jetzt.licht.ausloeschung = ausloeschung;
+            if (jetzt.baeumeNah == 0) {
                 status = String.format(Locale.GERMAN, "Gertsch: kein Wald im Umkreis von %.0f m (Knopf „In den Wald“ im Bedienfeld MALWEISE)%s", jetzt.umkreis,
                         bau != null ? " · der nächste wird gerechnet" : "");
                 return false;
@@ -490,9 +569,9 @@ public final class MalweiseGl {
                 gg.sonneGeaendert();
                 System.arraycopy(zurSonne, 0, sonneGeladen, 0, 3);
             }
-            status = String.format(Locale.GERMAN, "Gertsch (%s): %d Bäume in %.0f m, %.2f Mio. Büschel, %d Glieder%s, gebaut in %.1f s%s",
-                    gg.vorlage.name, jetzt.baeume, jetzt.umkreis, jetzt.bueschel / 1e6, jetzt.glieder,
-                    jetzt.unterwuchs ? String.format(Locale.GERMAN, ", Unterwuchs %d Pflanzen (%d Fiedern)", jetzt.pflanzen, jetzt.blaetter) : "",
+            status = String.format(Locale.GERMAN, "Gertsch (%s): %d Bäume in %.0f m, %d dahinter bis %.0f m, %.2f Mio. Büschel, %d Glieder%s, gebaut in %.1f s%s",
+                    gg.vorlage.name, jetzt.baeumeNah, jetzt.umkreis, jetzt.baeume - jetzt.baeumeNah, jetzt.ferne * jetzt.umkreis, jetzt.bueschel / 1e6, jetzt.glieder,
+                    (jetzt.unterwuchs ? String.format(Locale.GERMAN, ", Unterwuchs %d Pflanzen (%d Fiedern)", jetzt.pflanzen, jetzt.blaetter) : "") + String.format(Locale.GERMAN, ", Gelände %.0f m Höhenunterschied", jetzt.relief),
                     jetzt.ms / 1000, bau != null ? " · der nächste wird gerechnet" : "");
             return true;
         } catch (Exception | Error e) {
@@ -524,7 +603,8 @@ public final class MalweiseGl {
         double asp = Math.round(w / (double) Math.max(1, h) * 100) / 100.0;
         gg.seitenverhaeltnis = asp;
         Kamera k = new Kamera();
-        k.auge = new double[]{-(auge[0] - a.cx), Math.max(0.3, auge[1] - grundAuge), auge[2] - a.cz};
+        double xl = -(auge[0] - a.cx), zl = auge[2] - a.cz;
+        k.auge = new double[]{xl, Math.max(a.d.bodenHoehe(xl, zl) + 0.3, auge[1] - a.gRef), zl};
         k.gier = Math.toDegrees(Math.atan2(-vorn[0], vorn[2]));
         k.neigung = Math.toDegrees(Math.asin(Math.max(-1, Math.min(1, vorn[1]))));
         k.bildwinkel = Math.toDegrees(2 * Math.atan(Math.tan(Math.toRadians(fovyDeg) / 2) * asp));
@@ -591,6 +671,9 @@ public final class MalweiseGl {
 
     /** Nach einem Fehler wieder versuchen (Bedienfeld: neue Wahl). */
     public void zuruecksetzen() { fehler = false; if (art == Art.AUS) status = "aus"; }
+
+    /** Grenzen der Tonbänder in log2 Y (für Prüfung und volles HUD); leer ohne Bild. */
+    public double[] grenzen() { return gg == null ? new double[0] : gg.grenzen(); }
 
     /** Zeit der Grafikkarte je Durchgang (ms) des Gertsch-Bilds, für das HUD; null ohne Bild. */
     public double[] zeiten() { return gg == null ? null : gg.zeiten(); }
