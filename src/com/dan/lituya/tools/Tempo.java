@@ -238,6 +238,7 @@ public final class Tempo {
             }
             if (mu != null && !mu.isBlank()) r.malweise.umkreis = Double.parseDouble(mu.replace(',', '.'));
             if ("aus".equals(opt("unterwuchs"))) r.malweise.unterwuchs = false;
+            if ("aus".equals(opt("rinde"))) r.malweise.rinde = false;
             String fe = opt("ferne"), bu = opt("bueschel"), au = opt("ausloeschung");
             if (au != null && !au.isBlank()) r.malweise.ausloeschung = Double.parseDouble(au.replace(',', '.'));
             if (fe != null && !fe.isBlank()) r.malweise.ferne = Double.parseDouble(fe.replace(',', '.'));

@@ -1456,7 +1456,7 @@ public final class Renderer implements GLEventListener {
         com.dan.forest.gl.ForestGpu f = wald.an ? wald.forest() : null;
         double g = malGrund(f);
         double[] sp = clock.sun();
-        if (!malweise.vorbereiten(gl, f, camera.eye, camera.fwd, g, clock.local().getDayOfYear(), Sun.direction(sp[0], sp[1]), quality)) return false;
+        if (!malweise.vorbereiten(gl, f, camera.eye, camera.fwd, g, clock.local().getDayOfYear(), Sun.direction(sp[0], sp[1]), quality, wiring.pegel)) return false;
         TEIL_UHR.use(gl);
         mark(gl, 0);
         teil("Malweise");
