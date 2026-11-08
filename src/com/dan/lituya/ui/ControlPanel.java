@@ -1181,12 +1181,17 @@ public final class ControlPanel extends JPanel implements javax.swing.Scrollable
         txt(umLbl, "Umkreis " + umSl.getValue() + " m");
         put(umLbl);
         put(umSl);
-        FCheckBox uwBox = new FCheckBox("Unterwuchs (understory): Farne, Moos, Streu, Totholz");
+        FCheckBox uwBox = new FCheckBox("Unterwuchs: Farne, Moos, Totholz");
         uwBox.setSelected(mw.unterwuchs);
         uwBox.setToolTipText("Der Boden des Küstenregenwalds aus com.dan.understory, nach Licht unter dem Kronendach: Farne aus einzelnen Fiedern, "
                 + "Moospolster und Nadelstreu, Teufelskeule, Beerensträucher, liegendes Totholz");
         uwBox.addActionListener(e -> { mw.unterwuchs = uwBox.isSelected(); view.requestFocusInWindow(); });
         put(uwBox);
+        FCheckBox riBox = new FCheckBox("Flechten auf Rinde und Ästen");
+        riBox.setSelected(mw.rinde);
+        riBox.setToolTipText("Krustenflechten und Moos auf den Stämmen, Bartflechten an den Ästen wie im Wald der App (W10b): das Licht auf den Stämmen zerfällt in Flecken");
+        riBox.addActionListener(e -> { mw.rinde = riBox.isSelected(); view.requestFocusInWindow(); });
+        put(riBox);
         FCheckBox tonBox = new FCheckBox("Holzschnitt der Szene: Ton nach der Vorlage");
         tonBox.setSelected(mw.tonSzene == com.dan.gertsch.Stich.Tonwerte.VORLAGE);
         tonBox.setToolTipText("Aus: der Ton folgt der Szene (liest sich bei hellem Himmel besser). An: Gertschs dunkle Verteilung, die Hälfte der Fläche fast ohne Papier");
@@ -1201,7 +1206,7 @@ public final class ControlPanel extends JPanel implements javax.swing.Scrollable
         put(stLbl);
         put(small("<html><body style='width:215px'><b>Werkbuch Welle W10.</b> Dieselben Bäume wie im Wald der App (Plätze, Arten, Modelle, Farben "
                 + "nach dem Tag) über die Schnittstelle Quelle in ein Dickicht von com.dan.gertsch: je Blattstelle ein Büschel, je Ast ein Glied, "
-                + "jeder Baum auf seinem Grund. Licht und Wind aus der Szene, die Tonstufen aus der Vorlage mit Hysterese, damit es im Wind nicht "
+                + "alles auf dem Gelände der Szene, Wasser unter dem Pegel, Flechten auf der Rinde. Licht und Wind aus der Szene, die Tonstufen aus der Vorlage mit Hysterese, damit es im Wind nicht "
                 + "flimmert. Der Holzschnitt druckt mit Punkten nach Rang auf eine Farbe. Taste F12: Foto wie sonst.</body></html>"));
         new javax.swing.Timer(500, e -> {
             if (!isShowing()) return;

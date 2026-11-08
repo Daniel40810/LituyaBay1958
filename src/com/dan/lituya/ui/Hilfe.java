@@ -156,7 +156,7 @@ public final class Hilfe {
         String[][] z = {
                 {"ANSICHT", "Ansichten, frei fliegen, kreisen, Fahrten über das Netz der Sicht"},
                 {"KAMERA", "Objektiv (Brennweite, Blende, Fokus, Reflexe), Verschluss, Film (Material, Kopierlicht, Korn, Halation)"},
-                {"MALWEISE", "die Szene nach Franz Gertsch: der Wald um die Kamera gemalt (dieselben Bäume, Unterwuchs aus understory), wahlweise als Holzschnitt, oder die ganze Szene als Holzschnitt; Vorlage, Umkreis, „In den Wald“"},
+                {"MALWEISE", "die Szene nach Franz Gertsch: der Wald um die Kamera gemalt (dieselben Bäume auf dem Gelände, Unterwuchs aus understory, Flechten auf der Rinde, Wasser unter dem Pegel), wahlweise als Holzschnitt, oder die ganze Szene als Holzschnitt; Vorlage, Umkreis, „In den Wald“"},
                 {"ZEIT", "Datum, Stunde, Zeitstand (vor, Welle, danach, heute), Tempo, Jahres-Zeitraffer"},
                 {"EREIGNIS", "die Nacht vom 9. Juli 1958: Beben, Sturz, Welle; Wiedergabe der vorgerechneten Läufe, Echtzeit „Was wäre wenn“, Schaustücke, Boote"},
                 {"NETZE", "Netzblick: Welle, Wasser, Weg, Sicht; Bild im Bild"},

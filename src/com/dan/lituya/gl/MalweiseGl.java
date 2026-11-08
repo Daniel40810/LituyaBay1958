@@ -117,6 +117,10 @@ public final class MalweiseGl {
      * die Hälfte des Bilds lag unter 2⁻²⁴ und fiel in die dunkelste Stufe. Mit k · LAI ≈ 0,45 · 8 wie im Regenwald.
      */
     public volatile double ausloeschung = 0.13;
+    /** Den nächsten Ausschnitt dort bauen, wo das Auge in der Zeit eines Baus sein wird (W10b; aus: um das Auge). */
+    public volatile boolean voraus = true;
+    /** Flechten und Moos auf der Rinde und Bartflechten an den Ästen mitmalen (W10b). */
+    public volatile boolean rinde = true;
     /** Den Unterwuchs aus {@code understory} mitmalen (Farne, Moos, Streu, Teufelskeule, Beeren, Totholz). */
     public volatile boolean unterwuchs = true;
     /** Ton des Holzschnitts der ganzen Szene: wie die Szene (LINEAR, Vorgabe) oder nach der Vorlage (sehr dunkel). */
@@ -131,7 +135,11 @@ public final class MalweiseGl {
     private Art letzteArt = Art.AUS;
     private int quelleTex, quelleW, quelleH;
     private double zeit;
-    private long letzterBau;
+    private long letzterBau, letzteNs;
+    private volatile int bauZahl;
+    /** Geschwindigkeit des Auges (m/s, x und z, geglättet) und wo es zuletzt war (W10b). */
+    private final double[] geschw = new double[2];
+    private double[] letztesAuge;
     private final double[] sonneGeladen = {Double.NaN, 0, 0};
     private volatile String status = "aus";
     private volatile boolean fehler;
@@ -143,12 +151,17 @@ public final class MalweiseGl {
         final Dickicht d;
         final com.dan.gertsch.Licht licht = new com.dan.gertsch.Licht();
         final double cx, cz, umkreis;
-        double ferne = 1;
+        double ferne = 1, pegel, nassAnteil;
+        boolean rinde;
         final int tag, version, baeume, baeumeNah, bueschel, glieder, blaetter, pflanzen;
         final boolean unterwuchs;
         /** Höhe der tiefsten Stelle (m über NAVD88) und Höhenunterschied im Ausschnitt (m). */
         final float gRef, relief;
         double ms;
+        /** Zeit je Schritt (ms): Brücke, Dickicht.aus, Himmel und Packen, Laden auf die Grafikkarte. */
+        double[] teile = new double[4];
+        /** Die Puffer für die Grafikkarte, bis sie hochgeladen sind. */
+        GertschGl.Paket paket;
 
         Ausschnitt(Dickicht d, double cx, double cz, double umkreis, int tag, int version, WaldQuelle q, boolean unterwuchs) {
             this.d = d; this.cx = cx; this.cz = cz; this.umkreis = umkreis; this.tag = tag; this.version = version;
@@ -165,10 +178,27 @@ public final class MalweiseGl {
      * {@code max} Büschel. Farben nach dem Tag im Jahr wie im Wald der App ({@link Season}); die Tönung je Baum wie in
      * {@code forest.vert}. Ohne Grafikkarte (für Hintergrund und Prüfung).
      */
-    public static WaldQuelle quelle(ForestGpu f, double cx, double cz, double r, double ferne, double ex, double ez, int max, int tag, boolean mitUnterwuchs) {
+    public static WaldQuelle quelle(ForestGpu f, double cx, double cz, double r, double ferne, double ex, double ez, int max, int tag, boolean mitUnterwuchs, boolean mitRinde) {
+        return quelle(f, cx, cz, r, ferne, ex, ez, max, tag, mitUnterwuchs, mitRinde, Float.NaN);
+    }
+
+    /**
+     * Der Wasserspiegel liegt so viel über dem Pegel (m): Das Höhengitter der Kultur setzt Wasser auf genau 0 m, beim Pegel 0
+     * läge es sonst nicht darunter (W10b).
+     */
+    static final float WASSER_UEBER = 0.1f;
+
+    /** Wie oben, mit dem Pegel der App (m über NAVD88) als Wasserspiegel des Geländes (W10b; NaN: ohne Wasser). */
+    public static WaldQuelle quelle(ForestGpu f, double cx, double cz, double r, double ferne, double ex, double ez, int max, int tag, boolean mitUnterwuchs, boolean mitRinde, float pegel) {
         WaldQuelle q = new WaldQuelle();
-        q.gelaende(f.culture(), cx, cz, ferne * r + 12);
-        baeume(q, f, cx, cz, r, ferne * r, ex, ez, max, tag);
+        q.gelaende(f.culture(), cx, cz, Math.max(ferne * r + 12, GELAENDE_WEITE));
+        if (q.gel != null && !Float.isNaN(pegel)) {
+            q.gel.mitWasser(pegel - q.gRef + WASSER_UEBER);
+            int n = 0;
+            for (float h : q.gel.h) if (h < q.gel.wasser) n++;
+            q.nassAnteil = n / (double) q.gel.h.length;
+        }
+        baeume(q, f, cx, cz, r, ferne * r, ex, ez, max, tag, mitRinde);
         if (mitUnterwuchs) unterwuchs(q, f.culture(), cx, cz, r);
         return q;
     }
@@ -185,7 +215,7 @@ public final class MalweiseGl {
     static final int ZUSAMMEN = 4;
     static final double FERN_AST = 0.05;
 
-    static void baeume(WaldQuelle q, ForestGpu f, double cx, double cz, double r, double rFern, double ex, double ez, int max, int tag) {
+    static void baeume(WaldQuelle q, ForestGpu f, double cx, double cz, double r, double rFern, double ex, double ez, int max, int tag, boolean mitRinde) {
         ForestCulture cu = f.culture();
         cu.minGround = (float) f.minGround;
         double sp = cu.spacing;
@@ -199,57 +229,172 @@ public final class MalweiseGl {
             }
         baeume.sort((a, b) -> Double.compare(Math.hypot(a.x - ex, a.z - ez), Math.hypot(b.x - ex, b.z - ez)));
         q.bodenAlbedo = BODEN.clone();
-        float gy = q.gRef;   // seit dem Gelände: alles auf seiner Höhe über der tiefsten Stelle des Ausschnitts
-        Map<Integer, Season> jahreszeit = new HashMap<>();
-        float[] c3 = new float[3];
-        for (ForestCulture.Tree t : baeume) {
+        // seit W10b je Baum für sich (parallel), dann in der Reihenfolge der Entfernung angehängt: dieselbe Folge wie vorher,
+        // also derselbe Zufall je Blatt; über dem Budget wird nichts mehr angehängt
+        Map<Integer, Season> jahreszeit = new java.util.concurrent.ConcurrentHashMap<>();
+        List<WaldQuelle> teile = baeume.parallelStream().map(t -> baum(f, t, cx, cz, r, ex, ez, q.gRef, tag, jahreszeit, mitRinde)).toList();
+        for (int i = 0; i < teile.size(); i++) {
             if (q.bueschelZahl() >= max) break;
-            TreeModel m = f.model(t.type);
-            Species art = m.species;
-            Season se = jahreszeit.computeIfAbsent(t.type, k -> Season.of(art, tag, 0));
-            double c = Math.cos(t.yaw), s = Math.sin(t.yaw), k = t.scale;
-            // die Tönung je Baum wie forest.vert: mix(vec3(0.84, 0.88, 0.86), vec3(1.14, 1.08, 0.96), tint)
-            float tr = 0.84f + 0.30f * t.tint, tg = 0.88f + 0.20f * t.tint, tb = 0.86f + 0.10f * t.tint;
-            boolean fein = Math.hypot(t.x - cx, t.z - cz) <= r;
-            double minAst = fein ? MIN_AST : FERN_AST;
-            for (TreeModel.Branch b : m.branches)
-                for (int n = 0; n + 1 < b.nodes(); n++) {
-                    if (b.level > 0 && (k * Math.max(b.r[n], b.r[n + 1]) < minAst || (!fein && b.level > 1))) continue;
-                    double ax = b.x[n], az = b.z[n], bx = b.x[n + 1], bz = b.z[n + 1];
-                    q.glied((float) -(t.x + k * (c * ax - s * az) - cx), (float) (t.y + k * b.y[n] - gy), (float) (t.z + k * (s * ax + c * az) - cz), (float) (k * b.r[n]),
-                            (float) -(t.x + k * (c * bx - s * bz) - cx), (float) (t.y + k * b.y[n + 1] - gy), (float) (t.z + k * (s * bx + c * bz) - cz), (float) (k * b.r[n + 1]),
-                            art.bark[0] * tr, art.bark[1] * tg, art.bark[2] * tb, b.level == 0);
+            q.anhaengen(teile.get(i));
+        }
+    }
+
+    /** Bäume bis so weit vor dem Auge (m) bekommen Flechten und Moos auf die Rinde (W10b). */
+    static final double RINDE_BIS = 30;
+
+    /**
+     * Ein Baum als eigene kleine Quelle: Glieder (Stamm und Äste), Büschel (Blattstellen, hinter dem Umkreis
+     * zusammengefasst), seit W10b Flechten und Moos auf der Rinde und Bartflechten an den Ästen wie in {@code forest}.
+     */
+    static WaldQuelle baum(ForestGpu f, ForestCulture.Tree t, double cx, double cz, double r, double ex, double ez, float gy, int tag, Map<Integer, Season> jahreszeit, boolean mitRinde) {
+        WaldQuelle q = new WaldQuelle(512);
+        float[] c3 = new float[3];
+        TreeModel m = f.model(t.type);
+        Species art = m.species;
+        Season se = jahreszeit.computeIfAbsent(t.type, k -> Season.of(art, tag, 0));
+        double c = Math.cos(t.yaw), s = Math.sin(t.yaw), k = t.scale;
+        // die Tönung je Baum wie forest.vert: mix(vec3(0.84, 0.88, 0.86), vec3(1.14, 1.08, 0.96), tint)
+        float tr = 0.84f + 0.30f * t.tint, tg = 0.88f + 0.20f * t.tint, tb = 0.86f + 0.10f * t.tint;
+        boolean fein = Math.hypot(t.x - cx, t.z - cz) <= r;
+        double minAst = fein ? MIN_AST : FERN_AST;
+        for (TreeModel.Branch b : m.branches)
+            for (int n = 0; n + 1 < b.nodes(); n++) {
+                if (b.level > 0 && (k * Math.max(b.r[n], b.r[n + 1]) < minAst || (!fein && b.level > 1))) continue;
+                double ax = b.x[n], az = b.z[n], bx = b.x[n + 1], bz = b.z[n + 1];
+                q.glied((float) -(t.x + k * (c * ax - s * az) - cx), (float) (t.y + k * b.y[n] - gy), (float) (t.z + k * (s * ax + c * az) - cz), (float) (k * b.r[n]),
+                        (float) -(t.x + k * (c * bx - s * bz) - cx), (float) (t.y + k * b.y[n + 1] - gy), (float) (t.z + k * (s * bx + c * bz) - cz), (float) (k * b.r[n + 1]),
+                        art.bark[0] * tr, art.bark[1] * tg, art.bark[2] * tb, b.level == 0);
+            }
+        if (se.foliage > 0.02f) {
+            // nah: jede Blattstelle ein Büschel; dahinter je ZUSAMMEN Stellen desselben Asts in einem (Mitte, Farbe gemittelt,
+            // Radius so, dass die Fläche bleibt, Blätter √ZUSAMMEN-mal so lang, also gleiche Blattfläche mit weniger Blättern)
+            int gruppe = fein ? 1 : ZUSAMMEN, zahl = 0, ast = -1, blaetter = 0;
+            double sx = 0, sy = 0, sz = 0, sr2 = 0, sl = 0, fr = 0, fg = 0, fb = 0;
+            List<TreeModel.LeafSpot> stellen = m.leaves;
+            for (int li = 0; li <= stellen.size(); li++) {
+                TreeModel.LeafSpot l = li < stellen.size() ? stellen.get(li) : null;
+                if (l != null && !se.evergreen && l.drop < se.drop) continue;   // schon gefallen
+                if (zahl > 0 && (l == null || zahl == gruppe || l.branch != ast)) {
+                    double rr = Math.sqrt(sr2), lang = sl / zahl * Math.sqrt(gruppe);
+                    int n = (int) Math.max(3, Math.min(255, Math.round(blaetter / (double) gruppe)));
+                    q.bueschel((float) -(t.x + k * (c * sx / zahl - s * sz / zahl) - cx), (float) (t.y + k * sy / zahl - gy), (float) (t.z + k * (s * sx / zahl + c * sz / zahl) - cz),
+                            (float) (k * rr), n, (float) (k * lang), art.leafAspect, (float) (fr / zahl) * tr, (float) (fg / zahl) * tg, (float) (fb / zahl) * tb);
+                    zahl = 0; blaetter = 0; sx = sy = sz = sr2 = sl = fr = fg = fb = 0;
                 }
-            if (se.foliage > 0.02f) {
-                // nah: jede Blattstelle ein Büschel; dahinter je ZUSAMMEN Stellen desselben Asts in einem (Mitte, Farbe gemittelt,
-                // Radius so, dass die Fläche bleibt, Blätter √ZUSAMMEN-mal so lang, also gleiche Blattfläche mit weniger Blättern)
-                int gruppe = fein ? 1 : ZUSAMMEN, zahl = 0, ast = -1, blaetter = 0;
-                double sx = 0, sy = 0, sz = 0, sr2 = 0, sl = 0, fr = 0, fg = 0, fb = 0;
-                List<TreeModel.LeafSpot> stellen = m.leaves;
-                for (int li = 0; li <= stellen.size(); li++) {
-                    TreeModel.LeafSpot l = li < stellen.size() ? stellen.get(li) : null;
-                    if (l != null && !se.evergreen && l.drop < se.drop) continue;   // schon gefallen
-                    if (zahl > 0 && (l == null || zahl == gruppe || l.branch != ast)) {
-                        double rr = Math.sqrt(sr2), lang = sl / zahl * Math.sqrt(gruppe);
-                        int n = (int) Math.max(3, Math.min(255, Math.round(blaetter / (double) gruppe)));
-                        q.bueschel((float) -(t.x + k * (c * sx / zahl - s * sz / zahl) - cx), (float) (t.y + k * sy / zahl - gy), (float) (t.z + k * (s * sx / zahl + c * sz / zahl) - cz),
-                                (float) (k * rr), n, (float) (k * lang), art.leafAspect, (float) (fr / zahl) * tr, (float) (fg / zahl) * tg, (float) (fb / zahl) * tb);
-                        zahl = 0; blaetter = 0; sx = sy = sz = sr2 = sl = fr = fg = fb = 0;
-                    }
-                    if (l == null) break;
-                    double rr = art.cluster * 0.5 * (0.75 + 0.5 * l.tone);
-                    sx += l.x + l.dx * rr * 0.5; sy += l.y + l.dy * rr * 0.5; sz += l.z + l.dz * rr * 0.5;
-                    sr2 += rr * rr;
-                    sl += l.size;
-                    se.leafColor(art, l.tone, c3);
-                    fr += c3[0]; fg += c3[1]; fb += c3[2];
-                    blaetter += (int) Math.max(3, Math.min(255, Math.round(0.55 * Math.PI * rr * rr / (0.7 * l.size * l.size * art.leafAspect))));
-                    ast = l.branch;
-                    zahl++;
+                if (l == null) break;
+                double rr = art.cluster * 0.5 * (0.75 + 0.5 * l.tone);
+                sx += l.x + l.dx * rr * 0.5; sy += l.y + l.dy * rr * 0.5; sz += l.z + l.dz * rr * 0.5;
+                sr2 += rr * rr;
+                sl += l.size;
+                se.leafColor(art, l.tone, c3);
+                fr += c3[0]; fg += c3[1]; fb += c3[2];
+                blaetter += (int) Math.max(3, Math.min(255, Math.round(0.55 * Math.PI * rr * rr / (0.7 * l.size * l.size * art.leafAspect))));
+                ast = l.branch;
+                zahl++;
+            }
+        }
+        if (mitRinde && fein && Math.hypot(t.x - ex, t.z - ez) <= RINDE_BIS && t.state != TreeStates.FELLED) {
+            rinde(q, m, t, c, s, k, cx, cz, gy, tr, tg, tb);
+            bartflechten(q, m, t, c, s, k, cx, cz, gy);
+        }
+        q.baeume = 1;
+        q.baeumeNah = fein ? 1 : 0;
+        return q;
+    }
+
+    /** Größe eines Flecks auf der Rinde (m) und welchen Anteil der Stammfläche Flechten höchstens decken. */
+    static final float RINDE_FLECK = 0.09f;
+
+    /**
+     * Flechten und Moos auf dem Stamm (W10b): Krustenflechten blass graugrün auf dem Anteil {@code lichen} der Rinde,
+     * Moospolster am Stammfuß bis 0,4 + 2,2 · {@code moss} m hoch (wie die Rinde in {@code forest} W6 Runde 5 und 6), als
+     * Blätter auf der Oberfläche (Normale nach außen, Längsachse am Stamm entlang), ohne Wind. So zerfällt das Licht auf
+     * den breiten Stämmen in Flecken wie bei Gertsch statt in große Flächen.
+     */
+    static void rinde(WaldQuelle q, TreeModel m, ForestCulture.Tree t, double c, double s, double k, double cx, double cz, float gy, float tr, float tg, float tb) {
+        Species art = m.species;
+        if (art.lichen <= 0 && art.moss <= 0) return;
+        java.util.SplittableRandom zr = new java.util.SplittableRandom(((long) t.i << 32) ^ (t.j & 0xffffffffL) ^ 0x51CEL);
+        double mossBis = art.moss > 0 ? 0.4 + 2.2 * art.moss : 0, flechtenBis = 0.5 * m.height;
+        int gruppe = (t.i * 92821) ^ t.j;
+        for (TreeModel.Branch b : m.branches) {
+            if (b.level != 0) continue;
+            for (int n = 0; n + 1 < b.nodes(); n++) {
+                double y0 = b.y[n], y1 = b.y[n + 1];
+                if (y0 > flechtenBis) break;
+                double dx = b.x[n + 1] - b.x[n], dy = y1 - y0, dz = b.z[n + 1] - b.z[n], len = Math.sqrt(dx * dx + dy * dy + dz * dz);
+                if (len < 1e-4) continue;
+                dx /= len; dy /= len; dz /= len;
+                // zwei Richtungen quer zur Achse
+                double ux = dz, uz = -dx, ul = Math.hypot(ux, uz);
+                if (ul < 1e-6) { ux = 1; uz = 0; ul = 1; }
+                ux /= ul; uz /= ul;
+                double vx = dy * uz, vy = dz * ux - dx * uz, vz = -dy * ux;
+                double rm = k * 0.5 * (b.r[n] + b.r[n + 1]), flaeche = 2 * Math.PI * rm * k * len;
+                double anteil = Math.min(0.6, art.lichen + (y0 < mossBis ? 0.5 : 0));
+                int zahl = (int) Math.round(flaeche * anteil / (RINDE_FLECK * RINDE_FLECK * 0.7));
+                for (int p = 0; p < zahl; p++) {
+                    double u = zr.nextDouble(), phi = 2 * Math.PI * zr.nextDouble();
+                    double hy = y0 + u * (y1 - y0);
+                    boolean moos = hy < mossBis && zr.nextDouble() < 0.5 / anteil;
+                    double nxm = Math.cos(phi) * ux + Math.sin(phi) * vx, nym = Math.sin(phi) * vy, nzm = Math.cos(phi) * uz + Math.sin(phi) * vz;
+                    double rad = k * (b.r[n] + u * (b.r[n + 1] - b.r[n])) + 0.012;
+                    double px = b.x[n] + u * (b.x[n + 1] - b.x[n]), pz = b.z[n] + u * (b.z[n + 1] - b.z[n]);
+                    // Punkt auf der Oberfläche im Modell (Achse + Radius · Normale), dann wie forest.vert in die Welt
+                    double mx = px * k + rad * nxm / 1, mz = pz * k + rad * nzm / 1, my = hy * k + rad * nym;
+                    double wx = t.x + (c * mx - s * mz), wz = t.z + (s * mx + c * mz), wy = t.y + my;
+                    double wnx = c * nxm - s * nzm, wnz = s * nxm + c * nzm, wax = c * dx - s * dz, waz = s * dx + c * dz;
+                    float lang = (float) (RINDE_FLECK * (0.6 + 0.9 * zr.nextDouble())), breit = (float) (lang * (0.5 + 0.4 * zr.nextDouble()));
+                    float ton = (float) (0.8 + 0.4 * zr.nextDouble());
+                    float rr, gg, bb;
+                    if (moos) { rr = 0.05f; gg = 0.11f; bb = 0.02f; }
+                    else { rr = 0.30f * tr; gg = 0.34f * tg; bb = 0.26f * tb; }   // Krustenflechten blass graugrün [G]
+                    q.blatt((float) -(wx - cx), (float) (wy - gy), (float) (wz - cz), (float) -wnx, (float) nym, (float) wnz, (float) -wax, (float) dy, (float) waz,
+                            lang, breit, rr * ton, gg * ton, bb * ton, gruppe, true);
                 }
             }
-            q.baeume++;
-            if (fein) q.baeumeNah++;
+        }
+    }
+
+    /**
+     * Bartflechten (Usnea, Alectoria) wie {@code forest.TreeMesh.beard}: dieselbe Folge von Zufallszahlen aus dem seed des
+     * Modells, also dieselben Äste (erster bis dritter Ordnung, Anteil {@code beard}), Stellen, Längen und Farben. Eine Strähne
+     * wird zwei gekreuzte schmale Blätter vom Ast bis zur Spitze, ohne Wind (die Äste stehen in gertsch auch still).
+     */
+    static void bartflechten(WaldQuelle q, TreeModel m, ForestCulture.Tree t, double c, double s, double k, double cx, double cz, float gy) {
+        Species sp = m.species;
+        if (sp.beard <= 0 || sp.lying) return;
+        java.util.Random r = new java.util.Random(m.seed ^ 0xBEA2DL);
+        float H = m.height;
+        int gruppe = ((t.i * 92821) ^ t.j) + 1;
+        for (TreeModel.Branch b : m.branches) {
+            if (b.level < 1 || b.level > 3 || b.nodes() < 2) continue;
+            if (r.nextFloat() >= sp.beard) continue;
+            int straehnen = 1 + r.nextInt(3);
+            for (int kk = 0; kk < straehnen; kk++) {
+                int i = 1 + r.nextInt(b.nodes() - 1);
+                float f = r.nextFloat();
+                float x = b.x[i - 1] + (b.x[i] - b.x[i - 1]) * f, y = b.y[i - 1] + (b.y[i] - b.y[i - 1]) * f, z = b.z[i - 1] + (b.z[i] - b.z[i - 1]) * f;
+                if (y > 0.9f * H) continue;
+                float rr = b.r[i - 1] + (b.r[i] - b.r[i - 1]) * f;
+                y -= rr * 0.8f;
+                float len = 0.08f + 0.27f * r.nextFloat() * r.nextFloat(), w = 0.02f + 0.02f * r.nextFloat();
+                if (y - len < 0.4f) continue;
+                float drift = 0.15f * len, an = (float) (r.nextFloat() * Math.PI);
+                float tone = 0.85f + 0.3f * r.nextFloat();
+                float dx0 = (r.nextFloat() - 0.5f) * drift, dz0 = (r.nextFloat() - 0.5f) * drift;
+                // Mitte und Achse der Strähne im Modell, dann in die Welt
+                double mx = x + dx0 * 0.5, my = y - len * 0.5, mz = z + dz0 * 0.5;
+                double wx = t.x + k * (c * mx - s * mz), wz = t.z + k * (s * mx + c * mz), wy = t.y + k * my;
+                double ax = dx0, ay = -len, az = dz0, al = Math.sqrt(ax * ax + ay * ay + az * az);
+                double wax = (c * ax - s * az) / al, way = ay / al, waz = (s * ax + c * az) / al;
+                for (int qq = 0; qq < 2; qq++) {
+                    double ddx = Math.cos(an + qq * Math.PI / 2), ddz = Math.sin(an + qq * Math.PI / 2);
+                    double nx = -ddz, nz = ddx, wnx = c * nx - s * nz, wnz = s * nx + c * nz;
+                    q.blatt((float) -(wx - cx), (float) (wy - gy), (float) (wz - cz), (float) -wnx, 0.2f, (float) wnz, (float) -wax, (float) way, (float) waz,
+                            (float) (k * len), (float) (k * w * 1.5), 0.40f * tone, 0.44f * tone, 0.34f * tone, gruppe, true);
+                }
+            }
         }
     }
 
@@ -294,6 +439,7 @@ public final class MalweiseGl {
                 double wx = o[i], wz = o[i + 2];
                 if (Math.hypot(wx - cx, wz - cz) > r) continue;
                 float x = (float) -(wx - cx), z = (float) (wz - cz), rot = o[i + 3], ton = 0.85f + 0.3f * o[i + 5];
+                if (q.nass(x, z)) continue;
                 float s = groesse[ki][v] * o[i + 4], gy = q.grund(x, z);
                 java.util.SplittableRandom zr = new java.util.SplittableRandom(Float.floatToIntBits(o[i]) * 31L + Float.floatToIntBits(o[i + 2]));
                 // Richtung rot in der Szene (cos, sin) um die Senkrechte, gespiegelt wie alles andere
@@ -330,11 +476,21 @@ public final class MalweiseGl {
         teppich(q, cx, cz, r);
     }
 
-    /** Zelle des Geländes im Ausschnitt (m); das Höhengitter der Kultur hat rund 5,9 m. */
-    static final double GELAENDE_ZELLE = 1.0;
+    /**
+     * Zelle und Reichweite des Geländes im Ausschnitt (m). Das Höhengitter der Kultur hat rund 5,9 m; seit W10b reicht
+     * das Gelände 200 m weit (2-m-Zellen), so endet das Wasser nicht am Rand des Umkreises, sondern an der fernen Grenze
+     * von gertsch (250 m).
+     */
+    static final double GELAENDE_ZELLE = 2.0, GELAENDE_WEITE = 200;
 
     /** Abstand des Teppichs aus Moos und Streu (m). */
     static final double TEPPICH = 0.9;
+    /**
+     * Blätter je Scheibe des Teppichs: gut die Hälfte der Fläche einer Zelle bedeckt (0,55 · 0,9² / (0,7 · 0,08² · 0,5)).
+     * Seit W10b sind die Scheiben flach und größer als eine Zelle (0,68 bis 0,95 m), sie überlappen sich; mit kleineren
+     * Scheiben stand der Teppich als Punktmuster da.
+     */
+    static final int TEPPICH_BLAETTER = 199;
 
     /**
      * Der Boden zwischen den Pflanzen: ein Teppich liegender Büschel auf einem gewürfelten Gitter (fest in der Szene, damit
@@ -350,12 +506,13 @@ public final class MalweiseGl {
                 double u = (h >>> 8) * 0x1.0p-24, v = (com.dan.gertsch.Zufall.pcg(h) >>> 8) * 0x1.0p-24, w = (com.dan.gertsch.Zufall.pcg(h + 1) >>> 8) * 0x1.0p-24;
                 double wx = (i + 0.1 + 0.8 * u) * TEPPICH, wz = (j + 0.1 + 0.8 * v) * TEPPICH;
                 if (Math.hypot(wx - cx, wz - cz) > r) continue;
-                float rad = (float) (TEPPICH * (0.45 + 0.2 * v)), ton = (float) (0.8 + 0.4 * u);
+                if (q.nass((float) -(wx - cx), (float) (wz - cz))) continue;
+                float rad = (float) (TEPPICH * (0.75 + 0.3 * v)), ton = (float) (0.8 + 0.4 * u);
                 float cr, cg, cb;
                 if (w < 0.22) { cr = 0.17f; cg = 0.065f; cb = 0.02f; }          // Nadelstreu, kräftig: bleibt auch im Schatten ein Akzent (W10a)
                 else if (w < 0.50) { cr = 0.035f; cg = 0.07f; cb = 0.014f; }    // Moos im Schatten
                 else { cr = 0.065f; cg = 0.115f; cb = 0.02f; }                  // Moos
-                q.bueschel((float) -(wx - cx), q.grund((float) -(wx - cx), (float) (wz - cz)) + 0.03f, (float) (wz - cz), rad, anzahl(rad, 0.08f, 0.5f), 0.08f, 0.5f, cr * ton, cg * ton, cb * ton, 8, true);
+                q.bueschel((float) -(wx - cx), q.grund((float) -(wx - cx), (float) (wz - cz)) + 0.03f, (float) (wz - cz), rad, TEPPICH_BLAETTER, 0.08f, 0.5f, cr * ton, cg * ton, cb * ton, 8, true);
             }
     }
 
@@ -401,11 +558,52 @@ public final class MalweiseGl {
 
     /** Eine Quelle in flachen Feldern (eine Million Büschel ohne eine Million Objekte). */
     public static final class WaldQuelle implements Quelle {
-        float[] bu = new float[12 * 4096], gli = new float[11 * 4096], bl = new float[15 * 4096];
-        int[] blGruppe = new int[4096];
-        boolean[] stamm = new boolean[4096];
+        float[] bu, gli, bl;
+        int[] blGruppe;
+        boolean[] stamm, blLiegt;
         int nb, ng, nl;
+
+        public WaldQuelle() { this(4096); }
+
+        /** Mit Platz für so viele Büschel, Glieder und Blätter (wächst bei Bedarf). */
+        WaldQuelle(int kap) {
+            bu = new float[12 * kap];
+            gli = new float[11 * kap];
+            bl = new float[15 * kap];
+            blGruppe = new int[kap];
+            stamm = new boolean[kap];
+            blLiegt = new boolean[kap];
+        }
+
+        /** Hängt alles aus t an (Büschel, Glieder, Blätter in ihrer Reihenfolge; Zähler der Bäume). */
+        void anhaengen(WaldQuelle t) {
+            if (12 * (nb + t.nb) > bu.length) bu = Arrays.copyOf(bu, Math.max(bu.length * 2, 12 * (nb + t.nb)));
+            System.arraycopy(t.bu, 0, bu, 12 * nb, 12 * t.nb);
+            nb += t.nb;
+            if (11 * (ng + t.ng) > gli.length) {
+                int n = Math.max(gli.length / 11 * 2, ng + t.ng);
+                gli = Arrays.copyOf(gli, 11 * n);
+                stamm = Arrays.copyOf(stamm, n);
+            }
+            System.arraycopy(t.gli, 0, gli, 11 * ng, 11 * t.ng);
+            System.arraycopy(t.stamm, 0, stamm, ng, t.ng);
+            ng += t.ng;
+            if (15 * (nl + t.nl) > bl.length) {
+                int n = Math.max(bl.length / 15 * 2, nl + t.nl);
+                bl = Arrays.copyOf(bl, 15 * n);
+                blGruppe = Arrays.copyOf(blGruppe, n);
+                blLiegt = Arrays.copyOf(blLiegt, n);
+            }
+            System.arraycopy(t.bl, 0, bl, 15 * nl, 15 * t.nl);
+            System.arraycopy(t.blGruppe, 0, blGruppe, nl, t.nl);
+            System.arraycopy(t.blLiegt, 0, blLiegt, nl, t.nl);
+            nl += t.nl;
+            baeume += t.baeume;
+            baeumeNah += t.baeumeNah;
+        }
         public int baeume, baeumeNah, pflanzen;
+        /** Anteil des Geländes unter dem Wasserspiegel (W10b). */
+        public double nassAnteil;
         float[] bodenAlbedo;
         /** Das Gelände des Ausschnitts (im Bezug von gertsch) und die Höhe seiner tiefsten Stelle in der Szene (m). */
         com.dan.gertsch.Gelaende gel;
@@ -435,6 +633,9 @@ public final class MalweiseGl {
         /** Höhe des Bodens im Bezug von gertsch bei (x, z) (0 ohne Gelände). */
         float grund(float x, float z) { return gel == null ? 0 : gel.hoehe(x, z); }
 
+        /** Steht bei (x, z) Wasser (W10b)? Dort wachsen weder Unterwuchs noch Teppich. */
+        boolean nass(float x, float z) { return gel != null && gel.nass(x, z); }
+
         @Override public com.dan.gertsch.Gelaende gelaende() { return gel; }
 
         void bueschel(float x, float y, float z, float radius, int blaetter, float laenge, float schmal, float r, float g, float b) {
@@ -450,10 +651,20 @@ public final class MalweiseGl {
 
         /** Ein Blatt; die Normale wird nicht normiert (das tut {@link Blatt#richtung}). */
         void blatt(float x, float y, float z, float nx, float ny, float nz, float ax, float ay, float az, float laenge, float breite, float r, float g, float b, int gruppe) {
-            if (15 * (nl + 1) > bl.length) { bl = Arrays.copyOf(bl, bl.length * 2); blGruppe = Arrays.copyOf(blGruppe, blGruppe.length * 2); }
+            blatt(x, y, z, nx, ny, nz, ax, ay, az, laenge, breite, r, g, b, gruppe, false);
+        }
+
+        /** Wie oben; liegt: ohne Wind (Rinde, Bartflechten, Streu). */
+        void blatt(float x, float y, float z, float nx, float ny, float nz, float ax, float ay, float az, float laenge, float breite, float r, float g, float b, int gruppe, boolean liegt) {
+            if (15 * (nl + 1) > bl.length) {
+                bl = Arrays.copyOf(bl, bl.length * 2);
+                blGruppe = Arrays.copyOf(blGruppe, blGruppe.length * 2);
+                blLiegt = Arrays.copyOf(blLiegt, blLiegt.length * 2);
+            }
             int o = 15 * nl;
             bl[o] = x; bl[o + 1] = y; bl[o + 2] = z; bl[o + 3] = nx; bl[o + 4] = ny; bl[o + 5] = nz; bl[o + 6] = ax; bl[o + 7] = ay; bl[o + 8] = az;
             bl[o + 9] = laenge; bl[o + 10] = breite; bl[o + 11] = r; bl[o + 12] = g; bl[o + 13] = b;
+            blLiegt[nl] = liegt;
             blGruppe[nl++] = gruppe;
         }
 
@@ -473,7 +684,7 @@ public final class MalweiseGl {
             o.richtung(bl[k + 3], bl[k + 4], bl[k + 5], bl[k + 6], bl[k + 7], bl[k + 8]);
             o.laenge = bl[k + 9]; o.breite = bl[k + 10]; o.r = bl[k + 11]; o.g = bl[k + 12]; o.b = bl[k + 13];
             o.gruppe = blGruppe[i];
-            o.liegt = false;
+            o.liegt = blLiegt[i];
         }
 
         @Override public int bueschelZahl() { return nb; }
@@ -512,6 +723,11 @@ public final class MalweiseGl {
      * @param zurSonne  Richtung zur Sonne in der Szene (x Ost, y oben, z Süd)
      */
     public boolean vorbereiten(GL4 gl, ForestGpu f, double[] auge, double[] vorn, double grundAuge, int tag, double[] zurSonne, Quality q) {
+        return vorbereiten(gl, f, auge, vorn, grundAuge, tag, zurSonne, q, Double.NaN);
+    }
+
+    /** Wie oben, mit dem Pegel (m über NAVD88) als Wasserspiegel (W10b). */
+    public boolean vorbereiten(GL4 gl, ForestGpu f, double[] auge, double[] vorn, double grundAuge, int tag, double[] zurSonne, Quality q, double pegel) {
         if (!art.gertsch() || fehler) return false;
         if (f == null || !f.ready()) { status = "Gertsch: wartet auf den Wald"; return false; }
         double ueber = auge[1] - grundAuge;
@@ -523,15 +739,28 @@ public final class MalweiseGl {
             if (gg == null) { gg = new GertschGl(); gg.init(gl); }
             gg.quality = GertschGl.Quality.values()[q.ordinal()];
             if (vorbild != geladenVorbild) { gg.vorlage = vorbild.vorlage.get(); geladenVorbild = vorbild; }
-            // die Mitte des Ausschnitts liegt etwas vor dem Auge (hinter der Kamera braucht es nur die Werfer der Schatten)
+            // die Mitte des Ausschnitts liegt etwas vor dem Auge (hinter der Kamera braucht es nur die Werfer der Schatten);
+            // seit W10b dazu dort, wo das Auge in der Zeit eines Baus sein wird (Geschwindigkeit geglättet)
+            long jetztNs = System.nanoTime();
+            if (letztesAuge != null) {
+                double dt = (jetztNs - letzteNs) / 1e9, dx = auge[0] - letztesAuge[0], dz = auge[2] - letztesAuge[2];
+                if (dt > 1e-3 && dt < 0.5 && Math.hypot(dx, dz) < 60 * dt + 5) {
+                    double a = Math.min(1, dt / 0.4);
+                    geschw[0] += (dx / dt - geschw[0]) * a;
+                    geschw[1] += (dz / dt - geschw[1]) * a;
+                } else if (dt >= 0.5 || Math.hypot(dx, dz) >= 60 * dt + 5) { geschw[0] = 0; geschw[1] = 0; }   // Sprung oder Pause
+            }
+            letztesAuge = auge.clone();
+            letzteNs = jetztNs;
+            double vor = !voraus ? 0 : jetzt != null ? jetzt.ms / 1000 + 0.3 : 1.2;
             double hx = vorn[0], hz = vorn[2], hl = Math.hypot(hx, hz);
-            double r = umkreis, cx = auge[0] + (hl > 1e-6 ? hx / hl : 0) * r * 0.35, cz = auge[2] + (hl > 1e-6 ? hz / hl : 0) * r * 0.35;
+            double r = umkreis, cx = auge[0] + (hl > 1e-6 ? hx / hl : 0) * r * 0.35 + geschw[0] * vor, cz = auge[2] + (hl > 1e-6 ? hz / hl : 0) * r * 0.35 + geschw[1] * vor;
             TreeStates st = f.culture().states;
             int ver = st == null ? 0 : st.version();
             long jetztMs = System.currentTimeMillis();
-            boolean mitUw = unterwuchs;
+            boolean mitUw = unterwuchs, mitRi = rinde;
             boolean neu = jetzt == null || Math.hypot(cx - jetzt.cx, cz - jetzt.cz) > r * 0.3 || tag != jetzt.tag || Math.abs(r - jetzt.umkreis) > 0.5
-                    || mitUw != jetzt.unterwuchs || ferne != jetzt.ferne || (ver != jetzt.version && jetztMs - letzterBau > 3000);
+                    || mitUw != jetzt.unterwuchs || mitRi != jetzt.rinde || Math.abs(pegel - jetzt.pegel) > 0.25 || ferne != jetzt.ferne || (ver != jetzt.version && jetztMs - letzterBau > 3000);
             if (neu && bau == null) {
                 final double fx = cx, fz = cz, ex = auge[0], ez = auge[2];
                 final int max = hoechstensBueschel;
@@ -540,11 +769,20 @@ public final class MalweiseGl {
                 status = "Gertsch: der Ausschnitt wird gerechnet …";
                 bau = exec.submit(() -> {
                     long t0 = System.nanoTime();
-                    WaldQuelle wq = quelle(f, fx, fz, r, fe, ex, ez, max, tag, mitUw);
-                    Ausschnitt a = new Ausschnitt(Dickicht.aus(wq), fx, fz, r, tag, ver, wq, mitUw);
+                    WaldQuelle wq = quelle(f, fx, fz, r, fe, ex, ez, max, tag, mitUw, mitRi, (float) pegel);
+                    long t1 = System.nanoTime();
+                    Dickicht dk = Dickicht.aus(wq);
+                    long t2 = System.nanoTime();
+                    Ausschnitt a = new Ausschnitt(dk, fx, fz, r, tag, ver, wq, mitUw);
                     a.ferne = fe;
+                    a.rinde = mitRi;
+                    a.pegel = pegel;
+                    a.nassAnteil = wq.nassAnteil;
                     a.licht.vorbereitenGl(a.d);
-                    a.ms = (System.nanoTime() - t0) / 1e6;
+                    a.paket = GertschGl.packen(a.d, a.licht);   // W10b: die Puffer im Hintergrund, im Bildfaden nur noch hochladen
+                    long t3 = System.nanoTime();
+                    a.ms = (t3 - t0) / 1e6;
+                    a.teile = new double[]{(t1 - t0) / 1e6, (t2 - t1) / 1e6, (t3 - t2) / 1e6, 0};
                     return a;
                 });
             }
@@ -552,8 +790,12 @@ public final class MalweiseGl {
                 Ausschnitt a = bau.get();
                 bau = null;
                 sonneRichten(a.licht, zurSonne);
-                gg.laden(gl, a.d, a.licht);
+                long tl = System.nanoTime();
+                gg.laden(gl, a.paket);
+                a.paket = null;
+                a.teile[3] = (System.nanoTime() - tl) / 1e6;
                 jetzt = a;
+                bauZahl++;
                 sonneGeladen[0] = Double.NaN;
             }
             if (jetzt == null) return false;
@@ -571,8 +813,9 @@ public final class MalweiseGl {
             }
             status = String.format(Locale.GERMAN, "Gertsch (%s): %d Bäume in %.0f m, %d dahinter bis %.0f m, %.2f Mio. Büschel, %d Glieder%s, gebaut in %.1f s%s",
                     gg.vorlage.name, jetzt.baeumeNah, jetzt.umkreis, jetzt.baeume - jetzt.baeumeNah, jetzt.ferne * jetzt.umkreis, jetzt.bueschel / 1e6, jetzt.glieder,
-                    (jetzt.unterwuchs ? String.format(Locale.GERMAN, ", Unterwuchs %d Pflanzen (%d Fiedern)", jetzt.pflanzen, jetzt.blaetter) : "") + String.format(Locale.GERMAN, ", Gelände %.0f m Höhenunterschied", jetzt.relief),
-                    jetzt.ms / 1000, bau != null ? " · der nächste wird gerechnet" : "");
+                    (jetzt.unterwuchs ? String.format(Locale.GERMAN, ", Unterwuchs %d Pflanzen (%d Fiedern)", jetzt.pflanzen, jetzt.blaetter) : "") + String.format(Locale.GERMAN, ", Gelände %.0f m Höhenunterschied", jetzt.relief) + (jetzt.nassAnteil > 0 ? String.format(Locale.GERMAN, ", %.0f %% unter Wasser", 100 * jetzt.nassAnteil) : ""),
+                    jetzt.ms / 1000, bau != null ? " · der nächste wird gerechnet" : "")
+                    + String.format(Locale.GERMAN, " (Brücke %.0f, Dickicht %.0f, Himmel und Packen %.0f, Laden %.0f ms)", jetzt.teile[0], jetzt.teile[1], jetzt.teile[2], jetzt.teile[3]);
             return true;
         } catch (Exception | Error e) {
             fehler = true;
@@ -671,6 +914,23 @@ public final class MalweiseGl {
 
     /** Nach einem Fehler wieder versuchen (Bedienfeld: neue Wahl). */
     public void zuruecksetzen() { fehler = false; if (art == Art.AUS) status = "aus"; }
+
+    /**
+     * Wie weit der gemalte Wald vor dem Auge in Blickrichtung (waagerecht) noch reicht, bis zum Rand des Umkreises (m);
+     * NaN ohne Ausschnitt (W10b, für die Prüfung der Fahrt).
+     */
+    public double vorlauf(double[] auge, double[] vorn) {
+        Ausschnitt a = jetzt;
+        if (a == null) return Double.NaN;
+        double vx = vorn[0], vz = vorn[2], vl = Math.hypot(vx, vz);
+        if (vl < 1e-6) return Double.NaN;
+        vx /= vl; vz /= vl;
+        double ex = auge[0] - a.cx, ez = auge[2] - a.cz, b = ex * vx + ez * vz, c = ex * ex + ez * ez - a.umkreis * a.umkreis, d = b * b - c;
+        return d < 0 ? -1 : -b + Math.sqrt(d);
+    }
+
+    /** Wie viele Ausschnitte bisher gebaut wurden. */
+    public int baue() { return bauZahl; }
 
     /** Grenzen der Tonbänder in log2 Y (für Prüfung und volles HUD); leer ohne Bild. */
     public double[] grenzen() { return gg == null ? new double[0] : gg.grenzen(); }
