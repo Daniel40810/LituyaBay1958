@@ -429,6 +429,12 @@ public final class WaldGl {
     /** Ob der Wald gezeichnet werden kann. */
     public boolean bereit() { return forest != null && forest.ready(); }
 
+    /**
+     * Werkbuch Welle W10: der Wald selbst (Kultur und Modelle), damit die Malweise dieselben Bäume malt; null, solange er
+     * gerechnet wird. Nur lesen.
+     */
+    public ForestGpu forest() { return forest; }
+
     /** Die Wiederbewaldung (null, solange sie rechnet). */
     public Succession succession() { return d == null ? null : d.su; }
 

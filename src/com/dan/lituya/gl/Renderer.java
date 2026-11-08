@@ -139,6 +139,11 @@ public final class Renderer implements GLEventListener {
     public final Klang klang = new Klang(this);
     /** Phase 14a: der Wald (forest mit succession) über den Kern, Zustände nach dem Zeitstand, Treibgut am Morgen. */
     public final WaldGl wald = new WaldGl();
+    /**
+     * Werkbuch Welle W10: die Malweise nach Franz Gertsch (com.dan.gertsch), im Bedienfeld MALWEISE zuschaltbar: der Wald
+     * um die Kamera gemalt statt der Szene, wahlweise als Holzschnitt, oder die ganze Szene als Holzschnitt.
+     */
+    public final MalweiseGl malweise = new MalweiseGl();
     /** Werkbuch Welle W6: die Landschaft (Farbe aus Sentinel-2, Fels aus cliff, Schnee, Gletscher mit Spalten). */
     public final LandschaftGl landschaft = new LandschaftGl();
     /** W5 (E11): Schleier am Sporn. */
@@ -1428,7 +1433,8 @@ public final class Renderer implements GLEventListener {
         if (w != hdrW || h != hdrH) resizeTargets(gl, w, h);
         long rf0 = System.nanoTime();
         vorCpu = vorCpu * 0.9 + (rf0 - now) / 1e6 * 0.1;   // Runde 11: Uhr, Schritt, Marken lesen
-        if (teilbilder > 0 && frozen) kinoBelichtung(gl, w, h);   // W9c: die Kino-Stufe (der Aufrufer führt die Uhr)
+        if (malweise.art.gertsch() && malweiseBild(gl)) { /* W10: der Wald nach Gertsch statt der Szene */ }
+        else if (teilbilder > 0 && frozen) kinoBelichtung(gl, w, h);   // W9c: die Kino-Stufe (der Aufrufer führt die Uhr)
         else renderFrame(gl, w, h);
         long rf1 = System.nanoTime();
         regieBild(gl, now);   // Phase 17a: Fotos und Blatt des Regiebuchs, Kino über das fertige Bild; F12 und Tempo mit
@@ -1439,6 +1445,42 @@ public final class Renderer implements GLEventListener {
         nachCpu = nachCpu * 0.9 + (System.nanoTime() - rf1) / 1e6 * 0.1;
         frame++;
         stats(now, w, h);
+    }
+
+    /**
+     * Werkbuch Welle W10: das Bild in der Malweise von Franz Gertsch statt der Szene (Bedienfeld MALWEISE). false, solange
+     * der Ausschnitt um die Kamera entsteht, die Kamera zu hoch steht oder der Wald fehlt; dann zeichnet die Szene wie
+     * sonst. Uhr und Kamera sind schon geschritten; Wind und Sonne kommen aus Verdrahtung und Uhr.
+     */
+    private boolean malweiseBild(GL4 gl) {
+        com.dan.forest.gl.ForestGpu f = wald.an ? wald.forest() : null;
+        double g = malGrund(f);
+        double[] sp = clock.sun();
+        if (!malweise.vorbereiten(gl, f, camera.eye, camera.fwd, g, clock.local().getDayOfYear(), Sun.direction(sp[0], sp[1]), quality)) return false;
+        TEIL_UHR.use(gl);
+        mark(gl, 0);
+        teil("Malweise");
+        malweise.zeichnen(gl, camera.eye, camera.fwd, g, fovy(), wiring.windSpeed, wiring.windFromDeg, defaultFbo, surfW, surfH, letztesDt);
+        teilEnde("Malweise");
+        for (int i = 1; i < MARKS - 1; i++) mark(gl, i);
+        gl.glBindFramebuffer(GL.GL_FRAMEBUFFER, defaultFbo);
+        gl.glViewport(0, 0, surfW, surfH);
+        hudZeichnen(gl);
+        mark(gl, MARKS - 1);
+        TEILE.endFrame();
+        return true;
+    }
+
+    /**
+     * W10: der Grund unter dem Auge wie unter den Bäumen (Höhengitter der Kultur, über dem Wasser der Pegel), sonst aus
+     * dem Gelände. Die Malweise stellt jeden Baum auf seinen Grund und das Auge so hoch über den seinen.
+     */
+    private double malGrund(com.dan.forest.gl.ForestGpu f) {
+        com.dan.forest.ForestCulture.Grid g = f != null ? f.culture().height : null;
+        double x = camera.eye[0], z = camera.eye[2];
+        if (g != null && x >= g.x0 && x <= g.x0 + g.size && z >= g.z0 && z <= g.z0 + g.size) return Math.max(g.sample(0, (float) x, (float) z), wiring.pegel);
+        double h = groundHeight(x, z);
+        return h <= KEIN_GRUND + 1 ? wiring.pegel : Math.max(h, wiring.pegel);
     }
 
     /**
@@ -2073,6 +2115,15 @@ teilEnde("Schleier");
         }
         mark(gl, 8);
 
+        // 4a Werkbuch Welle W10: die ganze Szene als Holzschnitt nach Gertsch (vor Netzblick, Archiv und HUD)
+        if (malweise.art == MalweiseGl.Art.STICH) {
+            teil("Holzschnitt");
+            malweise.szeneDrucken(gl, defaultFbo, surfW, surfH, letztesDt);
+            teilEnde("Holzschnitt");
+            gl.glViewport(0, 0, surfW, surfH);
+            gl.glBindVertexArray(emptyVao);
+        }
+
         // 4b Netzblick als Bild im Bild unten rechts (Phase 7a)
         if (!kino.laeuft() || kinoNetzblick) netzblick.bildImBild(gl, overlay, emptyVao, surfW, surfH, netzZeit(), kino.laeuft() ? kino.balkenPx(surfW, surfH) : 0);
         gl.glBindVertexArray(emptyVao);
@@ -2091,7 +2142,13 @@ teilEnde("Schleier");
             archivTafel.draw(gl, overlay, emptyVao, 0, 0, surfW, surfH);
         }
 
-        // 5 HUD (vorher abschicken: die Grafikkarte arbeitet, während das HUD im selben Faden gemalt wird; aus Brocken)
+        hudZeichnen(gl);
+        mark(gl, 9);
+        TEILE.endFrame();
+    }
+
+    /** 5 HUD (vorher abschicken: die Grafikkarte arbeitet, während das HUD im selben Faden gemalt wird; aus Brocken). */
+    private void hudZeichnen(GL4 gl) {
         gl.glFlush();
         if (showHud && !kino.laeuft() && captureCaption == null) {   // Phase 17a: nicht im Kino und nicht auf den Fotos des Regiebuchs
             hud.refresh(gl, 250, this::paintHud, frozen);
@@ -2099,8 +2156,6 @@ teilEnde("Schleier");
         }
         gl.glBindVertexArray(0);
         gl.glUseProgram(0);
-        mark(gl, 9);
-        TEILE.endFrame();
     }
 
     /** Das Gelände (Phase 4) mit Tiefe; gespiegelt (W2): Auge unter dem Spiegel, Wicklung umgekehrt, nur über dem Wasser. */
@@ -2694,6 +2749,7 @@ teilEnde("Schleier");
         String ez = ereignisZeile();
         if (!ez.isEmpty()) l.add(ez);
         if (echtzeit.an() || echtzeit.baut()) l.add(echtzeit.zeile());
+        if (malweise.art != MalweiseGl.Art.AUS) l.add(malweise.status());   // W10
         l.add(cameraLine() + " · H: volles HUD, F1: Tasten");
         if (System.currentTimeMillis() < meldungUntil) l.add(meldung);
         if (error != null) l.add("!" + error.split("\n")[0]);
@@ -2870,6 +2926,7 @@ teilEnde("Schleier");
         for (Shader s : all) s.dispose(gl);
         clipGl.dispose(gl);
         wald.dispose(gl);
+        malweise.dispose(gl);   // W10
         schleier.dispose(gl);
         wasserExec.shutdownNow();
         boote.dispose(gl);

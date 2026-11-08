@@ -32,7 +32,9 @@ import java.util.Locale;
  * {@code regen} (mm/h); ab Phase 17 {@code fahrt} (rundflug, kamerafahrt) und {@code fahrtanteil} (0 … 1); ab Phase 17a
  * {@code regiebuch} (Name; ganz durchspielen, Blatt nach docs/status) und {@code kino} = aus; ab Werkbuch Bild B0
  * {@code brennweite} (mm, Kleinbild) und {@code zeitstand} (vor, welle, danach, heute; nur der Stand, die Uhr kommt aus den Argumenten);
- * ab Werkbuch Welle W7 {@code wetter} (Lage für heute, etwa kuestennebel, regen; aus = ohne Wetter) und {@code wetterzeit} (Stunden in der Lage).
+ * ab Werkbuch Welle W7 {@code wetter} (Lage für heute, etwa kuestennebel, regen; aus = ohne Wetter) und {@code wetterzeit} (Stunden in der Lage);
+ * ab W10 {@code malweise} (gertsch, gertschstich, stich), {@code vorlage} (sommer, herbst, winter, blaetter, graeser), {@code umkreis} (m) und
+ * {@code unterwuchs} = aus.
  */
 public final class Tempo {
     private Tempo() { }
@@ -223,7 +225,27 @@ public final class Tempo {
             while ((!r.netzblick.fertig || !r.baeche.bereit()) && System.nanoTime() - t0 < 300e9) { d.display(); Thread.sleep(100); }
             System.out.printf(Locale.GERMAN, "Netze in %.1f s: %s · %s%n", (System.nanoTime() - t0) / 1e9, r.netzblick.stand(), r.baeche.status());
         }
+        // Werkbuch Welle W10: malweise = gertsch|gertschstich|stich (aus: wie sonst), vorlage = sommer|herbst|winter|blaetter|graeser,
+        // umkreis = m; bei gertsch den Ausschnitt um die Kamera abwarten (im Hintergrund gebaut, dann geladen)
+        String mw = opt("malweise"), mv = opt("vorlage"), mu = opt("umkreis");
+        if (mw != null && !mw.isBlank() && !"aus".equals(mw)) {
+            String k = mw.trim().toLowerCase(Locale.ROOT);
+            r.malweise.art = k.startsWith("gertschst") || k.startsWith("gertsch_st") ? com.dan.lituya.gl.MalweiseGl.Art.GERTSCH_STICH
+                    : k.startsWith("g") ? com.dan.lituya.gl.MalweiseGl.Art.GERTSCH : com.dan.lituya.gl.MalweiseGl.Art.STICH;
+            if (mv != null && !mv.isBlank()) {
+                com.dan.lituya.gl.MalweiseGl.Vorbild v = com.dan.lituya.gl.MalweiseGl.Vorbild.byName(mv);
+                if (v == null) System.err.println("FEHLER: keine Vorlage „" + mv + "“"); else r.malweise.vorbild = v;
+            }
+            if (mu != null && !mu.isBlank()) r.malweise.umkreis = Double.parseDouble(mu.replace(',', '.'));
+            if ("aus".equals(opt("unterwuchs"))) r.malweise.unterwuchs = false;
+            if (r.malweise.art.gertsch()) {
+                long t0 = System.nanoTime();
+                while (!r.malweise.fertig() && System.nanoTime() - t0 < 300e9) { d.display(); Thread.sleep(100); }
+                System.out.printf(Locale.GERMAN, "Malweise %s in %.1f s: %s%n", r.malweise.fertig() ? "bereit" : "NICHT bereit", (System.nanoTime() - t0) / 1e9, r.malweise.status());
+            }
+        }
         for (int i = 0; i < 20; i++) { r.step(1 / 60.0); d.display(); }
+        if (r.malweise.art != com.dan.lituya.gl.MalweiseGl.Art.AUS) System.out.println("Malweise: " + r.malweise.status());
         // W5: die Grafikkarte die 20 Vorlaufbilder abarbeiten lassen. Ohne das wartete das erste gemessene Bild auf alle
         // (500–900 ms seit W5, als die Bilder teurer wurden) und hob das Mittel von 30 Bildern um 15–30 ms über das Übliche
         d.getContext().makeCurrent();

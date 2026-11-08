@@ -1,0 +1,11 @@
+# Werkbuch Welle W10 „Malweise“: Proben (Format wie bildbank.txt). Die Szene nach Franz Gertsch (com.dan.gertsch), im
+# Bedienfeld MALWEISE: malweise=gertsch (der Wald um die Kamera aus denselben Bäumen gemalt), gertschstich (dasselbe als
+# Holzschnitt), stich (die ganze Szene als Holzschnitt); vorlage=sommer|herbst|winter|blaetter|graeser, umkreis=m,
+# unterwuchs=aus. Ort im Wald wie die Probe 939 (W9c Runde 2), nordwestlich von Fish Lake.
+nr=1001;name=Wald_am_Boden_1958;xz=-6500,-1500;auge=1.8;blick=90;neigung=6;zeitstand=vor;uhr=21.0;brennweite=35;warum=W10: vorher, die Szene wie sonst (wie 939)
+nr=1002;name=Gertsch_Abend_1958;xz=-6500,-1500;auge=1.8;blick=90;neigung=6;zeitstand=vor;uhr=21.0;brennweite=35;malweise=gertsch;warum=W10: derselbe Blick nach Gertsch, Vorlage Sommer, mit Unterwuchs aus understory
+nr=1003;name=Gertsch_Nachmittag_1958;xz=-6500,-1500;auge=1.8;blick=90;neigung=6;zeitstand=vor;uhr=15.0;brennweite=35;malweise=gertsch;warum=W10: die Sonne hoch (45°), Lichtflecken auf Boden und Stämmen
+nr=1004;name=Gertsch_ohne_Unterwuchs;xz=-6500,-1500;auge=1.8;blick=90;neigung=6;zeitstand=vor;uhr=15.0;brennweite=35;malweise=gertsch;unterwuchs=aus;warum=W10: nur die Bäume aus forest (gegen 1003)
+nr=1005;name=Gertsch_Holzschnitt;xz=-6500,-1500;auge=1.8;blick=90;neigung=6;zeitstand=vor;uhr=15.0;brennweite=35;malweise=gertschstich;warum=W10: 1003 als Holzschnitt (Punkte nach Rang, Ton nach der Vorlage)
+nr=1006;name=H1_Holzschnitt;schaustueck=1;zeitstand=vor;uhr=22.0;brennweite=50;malweise=stich;warum=W10: H1 „Abend vor Anker“ als Holzschnitt der ganzen Szene (Ton wie die Szene)
+nr=1007;name=Gertsch_Narbe_heute;xz=1850,-2450;auge=1.8;blick=350;neigung=4;zeitstand=heute;datum=2026-07-20;uhr=15.0;brennweite=35;malweise=gertsch;warum=W10: der junge Wald am Sporn im Band der Welle, 68 Jahre danach (Roterlen); bei xz 1000, −1300 (Bildbank 11) stand das Auge auf dem Wasser, ohne Wald im Umkreis

@@ -32,7 +32,9 @@ public final class Bibliothek {
             "shore",
             // 07.11.2026: W1–W5 aus der App herausgezogen (Licht im Gebirge, Front der Welle; dustcloud gl/, cliff scour.glsl,
             // clipmap focusCenter, ocean GlacialMilk, forest TreeFall, exposure PreExposure)
-            "horizon", "surge"};
+            "horizon", "surge",
+            // 08.11.2026: Werkbuch Welle W10, die Malweise nach Franz Gertsch
+            "gertsch"};
 
     /**
      * Packages, die für LituyaBay1958 im Projekt Renderer neu entstehen (Werkbuch 5), mit der Phase, in der sie kommen

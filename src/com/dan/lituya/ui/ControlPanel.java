@@ -78,7 +78,7 @@ public final class ControlPanel extends JPanel implements javax.swing.Scrollable
     private volatile String lodProbe = "Probe läuft …";
 
     /** Die Reihenfolge der Blöcke (Werkbuch, Abschnitt 12). */
-    public static final String[] REIHENFOLGE = {"ANSICHT", "KAMERA", "ZEIT", "EREIGNIS", "NETZE", "WETTER", "KLANG", "REGIEBÜCHER", "DATEN", "TECHNIK"};
+    public static final String[] REIHENFOLGE = {"ANSICHT", "KAMERA", "MALWEISE", "ZEIT", "EREIGNIS", "NETZE", "WETTER", "KLANG", "REGIEBÜCHER", "DATEN", "TECHNIK"};
 
     private static Preferences prefs() {
         try { return Preferences.userRoot().node("com/dan/lituya/bedienfeld"); } catch (RuntimeException | Error e) { return null; }
@@ -150,6 +150,9 @@ public final class ControlPanel extends JPanel implements javax.swing.Scrollable
 
         // ============================================================== KAMERA (Werkbuch Welle W9a)
         kamera();
+
+        // ============================================================== MALWEISE (Werkbuch Welle W10)
+        malweise();
 
         // ============================================================== ZEIT
         block("ZEIT", true);
@@ -1142,6 +1145,68 @@ public final class ControlPanel extends JPanel implements javax.swing.Scrollable
             txt(vsLbl, "<html><body style='width:215px'>" + esc(r.verschlussLine()) + "</body></html>");
             if (fiBox.isSelected() != r.filmAn) fiBox.setSelected(r.filmAn);
             if (afBox.isSelected() != ob.autoFocus) afBox.setSelected(ob.autoFocus);
+        }).start();
+    }
+
+    /**
+     * Werkbuch Welle W10: der Block MALWEISE. Die Szene nach Franz Gertsch (com.dan.gertsch): der Wald um die Kamera aus
+     * denselben Bäumen gemalt, wahlweise als Holzschnitt, oder die ganze Szene als Holzschnitt. Dazu die Vorlage (Tonstufen,
+     * Grund, Akzente) und der Umkreis der Bäume.
+     */
+    private void malweise() {
+        block("MALWEISE", false);
+        com.dan.lituya.gl.MalweiseGl mw = r.malweise;
+        FComboBox artBox = new FComboBox(com.dan.lituya.gl.MalweiseGl.Art.values());
+        artBox.setSelectedItem(mw.art);
+        artBox.setToolTipText("Gertsch malte den Wald aus nächster Nähe vom Boden aus: Fleck um Fleck, wenige Tonstufen, dunkler Grund ohne Himmel. "
+                + "Am besten in der Nähe des Walds (F: frei fliegen, Q tiefer), bis 120 m über Grund");
+        put(artBox);
+        FButton waldB = new FButton("In den Wald (bei Fish Lake, 1,8 m)");
+        waldB.setToolTipText("Stellt die Kamera in den alten Wald am Boden (frei fliegen: W A S D, Q E, Maus); die Ansichten 1 bis 9 stehen über dem Wasser");
+        waldB.addActionListener(e -> { r.placeView(com.dan.lituya.gl.MalweiseGl.IM_WALD); view.requestFocusInWindow(); });
+        put(waldB);
+        put(label("Vorlage"));
+        FComboBox vorBox = new FComboBox(com.dan.lituya.gl.MalweiseGl.Vorbild.values());
+        vorBox.setSelectedItem(mw.vorbild);
+        vorBox.setToolTipText("Woher Tonstufen, Grund und Akzente kommen: gemessen an Gertschs Bildern (com.dan.gertsch, Phase 1)");
+        vorBox.addActionListener(e -> { Object o = vorBox.getSelectedItem(); if (o instanceof com.dan.lituya.gl.MalweiseGl.Vorbild v) mw.vorbild = v; view.requestFocusInWindow(); });
+        put(vorBox);
+        JLabel umLbl = small("");
+        FSlider umSl = new FSlider(20, 90, (int) Math.round(mw.umkreis));
+        umSl.setToolTipText("Wie weit um die Kamera die Bäume gemalt werden (m); mehr kostet Zeit beim Bauen und je Bild");
+        umSl.addChangeListener(e -> {
+            txt(umLbl, "Umkreis " + umSl.getValue() + " m");
+            if (!umSl.getValueIsAdjusting()) mw.umkreis = umSl.getValue();
+        });
+        txt(umLbl, "Umkreis " + umSl.getValue() + " m");
+        put(umLbl);
+        put(umSl);
+        FCheckBox uwBox = new FCheckBox("Unterwuchs (understory): Farne, Moos, Streu, Totholz");
+        uwBox.setSelected(mw.unterwuchs);
+        uwBox.setToolTipText("Der Boden des Küstenregenwalds aus com.dan.understory, nach Licht unter dem Kronendach: Farne aus einzelnen Fiedern, "
+                + "Moospolster und Nadelstreu, Teufelskeule, Beerensträucher, liegendes Totholz");
+        uwBox.addActionListener(e -> { mw.unterwuchs = uwBox.isSelected(); view.requestFocusInWindow(); });
+        put(uwBox);
+        FCheckBox tonBox = new FCheckBox("Holzschnitt der Szene: Ton nach der Vorlage");
+        tonBox.setSelected(mw.tonSzene == com.dan.gertsch.Stich.Tonwerte.VORLAGE);
+        tonBox.setToolTipText("Aus: der Ton folgt der Szene (liest sich bei hellem Himmel besser). An: Gertschs dunkle Verteilung, die Hälfte der Fläche fast ohne Papier");
+        tonBox.addActionListener(e -> { mw.tonSzene = tonBox.isSelected() ? com.dan.gertsch.Stich.Tonwerte.VORLAGE : com.dan.gertsch.Stich.Tonwerte.LINEAR; view.requestFocusInWindow(); });
+        put(tonBox);
+        artBox.addActionListener(e -> {
+            Object o = artBox.getSelectedItem();
+            if (o instanceof com.dan.lituya.gl.MalweiseGl.Art a) { mw.art = a; mw.zuruecksetzen(); }
+            view.requestFocusInWindow();
+        });
+        JLabel stLbl = small("");
+        put(stLbl);
+        put(small("<html><body style='width:215px'><b>Werkbuch Welle W10.</b> Dieselben Bäume wie im Wald der App (Plätze, Arten, Modelle, Farben "
+                + "nach dem Tag) über die Schnittstelle Quelle in ein Dickicht von com.dan.gertsch: je Blattstelle ein Büschel, je Ast ein Glied, "
+                + "jeder Baum auf seinem Grund. Licht und Wind aus der Szene, die Tonstufen aus der Vorlage mit Hysterese, damit es im Wind nicht "
+                + "flimmert. Der Holzschnitt druckt mit Punkten nach Rang auf eine Farbe. Taste F12: Foto wie sonst.</body></html>"));
+        new javax.swing.Timer(500, e -> {
+            if (!isShowing()) return;
+            txt(stLbl, "<html><body style='width:215px'>" + esc(mw.status()) + "</body></html>");
+            if (artBox.getSelectedItem() != mw.art) artBox.setSelectedItem(mw.art);
         }).start();
     }
 
