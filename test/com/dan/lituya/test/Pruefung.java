@@ -1787,8 +1787,9 @@ public final class Pruefung {
         c.zeitstand = SceneClock.Zeitstand.VOR;
         for (double t = 0; t < 30; t += 0.05) { c.setEpochMillis(c.epochMillis() + 50); k.feed(0.05); k.s.render(0.05); }
         check(k.kalbungen == 1 && k.moewen >= 1 && k.beben == 0, f("Abend vor Anker: %d Kalbung, %d Möwen in 30 s", k.kalbungen, k.moewen));
-        check(java.util.Arrays.asList(com.dan.lituya.ui.ControlPanel.REIHENFOLGE).indexOf("KLANG") == java.util.Arrays.asList(com.dan.lituya.ui.ControlPanel.REIHENFOLGE).indexOf("WETTER") + 1,
-                "Bedienfeld: Block KLANG nach WETTER");
+        java.util.List<String> folge = java.util.Arrays.asList(com.dan.lituya.ui.ControlPanel.REIHENFOLGE);
+        check(folge.indexOf("POLARLICHT") == folge.indexOf("WETTER") + 1 && folge.indexOf("KLANG") == folge.indexOf("WETTER") + 2,
+                "Bedienfeld: Block KLANG nach WETTER, seit Welle W12 mit POLARLICHT dazwischen");
         // Befunde 17a: Marken nicht im Kino und im Regiebuch, Auge über den Kronen
         r.showMarks = true;
         check(r.marksJetzt(), "Marken im Fenster wie geschaltet");
