@@ -161,6 +161,7 @@ public final class Hilfe {
                 {"EREIGNIS", "die Nacht vom 9. Juli 1958: Beben, Sturz, Welle; Wiedergabe der vorgerechneten Läufe, Echtzeit „Was wäre wenn“, Schaustücke, Boote"},
                 {"NETZE", "Netzblick: Welle, Wasser, Weg, Sicht; Bild im Bild"},
                 {"WETTER", "Wetterlage für heute (klar, Quellwolken, Küstennebel, grauer Morgen, Regen am Berg, stiller Regen, Sturm aus Südost) mit Übergang in Minuten, „Sofort“, Zeitraffer; 1958 und am Morgen danach klar nach den Zeugen; Wolken, Seenebel, Regen einzeln abschaltbar; Regen von Hand auf die Bäche"},
+                {"POLARLICHT", "das Nordlicht über der Bucht (com.dan.aurora, Werkbuch Welle W12): Preset oder Kp, Feinregler für Energie, Fluss, Faltung und Strahlen, diffuse Aurora, Bewegung, Uhr der Szene; „Winternacht“ und „Blick zum Bogen“"},
                 {"KLANG", "Grollen, Brandung, Wind, Lautstärke (Taste M)"},
                 {"REGIEBÜCHER", "die mitgelieferten Abläufe im Fenster oder im Kino (eigene im Archiv)"},
                 {"DATEN", "Verbindung, LOD, Datenstand; Sitzung sichern und laden, Lauf sichern; Archiv (F2)"},

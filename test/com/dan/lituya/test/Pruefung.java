@@ -1095,6 +1095,7 @@ public final class Pruefung {
         sicht17(daten);
         regie17a(daten);
         bootstour11(daten);
+        polarlicht12();
         klang18(daten);
         szene19(daten);
         wetter7();
@@ -2017,5 +2018,42 @@ public final class Pruefung {
         File rd = new File("README.md");
         String rt = rd.isFile() ? Files.readString(rd.toPath(), StandardCharsets.UTF_8) : "";
         check(rt.contains("Phase 20") && rt.contains("ant film") && rt.contains("ant verknuepfung"), "README.md auf dem Stand von Phase 20 (Start, Verknüpfung, Film)");
+    }
+    /** Werkbuch Welle W12 „Polarlicht“: Preset-Namen, Deklination, Lituya Bay im Oval, Strahlung, das Jar mit com.dan.aurora.gl, die Proben. */
+    static void polarlicht12() throws Exception {
+        teil("Das Polarlicht (Werkbuch Welle W12): Presets, Deklination, Oval über der Bucht, Jar, Proben");
+        com.dan.lituya.gl.PolarlichtGl.Art a1 = com.dan.lituya.gl.PolarlichtGl.Art.von("aufbruch"), a2 = com.dan.lituya.gl.PolarlichtGl.Art.von("5,5"),
+                a3 = com.dan.lituya.gl.PolarlichtGl.Art.von("aus"), a4 = com.dan.lituya.gl.PolarlichtGl.Art.von("quark");
+        check(a1 == com.dan.lituya.gl.PolarlichtGl.Art.AUFBRUCH && a2 == com.dan.lituya.gl.PolarlichtGl.Art.KP && a3 == com.dan.lituya.gl.PolarlichtGl.Art.AUS && a4 == null,
+                "Art.von: „aufbruch“, „5,5“ (nach Kp), „aus“, Unsinn → null");
+        double d58 = com.dan.lituya.gl.PolarlichtGl.deklination(1958), d26 = com.dan.lituya.gl.PolarlichtGl.deklination(2026);
+        check(Math.abs(d58 - 29) < 1e-9 && d26 > 17 && d26 < 19.5, f("Deklination Lituya Bay: %.0f° Ost 1958, %.1f° Ost 2026 (WMM, 0,16°/Jahr)", d58, d26));
+        com.dan.aurora.Aurora au = com.dan.aurora.Aurora.aktiv();
+        au.ort = new com.dan.aurora.Ort("Lituya Bay", Site.LAT, Site.LON, d26);
+        au.monat = 12; au.tag = 20; au.ut = 8;
+        au.stufen = false;
+        au.vorbereiten(0);
+        check(au.mlat > 61 && au.mlat < 63 && au.inklination > 74 && au.inklination < 76.5,
+                f("Lituya Bay magnetisch %.1f°, Inklination %.1f°, %.1f MLT um 8 UT (Werkbuch 9.12: rund 60° [zu prüfen])", au.mlat, au.inklination, au.mlt));
+        double p4 = au.hauptbogen().mitteAmMeridian(), g4a = au.grenzeBogen, g4p = au.grenzePol;
+        au.kp = 2;
+        au.vorbereiten(0);
+        double p2 = au.hauptbogen().mitteAmMeridian();
+        check(Math.abs(p4) < 450 && p2 > 150, f("Kp 4: Bögen %.1f–%.1f°, Hauptbogen %.0f km (über der Bucht); Kp 2: Hauptbogen %.0f km nördlich (hinter der Kette)", g4a, g4p, p4, p2));
+        double[] kr = new double[com.dan.aurora.Emission.LINIEN];
+        au.strahlung(0, Math.cos(Math.toRadians(20)), Math.sin(Math.toRadians(20)), kr);
+        double summe = 0;
+        for (double v : kr) summe += v;
+        check(summe > 0 && !Double.isNaN(summe), f("Strahlung nach Norden, 20° hoch, bei Kp 2: %.2f kR in 557,7 nm, %.2f kR in 630,0 nm", kr[com.dan.aurora.Emission.GRUEN], kr[com.dan.aurora.Emission.ROT]));
+        try (java.util.zip.ZipFile z = new java.util.zip.ZipFile("lib/Renderer.jar")) {
+            check(z.getEntry("com/dan/aurora/gl/AuroraGl.class") != null && z.getEntry("com/dan/aurora/gl/aurora.frag") != null
+                    && z.getEntry("com/dan/aurora/demo/AuroraCheck.class") != null && z.getEntry("com/dan/aurora/README.md") != null,
+                    "lib/Renderer.jar hat com.dan.aurora mit gl/AuroraGl, aurora.frag, Prüfklasse und README");
+        }
+        String probe = Files.readString(new File("src/com/dan/lituya/scene/aufnahmen_w12.txt").toPath(), StandardCharsets.UTF_8);
+        check(probe.contains("nr=1201") && probe.contains("nr=1207") && probe.contains("aurora=aufbruch") && probe.contains("zeitstand=vor"),
+                "aufnahmen_w12.txt mit den Proben 1201–1207 (Winternacht, Kp 2 bis 7, rot, Sommerabend 1958, Feinregler)");
+        String rd = Files.readString(new File("README.md").toPath(), StandardCharsets.UTF_8);
+        check(rd.contains("POLARLICHT") && rd.contains("Werkbuch Welle W12"), "README.md nennt den Block POLARLICHT (Werkbuch Welle W12)");
     }
 }

@@ -78,7 +78,7 @@ public final class ControlPanel extends JPanel implements javax.swing.Scrollable
     private volatile String lodProbe = "Probe läuft …";
 
     /** Die Reihenfolge der Blöcke (Werkbuch, Abschnitt 12). */
-    public static final String[] REIHENFOLGE = {"ANSICHT", "KAMERA", "MALWEISE", "ZEIT", "EREIGNIS", "NETZE", "WETTER", "KLANG", "REGIEBÜCHER", "DATEN", "TECHNIK"};
+    public static final String[] REIHENFOLGE = {"ANSICHT", "KAMERA", "MALWEISE", "ZEIT", "EREIGNIS", "NETZE", "WETTER", "POLARLICHT", "KLANG", "REGIEBÜCHER", "DATEN", "TECHNIK"};
 
     private static Preferences prefs() {
         try { return Preferences.userRoot().node("com/dan/lituya/bedienfeld"); } catch (RuntimeException | Error e) { return null; }
@@ -153,6 +153,9 @@ public final class ControlPanel extends JPanel implements javax.swing.Scrollable
 
         // ============================================================== MALWEISE (Werkbuch Welle W10)
         malweise();
+
+        // ============================================================== POLARLICHT (Werkbuch Welle W12)
+        polarlicht();
 
         // ============================================================== ZEIT
         block("ZEIT", true);
@@ -1212,6 +1215,121 @@ public final class ControlPanel extends JPanel implements javax.swing.Scrollable
             if (!isShowing()) return;
             txt(stLbl, "<html><body style='width:215px'>" + esc(mw.status()) + "</body></html>");
             if (artBox.getSelectedItem() != mw.art) artBox.setSelectedItem(mw.art);
+        }).start();
+    }
+
+    /**
+     * Werkbuch Welle W12: der Block POLARLICHT. Das Nordlicht über der Bucht aus com.dan.aurora: Preset oder Kp, Feinregler
+     * für Energie, Fluss, Faltung und Strahlen, diffuse Aurora, Bewegung, Datum und Weltzeit aus der Uhr; „Winternacht“
+     * stellt die Uhr auf eine dunkle Nacht, „Blick zum Bogen“ die Kamera.
+     */
+    private void polarlicht() {
+        block("POLARLICHT", false);
+        com.dan.lituya.gl.PolarlichtGl pl = r.polarlicht;
+        FComboBox artBox = new FComboBox(com.dan.lituya.gl.PolarlichtGl.Art.values());
+        artBox.setSelectedItem(pl.art);
+        artBox.setToolTipText("Preset aus com.dan.aurora: Energie der Elektronen, Fluss, Faltung, Strahlen, Zahl der Vorhänge. Der Kp-Regler gilt immer und legt fest, wo das Oval steht");
+        put(artBox);
+        JLabel kpLbl = small("");
+        FSlider kpSl = new FSlider(0, 90, (int) Math.round(pl.kp * 10));
+        artBox.addActionListener(e -> {
+            Object o = artBox.getSelectedItem();
+            if (o instanceof com.dan.lituya.gl.PolarlichtGl.Art a) {
+                pl.art = a;
+                // das Preset bringt seinen Kp mit (der Regler darf ihn danach verstellen)
+                if (!Double.isNaN(a.kp())) { pl.kp = a.kp(); kpSl.setValue((int) Math.round(a.kp() * 10)); }
+            }
+            view.requestFocusInWindow();
+        });
+        kpSl.setToolTipText("Planetarischer Kp-Index 0 bis 9: Lituya Bay (magnetisch 61,9°) liegt ab etwa Kp 4 unter dem Oval; bei Kp 2 stehen die Bögen weit im Norden hinter der Kette");
+        kpSl.addChangeListener(e -> { txt(kpLbl, String.format(Locale.GERMAN, "Kp %.1f", kpSl.getValue() / 10.0)); if (!kpSl.getValueIsAdjusting()) pl.kp = kpSl.getValue() / 10.0; });
+        txt(kpLbl, String.format(Locale.GERMAN, "Kp %.1f", kpSl.getValue() / 10.0));
+        put(kpLbl);
+        put(kpSl);
+        FCheckBox feinBox = new FCheckBox("Feinregler statt Preset");
+        feinBox.setToolTipText("An: Energie, Fluss, Faltung und Strahlen aus den Reglern darunter; aus: aus dem Preset");
+        put(feinBox);
+        JLabel eLbl = small(""), qLbl = small(""), fLbl = small(""), sLbl = small("");
+        FSlider eSl = new FSlider(0, 100, 55), qSl = new FSlider(0, 100, 65), fSl = new FSlider(0, 100, 60), sSl = new FSlider(0, 100, 60);
+        eSl.setToolTipText("Charakteristische Energie der Elektronen: weich (0,2 keV) leuchtet rot in 200 bis 300 km, hart (10 keV) grün um 100 km mit purpurnem Saum");
+        qSl.setToolTipText("Energiefluss: 1 mW/m² ein schwacher Bogen (IBC I), 10 ein heller (IBC II), 50 bis 100 der Aufbruch (IBC III)");
+        Runnable feinTexte = () -> {
+            double e0 = 0.2 * Math.pow(75, eSl.getValue() / 100.0), q = Math.pow(100, qSl.getValue() / 100.0);
+            txt(eLbl, String.format(Locale.GERMAN, "E₀ %.1f keV (%s)", e0, e0 < 1 ? "weich: Rot oben" : e0 < 5 ? "Grün um 110–130 km" : "hart: Grün um 100 km, Purpur unten"));
+            txt(qLbl, String.format(Locale.GERMAN, "Q %.0f mW/m² (%s)", q, q < 3 ? "IBC I" : q < 30 ? "IBC II" : "IBC III"));
+            txt(fLbl, "Faltung " + fSl.getValue() + " %");
+            txt(sLbl, "Strahlen " + sSl.getValue() + " %");
+        };
+        Runnable fein = () -> {
+            feinTexte.run();
+            boolean an = feinBox.isSelected();
+            pl.energie = an ? 0.2 * Math.pow(75, eSl.getValue() / 100.0) : Double.NaN;
+            pl.fluss = an ? Math.pow(100, qSl.getValue() / 100.0) : Double.NaN;
+            pl.faltung = an ? fSl.getValue() / 100.0 : Double.NaN;
+            pl.strahlen = an ? sSl.getValue() / 100.0 : Double.NaN;
+        };
+        feinTexte.run();
+        feinBox.addActionListener(e -> { fein.run(); view.requestFocusInWindow(); });
+        for (FSlider s : new FSlider[]{eSl, qSl, fSl, sSl}) s.addChangeListener(e -> { if (s.getValueIsAdjusting()) feinTexte.run(); else fein.run(); });
+        put(eLbl);
+        put(eSl);
+        put(qLbl);
+        put(qSl);
+        put(fLbl);
+        put(fSl);
+        put(sLbl);
+        put(sSl);
+        FCheckBox diffusBox = new FCheckBox("Diffuse Aurora äquatorwärts der Bögen");
+        diffusBox.setSelected(pl.diffus);
+        diffusBox.addActionListener(e -> { pl.diffus = diffusBox.isSelected(); view.requestFocusInWindow(); });
+        put(diffusBox);
+        FCheckBox bewegtBox = new FCheckBox("Bewegt: Drift, Falten, Strahlen");
+        bewegtBox.setSelected(pl.bewegt);
+        bewegtBox.addActionListener(e -> { pl.bewegt = bewegtBox.isSelected(); view.requestFocusInWindow(); });
+        put(bewegtBox);
+        FCheckBox sparBox = new FCheckBox("In Bewegung höchstens „Mittel“ rechnen");
+        sparBox.setSelected(pl.sparsam);
+        sparBox.setToolTipText("Der Strahlengang auf der Grafikkarte kostet in „Hoch“ (1,25 km Schritt) rund 16 ms je Bild in 1280 × 720, in „Mittel“ 7 ms; Standbilder rechnen immer in der Stufe der App");
+        sparBox.addActionListener(e -> { pl.sparsam = sparBox.isSelected(); view.requestFocusInWindow(); });
+        put(sparBox);
+        FCheckBox farbBox = new FCheckBox("Farben wie die Kamera (ohne Stäbchensehen)");
+        farbBox.setSelected(pl.kameraFarben);
+        farbBox.setToolTipText("An: die Nachbearbeitung lässt das Stäbchensehen aus, das Grün bleibt grün (wie auf einem Foto). Aus: wie das Auge bei Nacht, das Polarlicht wird blaugrau, erst ein Aufbruch (IBC III) zeigt Farbe");
+        farbBox.addActionListener(e -> { pl.kameraFarben = farbBox.isSelected(); view.requestFocusInWindow(); });
+        put(farbBox);
+        FCheckBox uhrBox = new FCheckBox("Datum und Weltzeit aus der Uhr der Szene");
+        uhrBox.setSelected(pl.uhrAusSzene);
+        uhrBox.setToolTipText("Aus: fest 20. Dezember, 8 UT (magnetische Nacht über Lituya Bay). Die magnetische Ortszeit verschiebt das Oval: zur Tagseite rückt es polwärts");
+        uhrBox.addActionListener(e -> { pl.uhrAusSzene = uhrBox.isSelected(); view.requestFocusInWindow(); });
+        put(uhrBox);
+        JPanel kn = grid(2);
+        FButton winter = new FButton("Winternacht 20.12., 23 Uhr"), nord = new FButton("Blick zum Bogen");
+        winter.setToolTipText("Im Juli 1958 sinkt die Sonne nie unter −12°: das Polarlicht geht im Himmelslicht unter. Stellt die Uhr auf den 20.12.2026, 23 Uhr (Zeitstand heute) und schaltet das Polarlicht ein");
+        winter.addActionListener(e -> {
+            clock.set(java.time.LocalDate.of(2026, 12, 20), 23.0);
+            clock.zeitstand = SceneClock.Zeitstand.HEUTE;
+            syncFromScene();
+            if (pl.art == com.dan.lituya.gl.PolarlichtGl.Art.AUS) { pl.art = com.dan.lituya.gl.PolarlichtGl.Art.AKTIV; artBox.setSelectedItem(pl.art); }
+            view.requestFocusInWindow();
+        });
+        nord.setToolTipText("Dreht die Kamera zum hellsten Bogen (nach Norden, solange keiner steht), 15° über den Horizont (frei fliegen)");
+        nord.addActionListener(e -> { double[] a = r.camera.eye.clone(); r.camera.place(a[0], a[1], a[2], pl.an() ? pl.aurora().azimutHauptbogen() : 0, -15); view.requestFocusInWindow(); });
+        kn.add(winter);
+        kn.add(nord);
+        put(kn);
+        FButton wuerfeln = new FButton("Neu würfeln (Falten, Strahlen, Lage der Bögen)");
+        wuerfeln.addActionListener(e -> { pl.seed++; view.requestFocusInWindow(); });
+        put(wuerfeln);
+        JLabel stLbl = small("");
+        put(stLbl);
+        put(small("<html><body style='width:215px'><b>Werkbuch Welle W12.</b> Oval nach Kp und magnetischer Ortszeit (Gussenhoven 1983), Ort im exzentrischen Dipol, "
+                + "Strahlen entlang der Feldlinien (Inklination 75°, Deklination 29° im Jahr 1958 und 18° heute), Elektronen nach Rees, vier Linien "
+                + "(427,8 · 557,7 · 630,0 · 670 nm) in kR und cd/m², additiv hinter dem Himmel von sky, auch im Spiegel der See und im Rundumbild. "
+                + "Taste F12: Foto wie sonst.</body></html>"));
+        new javax.swing.Timer(500, e -> {
+            if (!isShowing()) return;
+            txt(stLbl, "<html><body style='width:215px'>" + esc(pl.status()) + "</body></html>");
+            if (artBox.getSelectedItem() != pl.art) artBox.setSelectedItem(pl.art);
         }).start();
     }
 

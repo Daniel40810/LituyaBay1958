@@ -144,6 +144,8 @@ public final class Renderer implements GLEventListener {
      * um die Kamera gemalt statt der Szene, wahlweise als Holzschnitt, oder die ganze Szene als Holzschnitt.
      */
     public final MalweiseGl malweise = new MalweiseGl();
+    /** Werkbuch Welle W12: das Polarlicht (com.dan.aurora) hinter dem Himmel, im Bedienfeld POLARLICHT zuschaltbar. */
+    public final PolarlichtGl polarlicht = new PolarlichtGl();
     /** Werkbuch Welle W6: die Landschaft (Farbe aus Sentinel-2, Fels aus cliff, Schnee, Gletscher mit Spalten). */
     public final LandschaftGl landschaft = new LandschaftGl();
     /** W5 (E11): Schleier am Sporn. */
@@ -786,6 +788,7 @@ public final class Renderer implements GLEventListener {
         for (int[] s : stamp) gl.glGenQueries(MARKS, s, 0);
         compute = ComputeProbe.run(gl);
         licht.init(gl);   // W1
+        polarlicht.init(gl);   // W12
         meer.init(gl);    // W2
         wetterGl.init(gl);   // W7
         wetterGl.stufe(quality);
@@ -1651,7 +1654,18 @@ public final class Renderer implements GLEventListener {
         licht.hellFaktor = wetterGl.hellFaktor();
         licht.waldWolken = wetter.an ? wetterGl.waldSonne() : 1;   // W7 Runde 1c: Wald, Fälle und Boote unter den Wolken
         wetterGl.verlauf(Math.abs(clock.lapse) > 30 ? 0.5 : 0.85);   // im schnellen Zeitraffer weniger vom letzten Bild (keine Schlieren)
-        licht.panoZusatz = wetterGl.wolkenJetzt() ? g -> wetterGl.panorama(g, camera.eye) : null;
+        {
+            java.util.function.Consumer<GL4> wolken = wetterGl.wolkenJetzt() ? g -> wetterGl.panorama(g, camera.eye) : null;
+            // W12: erst das Polarlicht (additiv hinter die Wolken ins Rundumbild), dann die Wolken
+            licht.panoZusatz = !polarlicht.an() ? wolken : g -> { polarlicht.panorama(g, licht.pre()); if (wolken != null) wolken.accept(g); };
+        }
+        // Werkbuch Welle W12: das Polarlicht nach Uhr, Preset und Kp; Tabellen im Hilfsfaden, fertige geladen
+        try {
+            polarlicht.vorbereiten(gl, clock, clock.t(), quality, licht.aktiv() ? licht.state().sunAlt : 0, frozen);
+        } catch (RuntimeException e) {
+            System.err.println("LituyaBay1958: Polarlicht: " + e);
+            polarlicht.art = PolarlichtGl.Art.AUS;
+        }
         licht.wolkenUniforms = sh -> wetterGl.uniforms(gl, sh);
         // W1: Himmel und Licht aus com.dan.sky (Sonne mit Strahlenbrechung), Horizontkarten, Rundumbild
         teil("Licht");
@@ -1793,6 +1807,11 @@ public final class Renderer implements GLEventListener {
             teil("Himmel");
             licht.himmel(gl, vp, inv, reversedZ, w, h, fovy(), clock.t());   // W1: com.dan.sky statt des Platzhalters
             teilEnde("Himmel");
+            if (polarlicht.an()) {   // W12: das Polarlicht additiv hinter den Himmel (optisch dünn, die Sterne scheinen durch)
+                teil("Polarlicht");
+                polarlicht.zeichnen(gl, inv, reversedZ, w, h, licht.pre());
+                teilEnde("Polarlicht");
+            }
             gl.glBindVertexArray(emptyVao);
         } else {
             common(gl, skyShader, vp, inv, sun);
@@ -2160,7 +2179,8 @@ teilEnde("Schleier");
         post.set(gl, "uFxaa", !taa && fxaa ? 1 : 0);
         post.set(gl, "uTexel", 1f / w, 1f / h);
         post.set(gl, "uExposure", (float) (exposure() * auge.factor()));
-        post.set(gl, "uScotopic", licht.aktiv() ? (float) licht.state().scotopic() : 0f);
+        // W12: mit Polarlicht und „Farben wie die Kamera“ ohne Stäbchensehen (sonst würde das Grün zu Blaugrau)
+        post.set(gl, "uScotopic", licht.aktiv() && !(polarlicht.an() && polarlicht.kameraFarben) ? (float) licht.state().scotopic() : 0f);
         post.set(gl, "uBloom", taa && !linse ? (float) bloom : 0f);   // W9a: mit dem Objektiv streut das Schleierlicht statt des Glühens
         post.set(gl, "uRand", linse ? 0f : 1f);                          // und der Randabfall kommt aus den Fassungen
         gl.glBindVertexArray(emptyVao);
@@ -2280,6 +2300,7 @@ teilEnde("Schleier");
             gl.glDisable(GL.GL_BLEND);
             gl.glBindVertexArray(emptyVao);
             licht.himmel(gl, vpR, invR, reversedZ, sz0[0], sz0[1], fovy(), clock.t(), false);
+            if (polarlicht.an()) polarlicht.zeichnen(gl, invR, reversedZ, sz0[0], sz0[1], licht.pre());   // W12: auch im Spiegel der See
             meer.spiegelZiel(gl, w, h);
             gl.glBindVertexArray(emptyVao);
             gl.glEnable(GL.GL_DEPTH_TEST);
@@ -2803,6 +2824,7 @@ teilEnde("Schleier");
         if (!ez.isEmpty()) l.add(ez);
         if (echtzeit.an() || echtzeit.baut()) l.add(echtzeit.zeile());
         if (malweise.art != MalweiseGl.Art.AUS) l.add(malweise.status());   // W10
+        if (polarlicht.an()) l.add(polarlicht.status());   // W12
         l.add(cameraLine() + " · H: volles HUD, F1: Tasten");
         if (System.currentTimeMillis() < meldungUntil) l.add(meldung);
         if (error != null) l.add("!" + error.split("\n")[0]);
@@ -2980,6 +3002,7 @@ teilEnde("Schleier");
         clipGl.dispose(gl);
         wald.dispose(gl);
         malweise.dispose(gl);   // W10
+        polarlicht.dispose(gl);   // W12
         schleier.dispose(gl);
         wasserExec.shutdownNow();
         boote.dispose(gl);

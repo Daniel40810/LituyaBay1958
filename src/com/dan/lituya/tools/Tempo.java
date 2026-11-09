@@ -273,7 +273,29 @@ public final class Tempo {
                 System.out.printf(Locale.GERMAN, "Malweise %s in %.1f s: %s%n", r.malweise.fertig() ? "bereit" : "NICHT bereit", (System.nanoTime() - t0) / 1e9, r.malweise.status());
             }
         }
+        // Werkbuch Welle W12: aurora = ruhig|aktiv|aufbruch|rot|kp|<Kp> (aus: ohne), kp = 0..9, energie = keV, fluss = mW/m², faltung und strahlen = 0..1, bewegt = aus, zumbogen = an
+        String plAu = opt("aurora");
+        if (plAu != null && !plAu.isBlank() && !"aus".equals(plAu.trim())) {
+            com.dan.lituya.gl.PolarlichtGl pl = r.polarlicht;
+            com.dan.lituya.gl.PolarlichtGl.Art art = com.dan.lituya.gl.PolarlichtGl.Art.von(plAu);
+            if (art == null) System.err.println("FEHLER: kein Polarlicht „" + plAu + "“"); else pl.art = art;
+            try { pl.kp = Double.parseDouble(plAu.trim().replace(',', '.')); } catch (NumberFormatException e) { if (art != null && !Double.isNaN(art.kp())) pl.kp = art.kp(); }
+            String plKp = opt("kp"), plEn = opt("energie"), plFl = opt("fluss"), plFa = opt("faltung"), plSt = opt("strahlen");
+            if (plKp != null && !plKp.isBlank()) pl.kp = Double.parseDouble(plKp.replace(',', '.'));
+            if (plEn != null && !plEn.isBlank()) pl.energie = Double.parseDouble(plEn.replace(',', '.'));
+            if (plFl != null && !plFl.isBlank()) pl.fluss = Double.parseDouble(plFl.replace(',', '.'));
+            if (plFa != null && !plFa.isBlank()) pl.faltung = Double.parseDouble(plFa.replace(',', '.'));
+            if (plSt != null && !plSt.isBlank()) pl.strahlen = Double.parseDouble(plSt.replace(',', '.'));
+            if ("aus".equals(opt("bewegt"))) pl.bewegt = false;
+        }
         for (int i = 0; i < 20; i++) { r.step(1 / 60.0); d.display(); }
+        // W12: zumbogen = an dreht die Kamera wie der Knopf „Blick zum Bogen“ ins Azimut des hellsten Bogens (Neigung bleibt)
+        if (r.polarlicht.an() && "an".equals(opt("zumbogen"))) {
+            com.dan.lituya.camera.Camera c = r.camera;
+            c.place(c.fx, c.fy, c.fz, r.polarlicht.aurora().azimutHauptbogen(), c.fpitch);
+            for (int i = 0; i < 10; i++) { r.step(1 / 60.0); d.display(); }
+        }
+        if (r.polarlicht.an()) System.out.println(r.polarlicht.status());   // W12
         if (r.malweise.art != com.dan.lituya.gl.MalweiseGl.Art.AUS) System.out.println("Malweise: " + r.malweise.status() + " · Grenzen log2 Y " + java.util.Arrays.toString(r.malweise.grenzen()));
         // W5: die Grafikkarte die 20 Vorlaufbilder abarbeiten lassen. Ohne das wartete das erste gemessene Bild auf alle
         // (500–900 ms seit W5, als die Bilder teurer wurden) und hob das Mittel von 30 Bildern um 15–30 ms über das Übliche
