@@ -569,7 +569,7 @@ public final class Renderer implements GLEventListener {
 
     /** Hebt ein frei gestelltes Auge über Land auf {@link #KRONEN} m über dem Gelände und neigt den Blick um so viel nach unten, wie es auf 1,5 km ausmacht. */
     public boolean ueberKronen() {
-        if (camera.mode != com.dan.lituya.camera.Camera.Mode.FREI || camera.mitfahrt != null) return false;
+        if (camera.mode != com.dan.lituya.camera.Camera.Mode.FREI || camera.mitfahrt != null || camera.drohne != null) return false;
         double g = groundHeight(camera.fx, camera.fz);
         if (g <= KEIN_GRUND + 1) g = stapelHoehe(camera.fx, camera.fz);   // ohne clipmap (Prüfung): der Kachelstapel
         if (Double.isNaN(g) || g < wiring.pegel + 0.5 || camera.fy - g >= KRONEN) return false;
@@ -591,9 +591,15 @@ public final class Renderer implements GLEventListener {
         int bi = com.dan.lituya.camera.Schaustuecke.boot(st);
         if (bi >= 0) {
             boote.laden(new java.io.File(System.getProperty("lituya.daten", "daten")), wiedergabe.welle());
-            java.util.function.Supplier<double[]> pose = mitfahrtBoot(bi, bi == 1);
-            if (pose.get() != null) camera.startMitfahrt(pose, com.dan.lituya.camera.Schaustuecke.blick(st));
-            else hudMeldung(boote.status());
+            String dr = com.dan.lituya.camera.Schaustuecke.drohne(st);
+            if (dr != null) {   // W11c: die Drohne am Boot
+                com.dan.lituya.camera.Begleiter b = begleiter(bi, dr, 0, 0);
+                if (b != null && b.pose(0) != null) camera.startDrohne(b); else hudMeldung(boote.tourStatus());
+            } else {
+                java.util.function.Supplier<double[]> pose = mitfahrtBoot(bi, bi == 1);
+                if (pose.get() != null) camera.startMitfahrt(pose, com.dan.lituya.camera.Schaustuecke.blick(st));
+                else hudMeldung(boote.status());
+            }
         }
         hudMeldung("Schaustück " + com.dan.lituya.camera.Schaustuecke.describe(st));
     }
@@ -602,7 +608,22 @@ public final class Renderer implements GLEventListener {
      * Phase 15a: Mitfahrt auf dem Boot i zur Ereigniszeit der Uhr: im Steuerhaus mit Kurs, Stampfen und Rollen, oder
      * nebenher (25 m an Steuerbord, 4 m über dem Schwerpunkt, nur der Kurs, ohne Stampfen und Rollen).
      */
-    public java.util.function.Supplier<double[]> mitfahrtBoot(int i, boolean nebenher) {
+    public java.util.function.Supplier<double[]> mitfahrtBoot(int i, boolean nebenher) { return nebenher ? mitfahrtBoot(i, true, null) : anBordPose(i, "steuerhaus"); }
+
+    /** W11c: Auge an Bord des Boots i (0 Edrie, 1 Badger, 2 Sunmore, 3 Kittiwake) am Standpunkt steuerhaus, bug oder achtern, zur Ereigniszeit der Uhr. */
+    public java.util.function.Supplier<double[]> anBordPose(int i, String stand) { return () -> boote.anBord(i, stand, clock.simSeconds()); }
+
+    /** W11c: die Lage des Boots i zur Ereigniszeit der Uhr {x, y, z, Kurs, Stampfen, Rollen, Zustand, Fahrt} für die Drohne, null ohne Boot. */
+    public java.util.function.Supplier<double[]> bootLage(int i) { return () -> boote.lage(i, clock.simSeconds()); }
+
+    /** W11c: eine Drohne am Boot i in der Stellung (seite, achtern, ueberholen, kreisen) mit Abstand und Höhe (0 = Vorgabe); null bei unbekannter Stellung. */
+    public com.dan.lituya.camera.Begleiter begleiter(int i, String stellung, double abstand, double hoehe) {
+        com.dan.lituya.camera.Begleiter.Stellung st = com.dan.lituya.camera.Begleiter.Stellung.byName(stellung);
+        if (st == null) return null;
+        return new com.dan.lituya.camera.Begleiter(bootLage(i), st, abstand, hoehe);
+    }
+
+    private java.util.function.Supplier<double[]> mitfahrtBoot(int i, boolean nebenher, Void v) {
         return () -> {
             double t = clock.simSeconds();
             if (!nebenher) return boote.steuerhaus(i, t);
@@ -1037,7 +1058,7 @@ public final class Renderer implements GLEventListener {
         kino.schritt(l == com.dan.kino.Kino.Lage.VORSPANN && regie.waiting() != null ? 0 : dt);
         if (!kino.laeuft() && !kinoSchnitte.isEmpty() && !kino.schnittFaellig()) schnitteJetzt();
         double s = kino.schwenk();
-        if (camera.fahrt == null && camera.mitfahrt == null && kinoSchnitte.isEmpty()) {
+        if (camera.fahrt == null && camera.mitfahrt == null && camera.drohne == null && kinoSchnitte.isEmpty()) {
             double d = s - kinoYaw;
             if (camera.mode == com.dan.lituya.camera.Camera.Mode.FREI) camera.fyaw += d; else camera.yaw += d;
         }
@@ -1321,12 +1342,36 @@ public final class Renderer implements GLEventListener {
         @Override public void mitfahrt(String boot, boolean nebenher) {
             schnitt(() -> {
                 if (boot == null) { camera.stopMitfahrt(); return; }
-                int i = boot.equals("Edrie") ? 0 : 1;
+                int i = Math.max(0, BooteGl.index(boot));
                 boote.laden(new java.io.File(System.getProperty("lituya.daten", "daten")), wiedergabe.welle());
                 java.util.function.Supplier<double[]> pose = mitfahrtBoot(i, nebenher);
                 if (pose.get() != null) { camera.stopFahrt(); camera.startMitfahrt(pose, nebenher ? -90 : 0); }
-                else regieMsg = "Mitfahrt " + boot + ": " + boote.status();
+                else regieMsg = "Mitfahrt " + boot + ": " + (i == BooteGl.KITTIWAKE ? boote.tourStatus() : boote.status());
             });
+        }
+        @Override public void anBord(String boot, String stand) {   // W11c
+            schnitt(() -> {
+                int i = Math.max(0, BooteGl.index(boot));
+                boote.laden(new java.io.File(System.getProperty("lituya.daten", "daten")), wiedergabe.welle());
+                java.util.function.Supplier<double[]> pose = anBordPose(i, stand);
+                if (pose.get() != null) { camera.stopFahrt(); camera.startMitfahrt(pose, "achtern".equals(stand) ? 180 : 0); }
+                else regieMsg = "An Bord " + boot + ": " + (i == BooteGl.KITTIWAKE ? boote.tourStatus() : boote.status());
+            });
+        }
+        @Override public void drohne(String boot, String stellung, double abstand, double hoehe) {   // W11c
+            schnitt(() -> {
+                if (boot == null) { camera.stopDrohne(); return; }
+                int i = Math.max(0, BooteGl.index(boot));
+                boote.laden(new java.io.File(System.getProperty("lituya.daten", "daten")), wiedergabe.welle());
+                com.dan.lituya.camera.Begleiter b = begleiter(i, stellung, abstand, hoehe);
+                if (b != null && b.pose(0) != null) { camera.waterLevel = wiring.pegel; camera.startDrohne(b); }
+                else regieMsg = "Drohne " + boot + ": " + (b == null ? "Stellung „" + stellung + "“ unbekannt" : i == BooteGl.KITTIWAKE ? boote.tourStatus() : boote.status());
+            });
+        }
+        @Override public void tour(String boot) {   // W11a
+            boote.laden(new java.io.File(System.getProperty("lituya.daten", "daten")), wiedergabe.welle());
+            boote.tourAn = boot != null;
+            if (boot != null && !boote.tourDa()) regieMsg = boote.tourStatus();
         }
         @Override public void netzblick(String netz, boolean szene) {
             if (netz == null) { kinoNetzblick = false; netzblick.bildImBild = false; netzblick.inSzene = false; return; }
@@ -1373,7 +1418,7 @@ public final class Renderer implements GLEventListener {
                 case "ereignis" -> clock.simSeconds() >= w.wert();
                 case "echtzeit" -> echtzeit.an() && !Double.isNaN(echtzeit.bis()) && echtzeit.bis() > 100;
                 case "jahre" -> !jahresRaffer;
-                case "boote" -> boote.anzahl() > 0;
+                case "boote" -> boote.anzahl() > 0 || boote.tourDa();
                 default -> true;
             };
         }
@@ -1836,6 +1881,14 @@ public final class Renderer implements GLEventListener {
         // 3 Wasser: die Fläche im Pegel mit Erdkrümmung bis zur Kimm (Platzhalter bis ocean in Phase 5a), mit den Marken;
         //   seit Phase 4 mit Tiefe gegen das Gelände
         if (meerJetzt) {
+            // W11b: Kielwasser und Rumpfmasken der Boote an die See (die Kacheln um die Kamera, Compute vor dem Zeichnen)
+            if (boote.an) {
+                boote.kielStufe = quality.ordinal();
+                try { boote.kielwasser(gl, tE, frozen && !szeneLaeuft ? 0 : bildSzeneDt, camera.eye[0], camera.eye[2], clock.zeitstand); }
+                catch (RuntimeException e) { System.err.println("LituyaBay1958: Kielwasser: " + e); boote.kielwasserAn = false; }
+                meer.kielwasser(boote.kielTextur(), boote.kielRect(0), boote.kielRect(1));
+                meer.ruempfe(boote.ruempfe());
+            } else { meer.kielwasser(0, null, null); meer.ruempfe(null); }
             // W2: com.dan.ocean; dann der Holzteppich am Morgen danach aus meer.frag als Auflage
             double[] rm = wetterGl.ringMitte();   // W7: Regen auf dem Wasser (W7b: Wellenfeld fest in der Welt)
             meer.ringe(wetterGl.ringTextur(), wetterGl.ringKachel(), wetterGl.ringStaerke(), wetterGl.ringArt(), rm[0], rm[1]);

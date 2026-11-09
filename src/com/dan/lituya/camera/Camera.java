@@ -54,7 +54,26 @@ public final class Camera {
      * (gegen den Kurs versetzt), die Kamera fährt mit.
      */
     public volatile java.util.function.Supplier<double[]> mitfahrt;
-    private double mitYaw, mitPitch = 8, mitYawS;
+    private double mitYaw, mitPitch = 8, mitYawS, mitBobS;
+
+    /** Werkbuch Welle W11c: eine Drohne liefert je Schritt {x, y, z, Blick, Neigung} (Welt, Grad), null, wenn sie nichts mehr begleitet. */
+    public interface Begleiter { double[] pose(double dt); }
+    /** Die Drohne (null: keine); sie stellt Auge und Blick in jedem Schritt, Ziehen dreht den Blick um einen Versatz. */
+    public volatile Begleiter drohne;
+    private double drYaw, drPitch;
+
+    /** W11c: Drohne starten (ersetzt Fahrt und Mitfahrt). */
+    public void startDrohne(Begleiter b) {
+        stopFahrt();
+        mitfahrt = null;
+        drYaw = drPitch = 0;
+        drohne = b;
+        double[] q = b.pose(0);
+        if (q != null) place(q[0], q[1], q[2], q[3], q[4]);
+    }
+
+    /** W11c: Drohne beenden; die Kamera bleibt frei, wo sie ist. */
+    public void stopDrohne() { drohne = null; }
 
     public Camera() { home(); snap(); }
 
@@ -64,22 +83,25 @@ public final class Camera {
     /** Mitfahrt mit dem Blick um lookDeg zur Seite (negativ nach Backbord). */
     public void startMitfahrt(java.util.function.Supplier<double[]> pose, double lookDeg) {
         stopFahrt();
+        drohne = null;
         mitYaw = mitYawS = lookDeg;
         mitPitch = 8;
+        mitBobS = 0;
         mitfahrt = pose;
         double[] q = pose.get();
         place(q[0], q[1], q[2], q[3], mitPitch);
     }
 
     /** Phase 16: bei der Mitfahrt den Blick weich zur Seite drehen (Grad, negativ nach Backbord). */
-    public void mitBlick(double lookDeg) { mitYaw = Math.max(-170, Math.min(170, lookDeg)); }
+    public void mitBlick(double lookDeg) { mitYaw = Math.max(-180, Math.min(180, lookDeg)); }
 
-    /** Mitfahrt beenden; die Kamera bleibt frei, wo sie ist. */
-    public void stopMitfahrt() { mitfahrt = null; }
+    /** Mitfahrt (und Drohne) beenden; die Kamera bleibt frei, wo sie ist. */
+    public void stopMitfahrt() { mitfahrt = null; drohne = null; }
 
     /** Fahrt starten (vom Anfang). */
     public void startFahrt(Fahrt f) {
         mitfahrt = null;
+        drohne = null;
         f.start();
         fahrt = f;
         double[] q = f.pose(0);
@@ -102,6 +124,7 @@ public final class Camera {
      */
     public void home() {
         mitfahrt = null;
+        drohne = null;
         mode = Mode.KREISEN;
         autoOrbit = false;
         tx = com.dan.lituya.scene.Site.CENOTAPH.x(); ty = 0; tz = com.dan.lituya.scene.Site.CENOTAPH.z();
@@ -118,6 +141,7 @@ public final class Camera {
 
     public void lookAt(double x, double y, double z, double yawDeg, double pitchDeg, double distance) {
         mitfahrt = null;
+        drohne = null;
         tx = x; ty = y; tz = z; yaw = yawDeg; pitch = pitchDeg; dist = distance;
         clamp();
     }
@@ -143,8 +167,13 @@ public final class Camera {
 
     /** Drehen um den Drehpunkt bzw. Umschauen (Grad). */
     public void orbit(double dYawDeg, double dPitchDeg) {
+        if (drohne != null) {   // W11c: der Gimbal der Drohne schwenkt um den Versatz
+            drYaw = Math.max(-170, Math.min(170, drYaw + dYawDeg));
+            drPitch = Math.max(-60, Math.min(60, drPitch + dPitchDeg));
+            return;
+        }
         if (mitfahrt != null) {
-            mitYaw = Math.max(-170, Math.min(170, mitYaw + dYawDeg));
+            mitYaw = Math.max(-180, Math.min(180, mitYaw + dYawDeg));
             mitPitch = Math.max(-40, Math.min(60, mitPitch + dPitchDeg));
             return;
         }
@@ -203,6 +232,18 @@ public final class Camera {
 
     /** Läuft um dt Sekunden weiter: Kreisen, Tasten, weiches Nachführen. */
     public void step(double dt) {
+        Begleiter dr = drohne;
+        if (dr != null) {   // W11c: die Drohne stellt Auge und Blick, der Gimbal bleibt waagerecht
+            double[] q = dr.pose(dt);
+            if (q == null) { drohne = null; return; }   // Boot fort (keine Bahn mehr)
+            mode = Mode.FREI;
+            autoOrbit = false;
+            fx = fxs = q[0]; fy = fys = Math.max(floor(), q[1]); fz = fzs = q[2];
+            fyaw = fyaws = q[3] + drYaw;
+            fpitch = fpitchs = Math.max(-85, Math.min(85, q[4] + drPitch));
+            update();
+            return;
+        }
         java.util.function.Supplier<double[]> mf = mitfahrt;
         if (mf != null) {
             double[] q = mf.get();
@@ -212,9 +253,11 @@ public final class Camera {
             mitYawS += (mitYaw - mitYawS) * (1 - Math.exp(-dt * 8));
             fx = fxs = q[0]; fy = fys = q[1]; fz = fzs = q[2];
             fyaw = fyaws = q[3] + mitYawS;
-            // das Fahrzeug nickt und wankt, das Auge mit (vorn hoch: der Blick voraus hebt sich, zur Seite gilt das Rollen)
+            // das Fahrzeug nickt und wankt, das Auge mit (vorn hoch: der Blick voraus hebt sich, zur Seite gilt das Rollen);
+            // W11c: mit einem Pendel (Zeitkonstante 0,25 s), das die Stöße des Decks glättet wie ein Kopf auf dem Hals [G]
             double lk = Math.toRadians(mitYawS), bob = q.length > 5 ? q[4] * Math.cos(lk) - q[5] * Math.sin(lk) : q.length > 4 ? q[4] : 0;
-            fpitch = fpitchs = mitPitch - bob;
+            mitBobS += (bob - mitBobS) * (1 - Math.exp(-dt * 4));
+            fpitch = fpitchs = mitPitch - mitBobS;
             update();
             return;
         }
@@ -297,5 +340,5 @@ public final class Camera {
     public double originDistance() { return Math.hypot(eye[0], eye[2]); }
 
     /** „Kreisen“, „Kreisen (läuft)“, „Frei“ (HUD). */
-    public String modeName() { return mitfahrt != null ? "Mitfahrt" : mode == Mode.FREI ? "Frei" : autoOrbit ? "Kreisen (läuft)" : "Kreisen"; }
+    public String modeName() { return drohne != null ? "Drohne" : mitfahrt != null ? "Mitfahrt" : mode == Mode.FREI ? "Frei" : autoOrbit ? "Kreisen (läuft)" : "Kreisen"; }
 }

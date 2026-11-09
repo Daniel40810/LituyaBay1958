@@ -600,12 +600,12 @@ public final class Pruefung {
             for (com.dan.lituya.camera.Schaustuecke.Stueck sk : com.dan.lituya.camera.Schaustuecke.ALLE) {
                 // W5: „524 m“ (Nr. 5) zeigt den Auflauf, den die Vorrechnung erst bei 125–140 s am Sporn hat, also nach
                 // „Die Front“ (112 s) und „Unter Wasser“ (115 s); die Nummer bleibt, die Folge gilt ohne ihn
-                if (sk.nr() == 5) { imKern &= Site.KERN.contains(sk.x(), sk.z()); continue; }
+                if (sk.nr() == 5 || sk.nr() == 12) { imKern &= Site.KERN.contains(sk.x(), sk.z()); continue; }
                 folge &= sk.t() >= vorher;
                 vorher = sk.t();
                 imKern &= Site.KERN.contains(sk.x(), sk.z());
             }
-            check(com.dan.lituya.camera.Schaustuecke.ALLE.size() == 11 && folge && imKern, "Schaustücke 1 bis 11 im Kern, in der Folge der Zeitleiste (ohne Nr. 5, seit W5 beim Auflauf 126 s)");
+            check(com.dan.lituya.camera.Schaustuecke.ALLE.size() == 12 && folge && imKern, "Schaustücke 1 bis 12 im Kern, in der Folge der Zeitleiste (ohne Nr. 5, seit W5 beim Auflauf 126 s, und ohne Nr. 12, die Bootstour um 20:10)");
             com.dan.lituya.camera.Schaustuecke.Stueck s7 = com.dan.lituya.camera.Schaustuecke.byNr(7), s4 = com.dan.lituya.camera.Schaustuecke.byName("Die Wand aus Wasser");
             Camera c7 = new Camera();
             c7.waterLevel = 0;
@@ -1094,6 +1094,7 @@ public final class Pruefung {
 
         sicht17(daten);
         regie17a(daten);
+        bootstour11(daten);
         klang18(daten);
         szene19(daten);
         wetter7();
@@ -1613,7 +1614,7 @@ public final class Pruefung {
         com.dan.lituya.scene.SichtNetz sn = com.dan.lituya.scene.SichtNetz.da(daten) ? com.dan.lituya.scene.SichtNetz.lesen(daten) : null;
         if (sn == null) hinweis("daten/netz/sicht fehlt: Namen aus LB_NET_SICHT und Fahrten A > B ungeprüft");
         java.util.List<com.dan.lituya.scene.Regie.Book> alle = com.dan.lituya.scene.Regie.all();
-        check(alle.size() == 10, "zehn Regiebücher (seit Werkbuch Welle W3 „Der Sturz“, W4 „Die Wand“, W5 „524 m“, W6 „Flug zur Kette“, W7 „Wetterwechsel“): " + alle);
+        check(alle.size() == 11, "elf Regiebücher (seit Werkbuch Welle W3 „Der Sturz“, W4 „Die Wand“, W5 „524 m“, W6 „Flug zur Kette“, W7 „Wetterwechsel“, W11 „Die Bootstour“): " + alle);
         for (com.dan.lituya.scene.Regie.Book b : alle) {
             java.util.List<String> fehlt = new java.util.ArrayList<>(), befehle = new java.util.ArrayList<>();
             java.util.function.Predicate<String> punkt = n -> com.dan.lituya.camera.Ansichten.byName(n) != null || com.dan.lituya.scene.Site.byName(n) != null || com.dan.lituya.camera.Ansichten.versatz(n) != null || (sn == null ? true : sn.knoten(n) >= 0);
@@ -1644,6 +1645,100 @@ public final class Pruefung {
             check(fehlt.isEmpty() && !st.contains("Fehler") && (clip ? b.length() >= 10 && b.fotos() >= 1 : b.length() >= 180 && b.length() <= 6.5 * 60 && b.fotos() >= 5) && blattAmEnde && befehle.contains("capture"),
                     f("„%s“: %s, %d Stichworte, %d Fotos, Blatt am Ende%s", b.name(), com.dan.lituya.scene.Regie.zeit(b.length()), b.cues().size(), b.fotos(),
                             fehlt.isEmpty() ? "; alle Namen gefunden" : "; FEHLT: " + fehlt));
+        }
+    }
+
+    /** Werkbuch Welle W11 „Die Bootstour“: Regiebefehle, Drohne, Verkettung der Bahnen, Bugwelle, Route, die Bahnen der Tour. */
+    static void bootstour11(File daten) throws Exception {
+        teil("Die Bootstour (Werkbuch Welle W11): Regie, Drohne, Verkettung, Bugwelle, Route, Bahnen");
+        // Regiebefehle tour, drohne, mitfahrt mit Standpunkten
+        java.util.List<String> ruf = new java.util.ArrayList<>();
+        com.dan.lituya.scene.Regie.Ctx ct = (com.dan.lituya.scene.Regie.Ctx) java.lang.reflect.Proxy.newProxyInstance(Pruefung.class.getClassLoader(), new Class<?>[]{com.dan.lituya.scene.Regie.Ctx.class},
+                (o, m, args) -> {
+                    if (m.getName().equals("ready")) return true;
+                    if (java.util.List.of("tour", "drohne", "anBord", "mitfahrt").contains(m.getName())) ruf.add(m.getName() + java.util.Arrays.toString(args));
+                    return null;
+                });
+        com.dan.lituya.scene.Regie rt = new com.dan.lituya.scene.Regie();
+        rt.start(com.dan.lituya.scene.Regie.parse("Regiebuch: T\n0:00 tour edrie\n0:00 drohne edrie achtern 90 45\n0:00 drohne kittiwake kreisen\n0:00 mitfahrt edrie bug\n0:00 mitfahrt kittiwake nebenher\n0:00 drohne aus\n0:00 tour aus\n0:01 blatt\n"), ct);
+        for (int i = 0; i < 5 && rt.running(); i++) rt.step(1, ct);
+        boolean falsch1 = false, falsch2 = false;
+        try { com.dan.lituya.scene.Regie.parse("Regiebuch: X\n0:00 drohne edrie hinten\n"); } catch (IllegalArgumentException e) { falsch1 = e.getMessage().startsWith("Zeile 2"); }
+        try { com.dan.lituya.scene.Regie.parse("Regiebuch: X\n0:00 mitfahrt sunmore\n"); } catch (IllegalArgumentException e) { falsch2 = e.getMessage().startsWith("Zeile 2"); }
+        check(ruf.equals(java.util.List.of("tour[Edrie]", "drohne[Edrie, achtern, 90.0, 45.0]", "drohne[Kittiwake, kreisen, 50.0, 15.0]", "anBord[Edrie, bug]", "mitfahrt[Kittiwake, true]", "drohne[null, null, 0.0, 0.0]", "tour[null]")) && falsch1 && falsch2,
+                "Regiebefehle „tour edrie“, „drohne edrie achtern 90 45“, „drohne kittiwake kreisen“ (Vorgabe 50/15), „mitfahrt edrie bug“, „mitfahrt kittiwake nebenher“, „drohne aus“, „tour aus“; „drohne edrie hinten“ und „mitfahrt sunmore“ abgewiesen: " + ruf);
+        // die Drohne: Trägheit und Blick aufs Boot (ein Boot fährt mit 4,1 m/s nach Ost)
+        double[] bt = {0};
+        java.util.function.Supplier<double[]> boot = () -> new double[]{4.1 * bt[0], 0, 0, 90, 0, 0, 16, 4.1};
+        com.dan.lituya.camera.Begleiter bg = new com.dan.lituya.camera.Begleiter(boot, com.dan.lituya.camera.Begleiter.Stellung.ACHTERN);
+        double[] p0 = bg.pose(0);
+        double dYaw = 0, dPos = 0;
+        for (int i = 1; i <= 600; i++) { bt[0] = i / 60.0; double[] p = bg.pose(1 / 60.0); if (i == 600) { double[] soll = bg.soll(boot.get(), i / 60.0); dPos = Math.hypot(Math.hypot(p[0] - soll[0], p[1] - soll[1]), p[2] - soll[2]); dYaw = Math.abs(((p[3] - 90) + 540) % 360 - 180); } }
+        check(Math.abs(p0[0] + 90) < 1e-6 && Math.abs(p0[1] - 30) < 1e-6 && dPos < 1.5 && dYaw < 2 && bg.pose(0)[4] > 10,
+                f("Drohne achtern: beginnt 90 m hinter dem Boot, 30 m hoch, nach 10 s Fahrt %.2f m vom Soll, Blick %.1f° vom Kurs ab, %.0f° nach unten (Trägheit 1,5 s, Vorsteuerung)", dPos, dYaw, bg.pose(0)[4]));
+        // Verkettung zweier Bahnen (Tour → Welle): Lage linear, Drehung normiert, Zustand ab der Mitte
+        double[] a = {0, 0, 0, 1, 0, 0, 0, 0, com.dan.lituya.scene.BootBahn.MASCHINE, -1}, b = {10, 0, 0, Math.cos(0.4), 0, Math.sin(0.4), 0, 0, 0, -1};
+        double[] v0 = com.dan.lituya.gl.BooteGl.verketten(a, b, 0), v1 = com.dan.lituya.gl.BooteGl.verketten(a, b, 1), vm = com.dan.lituya.gl.BooteGl.verketten(a, b, 0.5);
+        double qn = Math.sqrt(vm[3] * vm[3] + vm[4] * vm[4] + vm[5] * vm[5] + vm[6] * vm[6]);
+        check(v0[0] == 0 && v1[0] == 10 && Math.abs(vm[0] - 5) < 1e-9 && Math.abs(qn - 1) < 1e-9 && (int) v0[8] == com.dan.lituya.scene.BootBahn.MASCHINE && (int) vm[8] == 0,
+                "Verkettung: Anfang = Tour, Ende = Welle, Mitte 5 m mit normierter Drehung, Maschine aus ab der Mitte");
+        // die Bugwelle als Netz: Höhe nach Froude, am Rumpf über der Wasserlinie, außen im Pegel
+        com.dan.vessel.Hull hull = com.dan.vessel.Kutter.edrie().hull;
+        float[] bw = com.dan.lituya.gl.BooteGl.bugwelle(hull, 8 * 0.514444, 0), bw0 = com.dan.lituya.gl.BooteGl.bugwelle(hull, 0.3, 0);
+        double ymax = -1e9, ymax0 = -1e9, ymin = 1e9;
+        for (int i = 1; i < bw.length; i += 9) { ymax = Math.max(ymax, bw[i]); ymin = Math.min(ymin, bw[i]); }
+        for (int i = 1; i < bw0.length; i += 9) ymax0 = Math.max(ymax0, bw0[i]);
+        check(bw.length == 27 * 2 * 4 * 3 * 9 && ymax - hull.draft > 0.3 && ymax - hull.draft < 0.6 && ymin > hull.draft - 0.3 && ymax0 - hull.draft < 0.02,
+                f("Bugwelle der Edrie bei 8 kn: Kamm %.2f m über der Wasserlinie (Stauhöhe v²/2g = %.2f m), bei 0,3 m/s %.3f m; %d Dreiecke", ymax - hull.draft, 0.5 * Math.pow(8 * 0.514444, 2) / 9.81, ymax0 - hull.draft, bw.length / 27));
+        check(com.dan.lituya.camera.Schaustuecke.boot(com.dan.lituya.camera.Schaustuecke.byNr(12)) == 0 && "seite".equals(com.dan.lituya.camera.Schaustuecke.drohne(com.dan.lituya.camera.Schaustuecke.byNr(12)))
+                && com.dan.lituya.camera.Schaustuecke.TOUR == -7560, "Schaustück 12 „Die Bootstour“: die Edrie um 20:10 Uhr mit der Drohne seite");
+        check(Bibliothek.pakete().contains("wake") && Bibliothek.pakete().contains("ocean"), "wake und ocean in Renderer.jar (Kielwasser und Rumpfmaske)");
+        check(Math.abs(com.dan.lituya.gl.Klang.DIESEL_HZ - 1200.0 / 60 * 2) < 1e-9, "Diesel GM 2-71 (Zweitakt, 2 Zylinder, 1 200/min): 40 Hz [G]");
+        // die Route aus LB_NET_SEE
+        if (!com.dan.lituya.scene.SeeNetz.da(daten)) hinweis("daten/netz/see fehlt: Route der Bootstour ungeprüft");
+        else {
+            com.dan.lituya.scene.SeeNetz sn = com.dan.lituya.scene.SeeNetz.lesen(daten);
+            Object[][] sp = com.dan.lituya.tools.Bootstour.STUETZPUNKTE;
+            String[] namen = new String[sp.length];
+            double[][] st = new double[sp.length][];
+            for (int i = 0; i < sp.length; i++) { namen[i] = (String) sp[i][0]; st[i] = new double[]{(Double) sp[i][1] - Site.E0, -((Double) sp[i][2] - Site.N0)}; }
+            com.dan.lituya.tools.Bootstour.Route r = com.dan.lituya.tools.Bootstour.route(sn, namen, st, null);
+            boolean monoton = true;
+            for (int i = 1; i < r.stationen.length; i++) monoton &= r.stationen[i] > r.stationen[i - 1];
+            int a2 = sn.knotenBei(sp[1][1] instanceof Double e ? e : 0, (Double) sp[1][2], 6), b2 = sn.knotenBei((Double) sp[3][1], (Double) sp[3][2], 6);
+            int[] weg = sn.kuerzesterWeg(a2, b2);
+            check(r.length > 20_000 && r.length < 30_000 && monoton && r.knoten > 50 && weg != null && weg.length > 20 && weg[0] == a2 && weg[weg.length - 1] == b2,
+                    f("Route der Edrie aus LB_NET_SEE: %.1f km über %d Knoten, %d Punkte, Stationen der Reihe nach; kürzester Weg Tor → Gilbert Inlet %d Knoten", r.length / 1000, r.knoten, r.p.length, weg == null ? 0 : weg.length));
+        }
+        // die Bahnen der Tour
+        File td = new File(new File(new File(daten, "ereignis"), "boote"), com.dan.lituya.tools.Bootstour.ORDNER);
+        File tt = new File(td, com.dan.lituya.tools.Bootstour.DATEI);
+        if (!tt.isFile()) hinweis("keine Bahnen der Tour in " + td + ": ant bootstour");
+        else {
+            java.util.Properties tp = new java.util.Properties();
+            try (var in = Files.newBufferedReader(tt.toPath(), StandardCharsets.UTF_8)) { tp.load(in); }
+            String[] ez = tp.getProperty("edrie.zeit", "0 0").split(" "), kz = tp.getProperty("kittiwake.zeit", "0 0").split(" ");
+            double e0 = Double.parseDouble(ez[0]), e1 = Double.parseDouble(ez[1]), k1 = Double.parseDouble(kz[1]);
+            boolean stationen = true;
+            for (String k : tp.stringPropertyNames()) if (k.startsWith("edrie.station.") && tp.getProperty(k).trim().startsWith(" ")) stationen = false;
+            for (String k : tp.stringPropertyNames()) if (k.startsWith("edrie.station.") && tp.getProperty(k).trim().split("\\s+")[0].endsWith("km")) stationen = false;
+            double tiefe = Double.parseDouble(tp.getProperty("edrie.tiefe_min_m", "0").split(" ")[0]);
+            check(Math.abs(e0 + 8160) < 1 && e1 < -40 && e1 > -3600 && "false".equals(tp.getProperty("edrie.festgefahren")) && stationen && tiefe > 1.8
+                    && k1 > 3600 && k1 < 7200 && "false".equals(tp.getProperty("kittiwake.festgefahren")),
+                    f("Tour der Edrie: %s bis %s Uhr (t = %.0f … %.0f s), alle Stationen erreicht, nicht festgefahren, mindestens %.1f m Wasser; Kittiwake heute %s bis %s", tp.getProperty("edrie.uhr", "?").split(" ")[0], tp.getProperty("edrie.uhr", "? ?").split(" ")[1], e0, e1, tiefe,
+                            tp.getProperty("kittiwake.uhr", "?").split(" ")[0], tp.getProperty("kittiwake.uhr", "? ?").split(" ")[1]));
+            // die Verkettung in BooteGl: um 20:02 fährt die Edrie, um 22:10 liegt sie, wo die Bahn der Welle beginnt
+            com.dan.lituya.gl.BooteGl bg2 = new com.dan.lituya.gl.BooteGl();
+            bg2.laden(daten, "kette");
+            if (bg2.anzahl() == 0 || !bg2.tourDa()) hinweis("Verkettung ungeprüft: " + bg2.status() + " · " + bg2.tourStatus());
+            else {
+                double[] f1 = bg2.lage(0, -8040), f2 = bg2.lage(0, -360), f3 = bg2.lage(0, -40);
+                com.dan.lituya.scene.BootBahn kb = com.dan.lituya.scene.BootBahn.lesen(new File(new File(new File(new File(daten, "ereignis"), "boote"), "kette"), "bahn_edrie.bin"), "Edrie");
+                double[] k0 = kb.zustand(kb.anfang());
+                double dEnde = Math.hypot(f2[0] - k0[0], f2[2] - k0[2]), dStart = Math.hypot(f3[0] - k0[0], f3[2] - k0[2]);
+                check(f1[7] > 3.5 && f1[7] < 4.6 && f2[7] < 0.05 && dEnde < 60 && dStart < 0.01 && bg2.anBord(0, "bug", -8040) != null && bg2.anBord(0, "achtern", -8040) != null && bg2.lage(com.dan.lituya.gl.BooteGl.KITTIWAKE, 0) != null,
+                        f("Verkettung in BooteGl: um 20:02 %.1f kn, um 22:10 still und %.0f m vom Ankerplatz der Welle, um 22:15:20 genau dort (%.3f m); Standpunkte bug und achtern, die Kittiwake", f1[7] / 0.514444, dEnde, dStart));
+            }
         }
     }
 

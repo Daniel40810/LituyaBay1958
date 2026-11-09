@@ -1,0 +1,40 @@
+# Lituya Bay 1958 · Regiebuch (Werkbuch Welle W11d). Die Edrie (Howard Ulrich und sein Sohn) läuft am 9. Juli 1958 um 20 Uhr
+# mit der letzten Flut in die Bucht ein (MILLER60: „the last of the flood at 8 pm“, Hochwasser 19:52); die Fahrt hinauf zur
+# Schwelle des Gilbert Inlet und zurück zum Ankerplatz am Südufer ist gestaltet [G]. Bahn aus ant bootstour
+# (daten/ereignis/boote/tour, Stationen in TOUR.txt); am Ankerplatz beginnt um 22:15:20 die Bahn der Welle. Zum Schluss heute
+# die KITTIWAKE auf derselben Route. Das Kielwasser stimmt nur in Echtzeit, darum Schnitte mit zeit statt raffer. Blicke [G].
+Regiebuch: Die Bootstour
+Beschreibung: 9. Juli 1958, 20 Uhr: mit der Edrie durch den Eingang und die Bucht hinauf zum Gilbert Inlet, an Bord und von der Drohne; zum Schluss dieselbe Fahrt heute mit der KITTIWAKE
+Länge: 5:40
+0:00 netzblick aus
+0:00 tour edrie
+0:00 zeit 09.07.1958 20:06 | 9. Juli 1958, 20 Uhr: mit der letzten Flut läuft die Edrie in die Lituya Bay ein
+0:00 raffer 1
+0:00 warte boote
+0:00 drohne edrie seite
+0:25 foto Durch den Eingang
+0:30 mitfahrt edrie bug | An Bord: der Bug hebt die Bugwelle, La Chaussee Spit zieht an Backbord vorbei
+0:55 foto Am Bug der Edrie
+1:00 zeit 09.07.1958 20:33 | Vor Cenotaph Island, acht Knoten
+1:00 drohne edrie achtern | Von achtern: das Kielwasser, der Keil von 39 Grad, die Schaumspur der Schraube
+1:35 foto Das Kielwasser vor Cenotaph Island
+1:40 mitfahrt edrie achtern | Achtern an der Reling: die Schaumspur
+2:05 foto Die Schaumspur
+2:10 zeit 09.07.1958 20:54 | Vor der Schwelle des Gilbert Inlet; dahinter die Gletscherfront, über ihr die Wand
+2:10 drohne edrie ueberholen
+2:45 foto Die Edrie vor dem Gilbert Inlet
+2:50 mitfahrt edrie steuerhaus | Vom Steuerhaus: die Wende; bis 22:16 sind es noch achtzig Minuten
+3:15 foto Die Wende vor dem Gilbert Inlet
+3:20 zeit 09.07.1958 21:15 | Das Südufer hinab, vorbei an Mudslide Creek
+3:20 drohne edrie kreisen
+4:00 foto Kreis um die Edrie
+4:05 zeit 09.07.1958 21:38 | Zurück am Ankerplatz am Südufer; um 22:16 wird hier die Kette reißen
+4:05 drohne edrie seite 40 8
+4:30 foto Vor Anker am Südufer
+4:35 zeit 09.07.2026 10:16 | Heute: dieselbe Fahrt mit der KITTIWAKE
+4:35 tour kittiwake
+4:35 warte boote
+4:35 drohne kittiwake achtern
+5:10 foto Heute: das Kielwasser vor der Narbe
+5:15 sage Fünfundzwanzig Kilometer, hundert Minuten mit acht Knoten: 1958 steht der Wald am Ufer bis ans Wasser, heute wächst er in die Narbe zurück
+5:35 blatt Die Bootstour

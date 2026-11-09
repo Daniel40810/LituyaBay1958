@@ -179,11 +179,11 @@ public final class Bildbank {
         cmd.add("-Dmarken=aus");
         cmd.add("-Dnetzblick=aus");   // W0 (K6): in B0 stand die Karte trotz „ohne HUD und Marken“ in allen Bildern
         if (e.get("schaustueck") != null) cmd.add("-Dschaustueck=" + e.get("schaustueck"));
-        else cmd.add("-Dkamera=" + kamera(e));
+        else if (e.get("drohne") == null && e.get("anbord") == null) cmd.add("-Dkamera=" + kamera(e));   // W11: die Kamera hängt am Boot
         if (e.get("zeitstand") != null) cmd.add("-Dzeitstand=" + e.get("zeitstand"));
         for (String k : new String[]{"brennweite", "ereignis", "lauf", "regen", "schalter", "seitwaerts", "last", "jfr", "wetter", "wetterzeit", "verschluss", "zeitlupe",
                 "objektiv", "blende", "fokus", "lamellen", "rundung", "film", "kopierlicht", "kopie", "bildrate", "umlaufblende", "teilbilder", "schwenk", "bewegung", "kinolichter", "tropfen",
-                "malweise", "vorlage", "umkreis", "unterwuchs", "rinde"})
+                "malweise", "vorlage", "umkreis", "unterwuchs", "rinde", "tour", "drohne", "anbord"})
             if (e.get(k) != null) cmd.add("-D" + k + "=" + e.get(k));
         // W6 Runde 5: weitere -D-Schalter für jede Aufnahme aus der Umgebung (etwa ein Vergleich „alles aus“ im selben Lauf)
         String zusatz = System.getenv("LITUYA_BILDBANK_ZUSATZ");

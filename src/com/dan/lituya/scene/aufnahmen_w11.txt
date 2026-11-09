@@ -1,0 +1,12 @@
+# Werkbuch Welle W11 „Die Bootstour“: Proben (Format wie bildbank.txt). Die Edrie auf der Tour (ant bootstour, daten/ereignis/boote/tour),
+# Kielwasser aus com.dan.wake, Rumpfmaske und Bugwelle (W11b), Drohne und Standpunkte an Bord (W11c). Zeiten nach TOUR.txt:
+# Tor 20:09, Cenotaph Island Nord 20:34, Schwelle des Gilbert Inlet 20:54 (Wende), Mudslide Creek 20:58, Südkanal 21:21, Ankerplatz 21:39; Kittiwake 10:00 bis 11:23.
+# drohne=Boot,Stellung[,Abstand[,Höhe]] (seite, achtern, ueberholen, kreisen); anbord=Boot,Standpunkt (bug, steuerhaus, achtern); tour=aus schaltet die Tour ab.
+nr=1101;name=H15_Die_Bugwelle;drohne=edrie,seite,35,6;zeitstand=vor;uhr=20.1;brennweite=35;warum=H15: die Drohne 35 m an Steuerbord, 6 m hoch, die Edrie zieht mit 8 kn durch den Eingang: Bugwelle am Steven, Schaumsaum der Rumpfmaske, La Chaussee Spit dahinter
+nr=1102;name=H16_Das_Kielwasser;drohne=edrie,achtern,90,30;zeitstand=vor;uhr=20.5667;brennweite=35;warum=H16: von achtern, 30 m hoch, vor Cenotaph Island: der Kelvin-Keil (39°), die Querwellen (10,9 m) und die Schaumspur der Schraube im Abendlicht
+nr=1103;name=Am_Bug;anbord=edrie,bug;zeitstand=vor;uhr=20.1;brennweite=24;warum=an Bord am Bug, 1,65 m über Deck: die Bugwelle steigt am Steven, der Eingang voraus
+nr=1104;name=Achtern_die_Schaumspur;anbord=edrie,achtern;zeitstand=vor;uhr=20.5667;brennweite=35;warum=achtern an der Reling, Blick zurück: die Schaumspur und der Keil, das Steuerhaus im Vordergrund
+nr=1105;name=Ueberholer_Gilbert_Inlet;drohne=edrie,ueberholen,60,12;zeitstand=vor;uhr=20.9;brennweite=35;warum=die Drohne überholt die Edrie vor der Schwelle des Gilbert Inlet, die Gletscherfront und die Wand dahinter
+nr=1106;name=Kreis_Suedufer;drohne=edrie,kreisen,50,15;zeitstand=vor;uhr=21.25;brennweite=35;warum=Kreis um die Edrie am Südufer vor Mudslide Creek, der Kutter von schräg vorn mit Bugwelle und Kielwasser
+nr=1107;name=Heute_Kittiwake_achtern;drohne=kittiwake,achtern,90,30;zeitstand=heute;datum=2026-07-09;uhr=10.3;brennweite=35;warum=heute: die KITTIWAKE auf derselben Route vor Cenotaph Island, das Kielwasser vor der Narbe
+nr=1108;name=Ohne_Kielwasser_Vergleich;drohne=edrie,achtern,90,30;zeitstand=vor;uhr=20.5667;brennweite=35;schalter=boote.kielwasserAn=false,boote.bugwelleAn=false;warum=1102 ohne Kielwasser und Bugwelle (Vergleich: was W11b dem Bild gibt)

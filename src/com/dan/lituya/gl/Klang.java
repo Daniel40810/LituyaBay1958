@@ -33,6 +33,9 @@ import java.util.function.DoubleBinaryOperator;
  * steilen Hängen (Weg über die Wand, −8 und −12 dB) [G].</li>
  * <li><b>Ruhe</b>: Wind und See aus der Verdrahtung, Möwen, ab und zu das Kalben der Gletscher im Gilbert und Crillon
  * Inlet; heute dasselbe.</li>
+ * <li><b>Die Bootstour</b> (Werkbuch Welle W11b, WF47 A): je fahrendem Boot der Diesel als {@code Hum} (GM 2-71, Zweitakt,
+ * 2 Zylinder, 1 200/min: 40 Hz, 98 dB in 1 m am Auspuff [G]; ist das Ohr an Bord, klingt er durch den Rumpf) und das
+ * Bugwasser als {@code Torrent} am Steven, dessen Durchfluss mit dem Quadrat der Fahrt wächst [G].</li>
  * </ul>
  * Grenzen: {@code soundscape} kennt keinen Doppler (die Front klingt nicht höher, wenn sie naht); das Beben ist Luftschall,
  * kein Bodenschall durch die Füße. {@link #feed} läuft im Bildlauf und in {@code tools.Hoerproben} (offline).
@@ -62,6 +65,14 @@ public final class Klang {
     public volatile double frontAbstand = Double.NaN;
     private double[][] eimer;   // je 2 s Ankunft die Zellen der Front {x, z, …}
     private Object eimerFuer;
+    /** W11b: Diesel und Bugwasser je fahrendem Boot (Schlüssel: Index in der Liste der Maschinen). */
+    private final java.util.List<com.dan.soundscape.Hum> diesel = new java.util.ArrayList<>();
+    private final java.util.List<Torrent> bugwasser = new java.util.ArrayList<>();
+    /** W11b: der Diesel der Troller: Zündfrequenz (Hz), Pegel in 1 m (dB), an Bord (dB); das Bugwasser als Wildwasser (m³/s bei 8 kn) [G]. */
+    public static final double DIESEL_HZ = 40, DIESEL_DB = 98, DIESEL_BORD_DB = 70, BUGWASSER_8KN = 0.6;
+    /** W11b: ob das Ohr an Bord eines fahrenden Boots ist (für HUD und Prüfung) und wie viele Maschinen laufen. */
+    public volatile boolean anBord;
+    public volatile int maschinen;
 
     Klang(Renderer r) {
         this.r = r;
@@ -114,6 +125,7 @@ public final class Klang {
 
     public String describe() {
         return (on ? "Klang an" : offline ? "Klang offline" : "Klang aus") + String.format(Locale.GERMAN, " · Beben %d, Sturz %d, Brecher %d, Bäume %d, Echos %d, Kalbungen %d, Möwen %d", beben, sturz, brecher, baeume, echos, kalbungen, moewen)
+                + (maschinen > 0 ? String.format(Locale.GERMAN, " · %d Diesel%s", maschinen, anBord ? " (an Bord)" : "") : "")
                 + (Double.isNaN(frontAbstand) ? "" : String.format(Locale.GERMAN, " · Front %.1f km", frontAbstand / 1000)) + (note.isEmpty() ? "" : " · " + note);
     }
 
@@ -201,6 +213,7 @@ public final class Klang {
         s.rainRate = wz != null ? wz.regen() : 0;
         s.inside = 0;
         s.volume = lautstaerke * (r.kino.sichtbar() ? r.kino.ton() : 1);
+        maschinen(dt);
         SceneClock c = r.clock;
         double t = c.simSeconds();
         double t0 = letzteT;
@@ -227,6 +240,41 @@ public final class Klang {
         }
         // Welle
         welle(dt, t);
+    }
+
+    /**
+     * W11b: Diesel und Bugwasser der fahrenden Boote (aus {@code BooteGl.maschinen}); das Ohr gilt als an Bord, wenn es
+     * näher als 9 m am Schwerpunkt des Boots ist (Mitfahrt).
+     */
+    private void maschinen(double dt) {
+        java.util.List<double[]> m;
+        try { m = r.boote.maschinen(r.clock.simSeconds(), r.clock.zeitstand); } catch (RuntimeException e) { m = java.util.List.of(); }
+        while (diesel.size() < m.size()) {
+            com.dan.soundscape.Hum h = new com.dan.soundscape.Hum("Diesel " + (diesel.size() + 1), 0, 0, 0);
+            h.firingHz = DIESEL_HZ; h.levelDb = DIESEL_DB; h.aboardDb = DIESEL_BORD_DB;
+            diesel.add(h);
+            s.hums.add(h);
+            Torrent b = new Torrent("Bugwasser " + bugwasser.size(), 0, 0, 0);
+            bugwasser.add(b);
+            s.torrents.add(b);
+        }
+        while (diesel.size() > m.size()) { s.hums.remove(diesel.remove(diesel.size() - 1)); s.torrents.remove(bugwasser.remove(bugwasser.size() - 1)); }
+        boolean bord = false;
+        for (int i = 0; i < m.size(); i++) {
+            double[] q = m.get(i);
+            com.dan.soundscape.Hum h = diesel.get(i);
+            // der Auspuff über dem Steuerhaus, rund 4 m über dem Schwerpunkt [G]
+            h.x = q[0]; h.y = q[1] + 4; h.z = q[2];
+            boolean nah = Math.hypot(Math.hypot(s.earX - q[0], s.earY - q[1]), s.earZ - q[2]) < 9;
+            h.aboard = nah;
+            bord |= nah;
+            Torrent b = bugwasser.get(i);
+            b.x = q[5]; b.y = q[6]; b.z = q[7];
+            double v = q[3] / (8 * 0.514444);
+            b.flow = q[3] < 0.3 ? 0 : BUGWASSER_8KN * v * v;
+        }
+        anBord = bord;
+        maschinen = m.size();
     }
 
     /** Das Grollen: rollender Donner aus Stücken der Störung, nach dem Abstand zum Ohr. */

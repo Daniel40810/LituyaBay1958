@@ -21,7 +21,9 @@ public final class JarPruefung {
             // 07.11.2026: W1–W5 aus der App herausgezogen
             "horizon", "surge",
             // 08.11.2026: Werkbuch Welle W10, die Malweise nach Franz Gertsch
-            "gertsch"};
+            "gertsch",
+            // 09.11.2026: Werkbuch Welle W11, das Kielwasser der Bootstour
+            "wake"};
     /** Die neuen Packages mit ihrer Phase und der Prüfklasse (wie {@code app.Bibliothek.NEU}). */
     static final String[] NEU = {"clipmap", "surface", "understory", "scree", "netview", "quake", "landslide", "impact", "dustcloud", "debris",
             "succession", "vessel", "aurora", "bear"};

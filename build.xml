@@ -903,6 +903,16 @@
         <loadfile property="boote1958.text" srcFile="docs/status/boote1958_Phase${lituya.phase}_${lauf}.txt" encoding="UTF-8"/>
         <echo message="${boote1958.text}"/>
     </target>
+    <!-- Werkbuch Welle W11a: bootstour: die Edrie am 9.7.1958 ab 20:00 (Eingang, Cenotaph Island, Schwelle des Gilbert Inlet, Südufer,
+         Ankerplatz der Bahn kette) und heute die Kittiwake ab 10:00 auf derselben Route, mit vessel über stillem Wasser (Pegel 0) und dem
+         Grund von 1958 bzw. heute, Route aus daten/netz/see → daten/ereignis/boote/tour (bahn_edrie.bin, bahn_kittiwake.bin, TOUR.txt).
+         Braucht daten/ereignis/boote/kette (ant boote1958) und daten/netz/see (ant aufbereitung -Dschritte=see); -Dnur=edrie|kittiwake. -->
+    <target name="bootstour" depends="compile" description="Werkbuch Welle W11a: die Bootstour (Edrie 1958, Kittiwake heute) nach daten/ereignis/boote/tour.">
+        <property name="nur" value=""/>
+        <renderer-java klasse="com.dan.lituya.tools.Bootstour" args="daten ${nur}" ausgabe="docs/status/bootstour_Phase${lituya.phase}.txt" speicher="-Xmx4g"/>
+        <loadfile property="bootstour.text" srcFile="docs/status/bootstour_Phase${lituya.phase}.txt" encoding="UTF-8"/>
+        <echo message="${bootstour.text}"/>
+    </target>
     <target name="fluchtkarte" depends="compile" description="Phase 15a: Flucht vor der Front (daten/netz/see) nach docs/status/Flucht.png.">
         <renderer-java klasse="com.dan.lituya.tools.Fluchtkarte" args="daten docs/status/Flucht.png" ausgabe="docs/status/fluchtkarte_Phase${lituya.phase}.txt" speicher="-Xmx2g"/>
         <loadfile property="fluchtkarte.text" srcFile="docs/status/fluchtkarte_Phase${lituya.phase}.txt" encoding="UTF-8"/>
