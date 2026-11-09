@@ -1,0 +1,12 @@
+# Werkbuch Welle W12 „Polarlicht“: Proben (Format wie bildbank.txt). Das Nordlicht aus com.dan.aurora, im Bedienfeld
+# POLARLICHT: aurora=ruhig|aktiv|aufbruch|rot|kp|<Kp> (aus: ohne), kp=0..9 (gilt immer), energie=keV, fluss=mW/m²,
+# faltung=0..1, strahlen=0..1, bewegt=aus (Standbilder: die Tabellen stehen zur Szenenzeit), zumbogen=an (die Kamera dreht
+# ins Azimut des hellsten Bogens, wie der Knopf „Blick zum Bogen“). Ort auf dem Wasser der
+# Bucht, Blick nach Norden über die Kette (blick=0, neigung negativ = hinauf), Winternacht 20.12.2026, 23 Uhr (Zeitstand heute).
+nr=1201;name=Polarlicht_aktiv_Winternacht;xz=0,1500;auge=25;blick=0;neigung=-30;zeitstand=heute;datum=2026-12-20;uhr=23.0;brennweite=18;aurora=aktiv;zumbogen=an;warum=W12: zwei Vorhänge über der Bucht bei Kp 4, Strahlen entlang der Feldlinien, Rot oben, Spiegelung in der See
+nr=1202;name=Polarlicht_ruhig_Kp2;xz=0,1500;auge=25;blick=0;neigung=-12;zeitstand=heute;datum=2026-12-20;uhr=23.0;brennweite=24;aurora=ruhig;kp=2;zumbogen=an;warum=W12: ein ruhiger Bogen bei Kp 2, weit im Norden hinter der Kette (das Oval liegt bei 66° magnetischer Breite, Lituya Bay bei 62°)
+nr=1203;name=Polarlicht_Aufbruch_Kp6;xz=0,1500;auge=25;blick=0;neigung=-30;zeitstand=heute;datum=2026-12-20;uhr=23.0;brennweite=18;aurora=aufbruch;zumbogen=an;warum=W12: Aufbruch bei Kp 6, 80 mW/m² bei 9 keV (IBC III), drei gefaltete Vorhänge mit purpurnem Saum, hoch über der Bucht
+nr=1204;name=Polarlicht_rot_Kp7;xz=0,1500;auge=25;blick=0;neigung=-18;zeitstand=heute;datum=2026-12-20;uhr=23.0;brennweite=24;aurora=rot;kp=7;zumbogen=an;warum=W12: rotes Polarlicht aus weichem Spektrum (0,3 keV), das Licht entsteht in 200 bis 300 km
+nr=1205;name=Polarlicht_Sommer_1958;xz=0,1500;auge=25;blick=0;neigung=-18;zeitstand=vor;uhr=23.5;brennweite=24;aurora=aktiv;warum=W12: derselbe Blick am 9.7.1958 um 23:30: die Sonne steht −8°, das Polarlicht geht im Himmelslicht unter (Tempo meldet die Dämmerung)
+nr=1206;name=Polarlicht_Kp5_Regler;xz=0,1500;auge=25;blick=0;neigung=-18;zeitstand=heute;datum=2026-12-20;uhr=23.0;brennweite=24;aurora=5;zumbogen=an;warum=W12: Preset nach dem Kp-Regler (5,0): zwischen aktiv und Aufbruch gemischt
+nr=1207;name=Polarlicht_weich_von_Hand;xz=0,1500;auge=25;blick=0;neigung=-18;zeitstand=heute;datum=2026-12-20;uhr=23.0;brennweite=24;aurora=aktiv;energie=0.8;fluss=30;faltung=0.9;strahlen=0.9;zumbogen=an;warum=W12: Feinregler: weiches Spektrum (0,8 keV, Grün höher, mehr Rot), 30 mW/m², stark gefaltet, viele Strahlen

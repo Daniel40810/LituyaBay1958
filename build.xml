@@ -1186,6 +1186,17 @@
             <classpath><pathelement path="${run.classpath}"/></classpath>
         </java>
     </target>
+    <!-- Werkbuch Welle W12: der Block POLARLICHT im echten Fenster (App im selben Prozess, Bedienung über die Swing-Komponenten,
+         Bilder aus dem GLCanvas nach docs/bild/W12/Fenster_*.png). -->
+    <target name="polarlichtfenster" depends="jar" description="Werkbuch Welle W12: Block POLARLICHT im Fenster prüfen (öffnet die App kurz).">
+        <property name="platform.java" value="java"/>
+        <java classname="com.dan.lituya.tools.PolarlichtFenster" fork="true" jvm="${platform.java}" dir="${basedir}" failonerror="true">
+            <jvmarg value="-Dstdout.encoding=UTF-8"/>
+            <jvmarg value="-Xmx6g"/>
+            <jvmarg line="${run.jvmargs}"/>
+            <classpath><pathelement path="${run.classpath}"/></classpath>
+        </java>
+    </target>
     <target name="dauerlauf" depends="jar" description="Phase 20: Dauerlauf mit allen Regiebüchern im Kino (docs/status/dauerlauf_Phase20.txt); -Dminuten=60.">
         <property name="platform.java" value="java"/>
         <property name="minuten" value="60"/>
