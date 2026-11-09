@@ -132,6 +132,19 @@ public final class MeerGl {
     private double[] feinMitte2 = new double[2], schauerRect = {0, 0, 1};
 
     public final Ocean ocean = Ocean.lago(1);
+    /** W11b: das Kielwasser aus com.dan.wake (Textur-Array RG16F, 0 nah, 1 weit) mit den Lagen der Kacheln; 0 = keins. */
+    private int kielTex;
+    private double[] kielRect0 = {0, 0, 1, 0}, kielRect1 = {0, 0, 1, 0};
+
+    /** W11b: Kielwasser für das nächste Zeichnen (aus {@code BooteGl.kielwasser}); tex 0 = aus. */
+    public void kielwasser(int tex, double[] rect0, double[] rect1) {
+        kielTex = tex;
+        kielRect0 = rect0 == null ? new double[]{0, 0, 1, 0} : rect0.clone();
+        kielRect1 = rect1 == null ? new double[]{0, 0, 1, 0} : rect1.clone();
+    }
+
+    /** W11b: die Rümpfe in der Wasserlinie (kein Wasser im Rumpf, Schaumsaum); leer = keine. */
+    public void ruempfe(java.util.List<com.dan.ocean.HullMask> masken) { ocean.hulls = masken == null ? java.util.List.of() : java.util.List.copyOf(masken); }
     private final OceanGl gl = new OceanGl();
     private final OceanGl.Light light = new OceanGl.Light();
     private final OceanGl.View view = new OceanGl.View();
@@ -262,6 +275,9 @@ public final class MeerGl {
         light.bedScale = 1;
         light.bedOffset = 0;
         maske(g, welleRect);
+        light.kielTexture = kielTex;   // W11b: Kielwasser der Boote
+        light.kielRect0 = kielRect0.clone();
+        light.kielRect1 = kielRect1.clone();
         light.detailTexture = ringTex;   // W7
         light.detailTile = ringKachel;
         light.detailStrength = ringTex != 0 ? ringStaerke : 0;
@@ -383,7 +399,8 @@ public final class MeerGl {
     }
 
     public String info() {
-        return String.format(Locale.GERMAN, "%s · H_s %.2f m · Spiegel %s", status, ocean.state().totalHs(), spiegel ? (reflW + "×" + reflH) : "aus");
+        return String.format(Locale.GERMAN, "%s · H_s %.2f m · Spiegel %s%s", status, ocean.state().totalHs(), spiegel ? (reflW + "×" + reflH) : "aus",
+                kielTex != 0 ? " · Kielwasser" : "") + (ocean.hulls.isEmpty() ? "" : " · " + ocean.hulls.size() + " Rümpfe");
     }
 
     public void dispose(GL4 g) {

@@ -33,6 +33,7 @@ import java.util.Locale;
  * {@code regiebuch} (Name; ganz durchspielen, Blatt nach docs/status) und {@code kino} = aus; ab Werkbuch Bild B0
  * {@code brennweite} (mm, Kleinbild) und {@code zeitstand} (vor, welle, danach, heute; nur der Stand, die Uhr kommt aus den Argumenten);
  * ab Werkbuch Welle W7 {@code wetter} (Lage für heute, etwa kuestennebel, regen; aus = ohne Wetter) und {@code wetterzeit} (Stunden in der Lage);
+ * ab W11 {@code tour} (aus), {@code drohne} (Boot,Stellung[,Abstand[,Höhe]]) und {@code anbord} (Boot,Standpunkt);
  * ab W10 {@code malweise} (gertsch, gertschstich, stich), {@code vorlage} (sommer, herbst, winter, blaetter, graeser), {@code umkreis} (m) und
  * {@code unterwuchs} = aus.
  */
@@ -146,6 +147,29 @@ public final class Tempo {
             if (ez != null && !ez.isBlank()) {
                 clock.setEpochMillis(SceneClock.BEBEN.toEpochMilli() + Double.parseDouble(ez.replace(',', '.')) * 1000);
                 clock.zeitstand = SceneClock.Zeitstand.WELLE;
+            }
+            // Werkbuch Welle W11: tour = aus (die Boote wie bis W10), drohne = Boot,Stellung[,Abstand[,Höhe]], anbord = Boot,Standpunkt
+            String tu = opt("tour"), dr = opt("drohne"), ab = opt("anbord");
+            if ("aus".equals(tu)) r.boote.tourAn = false;
+            if ((dr != null && !dr.isBlank()) || (ab != null && !ab.isBlank())) {
+                r.boote.laden(new File(System.getProperty("lituya.daten", "daten")), r.wiedergabe.welle());
+                r.camera.waterLevel = r.wiring.pegel;
+                if (dr != null && !dr.isBlank()) {
+                    String[] p = dr.split(",");
+                    int bi = com.dan.lituya.gl.BooteGl.index(p[0]);
+                    double abst = p.length > 2 ? Double.parseDouble(p[2].trim().replace(',', '.')) : 0, hoe = p.length > 3 ? Double.parseDouble(p[3].trim().replace(',', '.')) : 0;
+                    com.dan.lituya.camera.Begleiter b = bi < 0 ? null : r.begleiter(bi, p.length > 1 ? p[1].trim() : "seite", abst, hoe);
+                    if (b == null || b.pose(0) == null) System.err.println("FEHLER: drohne „" + dr + "“: " + (b == null ? "Boot oder Stellung unbekannt" : r.boote.tourStatus() + " · " + r.boote.status()));
+                    else r.camera.startDrohne(b);
+                } else {
+                    String[] p = ab.split(",");
+                    int bi = com.dan.lituya.gl.BooteGl.index(p[0]);
+                    String stand = p.length > 1 ? p[1].trim() : "steuerhaus";
+                    java.util.function.Supplier<double[]> pose = bi < 0 ? null : r.anBordPose(bi, stand);
+                    if (pose == null || pose.get() == null) System.err.println("FEHLER: anbord „" + ab + "“: " + (pose == null ? "Boot unbekannt" : r.boote.tourStatus() + " · " + r.boote.status()));
+                    else r.camera.startMitfahrt(pose, "achtern".equals(stand) ? 180 : 0);
+                }
+                return;
             }
             if (stueck != null) return;
             if (ka != null && !ka.isBlank()) {

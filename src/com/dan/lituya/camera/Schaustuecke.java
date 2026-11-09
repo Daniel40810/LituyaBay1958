@@ -29,6 +29,8 @@ import java.util.Locale;
  * Blick nach Norden auf das Band: Fels, entrindete Stämme an der Spurlinie, der Holzteppich auf dem Wasser.</li>
  * <li><b>68 Jahre</b>: über der Bucht nordöstlich von Cenotaph Island, Auge 160 m, Blick die Bucht hinauf (062°), vom Morgen
  * danach im Jahres-Zeitraffer (68 Jahre je Minute) bis heute: Roterle zuerst, dann Fichte und Hemlock.</li>
+ * <li><b>Die Bootstour</b> (Werkbuch Welle W11c): 9.7.1958, 20:10 Uhr, die Edrie läuft durch den Eingang; die Drohne
+ * begleitet sie 35 m an Steuerbord, 6 m hoch (Stellung seite), Echtzeit.</li>
  * </ol>
  */
 public final class Schaustuecke {
@@ -59,6 +61,9 @@ public final class Schaustuecke {
     /** Der Morgen danach: 10.7.1958, 6:00 Uhr Ortszeit, in Sekunden nach dem ersten Stoß (22:16). */
     public static final double MORGEN = (7 * 60 + 44) * 60;
 
+    /** W11: die Edrie im Eingang, 9.7.1958 20:10 Uhr, in Sekunden nach dem ersten Stoß (22:16). */
+    public static final double TOUR = -(2 * 60 + 6) * 60;
+
     public static final List<Stueck> ALLE = List.of(
             at(1, "Abend vor Anker", xz(Site.ANCHORAGE), 62, 1, 3, -16 * 60, 1, false, false),
             at(2, "Das Beben", xz(Site.CENOTAPH), 52, 2, 40, -5, 1, false, false),
@@ -70,14 +75,19 @@ public final class Schaustuecke {
             at(8, "An Bord der Edrie", new double[]{347_545 - Site.E0, -(6_500_506 - Site.N0)}, 90, 6, 4, 200, 1, false, false),
             at(9, "Neben der Badger", xz(Site.ANCHORAGE), 90, 6, 4, 200, 1, false, false),
             new Stueck(10, "Der Morgen danach", 1000, -1300, 2, 4, 20, MORGEN, 1, false, false, false),
-            new Stueck(11, "68 Jahre", -600, -400, 62, -6, 160, MORGEN, 1, false, false, true));
+            new Stueck(11, "68 Jahre", -600, -400, 62, -6, 160, MORGEN, 1, false, false, true),
+            // Werkbuch Welle W11c: die Bootstour, 20:10 Uhr, die Edrie im Eingang; die Drohne (seite) hängt an ihr
+            new Stueck(12, "Die Bootstour", 345_443 - Site.E0, -(6_500_248 - Site.N0), 60, 6, 6, TOUR, 1, false, false, false));
 
     /**
      * Phase 15a: Schaustücke auf einem Boot (Mitfahrt auf der vorgerechneten Bahn): Index in {@code gl.BooteGl.NAMEN}
      * (0 Edrie, 1 Badger) oder −1. 8: im Steuerhaus der Edrie, Blick voraus, mit Stampfen und Rollen; 9: nebenher, 25 m
      * an Steuerbord der Badger, Blick nach Backbord auf das Boot.
      */
-    public static int boot(Stueck s) { return s.nr() == 8 ? 0 : s.nr() == 9 ? 1 : -1; }
+    public static int boot(Stueck s) { return s.nr() == 8 || s.nr() == 12 ? 0 : s.nr() == 9 ? 1 : -1; }
+
+    /** W11c: Schaustück mit der Drohne am Boot: ihre Stellung (seite, achtern, ueberholen, kreisen) oder null. */
+    public static String drohne(Stueck s) { return s.nr() == 12 ? "seite" : null; }
 
     /** Blick der Mitfahrt zur Seite (Grad, negativ nach Backbord). */
     public static double blick(Stueck s) { return s.nr() == 9 ? -90 : 0; }
@@ -114,7 +124,7 @@ public final class Schaustuecke {
         }
         c.place(s.x(), y, s.z(), s.heading(), s.pitch());
         clock.setEpochMillis(SceneClock.BEBEN.toEpochMilli() + s.t() * 1000);
-        clock.zeitstand = s.t() < 0 && s.nr() == 1 ? SceneClock.Zeitstand.VOR : s.t() >= 3600 ? SceneClock.Zeitstand.DANACH : SceneClock.Zeitstand.WELLE;
+        clock.zeitstand = s.t() < 0 && (s.nr() == 1 || s.nr() == 12) ? SceneClock.Zeitstand.VOR : s.t() >= 3600 ? SceneClock.Zeitstand.DANACH : SceneClock.Zeitstand.WELLE;
         clock.lapse = s.lapse();
     }
 

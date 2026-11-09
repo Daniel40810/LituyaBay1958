@@ -10,8 +10,8 @@ import java.util.function.Consumer;
  * Phase 17a: die Regiebücher (Werkbuch 11.3) als Text, aus Rungholt und Glacier übernommen. Die fünf mitgelieferten
  * stehen in {@code regie/*.txt} neben dieser Klasse. Ein Regiebuch ist eine Folge von Stichworten in echten Sekunden seit
  * dem Start: Uhr und Ereigniszeit, Zeitraffer und Zeitlupe, Zeitstand, Jahres-Zeitraffer, Ansichten, Schaustücke,
- * Fahrten aus {@code LB_NET_SICHT}, Mitfahrt auf den Booten, Netzblick, Wellen in Echtzeit, Regen, Fotos und am Ende ein
- * Blatt mit allen Fotos in {@code docs/status}. Was ein Stichwort tut, führt die App über {@link Ctx} aus; so läuft
+ * Fahrten aus {@code LB_NET_SICHT}, Mitfahrt auf den Booten (seit Werkbuch Welle W11c an drei Standpunkten, dazu die Drohne
+ * und die Bootstour), Netzblick, Wellen in Echtzeit, Regen, Fotos und am Ende ein Blatt mit allen Fotos in {@code docs/status}. Was ein Stichwort tut, führt die App über {@link Ctx} aus; so läuft
  * dasselbe Regiebuch auch ohne Bild (Prüfung).
  * <p>{@code warte} hält die Uhr des Regiebuchs an, bis die Szene so weit ist (eine Uhrzeit, eine Ereigniszeit, die Welle
  * in Echtzeit, das Ende des Jahres-Zeitraffers, die Bahnen der Boote). Ein {@code warte} ist immer ein eigenes
@@ -23,6 +23,7 @@ import java.util.function.Consumer;
  * <li><b>Die Nacht der Welle</b>: der 9. Juli 1958 vom Abend vor Anker bis zum Morgen, die Welle in Echtzeit.</li>
  * <li><b>68 Jahre</b>: vom Morgen danach bis heute, der Wald wächst nach.</li>
  * <li><b>Die Bucht der Wellen</b>: von La Pérouse 1786 bis heute; die früheren Wellen in Echtzeit nachgerechnet [G].</li>
+ * <li><b>Die Bootstour</b> (Werkbuch Welle W11d): die Edrie am 9.7.1958 ab 20 Uhr durch die Bucht, an Bord und von der Drohne; heute die KITTIWAKE.</li>
  * </ul>
  * Gestaltet [G]: Abläufe, Zeiten, Blickpunkte, Volumen der früheren Wellen.
  */
@@ -51,6 +52,15 @@ public final class Regie {
         default void flug(double[][] punkte, double dauer, double neigung, double endBlick) { }
         /** Mitfahrt auf Edrie (im Steuerhaus) oder Badger (nebenher); null = aus. */
         void mitfahrt(String boot, boolean nebenher);
+        /** Werkbuch Welle W11c: an Bord eines Boots (Edrie, Badger, Kittiwake) am Standpunkt bug, steuerhaus oder achtern. */
+        default void anBord(String boot, String standpunkt) { mitfahrt(boot, false); }
+        /**
+         * Werkbuch Welle W11c: die Drohne am Boot in der Stellung seite, achtern, ueberholen oder kreisen mit Abstand und Höhe (m,
+         * 0 = Vorgabe der Stellung); boot null = aus.
+         */
+        default void drohne(String boot, String stellung, double abstand, double hoehe) { }
+        /** Werkbuch Welle W11a: die Bootstour an (Edrie 1958, Kittiwake heute; die Bahnen aus daten/ereignis/boote/tour) oder aus (null). */
+        default void tour(String boot) { }
         /** Netzblick: welle, wasser, weg, sicht oder null (aus); szene = auch in der Szene. */
         void netzblick(String netz, boolean szene);
         /** Eine Welle in Echtzeit am Ort (Schlüssel) mit Volumen (Mio. m³); ort null = aus. */
@@ -209,7 +219,8 @@ public final class Regie {
     // ------------------------------------------------------------------ die Regiebücher (als Text)
 
     /** Die fünf mitgelieferten Regiebücher aus den Textdateien neben dieser Klasse (regie/*.txt). */
-    public static final String[] DATEIEN = {"zehn_minuten.txt", "drei_boote.txt", "nacht.txt", "68_jahre.txt", "bucht_der_wellen.txt", "der_sturz.txt", "die_wand.txt", "524_m.txt", "flug_zur_kette.txt", "wetterwechsel.txt"};
+    public static final String[] DATEIEN = {"zehn_minuten.txt", "drei_boote.txt", "nacht.txt", "68_jahre.txt", "bucht_der_wellen.txt", "der_sturz.txt", "die_wand.txt", "524_m.txt", "flug_zur_kette.txt", "wetterwechsel.txt",
+            "bootstour.txt"};
 
     public static List<Book> all() {
         List<Book> l = new ArrayList<>();
@@ -242,7 +253,15 @@ public final class Regie {
     /** Die Befehle der Stichworte (klein geschrieben im Text). */
     public static final List<String> BEFEHLE = List.of("zeit", "ereignis", "raffer", "zeitstand", "jahre", "ansicht", "schaustueck", "fahrt", "mitfahrt",
             "netzblick", "echtzeit", "regen", "warte", "foto", "blatt", "sage", "flug", "wetter", "verschluss", "zeitlupe",
-            "objektiv", "blende", "fokus", "film", "kopierlicht", "kopie", "bildrate", "umlaufblende", "tropfen");
+            "objektiv", "blende", "fokus", "film", "kopierlicht", "kopie", "bildrate", "umlaufblende", "tropfen", "tour", "drohne");
+
+    /** W11: die Boote der Regie (Mitfahrt, Drohne), die Standpunkte an Bord, die Stellungen der Drohne mit Abstand und Höhe (m). */
+    public static final List<String> BOOTE = List.of("edrie", "badger", "kittiwake"), STANDPUNKTE = List.of("steuerhaus", "bug", "achtern");
+    public static final List<String> STELLUNGEN = List.of("seite", "achtern", "ueberholen", "kreisen");
+    public static final double[][] STELLUNG_VORGABE = {{35, 6}, {90, 30}, {60, 12}, {50, 15}};
+
+    /** W11: „Edrie“, „Badger“, „Kittiwake“ aus dem Kleingeschriebenen. */
+    static String bootName(String k) { return Character.toUpperCase(k.charAt(0)) + k.substring(1); }
 
     /** W9b: was „film“ kennt. */
     public static final List<String> FILME = List.of("an", "aus", "zeitstand", "5248", "vision3_250d", "vision3_500t");
@@ -309,7 +328,8 @@ public final class Regie {
                     if (z.befehl().equals("film") && !FILME.contains(z.argumente().trim().toLowerCase(Locale.ROOT)))   // W9b
                         throw new IllegalArgumentException("film " + String.join("|", FILME) + " erwartet");
                     if (z.befehl().equals("kopierlicht")) kopierlichtPruefen(z.argumente());
-                    if (z.befehl().equals("bildrate") || z.befehl().equals("umlaufblende") || z.befehl().equals("tropfen")) handlung(z, "");   // W9c: mit der Zeile melden
+                    if (z.befehl().equals("bildrate") || z.befehl().equals("umlaufblende") || z.befehl().equals("tropfen")
+                            || z.befehl().equals("drohne") || z.befehl().equals("mitfahrt") || z.befehl().equals("tour")) handlung(z, "");   // W9c, W11: mit der Zeile melden
                     if (z.befehl().equals("warte")) warten.add(warte(z.argumente(), day[0]));
                     else warten.add(null);
                     zeilen.add(z);
@@ -467,12 +487,33 @@ public final class Regie {
                 return x -> x.flug(pts, dauer, neig, ende);
             }
             case "mitfahrt": {
+                // W11c: mitfahrt edrie|badger|kittiwake [nebenher|steuerhaus|bug|achtern]|aus
                 if (low.equals("aus")) return x -> x.mitfahrt(null, false);
                 String[] p = low.split("\\s+");
-                if (!p[0].equals("edrie") && !p[0].equals("badger")) throw new IllegalArgumentException("mitfahrt edrie|badger [nebenher]|aus erwartet");
-                String bt = p[0].equals("edrie") ? "Edrie" : "Badger";
+                if (!BOOTE.contains(p[0])) throw new IllegalArgumentException("mitfahrt " + String.join("|", BOOTE) + " [nebenher|" + String.join("|", STANDPUNKTE) + "]|aus erwartet");
+                String bt = bootName(p[0]);
                 boolean nb = p.length > 1 && p[1].startsWith("neben");
-                return x -> x.mitfahrt(bt, nb);
+                if (nb || p.length == 1 || p[1].equals("steuerhaus")) return x -> x.mitfahrt(bt, nb);
+                if (!STANDPUNKTE.contains(p[1])) throw new IllegalArgumentException("mitfahrt: Standpunkt nebenher|" + String.join("|", STANDPUNKTE) + " erwartet");
+                String st = p[1];
+                return x -> x.anBord(bt, st);
+            }
+            case "tour": {   // W11a
+                if (low.equals("aus")) return x -> x.tour(null);
+                if (!low.equals("edrie") && !low.equals("kittiwake") && !low.equals("an")) throw new IllegalArgumentException("tour edrie|kittiwake|an|aus erwartet");
+                String bt = low.equals("an") ? "Edrie" : bootName(low);
+                return x -> x.tour(bt);
+            }
+            case "drohne": {   // W11c: drohne edrie|badger|kittiwake seite|achtern|ueberholen|kreisen [Abstand [Höhe]] | aus
+                if (low.equals("aus")) return x -> x.drohne(null, null, 0, 0);
+                String[] p = low.replace("ü", "ue").split("\\s+");
+                if (p.length < 2 || !BOOTE.contains(p[0]) || !STELLUNGEN.contains(p[1]))
+                    throw new IllegalArgumentException("drohne " + String.join("|", BOOTE) + " " + String.join("|", STELLUNGEN) + " [Abstand [Höhe]]|aus erwartet");
+                double[] vg = STELLUNG_VORGABE[STELLUNGEN.indexOf(p[1])];
+                double ab = p.length > 2 ? Double.parseDouble(p[2].replace(',', '.')) : vg[0], ho = p.length > 3 ? Double.parseDouble(p[3].replace(',', '.')) : vg[1];
+                if (ab < 3 || ab > 2000 || ho < 1 || ho > 2000) throw new IllegalArgumentException("drohne: Abstand 3 … 2000 m, Höhe 1 … 2000 m erwartet");
+                String bt = bootName(p[0]), st = p[1];
+                return x -> x.drohne(bt, st, ab, ho);
             }
             case "netzblick": {
                 String[] p = low.split("\\s+");

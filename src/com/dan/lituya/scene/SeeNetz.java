@@ -143,6 +143,64 @@ public final class SeeNetz {
         return Math.floor(lo);
     }
 
+    /**
+     * Werkbuch Welle W11a: der kürzeste Weg von Knoten a nach Knoten b nur nach der Länge der Kanten (ohne Zeit, Strom und
+     * Front), für die Route einer Bootstour; null, wenn es keinen gibt.
+     */
+    public int[] kuerzesterWeg(int a, int b) { return kuerzesterWeg(a, b, null); }
+
+    /**
+     * W11a: wie {@link #kuerzesterWeg(int, int)}, die Länge jeder Kante mal dem Mittel eines Gewichts je Knoten (etwa nach der
+     * Tiefe, damit die Route das tiefe Wasser sucht); ein unendliches Gewicht sperrt den Knoten. null: nur die Länge.
+     */
+    public int[] kuerzesterWeg(int a, int b, double[] gewicht) {
+        if (start == null) index();
+        if (a < 0 || b < 0 || a >= n || b >= n) return null;
+        double[] d = new double[n];
+        int[] vor = new int[n];
+        Arrays.fill(d, Double.POSITIVE_INFINITY);
+        Arrays.fill(vor, -1);
+        boolean[] fertig = new boolean[n];
+        PriorityQueue<double[]> q = new PriorityQueue<>((x, y) -> Double.compare(x[0], y[0]));
+        d[a] = 0;
+        q.add(new double[]{0, a});
+        while (!q.isEmpty()) {
+            double[] x = q.poll();
+            int u = (int) x[1];
+            if (fertig[u]) continue;
+            fertig[u] = true;
+            if (u == b) break;
+            for (int k = start[u]; k < start[u + 1]; k++) {
+                int e = aus[k], v = nach[e];
+                if (fertig[v]) continue;
+                double g = gewicht == null ? 1 : 0.5 * (gewicht[u] + gewicht[v]);
+                if (!(g < Double.POSITIVE_INFINITY)) continue;
+                double dv = d[u] + laenge[e] * g;
+                if (dv < d[v]) { d[v] = dv; vor[v] = e; q.add(new double[]{dv, v}); }
+            }
+        }
+        if (!fertig[b]) return null;
+        List<Integer> l = new ArrayList<>();
+        int v = b;
+        l.add(v);
+        while (v != a) { v = von[vor[v]]; l.add(v); }
+        int[] r = new int[l.size()];
+        for (int i = 0; i < r.length; i++) r[i] = l.get(r.length - 1 - i);
+        return r;
+    }
+
+    /** W11a: der nächste Knoten zu (E, N) mit mindestens tiefeMin m Wasser (Tiefe 1940 unter dem Pegel); −1 ohne. */
+    public int knotenBei(double e, double nn, double tiefeMin) {
+        int b = -1;
+        double d = Double.MAX_VALUE;
+        for (int i = 0; i < n; i++) {
+            if (tiefe[i] < tiefeMin) continue;
+            double x = Math.hypot(ost[i] - e, nord[i] - nn);
+            if (x < d) { d = x; b = i; }
+        }
+        return b;
+    }
+
     /** Der Weg zum Ziel als Knoten (Indizes, vom Start an). */
     public int[] weg(Flucht f) {
         if (f.ziel() < 0) return new int[0];

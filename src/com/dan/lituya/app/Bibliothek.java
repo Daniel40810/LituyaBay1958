@@ -34,7 +34,9 @@ public final class Bibliothek {
             // clipmap focusCenter, ocean GlacialMilk, forest TreeFall, exposure PreExposure)
             "horizon", "surge",
             // 08.11.2026: Werkbuch Welle W10, die Malweise nach Franz Gertsch
-            "gertsch"};
+            "gertsch",
+            // 09.11.2026: Werkbuch Welle W11, das Kielwasser der Bootstour
+            "wake"};
 
     /**
      * Packages, die für LituyaBay1958 im Projekt Renderer neu entstehen (Werkbuch 5), mit der Phase, in der sie kommen
